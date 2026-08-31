@@ -20,20 +20,23 @@ struct GradesView: View {
     var body: some View {
         NavigationStack {
             List {
-                // Tabs — menő animáció váltáskor
-                Section {
-                    Picker("", selection: $selectedTab) {
-                        Text(GradeTab.evkozi.rawValue).tag(GradeTab.evkozi)
-                        Text(GradeTab.felevi.rawValue).tag(GradeTab.felevi)
-                        if !evvegiGrades.isEmpty {
-                            Text(GradeTab.evvegi.rawValue).tag(GradeTab.evvegi)
+                // Tabs — csak ha van félévi, különben teljesen rejtve
+                if !isLoading && !feleviGrades.isEmpty {
+                    Section {
+                        Picker("", selection: $selectedTab) {
+                            Text(GradeTab.evkozi.rawValue).tag(GradeTab.evkozi)
+                            Text(GradeTab.felevi.rawValue).tag(GradeTab.felevi)
+                            if !evvegiGrades.isEmpty {
+                                Text(GradeTab.evvegi.rawValue).tag(GradeTab.evvegi)
+                            }
                         }
+                        .pickerStyle(.segmented)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
+                        .listRowSeparator(.hidden)
+                        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedTab)
                     }
-                    .pickerStyle(.segmented)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
-                    .listRowSeparator(.hidden)
-                    .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedTab)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
                 if isLoading {
@@ -183,7 +186,7 @@ struct GradesView: View {
             .refreshable { await load() }
             .task { await load() }
             .onChange(of: grades) { _, _ in
-                // ha év végi elfogyott, vissza évközire
+                if selectedTab == .felevi && feleviGrades.isEmpty { selectedTab = .evkozi }
                 if selectedTab == .evvegi && evvegiGrades.isEmpty { selectedTab = .evkozi }
             }
             .navigationTitle("Jegyek")
