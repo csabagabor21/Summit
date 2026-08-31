@@ -99,11 +99,12 @@ struct HomeView: View {
                             let done = completed.isExamDone(e.id)
                             let lesson = vm.lessonsToday.first { $0.subject == e.subject && Calendar.current.isDate($0.start, inSameDayAs: e.date) }
                                 ?? vm.lessonsToday.first { $0.subject.lowercased() == e.subject.lowercased() }
-                            HStack(spacing: 10) {
+                            HStack(spacing: 12) {
                                 Button { withAnimation(.spring(response: 0.3)) { completed.toggleExam(e.id) } } label: {
                                     Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                                        .font(.system(size: 22, weight: .regular))
+                                        .font(.system(size: 21, weight: .regular))
                                         .foregroundStyle(done ? Color.green : .secondary)
+                                        .frame(width: 22, height: 22)
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
@@ -121,6 +122,8 @@ struct HomeView: View {
                                 Spacer()
                             }
                             .contentShape(Rectangle())
+                            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                            .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] + 16 }
                             .listRowBackground(
                                 done
                                 ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07)
@@ -129,7 +132,7 @@ struct HomeView: View {
                         }
                         if sorted.count > 3 {
                             NavigationLink { NotesView() } label: {
-                                HStack { Text("Összes dolgozat (\(sorted.count))"); Spacer(); Image(systemName: "arrow.right.circle.fill").foregroundStyle(.secondary) }
+                                Text("Összes dolgozat (\(sorted.count))")
                             }
                         }
                     }
@@ -145,11 +148,12 @@ struct HomeView: View {
                             let done = completed.isHomeworkDone(h.id)
                             let lesson = vm.lessonsToday.first { $0.subject == h.subject && Calendar.current.isDate($0.start, inSameDayAs: h.deadline) }
                                 ?? vm.lessonsToday.first { $0.subject.lowercased() == h.subject.lowercased() }
-                            HStack(spacing: 10) {
+                            HStack(spacing: 12) {
                                 Button { withAnimation(.spring(response: 0.3)) { completed.toggleHomework(h.id) } } label: {
                                     Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                                        .font(.system(size: 22))
+                                        .font(.system(size: 21))
                                         .foregroundStyle(done ? Color.green : .secondary)
+                                        .frame(width: 22, height: 22)
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
@@ -167,6 +171,8 @@ struct HomeView: View {
                                 Spacer()
                             }
                             .contentShape(Rectangle())
+                            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                            .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] + 16 }
                             .listRowBackground(
                                 done
                                 ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07)
@@ -175,7 +181,7 @@ struct HomeView: View {
                         }
                         if sorted.count > 3 {
                             NavigationLink { NotesView() } label: {
-                                HStack { Text("Összes feladat (\(sorted.count))"); Spacer(); Image(systemName: "arrow.right.circle.fill").foregroundStyle(.secondary) }
+                                Text("Összes feladat (\(sorted.count))")
                             }
                         }
                     }
