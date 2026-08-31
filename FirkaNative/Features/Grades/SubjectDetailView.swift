@@ -71,29 +71,38 @@ struct SubjectDetailView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
 
-                // Graph — polished, havi, glitch-free, animált
-                Picker("", selection: $graphRange) {
-                    ForEach(GraphRange.allCases) { r in Text(r.title).tag(r) }
+                // Graph — editorial doboz, picker a tetején belül, smooth vonal animáció
+                VStack(spacing: 10) {
+                    Picker("", selection: $graphRange) {
+                        ForEach(GraphRange.allCases) { r in Text(r.title).tag(r) }
+                    }
+                    .pickerStyle(.segmented)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.85), value: graphRange)
+
+                    Group {
+                        if chartGrades.count >= 2 {
+                            GradeChartView(grades: chartGrades, accent: colors.accent, showTarget: targetGrade, height: 170, editorial: true)
+                                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                        } else if allGrades.count >= 2 {
+                            ContentUnavailableView("Nincs adat ebben az időszakban", systemImage: "calendar", description: Text("Válassz nagyobb időtávot vagy adj hozzá jegyet."))
+                                .transition(.opacity)
+                        } else {
+                            ContentUnavailableView("Nincs elég adat a grafikonhoz", systemImage: "chart.line.downtrend.xyaxis", description: Text("Adj hozzá fantom jegyet a + gombbal"))
+                                .transition(.opacity)
+                        }
+                    }
+                    .animation(.spring(response: 0.5, dampingFraction: 0.86), value: chartGrades.map(\.id))
+                    .animation(.spring(response: 0.35, dampingFraction: 0.85), value: graphRange)
                 }
-                .pickerStyle(.segmented)
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.primary.opacity(0.02))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
+                )
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
-                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: graphRange)
-
-                Group {
-                    if chartGrades.count >= 2 {
-                        GradeChartView(grades: chartGrades, accent: colors.accent, showTarget: targetGrade, height: 170, editorial: true)
-                            .transition(.opacity.combined(with: .scale(scale: 0.98)))
-                    } else if allGrades.count >= 2 {
-                        ContentUnavailableView("Nincs adat ebben az időszakban", systemImage: "calendar", description: Text("Válassz nagyobb időtávot vagy adj hozzá jegyet."))
-                            .transition(.opacity)
-                    } else {
-                        ContentUnavailableView("Nincs elég adat a grafikonhoz", systemImage: "chart.line.downtrend.xyaxis", description: Text("Adj hozzá fantom jegyet a + gombbal"))
-                            .transition(.opacity)
-                    }
-                }
-                .animation(.spring(response: 0.42, dampingFraction: 0.86), value: chartGrades.map(\.id))
-                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: graphRange)
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             } header: { Text("Átlag és grafikon").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
 
             Section {
