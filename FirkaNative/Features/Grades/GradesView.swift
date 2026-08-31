@@ -130,11 +130,6 @@ struct GradesView: View {
                                 .padding(.vertical, 2)
                                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                             }
-                            // Félévi grafikon — editorial havi
-                            Section {
-                                GradeChartView(grades: feleviGrades.sorted { $0.date < $1.date }, accent: colors.accent, height: 140, monthly: true, editorial: true)
-                                    .listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                            } header: { Text("Félévi átlag — havi").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
                             Section {
                                 Text("\(feleviGrades.count) jegy • \(groupedFelevi.count) tárgy").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center)
                             }
@@ -175,10 +170,6 @@ struct GradesView: View {
                                 .padding(.vertical, 2)
                                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                             }
-                            Section {
-                                GradeChartView(grades: evvegiGrades.sorted { $0.date < $1.date }, accent: colors.accent, height: 140, monthly: true, editorial: true)
-                                    .listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                            } header: { Text("Év végi átlag — havi").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
                         }
                     }
                     }
