@@ -20,7 +20,7 @@ struct GradesView: View {
     var body: some View {
         NavigationStack {
             List {
-                // Tabs
+                // Tabs — menő animáció váltáskor
                 Section {
                     Picker("", selection: $selectedTab) {
                         Text(GradeTab.evkozi.rawValue).tag(GradeTab.evkozi)
@@ -33,12 +33,14 @@ struct GradesView: View {
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
                     .listRowSeparator(.hidden)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedTab)
                 }
 
                 if isLoading {
                     ForEach(0..<3, id: \.self) { _ in Text("Betöltés…").redacted(reason: .placeholder) }
                 } else {
-                    switch selectedTab {
+                    Group {
+                        switch selectedTab {
                     case .evkozi:
                         if evkoziGrades.isEmpty {
                             ContentUnavailableView("Nincs évközi jegy", systemImage: "star.slash", description: Text("Még nem érkezett évközi értékelés."))
@@ -57,6 +59,13 @@ struct GradesView: View {
                                 }
                                 .listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                             }
+                            // Évközi grafikon — ugyanaz mint tantárgyban, animált
+                            Section {
+                                GradeChartView(grades: evkoziGrades.sorted { $0.date < $1.date }, accent: colors.accent, height: 190)
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                            } header: { Text("Átlag alakulása").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
                             ForEach(groupedEvkozi.keys.sorted(), id: \.self) { subject in
                                 let items = groupedEvkozi[subject]!
                                 let raw = GradingLogic.weightedAverage(items)
@@ -163,8 +172,11 @@ struct GradesView: View {
                             }
                         }
                     }
+                    }
+                    .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
                 }
             }
+            .animation(.spring(response: 0.38, dampingFraction: 0.82), value: selectedTab)
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .background(colors.background)

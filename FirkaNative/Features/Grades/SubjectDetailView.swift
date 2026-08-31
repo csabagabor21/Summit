@@ -71,64 +71,29 @@ struct SubjectDetailView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
 
-                // Graph — szebb, havi bontás, range picker
+                // Graph — polished, havi, glitch-free, animált
                 Picker("", selection: $graphRange) {
                     ForEach(GraphRange.allCases) { r in Text(r.title).tag(r) }
                 }
                 .pickerStyle(.segmented)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
+                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: graphRange)
 
-                if chartGrades.count >= 2 {
-                    Chart {
-                        // running average line with gradient
-                        ForEach(Array(chartGrades.enumerated()), id: \.element.id) { idx, g in
-                            let running = GradingLogic.weightedAverage(Array(chartGrades.prefix(idx+1)))
-                            LineMark(x: .value("Dátum", g.date), y: .value("Átlag", running))
-                                .foregroundStyle(LinearGradient(colors: [colors.accent, colors.accent.opacity(0.6)], startPoint: .leading, endPoint: .trailing))
-                                .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
-                                .interpolationMethod(.catmullRom)
-                        }
-                        // area under line
-                        ForEach(Array(chartGrades.enumerated()), id: \.element.id) { idx, g in
-                            let running = GradingLogic.weightedAverage(Array(chartGrades.prefix(idx+1)))
-                            AreaMark(x: .value("Dátum", g.date), y: .value("Átlag", running))
-                                .foregroundStyle(LinearGradient(colors: [colors.accent.opacity(0.22), colors.accent.opacity(0.02)], startPoint: .top, endPoint: .bottom))
-                                .interpolationMethod(.catmullRom)
-                        }
-                        ForEach(chartGrades, id: \.id) { g in
-                            PointMark(x: .value("Dátum", g.date), y: .value("Jegy", Double(g.value)))
-                                .foregroundStyle(g.id.hasPrefix("phantom") ? Color.orange : colors.gradeColor(for: g.value).opacity(0.95))
-                                .symbolSize(28)
-                        }
-                        RuleMark(y: .value("Cél", Double(targetGrade))).lineStyle(StrokeStyle(lineWidth: 1, dash: [4,4])).foregroundStyle(.secondary.opacity(0.5))
+                Group {
+                    if chartGrades.count >= 2 {
+                        GradeChartView(grades: chartGrades, accent: colors.accent, showTarget: targetGrade, height: 190)
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    } else if allGrades.count >= 2 {
+                        ContentUnavailableView("Nincs adat ebben az időszakban", systemImage: "calendar", description: Text("Válassz nagyobb időtávot vagy adj hozzá jegyet."))
+                            .transition(.opacity)
+                    } else {
+                        ContentUnavailableView("Nincs elég adat a grafikonhoz", systemImage: "chart.line.downtrend.xyaxis", description: Text("Adj hozzá fantom jegyet a + gombbal"))
+                            .transition(.opacity)
                     }
-                    .frame(height: 180)
-                    .chartYScale(domain: 1...5)
-                    .chartXScale(domain: chartXDomain)
-                    .chartXAxis {
-                        AxisMarks(values: .stride(by: .month, count: 1)) { v in
-                            AxisGridLine().foregroundStyle(Color.primary.opacity(0.06))
-                            if let d = v.as(Date.self) {
-                                AxisValueLabel(format: .dateTime.month(.abbreviated)).font(.caption2)
-                            }
-                        }
-                    }
-                    .chartYAxis {
-                        AxisMarks(position: .leading, values: [1,2,3,4,5]) { v in
-                            AxisGridLine().foregroundStyle(Color.primary.opacity(0.06))
-                            AxisValueLabel().font(.caption2)
-                        }
-                    }
-                    .chartPlotStyle { plot in
-                        plot.background(Color.primary.opacity(0.02)).clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                    .padding(.vertical, 4)
-                } else if allGrades.count >= 2 {
-                    ContentUnavailableView("Nincs adat ebben az időszakban", systemImage: "calendar", description: Text("Válassz nagyobb időtávot vagy adj hozzá jegyet."))
-                } else {
-                    ContentUnavailableView("Nincs elég adat a grafikonhoz", systemImage: "chart.line.downtrend.xyaxis", description: Text("Adj hozzá fantom jegyet a + gombbal"))
                 }
+                .animation(.spring(response: 0.42, dampingFraction: 0.86), value: chartGrades.map(\.id))
+                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: graphRange)
             } header: { Text("Átlag és grafikon").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
 
             Section {

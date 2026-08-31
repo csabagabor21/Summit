@@ -41,6 +41,7 @@
 		AF22350B190A40F5D4AEE6AE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CF92AC77C8624060B6CA72E /* SettingsView.swift */; };
 		C0A45087154D166DEC11C754 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 747C2454C579E5397A435BF0 /* AppTheme.swift */; };
 		C3D4E5F6A7B808192A3B4C5D /* GradeCircle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F6A7B8C09182A3B4C5D6 /* GradeCircle.swift */; };
+		B1C2D3E4F5A60718293A4B5F /* GradeChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A60718293A4B5E /* GradeChartView.swift */; };
 		C85BDA46A9060FC6AA36E18D /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2181B0D30498DBAAEC654C1D /* SessionStore.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F3 /* ProfileImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* ProfileImageStore.swift */; };
 		D36205A633CE5504F0289049 /* NotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67BD9354BA995DA687993EB /* NotesView.swift */; };
@@ -87,6 +88,7 @@
 		C347A4AEE2BE3D442CE548D1 /* showcase4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase4.png; sourceTree = "<group>"; };
 		CCC2C1407DFC4547AF5B6E24 /* ProfileImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileImageView.swift; sourceTree = "<group>"; };
 		D4E5F6A7B8C09182A3B4C5D6 /* GradeCircle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCircle.swift; sourceTree = "<group>"; };
+		B1C2D3E4F5A60718293A4B5E /* GradeChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeChartView.swift; sourceTree = "<group>"; };
 		D64129788BCB86851DBBFD78 /* RootViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootViewModel.swift; sourceTree = "<group>"; };
 		D89CBE85EB2493C2EC2AA6E9 /* GradesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradesView.swift; sourceTree = "<group>"; };
 		DF32626BFE87C0CA90E01A9D /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
@@ -125,6 +127,7 @@
 				747C2454C579E5397A435BF0 /* AppTheme.swift */,
 				25454AE0DF892F0ED1F9C512 /* ThemeStore.swift */,
 				D4E5F6A7B8C09182A3B4C5D6 /* GradeCircle.swift */,
+				B1C2D3E4F5A60718293A4B5E /* GradeChartView.swift */,
 			);
 			path = Theme;
 			sourceTree = "<group>";
@@ -376,6 +379,7 @@
 				A1B2C3D4E5F60718293A4B5C /* CompletedStore.swift in Sources */,
 				FE7A7B059C38FBE9605A9627 /* GradingLogic.swift in Sources */,
 				C3D4E5F6A7B808192A3B4C5D /* GradeCircle.swift in Sources */,
+				B1C2D3E4F5A60718293A4B5F /* GradeChartView.swift in Sources */,
 				2F1366D87ACE3AA16704FEB5 /* HomeView.swift in Sources */,
 				45CFF760D9F9A1E1E4C0C780 /* HomeViewModel.swift in Sources */,
 				0A07C81DA581384532872A32 /* KeychainHelper.swift in Sources */,
