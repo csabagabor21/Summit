@@ -14,12 +14,40 @@ struct SubjectDetailView: View {
     @State private var addValue: Int = 5
     @State private var addWeight: Int = 100
     @State private var targetGrade: Int = 5
+    @State private var graphRange: GraphRange = .threeMonths
 
     private var threshold: Double { GradingLogic.threshold(for: subject) }
     private var allGrades: [GradeItem] { (grades + phantom).sorted { $0.date < $1.date } }
     private var rawAvg: Double { GradingLogic.weightedAverage(allGrades) }
     private var rounded: Int { GradingLogic.roundedGrade(raw: rawAvg, threshold: threshold) }
     private var baseRaw: Double { GradingLogic.weightedAverage(grades) }
+
+    private var chartGrades: [GradeItem] {
+        let now = Date()
+        let cutoff: Date? = {
+            switch graphRange {
+            case .month: return Calendar.current.date(byAdding: .month, value: -1, to: now)
+            case .threeMonths: return Calendar.current.date(byAdding: .month, value: -3, to: now)
+            case .halfYear: return Calendar.current.date(byAdding: .month, value: -6, to: now)
+            case .full: return nil
+            }
+        }()
+        let filtered: [GradeItem]
+        if let c = cutoff {
+            filtered = allGrades.filter { $0.date >= c }
+            // ha túl kevés, mutasd az összeset hogy ne legyen üres
+            return filtered.count >= 2 ? filtered : allGrades
+        }
+        return allGrades
+    }
+    private var chartXDomain: ClosedRange<Date> {
+        guard let min = chartGrades.map(\.date).min(), let max = chartGrades.map(\.date).max() else {
+            let now = Date(); return now.addingTimeInterval(-30*86400)...now
+        }
+        // kis padding
+        let pad = max.timeIntervalSince(min) * 0.05
+        return min.addingTimeInterval(-pad)...max.addingTimeInterval(pad)
+    }
 
     var body: some View {
         List {
@@ -43,22 +71,61 @@ struct SubjectDetailView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
 
-                // Graph — native Charts, editorial
-                if allGrades.count >= 2 {
+                // Graph — szebb, havi bontás, range picker
+                Picker("", selection: $graphRange) {
+                    ForEach(GraphRange.allCases) { r in Text(r.title).tag(r) }
+                }
+                .pickerStyle(.segmented)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+
+                if chartGrades.count >= 2 {
                     Chart {
-                        ForEach(Array(allGrades.enumerated()), id: \.element.id) { idx, g in
-                            let running = GradingLogic.weightedAverage(Array(allGrades.prefix(idx+1)))
+                        // running average line with gradient
+                        ForEach(Array(chartGrades.enumerated()), id: \.element.id) { idx, g in
+                            let running = GradingLogic.weightedAverage(Array(chartGrades.prefix(idx+1)))
                             LineMark(x: .value("Dátum", g.date), y: .value("Átlag", running))
-                                .foregroundStyle(colors.accent)
+                                .foregroundStyle(LinearGradient(colors: [colors.accent, colors.accent.opacity(0.6)], startPoint: .leading, endPoint: .trailing))
+                                .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
                                 .interpolationMethod(.catmullRom)
-                            PointMark(x: .value("Dátum", g.date), y: .value("Jegy", Double(g.value)))
-                                .foregroundStyle(g.id.hasPrefix("phantom") ? Color.orange : colors.gradeColor(for: g.value))
                         }
-                        RuleMark(y: .value("Cél", Double(targetGrade))).lineStyle(StrokeStyle(lineWidth: 1, dash: [4,4])).foregroundStyle(.secondary.opacity(0.6))
+                        // area under line
+                        ForEach(Array(chartGrades.enumerated()), id: \.element.id) { idx, g in
+                            let running = GradingLogic.weightedAverage(Array(chartGrades.prefix(idx+1)))
+                            AreaMark(x: .value("Dátum", g.date), y: .value("Átlag", running))
+                                .foregroundStyle(LinearGradient(colors: [colors.accent.opacity(0.22), colors.accent.opacity(0.02)], startPoint: .top, endPoint: .bottom))
+                                .interpolationMethod(.catmullRom)
+                        }
+                        ForEach(chartGrades, id: \.id) { g in
+                            PointMark(x: .value("Dátum", g.date), y: .value("Jegy", Double(g.value)))
+                                .foregroundStyle(g.id.hasPrefix("phantom") ? Color.orange : colors.gradeColor(for: g.value).opacity(0.95))
+                                .symbolSize(28)
+                        }
+                        RuleMark(y: .value("Cél", Double(targetGrade))).lineStyle(StrokeStyle(lineWidth: 1, dash: [4,4])).foregroundStyle(.secondary.opacity(0.5))
                     }
-                    .frame(height: 160)
+                    .frame(height: 180)
                     .chartYScale(domain: 1...5)
-                    .chartXAxis { AxisMarks(values: .stride(by: .day, count: 7)) { _ in AxisGridLine().foregroundStyle(Color.primary.opacity(0.06)); AxisValueLabel(format: .dateTime.month().day()).font(.caption2) } }
+                    .chartXScale(domain: chartXDomain)
+                    .chartXAxis {
+                        AxisMarks(values: .stride(by: .month, count: 1)) { v in
+                            AxisGridLine().foregroundStyle(Color.primary.opacity(0.06))
+                            if let d = v.as(Date.self) {
+                                AxisValueLabel(format: .dateTime.month(.abbreviated)).font(.caption2)
+                            }
+                        }
+                    }
+                    .chartYAxis {
+                        AxisMarks(position: .leading, values: [1,2,3,4,5]) { v in
+                            AxisGridLine().foregroundStyle(Color.primary.opacity(0.06))
+                            AxisValueLabel().font(.caption2)
+                        }
+                    }
+                    .chartPlotStyle { plot in
+                        plot.background(Color.primary.opacity(0.02)).clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .padding(.vertical, 4)
+                } else if allGrades.count >= 2 {
+                    ContentUnavailableView("Nincs adat ebben az időszakban", systemImage: "calendar", description: Text("Válassz nagyobb időtávot vagy adj hozzá jegyet."))
                 } else {
                     ContentUnavailableView("Nincs elég adat a grafikonhoz", systemImage: "chart.line.downtrend.xyaxis", description: Text("Adj hozzá fantom jegyet a + gombbal"))
                 }
@@ -132,4 +199,13 @@ struct SubjectDetailView: View {
             .presentationDetents([.medium])
         }
     }
+}
+
+enum GraphRange: String, CaseIterable, Identifiable {
+    case month = "Havi"
+    case threeMonths = "3 havi"
+    case halfYear = "Féléves"
+    case full = "Teljes"
+    var id: String { rawValue }
+    var title: String { rawValue }
 }
