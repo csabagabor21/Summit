@@ -51,13 +51,10 @@ struct GradesView: View {
                                     }
                                     Spacer()
                                     VStack(alignment: .trailing, spacing: 2) {
-                                        Text("\(evkoziGrades.count) jegy • \(groupedEvkozi.count) tárgy").font(.caption).foregroundStyle(.secondary)
                                         Text(trendEvkozi).font(.caption.weight(.bold)).foregroundStyle(trendColorEvkozi)
                                     }
                                 }
-                                .listRowBackground(Color.clear)
-                                .listRowSeparator(.hidden)
-                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                                .listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                             }
                             ForEach(groupedEvkozi.keys.sorted(), id: \.self) { subject in
                                 let items = groupedEvkozi[subject]!
@@ -83,6 +80,17 @@ struct GradesView: View {
                                 }
                                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                             }
+                            Section {
+                                VStack(spacing: 4) {
+                                    Text("\(evkoziGrades.count) jegy • \(groupedEvkozi.count) tárgy").font(.subheadline).foregroundStyle(.secondary)
+                                    Text(trendEvkozi).font(.subheadline.weight(.bold)).foregroundStyle(trendColorEvkozi)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .multilineTextAlignment(.center)
+                                .padding(.vertical, 4)
+                            }
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                         }
                     case .felevi:
                         if feleviGrades.isEmpty {
@@ -96,7 +104,6 @@ struct GradesView: View {
                                     }
                                     Spacer()
                                     VStack(alignment: .trailing, spacing: 2) {
-                                        Text("\(feleviGrades.count) jegy • \(groupedFelevi.count) tárgy").font(.caption).foregroundStyle(.secondary)
                                         Text(trendFelevi).font(.caption.weight(.bold)).foregroundStyle(trendColorFelevi)
                                     }
                                 }
@@ -122,6 +129,17 @@ struct GradesView: View {
                                 .padding(.vertical, 2)
                                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                             }
+                            Section {
+                                VStack(spacing: 4) {
+                                    Text("\(feleviGrades.count) jegy • \(groupedFelevi.count) tárgy").font(.subheadline).foregroundStyle(.secondary)
+                                    Text(trendFelevi).font(.subheadline.weight(.bold)).foregroundStyle(trendColorFelevi)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .multilineTextAlignment(.center)
+                                .padding(.vertical, 4)
+                            }
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                         }
                     case .evvegi:
                         if evvegiGrades.isEmpty {
