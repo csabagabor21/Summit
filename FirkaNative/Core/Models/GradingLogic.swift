@@ -41,8 +41,14 @@ enum GradingLogic {
         return roundedGrade(raw: raw, threshold: threshold(for: subject))
     }
 
-    // Overall = átlag a KEREKÍTETT jegyekből (nem a nyers matematikai átlagok átlaga)
+    // Overall normál = nyers átlagok átlaga
     static func overallAverage(grouped: [String: [GradeItem]]) -> Double {
+        guard !grouped.isEmpty else { return 0 }
+        let subjectAvgs = grouped.values.map { weightedAverage($0) }
+        return subjectAvgs.reduce(0, +) / Double(subjectAvgs.count)
+    }
+    // Overall kerekített = kerekített jegyek átlaga (tantárgyi kerekítés után)
+    static func overallRoundedAverage(grouped: [String: [GradeItem]]) -> Double {
         guard !grouped.isEmpty else { return 0 }
         let roundedPerSubject = grouped.map { (subject, grades) in
             Double(roundedForSubject(grades, subject: subject))

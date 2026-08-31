@@ -44,10 +44,11 @@ struct GradesView: View {
                             ContentUnavailableView("Nincs évközi jegy", systemImage: "star.slash", description: Text("Még nem érkezett évközi értékelés."))
                         } else {
                             Section {
-                                HStack(alignment: .firstTextBaseline) {
+                                HStack(alignment: .lastTextBaseline, spacing: 16) {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("ÖSSZÁTLAG").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).tracking(1)
                                         Text(String(format: "%.2f", overallEvkozi)).font(.system(size: 34, weight: .bold, design: .rounded))
+                                        Text("kerekítve \(String(format: "%.2f", overallRoundedEvkozi))").font(.caption2.weight(.medium)).foregroundStyle(.secondary)
                                     }
                                     Spacer()
                                     VStack(alignment: .trailing, spacing: 2) {
@@ -222,6 +223,7 @@ struct GradesView: View {
 
     // overall csak évköziből, félévi/évvégi nem számít bele az évközi átlagba
     var overallEvkozi: Double { GradingLogic.overallAverage(grouped: groupedEvkozi) }
+    var overallRoundedEvkozi: Double { GradingLogic.overallRoundedAverage(grouped: groupedEvkozi) }
     var overallFelevi: Double { guard !groupedFelevi.isEmpty else { return 0 }; let avgs = groupedFelevi.values.compactMap { $0.sorted { $0.date > $1.date }.first?.value }.map(Double.init); return avgs.isEmpty ? 0 : avgs.reduce(0, +) / Double(avgs.count) }
     var overallEvvegi: Double { guard !groupedEvvegi.isEmpty else { return 0 }; let avgs = groupedEvvegi.values.compactMap { $0.sorted { $0.date > $1.date }.first?.value }.map(Double.init); return avgs.isEmpty ? 0 : avgs.reduce(0, +) / Double(avgs.count) }
     var trendEvkozi: String { overallEvkozi >= 4 ? "Kiváló" : overallEvkozi >= 3.5 ? "Jó" : "Fejlődő" }
