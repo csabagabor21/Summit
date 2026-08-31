@@ -7,9 +7,11 @@ struct ProfileImageView: View {
     var badge: Bool = false
     @Environment(\.colorScheme) var scheme
     @EnvironmentObject var profileStore: ProfileImageStore
+    @EnvironmentObject var theme: ThemeStore
 
     var body: some View {
         let colors = AppColors.current(for: scheme)
+        let accent = theme.accent
         ZStack(alignment: .topTrailing) {
             Group {
                 if let uid = userId, let ui = profileStore.image(for: uid) {
@@ -17,15 +19,21 @@ struct ProfileImageView: View {
                         .resizable().scaledToFill()
                         .frame(width: size, height: size)
                         .clipShape(Circle())
+                        .overlay(Circle().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+                        .glassEffectIfAvailable(in: Circle())
                 } else {
-                    Circle()
-                        .fill(Color(hex: 0xA7DC22))
-                        .frame(width: size, height: size)
-                        .overlay {
-                            Text(initials)
-                                .font(.system(size: size*0.42, weight: .bold))
-                                .foregroundStyle(.white)
-                        }
+                    ZStack {
+                        Circle()
+                            .fill(accent)
+                            .frame(width: size, height: size)
+                            .glassEffectIfAvailable(in: Circle(), tint: accent)
+                        Text(initials)
+                            .font(.system(size: size*0.42, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                    }
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
                 }
             }
             if badge {

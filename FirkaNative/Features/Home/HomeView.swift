@@ -292,8 +292,14 @@ private struct HomeLiveCard: View {
                                 if let lbl = n.substitutionLabel {
                                     Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(Capsule().fill(n.isCancelled ? Color.red : Color.orange))
                                 }
-                                // hanyadik óra + terem egymás mellett (API: TeremNeve)
-                                Text("\(n.index). óra • \(n.room)").font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
+                                // kiemelt kis négyzet — 1. óra distinction + terem mellette
+                                Text("\(n.index)")
+                                    .font(.caption2.weight(.bold).monospacedDigit())
+                                    .foregroundStyle(.white)
+                                    .frame(width: 22, height: 22)
+                                    .background(RoundedRectangle(cornerRadius: 6).fill(colors.accent))
+                                    .glassEffectIfAvailable(in: RoundedRectangle(cornerRadius: 6), tint: colors.accent)
+                                Text(n.room).font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
                                 Text("•").foregroundStyle(.tertiary)
                                 Text(n.teacher).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                                 Spacer()
@@ -305,17 +311,20 @@ private struct HomeLiveCard: View {
                 case .duringLesson:
                     if let c = calc.current {
                         VStack(alignment: .leading, spacing: 10) {
-                            // Status badge if substituted/cancelled
                             if let lbl = c.substitutionLabel {
                                 Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(c.isCancelled ? Color.red : Color.orange))
                             }
-                            // Subject — large, own section
                             Text(c.subject)
                                 .font(.system(size: 28, weight: .bold, design: .rounded))
                                 .lineLimit(1)
-                            // hanyadik óra + terem egymás mellett — külön nem hangsúlyos kapszula
                             HStack(spacing: 6) {
-                                Text("\(c.index). óra • \(c.room)").font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
+                                Text("\(c.index)")
+                                    .font(.caption2.weight(.bold).monospacedDigit())
+                                    .foregroundStyle(.white)
+                                    .frame(width: 22, height: 22)
+                                    .background(RoundedRectangle(cornerRadius: 6).fill(colors.accent))
+                                    .glassEffectIfAvailable(in: RoundedRectangle(cornerRadius: 6), tint: colors.accent)
+                                Text(c.room).font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
                                 Text("•").foregroundStyle(.tertiary)
                                 Text(c.teacher).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                                 Spacer()
@@ -357,7 +366,13 @@ private struct HomeLiveCard: View {
                                 if let lbl = n.substitutionLabel {
                                     Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(Capsule().fill(n.isCancelled ? Color.red : Color.orange))
                                 }
-                                Text("\(n.index). óra • \(n.room) • \(n.teacher)").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                Text("\(n.index)")
+                                    .font(.caption2.weight(.bold).monospacedDigit())
+                                    .foregroundStyle(.white)
+                                    .frame(width: 22, height: 22)
+                                    .background(RoundedRectangle(cornerRadius: 6).fill(colors.accent))
+                                    .glassEffectIfAvailable(in: RoundedRectangle(cornerRadius: 6), tint: colors.accent)
+                                Text("\(n.room) • \(n.teacher)").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                                 Spacer()
                                 Text(n.start.formatted(date: .omitted, time: .shortened)).font(.caption.weight(.medium).monospacedDigit()).foregroundStyle(.secondary)
                             }

@@ -16,6 +16,26 @@ extension View {
         }
     }
 
+    @ViewBuilder
+    func glassEffectIfAvailable(in circle: Circle = Circle(), tint: Color? = nil) -> some View {
+        if #available(iOS 26.0, *) {
+            if let t = tint { self.glassEffect(.regular.tint(t).interactive(), in: circle) }
+            else { self.glassEffect(.regular.interactive(), in: circle) }
+        } else {
+            self.background(.ultraThinMaterial, in: circle)
+        }
+    }
+
+    @ViewBuilder
+    func glassEffectIfAvailable(in rect: RoundedRectangle, tint: Color? = nil) -> some View {
+        if #available(iOS 26.0, *) {
+            if let t = tint { self.glassEffect(.regular.tint(t).interactive(), in: rect) }
+            else { self.glassEffect(.regular.interactive(), in: rect) }
+        } else {
+            self.background(.ultraThinMaterial, in: rect)
+        }
+    }
+
     func appBackground(colors: AppColors) -> some View {
         colors.background.ignoresSafeArea()
     }
