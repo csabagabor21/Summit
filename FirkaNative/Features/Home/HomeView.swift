@@ -9,6 +9,7 @@ struct HomeView: View {
     @Environment(\.colorScheme) var scheme
     var colors: AppColors { theme.colors(for: scheme) }
     // Előnézet csúszka — melyik óra van épp (demo teszteléshez)
+    @AppStorage("home.demoOverride") private var demoOverride = false
     @State private var isPreviewActive = false
     @State private var previewMinutes: Double = {
         let c = Calendar.current
@@ -16,6 +17,7 @@ struct HomeView: View {
         let m = c.component(.minute, from: Date())
         return Double(max(420, min(960, h*60+m)))
     }()
+    private var isDemoEffective: Bool { demoOverride || session.selectedUser?.isDemo == true }
 
     var body: some View {
         let user = session.selectedUser ?? .demo
@@ -35,39 +37,54 @@ struct HomeView: View {
                 }
 
                 // LIVE TOP CARD — continuously shows current lesson + progress + next + rögzítve
-                HomeLiveCard(lessons: vm.lessonsToday, exams: vm.exams, homeworks: vm.homeworks, overrideNow: isPreviewActive ? previewDate : nil)
+                HomeLiveCard(lessons: vm.lessonsToday, exams: vm.exams, homeworks: vm.homeworks, overrideNow: isPreviewActive && isDemoEffective ? previewDate : nil)
+                    .animation(.spring(response: 0.42, dampingFraction: 0.86), value: isDemoEffective)
 
-                // Csúszka: melyik óra van éppen — demo/teszteléshez
-                Section {
-                    Toggle(isOn: $isPreviewActive) {
-                        Label("Idő előnézet", systemImage: "slider.horizontal.3")
-                            .font(.subheadline.weight(.medium))
-                    }
-                    .tint(colors.accent)
-                    if isPreviewActive {
-                        VStack(spacing: 8) {
-                            Slider(value: $previewMinutes, in: 420...960, step: 5)
-                                .tint(colors.accent)
-                            HStack {
-                                Text("07:00").font(.caption2).foregroundStyle(.tertiary)
-                                Spacer()
-                                Text(previewTimeText).font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(colors.accent)
-                                Spacer()
-                                Text("16:00").font(.caption2).foregroundStyle(.tertiary)
-                            }
-                            if let l = previewLesson {
-                                Label("\(l.index). óra • \(l.subject) • \(l.room)", systemImage: "clock.fill")
-                                    .font(.caption.weight(.medium)).foregroundStyle(.secondary)
-                            } else {
-                                Text(previewStateText).font(.caption).foregroundStyle(.secondary)
-                            }
-                            Button("Vissza élő időre") { withAnimation { isPreviewActive = false } }
-                                .font(.caption.weight(.semibold)).tint(colors.accent)
+                // Demo / valós toggle — fluid
+                if session.selectedUser?.isDemo != true {
+                    Section {
+                        Toggle(isOn: $demoOverride) {
+                            Label(demoOverride ? "Demo adatok" : "Valós adatok", systemImage: demoOverride ? "flask.fill" : "person.crop.rectangle.stack.fill")
+                                .font(.subheadline.weight(.medium))
                         }
-                        .padding(.vertical, 4)
-                    }
-                } header: { Text("Előnézet").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
-                .listRowBackground(colors.surface)
+                        .tint(colors.accent)
+                    } header: { Text("Adatok").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
+                    .listRowBackground(colors.surface)
+                }
+
+                // Csúszka: csak demo módban
+                if isDemoEffective {
+                    Section {
+                        Toggle(isOn: $isPreviewActive) {
+                            Label("Idő előnézet", systemImage: "slider.horizontal.3")
+                                .font(.subheadline.weight(.medium))
+                        }
+                        .tint(colors.accent)
+                        if isPreviewActive {
+                            VStack(spacing: 8) {
+                                Slider(value: $previewMinutes, in: 420...960, step: 5)
+                                    .tint(colors.accent)
+                                HStack {
+                                    Text("07:00").font(.caption2).foregroundStyle(.tertiary)
+                                    Spacer()
+                                    Text(previewTimeText).font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(colors.accent)
+                                    Spacer()
+                                    Text("16:00").font(.caption2).foregroundStyle(.tertiary)
+                                }
+                                if let l = previewLesson {
+                                    Label("\(l.index). óra • \(l.subject) • \(l.room)", systemImage: "clock.fill")
+                                        .font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                                } else {
+                                    Text(previewStateText).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Button("Vissza élő időre") { withAnimation { isPreviewActive = false } }
+                                    .font(.caption.weight(.semibold)).tint(colors.accent)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    } header: { Text("Előnézet").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
+                    .listRowBackground(colors.surface)
+                }
 
                 // Legújabb jegyek — koppintva a tantárgyba visz
                 Section {
@@ -197,8 +214,13 @@ struct HomeView: View {
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .background(colors.background)
-            .refreshable { await vm.refresh(kreta: kreta, user: session.selectedUser) }
-            .task { await vm.refresh(kreta: kreta, user: session.selectedUser) }
+            .refreshable { await vm.refresh(kreta: kreta, user: session.selectedUser, forceDemo: demoOverride) }
+            .task { await vm.refresh(kreta: kreta, user: session.selectedUser, forceDemo: demoOverride) }
+            .onChange(of: demoOverride) { _, new in
+                Task { withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) { } ; await vm.refresh(kreta: kreta, user: session.selectedUser, forceDemo: new) }
+                if !new { isPreviewActive = false }
+            }
+            .onChange(of: session.selectedId) { _, _ in Task { await vm.refresh(kreta: kreta, user: session.selectedUser, forceDemo: demoOverride) } }
             .navigationTitle("Főoldal")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.visible, for: .navigationBar)

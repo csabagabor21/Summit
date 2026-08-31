@@ -24,8 +24,9 @@ final class HomeViewModel: ObservableObject {
         return "Jó estét"
     }
 
-    func refresh(kreta: KretaClient, user: AppUser?) async {
-        guard let user, !user.isDemo else {
+    func refresh(kreta: KretaClient, user: AppUser?, forceDemo: Bool = false) async {
+        let useDemo = forceDemo || user == nil || user!.isDemo
+        if useDemo {
             grades = DemoData.grades()
             homeworks = DemoData.homeworks()
             absences = DemoData.absences()
@@ -38,7 +39,7 @@ final class HomeViewModel: ObservableObject {
         isRefreshing = true
         defer { isRefreshing = false }
 
-        let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
+        let iss = user!.instituteCode.isEmpty ? (JWT.instituteCode(from: user!.accessToken) ?? "") : user!.instituteCode
 
         async let g = kreta.fetchGrades(iss: iss)
         async let hw = kreta.fetchHomework(iss: iss)
