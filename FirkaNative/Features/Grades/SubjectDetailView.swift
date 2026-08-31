@@ -23,19 +23,18 @@ struct SubjectDetailView: View {
     private var baseRaw: Double { GradingLogic.weightedAverage(grades) }
 
     private var chartGrades: [GradeItem] {
-        let now = Date()
+        guard let latest = allGrades.map(\.date).max() else { return allGrades }
         let cutoff: Date? = {
             switch graphRange {
-            case .month: return Calendar.current.date(byAdding: .month, value: -1, to: now)
-            case .threeMonths: return Calendar.current.date(byAdding: .month, value: -3, to: now)
-            case .halfYear: return Calendar.current.date(byAdding: .month, value: -6, to: now)
+            case .month: return Calendar.current.date(byAdding: .month, value: -1, to: latest)
+            case .threeMonths: return Calendar.current.date(byAdding: .month, value: -3, to: latest)
+            case .halfYear: return Calendar.current.date(byAdding: .month, value: -6, to: latest)
             case .full: return nil
             }
         }()
         let filtered: [GradeItem]
         if let c = cutoff {
             filtered = allGrades.filter { $0.date >= c }
-            // ha túl kevés, mutasd az összeset hogy ne legyen üres
             return filtered.count >= 2 ? filtered : allGrades
         }
         return allGrades
@@ -71,39 +70,20 @@ struct SubjectDetailView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
 
-                // Graph — egy doboz a jegyek listával egységesen, picker belül
-                VStack(spacing: 12) {
-                    Text("Átlag és grafikon").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase).frame(maxWidth: .infinity, alignment: .leading)
+                // Graph — egy doboz a jegyek listával egységesen
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("ÁTLAG ÉS GRAFIKON").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
                     Picker("", selection: $graphRange) {
                         ForEach(GraphRange.allCases) { r in Text(r.title).tag(r) }
                     }
                     .pickerStyle(.segmented)
 
-                    Group {
-                        if chartGrades.count >= 2 {
-                            GradeChartView(grades: chartGrades, accent: colors.accent, showTarget: targetGrade, height: 170, editorial: true)
-                                .transition(.opacity.combined(with: .scale(scale: 0.98)))
-                        } else if allGrades.count >= 2 {
-                            ContentUnavailableView("Nincs adat ebben az időszakban", systemImage: "calendar", description: Text("Válassz nagyobb időtávot vagy adj hozzá jegyet."))
-                                .transition(.opacity)
-                        } else {
-                            ContentUnavailableView("Nincs elég adat a grafikonhoz", systemImage: "chart.line.downtrend.xyaxis", description: Text("Adj hozzá fantom jegyet a + gombbal"))
-                                .transition(.opacity)
-                        }
-                    }
-                    .animation(.spring(response: 0.55, dampingFraction: 0.85), value: chartGrades)
-                    .animation(.spring(response: 0.35, dampingFraction: 0.85), value: graphRange)
+                    GradeChartView(grades: chartGrades, accent: colors.accent, showTarget: targetGrade, height: 170, editorial: true)
+                        .animation(.easeInOut(duration: 0.6), value: chartGrades)
                 }
-                .padding(14)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(colors.surface)
-                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(colors.border.opacity(0.9), lineWidth: 1))
-                )
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-            } header: { EmptyView() }
+                .listRowBackground(colors.surface)
+                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+            } header: { Text("Átlag és grafikon").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
 
             Section {
                 ForEach(allGrades.sorted(by: { $0.date > $1.date })) { g in
