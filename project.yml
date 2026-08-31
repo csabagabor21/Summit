@@ -1,0 +1,25 @@
+name: FirkaNative
+options:
+  bundleIdPrefix: hu.firka.native
+  deploymentTarget:
+    iOS: "26.0"
+  xcodeVersion: "15.0"
+  generateEmptyDirectories: true
+targets:
+  FirkaNative:
+    type: application
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - FirkaNative
+    settings:
+      base:
+        SWIFT_VERSION: "5.0"
+        SWIFT_EMIT_LOC_STRINGS: YES
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: YES
+        IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Profilkép beállításához hozzáférés a fotókönyvtárhoz szükséges."
+        INFOPLIST_KEY_NSCameraUsageDescription: "Profilkép készítéséhez kamera hozzáférés szükséges."

@@ -1,0 +1,26 @@
+# Xcode
+xcuserdata/
+*.xcuserstate
+project.xcworkspace/xcuserdata/
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# SwiftPM
+.build/
+.swiftpm/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# XcodeGen cache
+*.xcodeproj/xcuserdata/
+
+# Env
+.env

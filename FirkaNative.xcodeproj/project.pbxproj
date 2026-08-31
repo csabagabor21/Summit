@@ -1,0 +1,596 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		073D3988576FBC4F813C135E /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0CC61DB518F6DC6A44A7A86 /* AuthViewModel.swift */; };
+		09E42F55A4F547C7488A74A5 /* showcase2.png in Resources */ = {isa = PBXBuildFile; fileRef = 3B029ADD653312DF2FAFF326 /* showcase2.png */; };
+		0A07C81DA581384532872A32 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC7FB1C72834344E7C3B2E73 /* KeychainHelper.swift */; };
+		0D633E7D7B2C8EFCBA3D7326 /* LiveCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 846C1EAE5441906D06FAE04A /* LiveCardView.swift */; };
+		10964B5F60D7C9EC223655BF /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 773E6E0F18B40CE2A9E55D99 /* FeedView.swift */; };
+		18FCC66C279B92D23058CDE5 /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 247520F6638365B456FBFA9C /* AppColors.swift */; };
+		1ABB8E9799CFFDA57AC575EF /* TimetableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F30B8D233258EA06EF5C3F /* TimetableView.swift */; };
+		2AA3D9E30982EA87FD4EFB1B /* RootViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D64129788BCB86851DBBFD78 /* RootViewModel.swift */; };
+		2F1366D87ACE3AA16704FEB5 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329B5063FB52C019A5329751 /* HomeView.swift */; };
+		3119A6B5D8552DDBEE274646 /* ProfileImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC2C1407DFC4547AF5B6E24 /* ProfileImageView.swift */; };
+		387DEDE1D34B513E213A2F8A /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1D0EE2280C48A09BE44BE53 /* MainTabView.swift */; };
+		3FFD3A2CC6C4AEBAE82E3F1F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8D08D1A2174AA1AE25EC7AD3 /* Assets.xcassets */; };
+		403EB93D97AE3F9126BB677D /* FirkaNativeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60FAADC6310AEEB24F51047 /* FirkaNativeApp.swift */; };
+		404D3BD7E25B9813F614EB13 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B79D009A3DF214E536078C77 /* ContentView.swift */; };
+		45CFF760D9F9A1E1E4C0C780 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E81694352874D17D2498D01 /* HomeViewModel.swift */; };
+		4E337411BD02AF2944218378 /* showcase1.png in Resources */ = {isa = PBXBuildFile; fileRef = 7027EB361D0E96ED4DA4ABB8 /* showcase1.png */; };
+		5D01A7665A8E20CAC6980EC1 /* KretaClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D54A21CA8DC4F8ACE664617 /* KretaClient.swift */; };
+		5F0E2B5B50A9A17947BE312B /* showcase4.png in Resources */ = {isa = PBXBuildFile; fileRef = C347A4AEE2BE3D442CE548D1 /* showcase4.png */; };
+		6A6102A830B1A0900B670AAC /* GradesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D89CBE85EB2493C2EC2AA6E9 /* GradesView.swift */; };
+		77A181BA4BA2A1A4E7235D1C /* KretaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FD4CEA1E823A437ECEE860D /* KretaModels.swift */; };
+		7A684D221ECAF35D098A7AB2 /* AbsencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A93D84B66FE61E312A51808 /* AbsencesView.swift */; };
+		7D04EF71A658AA518E13DEFA /* RoundingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 896D1F458A6A54FC3040D0E2 /* RoundingDetailView.swift */; };
+		8D970B6EF20F3EDECFFE2828 /* KretaWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58F96BAB6CF1CF6269B97A5A /* KretaWebView.swift */; };
+		8E3787C6575C1D32BD198C2A /* SubjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9DA17C565ED606466301808 /* SubjectDetailView.swift */; };
+		97FF2BFB3F74B5BA6F6C6A9C /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF32626BFE87C0CA90E01A9D /* User.swift */; };
+		9AE53165649C2AFC40CE041A /* ic_splash.png in Resources */ = {isa = PBXBuildFile; fileRef = 6C170E2F25EFBB424DAC1631 /* ic_splash.png */; };
+		9C329203D19D3483DBFBFA8F /* ic_rounded.png in Resources */ = {isa = PBXBuildFile; fileRef = 4AAE369D3E5979B5E9B99729 /* ic_rounded.png */; };
+		9CA48AD8752137670FA14CF6 /* KretaAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E82D317130E407F92625903 /* KretaAPI.swift */; };
+		A1B2C3D4E5F60718293A4B5C /* CompletedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A60718293A4B5D /* CompletedStore.swift */; };
+		A515B39998D59877DB5516A0 /* FilterBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25A705B9979778822654BD69 /* FilterBarView.swift */; };
+		AD2BBE78306029BA1A6E0761 /* Student.swift in Sources */ = {isa = PBXBuildFile; fileRef = 332A508C7AA3C1F38B82CE6A /* Student.swift */; };
+		AF22350B190A40F5D4AEE6AE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CF92AC77C8624060B6CA72E /* SettingsView.swift */; };
+		C0A45087154D166DEC11C754 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 747C2454C579E5397A435BF0 /* AppTheme.swift */; };
+		C3D4E5F6A7B808192A3B4C5D /* GradeCircle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F6A7B8C09182A3B4C5D6 /* GradeCircle.swift */; };
+		C85BDA46A9060FC6AA36E18D /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2181B0D30498DBAAEC654C1D /* SessionStore.swift */; };
+		D36205A633CE5504F0289049 /* NotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67BD9354BA995DA687993EB /* NotesView.swift */; };
+		D8DC257E9306B28CA9DC959E /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DF643AB64978AEC8C32327A /* LoginView.swift */; };
+		F2AAF51DA4072A9050F36513 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25454AE0DF892F0ED1F9C512 /* ThemeStore.swift */; };
+		F7794CCCD968A9BF0F941DBF /* showcase3.png in Resources */ = {isa = PBXBuildFile; fileRef = 64B5366A07C7C386D8D13D27 /* showcase3.png */; };
+		FE7A7B059C38FBE9605A9627 /* GradingLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 285F897E90D9C8D0BE33377D /* GradingLogic.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0D54A21CA8DC4F8ACE664617 /* KretaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaClient.swift; sourceTree = "<group>"; };
+		0DF643AB64978AEC8C32327A /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		2181B0D30498DBAAEC654C1D /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		247520F6638365B456FBFA9C /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
+		25454AE0DF892F0ED1F9C512 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
+		25A705B9979778822654BD69 /* FilterBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBarView.swift; sourceTree = "<group>"; };
+		285F897E90D9C8D0BE33377D /* GradingLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradingLogic.swift; sourceTree = "<group>"; };
+		329B5063FB52C019A5329751 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		332A508C7AA3C1F38B82CE6A /* Student.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Student.swift; sourceTree = "<group>"; };
+		3B029ADD653312DF2FAFF326 /* showcase2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase2.png; sourceTree = "<group>"; };
+		4AAE369D3E5979B5E9B99729 /* ic_rounded.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_rounded.png; sourceTree = "<group>"; };
+		58F96BAB6CF1CF6269B97A5A /* KretaWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaWebView.swift; sourceTree = "<group>"; };
+		59F30B8D233258EA06EF5C3F /* TimetableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableView.swift; sourceTree = "<group>"; };
+		5CF92AC77C8624060B6CA72E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		5E82D317130E407F92625903 /* KretaAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaAPI.swift; sourceTree = "<group>"; };
+		64B5366A07C7C386D8D13D27 /* showcase3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase3.png; sourceTree = "<group>"; };
+		6C170E2F25EFBB424DAC1631 /* ic_splash.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_splash.png; sourceTree = "<group>"; };
+		6E81694352874D17D2498D01 /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
+		7027EB361D0E96ED4DA4ABB8 /* showcase1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase1.png; sourceTree = "<group>"; };
+		747C2454C579E5397A435BF0 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
+		773E6E0F18B40CE2A9E55D99 /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
+		7A93D84B66FE61E312A51808 /* AbsencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbsencesView.swift; sourceTree = "<group>"; };
+		846C1EAE5441906D06FAE04A /* LiveCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCardView.swift; sourceTree = "<group>"; };
+		896D1F458A6A54FC3040D0E2 /* RoundingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundingDetailView.swift; sourceTree = "<group>"; };
+		8D08D1A2174AA1AE25EC7AD3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		8FD4CEA1E823A437ECEE860D /* KretaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaModels.swift; sourceTree = "<group>"; };
+		A9DA17C565ED606466301808 /* SubjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectDetailView.swift; sourceTree = "<group>"; };
+		B1C2D3E4F5A60718293A4B5D /* CompletedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompletedStore.swift; sourceTree = "<group>"; };
+		B60FAADC6310AEEB24F51047 /* FirkaNativeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirkaNativeApp.swift; sourceTree = "<group>"; };
+		B79D009A3DF214E536078C77 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		BC89A187DB0FE5F77272A82D /* FirkaNative.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FirkaNative.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C1D0EE2280C48A09BE44BE53 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		C347A4AEE2BE3D442CE548D1 /* showcase4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase4.png; sourceTree = "<group>"; };
+		CCC2C1407DFC4547AF5B6E24 /* ProfileImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileImageView.swift; sourceTree = "<group>"; };
+		D4E5F6A7B8C09182A3B4C5D6 /* GradeCircle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCircle.swift; sourceTree = "<group>"; };
+		D64129788BCB86851DBBFD78 /* RootViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootViewModel.swift; sourceTree = "<group>"; };
+		D89CBE85EB2493C2EC2AA6E9 /* GradesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradesView.swift; sourceTree = "<group>"; };
+		DF32626BFE87C0CA90E01A9D /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
+		E0CC61DB518F6DC6A44A7A86 /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
+		EC7FB1C72834344E7C3B2E73 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
+		F67BD9354BA995DA687993EB /* NotesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		0AAA759B78AF0985EC61F228 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				896D1F458A6A54FC3040D0E2 /* RoundingDetailView.swift */,
+				5CF92AC77C8624060B6CA72E /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		13584DC16D78EFDC114DF7E0 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				4AAE369D3E5979B5E9B99729 /* ic_rounded.png */,
+				6C170E2F25EFBB424DAC1631 /* ic_splash.png */,
+				7027EB361D0E96ED4DA4ABB8 /* showcase1.png */,
+				3B029ADD653312DF2FAFF326 /* showcase2.png */,
+				64B5366A07C7C386D8D13D27 /* showcase3.png */,
+				C347A4AEE2BE3D442CE548D1 /* showcase4.png */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		2428FFCA9E075D75A11526F9 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				247520F6638365B456FBFA9C /* AppColors.swift */,
+				747C2454C579E5397A435BF0 /* AppTheme.swift */,
+				25454AE0DF892F0ED1F9C512 /* ThemeStore.swift */,
+				D4E5F6A7B8C09182A3B4C5D6 /* GradeCircle.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		262C969447139C83A571ECA2 = {
+			isa = PBXGroup;
+			children = (
+				D997D973BAA8AD3D8AF8DE4B /* FirkaNative */,
+				C00F1FC003C2E7433AA571E7 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		59010DDAEF40AAC64C585904 /* MainTab */ = {
+			isa = PBXGroup;
+			children = (
+				C1D0EE2280C48A09BE44BE53 /* MainTabView.swift */,
+			);
+			path = MainTab;
+			sourceTree = "<group>";
+		};
+		70925FC3FA50B6BA6B462ECE /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				773E6E0F18B40CE2A9E55D99 /* FeedView.swift */,
+				25A705B9979778822654BD69 /* FilterBarView.swift */,
+				329B5063FB52C019A5329751 /* HomeView.swift */,
+				6E81694352874D17D2498D01 /* HomeViewModel.swift */,
+				846C1EAE5441906D06FAE04A /* LiveCardView.swift */,
+				CCC2C1407DFC4547AF5B6E24 /* ProfileImageView.swift */,
+			);
+			path = Home;
+			sourceTree = "<group>";
+		};
+		A23A89E0EEE6B6156521E521 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				285F897E90D9C8D0BE33377D /* GradingLogic.swift */,
+				8FD4CEA1E823A437ECEE860D /* KretaModels.swift */,
+				332A508C7AA3C1F38B82CE6A /* Student.swift */,
+				DF32626BFE87C0CA90E01A9D /* User.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A65D6254BA369B37CD20EB01 /* Storage */ = {
+			isa = PBXGroup;
+			children = (
+				B1C2D3E4F5A60718293A4B5D /* CompletedStore.swift */,
+				EC7FB1C72834344E7C3B2E73 /* KeychainHelper.swift */,
+				2181B0D30498DBAAEC654C1D /* SessionStore.swift */,
+			);
+			path = Storage;
+			sourceTree = "<group>";
+		};
+		B607501391D8C346D2050B42 /* Networking */ = {
+			isa = PBXGroup;
+			children = (
+				5E82D317130E407F92625903 /* KretaAPI.swift */,
+				0D54A21CA8DC4F8ACE664617 /* KretaClient.swift */,
+			);
+			path = Networking;
+			sourceTree = "<group>";
+		};
+		BD86837C106F3E3A059C5E54 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				A23A89E0EEE6B6156521E521 /* Models */,
+				B607501391D8C346D2050B42 /* Networking */,
+				A65D6254BA369B37CD20EB01 /* Storage */,
+				2428FFCA9E075D75A11526F9 /* Theme */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		C00F1FC003C2E7433AA571E7 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				BC89A187DB0FE5F77272A82D /* FirkaNative.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C3548BBC49A45A270DEC3C6F /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				C4F2CD40D141B4F25B962315 /* Absences */,
+				F0A7B70E6AE418F05695771B /* Auth */,
+				E1F8243979416806BF124B21 /* Grades */,
+				70925FC3FA50B6BA6B462ECE /* Home */,
+				59010DDAEF40AAC64C585904 /* MainTab */,
+				F875884E7DA1467CAB213A26 /* Notes */,
+				0AAA759B78AF0985EC61F228 /* Settings */,
+				FD58B3074FB22594F076FFBF /* Timetable */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		C4F2CD40D141B4F25B962315 /* Absences */ = {
+			isa = PBXGroup;
+			children = (
+				7A93D84B66FE61E312A51808 /* AbsencesView.swift */,
+			);
+			path = Absences;
+			sourceTree = "<group>";
+		};
+		D381CB68E16E8BB9DF2ACBEF /* App */ = {
+			isa = PBXGroup;
+			children = (
+				B79D009A3DF214E536078C77 /* ContentView.swift */,
+				B60FAADC6310AEEB24F51047 /* FirkaNativeApp.swift */,
+				D64129788BCB86851DBBFD78 /* RootViewModel.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		D997D973BAA8AD3D8AF8DE4B /* FirkaNative */ = {
+			isa = PBXGroup;
+			children = (
+				8D08D1A2174AA1AE25EC7AD3 /* Assets.xcassets */,
+				D381CB68E16E8BB9DF2ACBEF /* App */,
+				BD86837C106F3E3A059C5E54 /* Core */,
+				C3548BBC49A45A270DEC3C6F /* Features */,
+				13584DC16D78EFDC114DF7E0 /* Resources */,
+			);
+			path = FirkaNative;
+			sourceTree = "<group>";
+		};
+		E1F8243979416806BF124B21 /* Grades */ = {
+			isa = PBXGroup;
+			children = (
+				D89CBE85EB2493C2EC2AA6E9 /* GradesView.swift */,
+				A9DA17C565ED606466301808 /* SubjectDetailView.swift */,
+			);
+			path = Grades;
+			sourceTree = "<group>";
+		};
+		F0A7B70E6AE418F05695771B /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				E0CC61DB518F6DC6A44A7A86 /* AuthViewModel.swift */,
+				58F96BAB6CF1CF6269B97A5A /* KretaWebView.swift */,
+				0DF643AB64978AEC8C32327A /* LoginView.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		F875884E7DA1467CAB213A26 /* Notes */ = {
+			isa = PBXGroup;
+			children = (
+				F67BD9354BA995DA687993EB /* NotesView.swift */,
+			);
+			path = Notes;
+			sourceTree = "<group>";
+		};
+		FD58B3074FB22594F076FFBF /* Timetable */ = {
+			isa = PBXGroup;
+			children = (
+				59F30B8D233258EA06EF5C3F /* TimetableView.swift */,
+			);
+			path = Timetable;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		56E4758AD912D983C2558AE5 /* FirkaNative */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F2E9A29D3A91951FA69E68B4 /* Build configuration list for PBXNativeTarget "FirkaNative" */;
+			buildPhases = (
+				3E14FD8932009DC7920CB0B9 /* Sources */,
+				CA877889C0AB3EDC01E1D036 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FirkaNative;
+			packageProductDependencies = (
+			);
+			productName = FirkaNative;
+			productReference = BC89A187DB0FE5F77272A82D /* FirkaNative.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		DD5C1FFC907970A2CF781FD0 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					56E4758AD912D983C2558AE5 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = A39FEDC179B426FEF69FEA1F /* Build configuration list for PBXProject "FirkaNative" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 262C969447139C83A571ECA2;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = C00F1FC003C2E7433AA571E7 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				56E4758AD912D983C2558AE5 /* FirkaNative */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		CA877889C0AB3EDC01E1D036 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3FFD3A2CC6C4AEBAE82E3F1F /* Assets.xcassets in Resources */,
+				9C329203D19D3483DBFBFA8F /* ic_rounded.png in Resources */,
+				9AE53165649C2AFC40CE041A /* ic_splash.png in Resources */,
+				4E337411BD02AF2944218378 /* showcase1.png in Resources */,
+				09E42F55A4F547C7488A74A5 /* showcase2.png in Resources */,
+				F7794CCCD968A9BF0F941DBF /* showcase3.png in Resources */,
+				5F0E2B5B50A9A17947BE312B /* showcase4.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		3E14FD8932009DC7920CB0B9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A684D221ECAF35D098A7AB2 /* AbsencesView.swift in Sources */,
+				18FCC66C279B92D23058CDE5 /* AppColors.swift in Sources */,
+				C0A45087154D166DEC11C754 /* AppTheme.swift in Sources */,
+				073D3988576FBC4F813C135E /* AuthViewModel.swift in Sources */,
+				404D3BD7E25B9813F614EB13 /* ContentView.swift in Sources */,
+				10964B5F60D7C9EC223655BF /* FeedView.swift in Sources */,
+				A515B39998D59877DB5516A0 /* FilterBarView.swift in Sources */,
+				403EB93D97AE3F9126BB677D /* FirkaNativeApp.swift in Sources */,
+				6A6102A830B1A0900B670AAC /* GradesView.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5C /* CompletedStore.swift in Sources */,
+				FE7A7B059C38FBE9605A9627 /* GradingLogic.swift in Sources */,
+				C3D4E5F6A7B808192A3B4C5D /* GradeCircle.swift in Sources */,
+				2F1366D87ACE3AA16704FEB5 /* HomeView.swift in Sources */,
+				45CFF760D9F9A1E1E4C0C780 /* HomeViewModel.swift in Sources */,
+				0A07C81DA581384532872A32 /* KeychainHelper.swift in Sources */,
+				9CA48AD8752137670FA14CF6 /* KretaAPI.swift in Sources */,
+				5D01A7665A8E20CAC6980EC1 /* KretaClient.swift in Sources */,
+				77A181BA4BA2A1A4E7235D1C /* KretaModels.swift in Sources */,
+				8D970B6EF20F3EDECFFE2828 /* KretaWebView.swift in Sources */,
+				0D633E7D7B2C8EFCBA3D7326 /* LiveCardView.swift in Sources */,
+				D8DC257E9306B28CA9DC959E /* LoginView.swift in Sources */,
+				387DEDE1D34B513E213A2F8A /* MainTabView.swift in Sources */,
+				D36205A633CE5504F0289049 /* NotesView.swift in Sources */,
+				3119A6B5D8552DDBEE274646 /* ProfileImageView.swift in Sources */,
+				2AA3D9E30982EA87FD4EFB1B /* RootViewModel.swift in Sources */,
+				7D04EF71A658AA518E13DEFA /* RoundingDetailView.swift in Sources */,
+				C85BDA46A9060FC6AA36E18D /* SessionStore.swift in Sources */,
+				AF22350B190A40F5D4AEE6AE /* SettingsView.swift in Sources */,
+				AD2BBE78306029BA1A6E0761 /* Student.swift in Sources */,
+				8E3787C6575C1D32BD198C2A /* SubjectDetailView.swift in Sources */,
+				F2AAF51DA4072A9050F36513 /* ThemeStore.swift in Sources */,
+				1ABB8E9799CFFDA57AC575EF /* TimetableView.swift in Sources */,
+				97FF2BFB3F74B5BA6F6C6A9C /* User.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		3BCFCA4F33871124E308F747 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = K3XA6V2Q36;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Profilkép készítéséhez kamera hozzáférés szükséges.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Profilkép beállításához hozzáférés a fotókönyvtárhoz szükséges.";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = hu.firka.native.FirkaNative;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		50E04D7BF0B6C1ABC44057A5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A67EF7D5559D265D66118957 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = K3XA6V2Q36;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Profilkép készítéséhez kamera hozzáférés szükséges.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Profilkép beállításához hozzáférés a fotókönyvtárhoz szükséges.";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = hu.firka.native.FirkaNative;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B55E718437B08ADC1457ED5B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A39FEDC179B426FEF69FEA1F /* Build configuration list for PBXProject "FirkaNative" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				50E04D7BF0B6C1ABC44057A5 /* Debug */,
+				B55E718437B08ADC1457ED5B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F2E9A29D3A91951FA69E68B4 /* Build configuration list for PBXNativeTarget "FirkaNative" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A67EF7D5559D265D66118957 /* Debug */,
+				3BCFCA4F33871124E308F747 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = DD5C1FFC907970A2CF781FD0 /* Project object */;
+}
