@@ -48,11 +48,11 @@ struct GradesView: View {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("ÖSSZÁTLAG").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).tracking(1)
                                         Text(String(format: "%.2f", overallEvkozi)).font(.system(size: 34, weight: .bold, design: .rounded))
-                                        Text("kerekítve \(String(format: "%.2f", overallRoundedEvkozi))").font(.caption2.weight(.medium)).foregroundStyle(.secondary)
                                     }
                                     Spacer()
                                     VStack(alignment: .trailing, spacing: 2) {
-                                        Text(trendEvkozi).font(.caption.weight(.bold)).foregroundStyle(trendColorEvkozi)
+                                        Text("KEREKÍTVE").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).tracking(1)
+                                        Text(String(format: "%.2f", overallRoundedEvkozi)).font(.system(size: 34, weight: .bold, design: .rounded))
                                     }
                                 }
                                 .listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -82,13 +82,7 @@ struct GradesView: View {
                                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                             }
                             Section {
-                                VStack(spacing: 4) {
-                                    Text("\(evkoziGrades.count) jegy • \(groupedEvkozi.count) tárgy").font(.subheadline).foregroundStyle(.secondary)
-                                    Text(trendEvkozi).font(.subheadline.weight(.bold)).foregroundStyle(trendColorEvkozi)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .multilineTextAlignment(.center)
-                                .padding(.vertical, 4)
+                                Text("\(evkoziGrades.count) jegy • \(groupedEvkozi.count) tárgy").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center)
                             }
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
@@ -104,9 +98,6 @@ struct GradesView: View {
                                         Text(String(format: "%.2f", overallFelevi)).font(.system(size: 34, weight: .bold, design: .rounded))
                                     }
                                     Spacer()
-                                    VStack(alignment: .trailing, spacing: 2) {
-                                        Text(trendFelevi).font(.caption.weight(.bold)).foregroundStyle(trendColorFelevi)
-                                    }
                                 }
                                 .listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                             }
@@ -131,13 +122,7 @@ struct GradesView: View {
                                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                             }
                             Section {
-                                VStack(spacing: 4) {
-                                    Text("\(feleviGrades.count) jegy • \(groupedFelevi.count) tárgy").font(.subheadline).foregroundStyle(.secondary)
-                                    Text(trendFelevi).font(.subheadline.weight(.bold)).foregroundStyle(trendColorFelevi)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .multilineTextAlignment(.center)
-                                .padding(.vertical, 4)
+                                Text("\(feleviGrades.count) jegy • \(groupedFelevi.count) tárgy").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center)
                             }
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
@@ -153,10 +138,6 @@ struct GradesView: View {
                                         Text(String(format: "%.2f", overallEvvegi)).font(.system(size: 34, weight: .bold, design: .rounded))
                                     }
                                     Spacer()
-                                    VStack(alignment: .trailing, spacing: 2) {
-                                        Text("\(evvegiGrades.count) jegy • \(groupedEvvegi.count) tárgy").font(.caption).foregroundStyle(.secondary)
-                                        Text(trendEvvegi).font(.caption.weight(.bold)).foregroundStyle(trendColorEvvegi)
-                                    }
                                 }
                                 .listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                             }
