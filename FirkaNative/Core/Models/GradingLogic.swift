@@ -41,12 +41,13 @@ enum GradingLogic {
         return roundedGrade(raw: raw, threshold: threshold(for: subject))
     }
 
-    // Overall = average of subject averages (rounded? spec says from subject averages)
-    // We compute overall as mean of subject weighted averages (raw), then round not needed — display raw.
+    // Overall = átlag a KEREKÍTETT jegyekből (nem a nyers matematikai átlagok átlaga)
     static func overallAverage(grouped: [String: [GradeItem]]) -> Double {
         guard !grouped.isEmpty else { return 0 }
-        let subjectAvgs = grouped.values.map { weightedAverage($0) }
-        return subjectAvgs.reduce(0, +) / Double(subjectAvgs.count)
+        let roundedPerSubject = grouped.map { (subject, grades) in
+            Double(roundedForSubject(grades, subject: subject))
+        }
+        return roundedPerSubject.reduce(0, +) / Double(roundedPerSubject.count)
     }
 
     // Target planner: how many grades of `desiredValue` needed to reach target rounded grade?
