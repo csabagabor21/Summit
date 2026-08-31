@@ -69,20 +69,27 @@ struct HomeView: View {
                 } header: { Text("Előnézet").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
                 .listRowBackground(colors.surface)
 
-                // Legújabb jegyek — same liquid glass circle as GradesView (colored number, neutral glass border)
+                // Legújabb jegyek — koppintva a tantárgyba visz
                 Section {
                     if vm.grades.isEmpty {
                         Text("Nincs jegy").foregroundStyle(.secondary)
                     } else {
                         ForEach(vm.grades.sorted { $0.date > $1.date }.prefix(3)) { g in
-                            HStack(spacing: 10) {
-                                GradeCircle(value: g.value, size: 32)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(g.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                    Text(g.type).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            NavigationLink {
+                                let grouped = Dictionary(grouping: vm.grades, by: { $0.subject })
+                                SubjectDetailView(subject: g.subject, grades: (grouped[g.subject] ?? [g]).sorted { $0.date < $1.date })
+                            } label: {
+                                HStack(spacing: 10) {
+                                    GradeCircle(value: g.value, size: 32)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(g.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
+                                        if !g.topic.isEmpty {
+                                            Text(g.topic).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                        }
+                                    }
+                                    Spacer()
+                                    Text(g.date.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.secondary)
                                 }
-                                Spacer()
-                                Text(g.date.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.secondary)
                             }
                         }
                         NavigationLink("Összes jegy") { GradesView() }

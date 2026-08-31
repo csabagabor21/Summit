@@ -10,6 +10,7 @@ struct GradeItem: Identifiable, Hashable {
     let teacher: String
     let type: String
     let weight: Int
+    var topic: String = "" // Tema — mire kapta a jegyet (API: Tema)
 }
 struct LessonItem: Identifiable, Hashable {
     let id: String
@@ -89,7 +90,8 @@ struct KretaGradeDTO: Decodable {
             date: parse(KeszitesDatuma ?? RogzitesDatuma),
             teacher: (ErtekeloTanarNeve ?? "").trimmingCharacters(in: .whitespaces),
             type: Tipus?.Nev ?? "Értékelés",
-            weight: SulySzazalekErteke ?? 100
+            weight: SulySzazalekErteke ?? 100,
+            topic: (Tema ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         )
     }
 }
