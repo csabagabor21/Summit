@@ -71,13 +71,13 @@ struct SubjectDetailView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
 
-                // Graph — editorial doboz, picker a tetején belül, smooth vonal animáció
-                VStack(spacing: 10) {
+                // Graph — egy doboz a jegyek listával egységesen, picker belül
+                VStack(spacing: 12) {
+                    Text("Átlag és grafikon").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase).frame(maxWidth: .infinity, alignment: .leading)
                     Picker("", selection: $graphRange) {
                         ForEach(GraphRange.allCases) { r in Text(r.title).tag(r) }
                     }
                     .pickerStyle(.segmented)
-                    .animation(.spring(response: 0.35, dampingFraction: 0.85), value: graphRange)
 
                     Group {
                         if chartGrades.count >= 2 {
@@ -91,19 +91,19 @@ struct SubjectDetailView: View {
                                 .transition(.opacity)
                         }
                     }
-                    .animation(.spring(response: 0.5, dampingFraction: 0.86), value: chartGrades.map(\.id))
+                    .animation(.spring(response: 0.55, dampingFraction: 0.85), value: chartGrades)
                     .animation(.spring(response: 0.35, dampingFraction: 0.85), value: graphRange)
                 }
-                .padding(12)
+                .padding(14)
                 .background(
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.primary.opacity(0.02))
-                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
+                        .fill(colors.surface)
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(colors.border.opacity(0.9), lineWidth: 1))
                 )
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-            } header: { Text("Átlag és grafikon").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
+            } header: { EmptyView() }
 
             Section {
                 ForEach(allGrades.sorted(by: { $0.date > $1.date })) { g in

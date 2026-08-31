@@ -71,8 +71,7 @@ struct GradeChartView: View {
                 }
             }
             .padding(.vertical, editorial ? 2 : 6)
-            .animation(.easeInOut(duration: 0.5), value: displayPoints.map { $0.avg })
-            .animation(.spring(response: 0.5, dampingFraction: 0.86), value: displayGrades.map(\.id))
+            .animation(.spring(response: 0.6, dampingFraction: 0.85), value: displayGrades)
             .transition(.opacity.combined(with: .scale(scale: 0.98)))
         }
     }
