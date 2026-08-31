@@ -82,8 +82,8 @@ struct SubjectDetailView: View {
 
                 Group {
                     if chartGrades.count >= 2 {
-                        GradeChartView(grades: chartGrades, accent: colors.accent, showTarget: targetGrade, height: 190)
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        GradeChartView(grades: chartGrades, accent: colors.accent, showTarget: targetGrade, height: 170, editorial: true)
+                            .transition(.opacity.combined(with: .scale(scale: 0.98)))
                     } else if allGrades.count >= 2 {
                         ContentUnavailableView("Nincs adat ebben az időszakban", systemImage: "calendar", description: Text("Válassz nagyobb időtávot vagy adj hozzá jegyet."))
                             .transition(.opacity)
