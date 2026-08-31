@@ -278,7 +278,6 @@ private struct HomeLiveCard: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Label("Jó reggelt!", systemImage: "sun.max.fill").font(.headline)
                         if let n = calc.next {
-                            // Subject large, own line
                             Text(n.subject)
                                 .font(.system(size: 26, weight: .bold, design: .rounded))
                                 .lineLimit(1)
@@ -286,7 +285,10 @@ private struct HomeLiveCard: View {
                                 if let lbl = n.substitutionLabel {
                                     Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(Capsule().fill(n.isCancelled ? Color.red : Color.orange))
                                 }
-                                Text("\(n.room) • \(n.teacher)").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                // hanyadik óra + terem egymás mellett (API: TeremNeve)
+                                Text("\(n.index). óra • \(n.room)").font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
+                                Text("•").foregroundStyle(.tertiary)
+                                Text(n.teacher).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                                 Spacer()
                                 Text(n.start.formatted(date: .omitted, time: .shortened)).font(.caption.weight(.medium).monospacedDigit()).foregroundStyle(.secondary)
                             }
@@ -304,11 +306,11 @@ private struct HomeLiveCard: View {
                             Text(c.subject)
                                 .font(.system(size: 28, weight: .bold, design: .rounded))
                                 .lineLimit(1)
-                            // Teacher • Room • Time — secondary, no "x. óra" capsule
+                            // hanyadik óra + terem egymás mellett — külön nem hangsúlyos kapszula
                             HStack(spacing: 6) {
-                                Text(c.teacher).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                Text("\(c.index). óra • \(c.room)").font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
                                 Text("•").foregroundStyle(.tertiary)
-                                Text(c.room).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                Text(c.teacher).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                                 Spacer()
                                 Text("\(c.start.formatted(date: .omitted, time: .shortened))–\(c.end.formatted(date: .omitted, time: .shortened))").font(.caption.monospacedDigit()).foregroundStyle(.tertiary)
                             }
@@ -326,7 +328,7 @@ private struct HomeLiveCard: View {
                                 Divider().opacity(0.5)
                                 HStack(spacing: 6) {
                                     Image(systemName: "arrow.right.circle.fill").font(.caption).foregroundStyle(.secondary)
-                                    Text("Következő: \(n.subject)").font(.caption.weight(.medium)).foregroundStyle(.secondary).lineLimit(1)
+                                    Text("Következő: \(n.subject) • \(n.room)").font(.caption.weight(.medium)).foregroundStyle(.secondary).lineLimit(1)
                                     if let lbl = n.substitutionLabel {
                                         Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(n.isCancelled ? Color.red : Color.orange).padding(.horizontal, 5).padding(.vertical, 2).background(Capsule().fill((n.isCancelled ? Color.red : Color.orange).opacity(0.14)))
                                     }
@@ -348,7 +350,7 @@ private struct HomeLiveCard: View {
                                 if let lbl = n.substitutionLabel {
                                     Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(Capsule().fill(n.isCancelled ? Color.red : Color.orange))
                                 }
-                                Text("\(n.room) • \(n.teacher)").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                Text("\(n.index). óra • \(n.room) • \(n.teacher)").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                                 Spacer()
                                 Text(n.start.formatted(date: .omitted, time: .shortened)).font(.caption.weight(.medium).monospacedDigit()).foregroundStyle(.secondary)
                             }
