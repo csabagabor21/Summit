@@ -88,9 +88,22 @@ struct GradesView: View {
                         if feleviGrades.isEmpty {
                             ContentUnavailableView("Nincs félévi jegy", systemImage: "star.slash", description: Text("Még nem érkezett félévi értékelés."))
                         } else {
+                            Section {
+                                HStack(alignment: .firstTextBaseline) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("FÉLÉVI ÁTLAG").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).tracking(1)
+                                        Text(String(format: "%.2f", overallFelevi)).font(.system(size: 34, weight: .bold, design: .rounded))
+                                    }
+                                    Spacer()
+                                    VStack(alignment: .trailing, spacing: 2) {
+                                        Text("\(feleviGrades.count) jegy • \(groupedFelevi.count) tárgy").font(.caption).foregroundStyle(.secondary)
+                                        Text(trendFelevi).font(.caption.weight(.bold)).foregroundStyle(trendColorFelevi)
+                                    }
+                                }
+                                .listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            }
                             ForEach(groupedFelevi.keys.sorted(), id: \.self) { subject in
                                 let items = groupedFelevi[subject]!
-                                // legfrissebb félévi jegy per tárgy
                                 let latest = items.sorted { $0.date > $1.date }.first!
                                 HStack(spacing: 12) {
                                     ZStack {
@@ -114,6 +127,20 @@ struct GradesView: View {
                         if evvegiGrades.isEmpty {
                             ContentUnavailableView("Nincs év végi jegy", systemImage: "star.slash", description: Text("Még nem érkezett év végi értékelés."))
                         } else {
+                            Section {
+                                HStack(alignment: .firstTextBaseline) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("ÉV VÉGI ÁTLAG").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).tracking(1)
+                                        Text(String(format: "%.2f", overallEvvegi)).font(.system(size: 34, weight: .bold, design: .rounded))
+                                    }
+                                    Spacer()
+                                    VStack(alignment: .trailing, spacing: 2) {
+                                        Text("\(evvegiGrades.count) jegy • \(groupedEvvegi.count) tárgy").font(.caption).foregroundStyle(.secondary)
+                                        Text(trendEvvegi).font(.caption.weight(.bold)).foregroundStyle(trendColorEvvegi)
+                                    }
+                                }
+                                .listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            }
                             ForEach(groupedEvvegi.keys.sorted(), id: \.self) { subject in
                                 let items = groupedEvvegi[subject]!
                                 let latest = items.sorted { $0.date > $1.date }.first!
@@ -175,10 +202,16 @@ struct GradesView: View {
     var groupedFelevi: [String: [GradeItem]] { Dictionary(grouping: feleviGrades, by: { $0.subject }) }
     var groupedEvvegi: [String: [GradeItem]] { Dictionary(grouping: evvegiGrades, by: { $0.subject }) }
 
-    // overall csak évköziből, félévi/évvégi nem számít bele
+    // overall csak évköziből, félévi/évvégi nem számít bele az évközi átlagba
     var overallEvkozi: Double { GradingLogic.overallAverage(grouped: groupedEvkozi) }
+    var overallFelevi: Double { guard !groupedFelevi.isEmpty else { return 0 }; let avgs = groupedFelevi.values.compactMap { $0.sorted { $0.date > $1.date }.first?.value }.map(Double.init); return avgs.isEmpty ? 0 : avgs.reduce(0, +) / Double(avgs.count) }
+    var overallEvvegi: Double { guard !groupedEvvegi.isEmpty else { return 0 }; let avgs = groupedEvvegi.values.compactMap { $0.sorted { $0.date > $1.date }.first?.value }.map(Double.init); return avgs.isEmpty ? 0 : avgs.reduce(0, +) / Double(avgs.count) }
     var trendEvkozi: String { overallEvkozi >= 4 ? "Kiváló" : overallEvkozi >= 3.5 ? "Jó" : "Fejlődő" }
+    var trendFelevi: String { overallFelevi >= 4 ? "Kiváló" : overallFelevi >= 3.5 ? "Jó" : "Fejlődő" }
+    var trendEvvegi: String { overallEvvegi >= 4 ? "Kiváló" : overallEvvegi >= 3.5 ? "Jó" : "Fejlődő" }
     var trendColorEvkozi: Color { overallEvkozi >= 4 ? colors.green : overallEvkozi >= 3.5 ? colors.yellow : colors.orange }
+    var trendColorFelevi: Color { overallFelevi >= 4 ? colors.green : overallFelevi >= 3.5 ? colors.yellow : colors.orange }
+    var trendColorEvvegi: Color { overallEvvegi >= 4 ? colors.green : overallEvvegi >= 3.5 ? colors.yellow : colors.orange }
 
     // legacy for compatibility ( évközi )
     var grouped: [String: [GradeItem]] { groupedEvkozi }
