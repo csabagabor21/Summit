@@ -42,6 +42,7 @@
 		C0A45087154D166DEC11C754 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 747C2454C579E5397A435BF0 /* AppTheme.swift */; };
 		C3D4E5F6A7B808192A3B4C5D /* GradeCircle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F6A7B8C09182A3B4C5D6 /* GradeCircle.swift */; };
 		C85BDA46A9060FC6AA36E18D /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2181B0D30498DBAAEC654C1D /* SessionStore.swift */; };
+		A1B2C3D4E5F6A7B8C9D0E1F3 /* ProfileImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* ProfileImageStore.swift */; };
 		D36205A633CE5504F0289049 /* NotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67BD9354BA995DA687993EB /* NotesView.swift */; };
 		D8DC257E9306B28CA9DC959E /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DF643AB64978AEC8C32327A /* LoginView.swift */; };
 		F2AAF51DA4072A9050F36513 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25454AE0DF892F0ED1F9C512 /* ThemeStore.swift */; };
@@ -53,6 +54,7 @@
 		0D54A21CA8DC4F8ACE664617 /* KretaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaClient.swift; sourceTree = "<group>"; };
 		0DF643AB64978AEC8C32327A /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		2181B0D30498DBAAEC654C1D /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E1F2 /* ProfileImageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileImageStore.swift; sourceTree = "<group>"; };
 		247520F6638365B456FBFA9C /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
 		25454AE0DF892F0ED1F9C512 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
 		25A705B9979778822654BD69 /* FilterBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBarView.swift; sourceTree = "<group>"; };
@@ -173,6 +175,7 @@
 				B1C2D3E4F5A60718293A4B5D /* CompletedStore.swift */,
 				EC7FB1C72834344E7C3B2E73 /* KeychainHelper.swift */,
 				2181B0D30498DBAAEC654C1D /* SessionStore.swift */,
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* ProfileImageStore.swift */,
 			);
 			path = Storage;
 			sourceTree = "<group>";
@@ -388,6 +391,7 @@
 				2AA3D9E30982EA87FD4EFB1B /* RootViewModel.swift in Sources */,
 				7D04EF71A658AA518E13DEFA /* RoundingDetailView.swift in Sources */,
 				C85BDA46A9060FC6AA36E18D /* SessionStore.swift in Sources */,
+				A1B2C3D4E5F6A7B8C9D0E1F3 /* ProfileImageStore.swift in Sources */,
 				AF22350B190A40F5D4AEE6AE /* SettingsView.swift in Sources */,
 				AD2BBE78306029BA1A6E0761 /* Student.swift in Sources */,
 				8E3787C6575C1D32BD198C2A /* SubjectDetailView.swift in Sources */,
