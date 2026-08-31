@@ -39,7 +39,7 @@ final class ThemeStore: ObservableObject {
 
     // Preset accent colors — simple to change
     static let presets: [Int] = [
-        0xA7DC22, // Firka lime
+        0xA7DC22, // Flint lime
         0x4A90E2, // Apple blue
         0xFF6B6B, // Coral
         0x8B5CF6, // Violet

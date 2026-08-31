@@ -123,8 +123,8 @@ struct SettingsView: View {
                 }
             }
 
-            Section(footer: Text("FirkaNative • iOS 26 • Liquid Glass • \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")").font(.caption2).foregroundStyle(.tertiary).frame(maxWidth:.infinity)) {
-                Link("Adatkezelés", destination: URL(string: "https://firka.app/privacy")!)
+            Section(footer: Text("Flint • iOS 26 • Liquid Glass • \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")").font(.caption2).foregroundStyle(.tertiary).frame(maxWidth:.infinity)) {
+                Link("Adatkezelés", destination: URL(string: "https://flint.app/privacy")!)
             }
         }
         .listStyle(.insetGrouped)

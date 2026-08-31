@@ -1,4 +1,4 @@
-# FirkaNative
+# Flint
 
 Nem hivatalos e-KRÉTA kliens iOS-re — SwiftUI, iOS 26, Liquid Glass.
 
@@ -7,32 +7,32 @@ Nem hivatalos e-KRÉTA kliens iOS-re — SwiftUI, iOS 26, Liquid Glass.
 - Órarend, házi feladatok, dolgozatok, hiányzások, üzenetek
 - Élő órakártya TimelineView-val, következő óra + rögzített dolgozat/házi
 - Profilkép per-felhasználó (fotókönyvtár, 512px, Documents tárolás)
-- Téma: rendszer / világos / sötét + accent színválasztó, semleges sötét háttér (nem zöld)
+- Téma: rendszer / világos / sötét + accent színválasztó, semleges háttér
 
 ## Követelmények
 - iOS 26.0+
 - Xcode 15+
-- XcodeGen (opcionális, `project.yml` -> `FirkaNative.xcodeproj`)
+- XcodeGen (opcionális, `project.yml` -> `Flint.xcodeproj`)
 
 ## Telepítés
 ```bash
 # klónozás
 git clone <repo-url>
-cd FirkaNative
+cd Flint
 
 # projekt generálás (ha van xcodegen)
 xcodegen generate
 
 # megnyitás
-open FirkaNative.xcodeproj
+open Flint.xcodeproj
 ```
 
-`project.yml` a `bundleIdPrefix: hu.firka.native` alatt generálja a projektet.
+`project.yml` a `bundleIdPrefix: hu.flint.app` alatt generálja a projektet.
 
 ## Projekt struktúra
 ```
 FirkaNative/
-  App/          ContentView, FirkaNativeApp, RootViewModel
+  App/          ContentView, FlintApp, RootViewModel
   Core/
     Models/     KretaModels, GradingLogic, User
     Networking/ KretaAPI, KretaClient
@@ -48,5 +48,5 @@ FirkaNative/
 ```
 
 ## Jegyzetek
-- e-KRÉTA API: `KretaAPI` + `KretaClient` (Bearer token, JWT institute_code)
+- e-KRÉTA API: `KretaAPI` + `KretaClient` (Bearer access_token, JWT institute_code)
 - Demo mód: 10x tap a login ikonon, offline adatok `DemoData`-ból

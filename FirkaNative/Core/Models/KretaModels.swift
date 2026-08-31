@@ -295,23 +295,45 @@ enum DemoData {
             ("Kémia","B1","Kiss","5",12,0),
             ("Irodalom","C2","Szabó K.","6",13,0),
         ]
-        return defs.enumerated().map { idx, d in
+        var items = defs.enumerated().map { idx, d in
             let s = cal.date(byAdding: .hour, value: d.4, to: base)!.addingTimeInterval(Double(d.5*60))
             let e = s.addingTimeInterval(45*60)
             return LessonItem(id: "lt\(idx)", subject: d.0, room: d.1, start: s, end: e, teacher: d.2, index: d.3)
         }
+        // Hétfőre (weekday 2) legyen 1 elmaradt + 1 helyettesítés — csak ha ma hétfő
+        if cal.component(.weekday, from: base) == 2, items.count >= 4 {
+            items[2] = LessonItem(id: items[2].id, subject: items[2].subject, room: items[2].room, start: items[2].start, end: items[2].end, teacher: items[2].teacher, index: items[2].index, isSubstituted: false, isCancelled: true, originalTeacher: items[2].teacher)
+            items[3] = LessonItem(id: items[3].id, subject: items[3].subject, room: items[3].room, start: items[3].start, end: items[3].end, teacher: "Helyettes Tanár", index: items[3].index, isSubstituted: true, isCancelled: false, originalTeacher: items[3].teacher)
+        }
+        return items
     }
     static func lessonsExpanded() -> [LessonItem] {
-        // Keep for Timetable preview: repeat lessonsToday for a full-week mock
-        let today = lessonsToday()
         let cal = Calendar.current
-        // expand to Mon-Fri by shifting days
+        // Hétfő dátuma ehhez a héthez (weekday 2)
+        let today = cal.startOfDay(for: Date())
+        let weekday = cal.component(.weekday, from: today)
+        let mondayOffset = (weekday == 1 ? -6 : 2 - weekday) // hétfőig hátralévő napok
+        let monday = cal.date(byAdding: .day, value: mondayOffset, to: today)!
+        let defs: [(String,String,String,String,Int,Int)] = [
+            ("Matek","A1","Kovács J.","1",8,0),
+            ("Angol","B2","Smith","2",9,0),
+            ("Fizika","C4","Varga","3",10,0),
+            ("Töri","A3","Nagy A.","4",11,0),
+            ("Kémia","B1","Kiss","5",12,0),
+            ("Irodalom","C2","Szabó K.","6",13,0),
+        ]
         var all: [LessonItem] = []
         for dayOffset in 0..<5 {
-            for l in today {
-                let s = cal.date(byAdding: .day, value: dayOffset, to: l.start)!
-                let e = cal.date(byAdding: .day, value: dayOffset, to: l.end)!
-                all.append(LessonItem(id: "\(l.id)-d\(dayOffset)", subject: l.subject, room: l.room, start: s, end: e, teacher: l.teacher, index: l.index))
+            let dayBase = cal.date(byAdding: .day, value: dayOffset, to: monday)!
+            let isMonday = dayOffset == 0
+            for (idx, d) in defs.enumerated() {
+                let s = cal.date(byAdding: .hour, value: d.4, to: dayBase)!.addingTimeInterval(Double(d.5*60))
+                let e = s.addingTimeInterval(45*60)
+                let isCancelled = isMonday && idx == 2
+                let isSubstituted = isMonday && idx == 3
+                let teacher = isSubstituted ? "Helyettes Tanár" : d.2
+                let original: String? = isSubstituted ? d.2 : (isCancelled ? d.2 : nil)
+                all.append(LessonItem(id: "lt\(idx)-d\(dayOffset)", subject: d.0, room: d.1, start: s, end: e, teacher: teacher, index: d.3, isSubstituted: isSubstituted, isCancelled: isCancelled, originalTeacher: original))
             }
         }
         return all

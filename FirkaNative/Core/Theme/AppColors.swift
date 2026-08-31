@@ -67,34 +67,35 @@ struct AppColors {
     )
 
     static let lightRevamped = AppColors(
-        background: Color(hex: 0xF6F7F6), // Apple.com-like light
-        backgroundGradientTop: Color(hex: 0xFFFFFF).opacity(1),
-        backgroundGradientBottom: Color(hex: 0xF0F2F0).opacity(1),
-        surface: Color.white.opacity(0.92),
-        surfaceElevated: Color.white.opacity(1),
-        text: Color(hex: 0x0A0F0A),
-        textSecondary: Color(hex: 0x0A0F0A).opacity(0.62),
-        textTertiary: Color(hex: 0x0A0F0A).opacity(0.38),
+        background: Color(hex: 0xEEEFF2), // semleges szürke — nem zöld, kontrasztos a fehér kártyához
+        backgroundGradientTop: Color(hex: 0xF5F5F7).opacity(1),
+        backgroundGradientBottom: Color(hex: 0xE6E7EB).opacity(1),
+        surface: Color.white,
+        surfaceElevated: Color.white,
+        text: Color(hex: 0x0B1210),
+        textSecondary: Color(hex: 0x0B1210).opacity(0.72),
+        textTertiary: Color(hex: 0x0B1210).opacity(0.50),
         accent: Color(hex: 0xA7DC22),
-        accentSoft: Color(hex: 0xA7DC22).opacity(0.14),
-        border: Color.black.opacity(0.06),
-        shadow: Color.black.opacity(0.10),
-        red: Color(hex: 0xE11D48),
-        orange: Color(hex: 0xEA580C),
-        yellow: Color(hex: 0xCA8A04),
-        green: Color(hex: 0x16A34A),
-        teal: Color(hex: 0x0D9488),
-        blue: Color(hex: 0x2563EB),
-        purple: Color(hex: 0x7C3AED),
-        pink: Color(hex: 0xDB2777),
-        gradeFive: Color(hex: 0x0E9F6E),
-        gradeFour: Color(hex: 0x84CC16),
-        gradeThree: Color(hex: 0xEAB308),
-        gradeTwo: Color(hex: 0xF97316),
-        gradeOne: Color(hex: 0xEC4899),
-        loginPrimary: Color(hex: 0x0A0F0A),
-        loginSecondary: Color(hex: 0x0A0F0A).opacity(0.60),
-        loginBackground: Color(hex: 0xF6F7F6)
+        accentSoft: Color(hex: 0xA7DC22).opacity(0.18),
+        border: Color.black.opacity(0.11),
+        shadow: Color.black.opacity(0.09),
+        // sötétebb, telítettebb színek — világos háttéren is kontrasztosak
+        red: Color(hex: 0xC81E3A),
+        orange: Color(hex: 0xC2410C),
+        yellow: Color(hex: 0xA16207),
+        green: Color(hex: 0x15803D),
+        teal: Color(hex: 0x0F766E),
+        blue: Color(hex: 0x1D4ED8),
+        purple: Color(hex: 0x6D28D9),
+        pink: Color(hex: 0xBE185D),
+        gradeFive: Color(hex: 0x0A7F5A),
+        gradeFour: Color(hex: 0x65A30D),
+        gradeThree: Color(hex: 0xCA8A04),
+        gradeTwo: Color(hex: 0xEA580C),
+        gradeOne: Color(hex: 0xE11D48),
+        loginPrimary: Color(hex: 0x0B1210),
+        loginSecondary: Color(hex: 0x0B1210).opacity(0.68),
+        loginBackground: Color(hex: 0xEEEFF2)
     )
 
     static let light = lightRevamped

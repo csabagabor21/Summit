@@ -21,10 +21,12 @@ enum GradingLogic {
 
     // Weighted average: sum(value * weight) / sum(weight)
     // Weight is SulySzazalek (100 = 1x, 200 = 2x). Normalize to /100.
+    // 0-s jegy nem számít (nem kerül átlagba és grafikonra sem)
     static func weightedAverage(_ grades: [GradeItem]) -> Double {
-        guard !grades.isEmpty else { return 0 }
-        let sum = grades.reduce(0.0) { $0 + Double($1.value) * Double($1.weight) / 100.0 }
-        let w = grades.reduce(0.0) { $0 + Double($1.weight) / 100.0 }
+        let valid = grades.filter { $0.value != 0 }
+        guard !valid.isEmpty else { return 0 }
+        let sum = valid.reduce(0.0) { $0 + Double($1.value) * Double($1.weight) / 100.0 }
+        let w = valid.reduce(0.0) { $0 + Double($1.weight) / 100.0 }
         guard w > 0 else { return 0 }
         return sum / w
     }

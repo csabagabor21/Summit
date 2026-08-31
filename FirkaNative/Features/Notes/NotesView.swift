@@ -14,38 +14,67 @@ struct NotesView: View {
     var body: some View {
         NavigationStack {
             List {
-                Picker("", selection: $filter) {
-                    Text("Mind").tag(0); Text("Határidős").tag(1); Text("Kész").tag(2)
+                Section {
+                    Picker("", selection: $filter) {
+                        Text("Mind").tag(0); Text("Határidős").tag(1); Text("Kész").tag(2)
+                    }
+                    .pickerStyle(.segmented)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
+                    .listRowSeparator(.hidden)
+                    .animation(.spring(response: 0.34, dampingFraction: 0.82), value: filter)
                 }
-                .pickerStyle(.segmented)
-                .listRowBackground(Color.clear).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16)).listRowSeparator(.hidden)
 
                 if isLoading {
-                    ForEach(0..<3, id: \.self) { _ in Text("").redacted(reason: .placeholder) }
-                } else if filtered.isEmpty {
-                    ContentUnavailableView("Nincs feladat", systemImage: "checklist", description: Text("Minden kész"))
-                } else {
-                    ForEach(filtered) { hw in
-                        let done = completed.isHomeworkDone(hw.id) || hw.isDone
-                        HStack(spacing: 10) {
-                            Button { withAnimation(.spring(response: 0.3)) { completed.toggleHomework(hw.id) } } label: {
-                                Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                                    .font(.system(size: 22))
-                                    .foregroundStyle(done ? Color.green : .secondary)
-                            }
-                            .buttonStyle(.plain)
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack { Text(hw.subject).font(.subheadline.weight(.semibold)); Spacer(); Text(hw.deadline.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.primary.opacity(0.06))) }
-                                Text(hw.title.isEmpty ? "(nincs leírás)" : hw.title).font(.callout).foregroundStyle(.secondary).lineLimit(3)
-                            }
-                        }
-                        .listRowBackground(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : Color.clear)
+                    ForEach(0..<3, id: \.self) { _ in
+                        HStack { Text("Betöltés…").redacted(reason: .placeholder) }
+                            .listRowBackground(colors.surface)
                     }
+                } else if filtered.isEmpty {
+                    Section {
+                        ContentUnavailableView("Nincs feladat", systemImage: "checklist", description: Text("Minden kész"))
+                            .frame(maxWidth: .infinity, minHeight: 220)
+                            .padding(.vertical, 16)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 24, leading: 16, bottom: 24, trailing: 16))
+                            .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                    }
+                } else {
+                    Section {
+                        ForEach(filtered, id: \.id) { hw in
+                            let done = completed.isHomeworkDone(hw.id) || hw.isDone
+                            HStack(spacing: 10) {
+                                Button { withAnimation(.spring(response: 0.3)) { completed.toggleHomework(hw.id) } } label: {
+                                    Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                                        .font(.system(size: 22))
+                                        .foregroundStyle(done ? Color.green : .secondary)
+                                }
+                                .buttonStyle(.plain)
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack { Text(hw.subject).font(.subheadline.weight(.semibold)); Spacer(); Text(hw.deadline.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.primary.opacity(0.06))) }
+                                    Text(hw.title.isEmpty ? "(nincs leírás)" : hw.title).font(.callout).foregroundStyle(.secondary).lineLimit(3)
+                                }
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    NotificationCenter.default.post(name: Notification.Name("flint.switchToTimetable"), object: nil, userInfo: ["subject": hw.subject, "deadline": hw.deadline.timeIntervalSince1970])
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .contentShape(Rectangle())
+                            .listRowBackground(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface)
+                            .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
+                        }
+                    }
+                    .id(filter)
+                    .transition(.opacity)
                 }
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .background(colors.background)
+            .animation(.spring(response: 0.36, dampingFraction: 0.84), value: filtered.isEmpty)
+            .animation(.spring(response: 0.36, dampingFraction: 0.84), value: filter)
             .navigationTitle("Feladatok")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.visible, for: .navigationBar)

@@ -8,15 +8,10 @@ struct HomeView: View {
     @StateObject private var vm = HomeViewModel()
     @Environment(\.colorScheme) var scheme
     var colors: AppColors { theme.colors(for: scheme) }
-    // Előnézet csúszka — melyik óra van épp (demo teszteléshez)
+    // Előnézet csúszka — melyik óra van épp (demo teszteléshez) — Timetable-lal közös AppStorage
     @AppStorage("home.demoOverride") private var demoOverride = false
-    @State private var isPreviewActive = false
-    @State private var previewMinutes: Double = {
-        let c = Calendar.current
-        let h = c.component(.hour, from: Date())
-        let m = c.component(.minute, from: Date())
-        return Double(max(420, min(960, h*60+m)))
-    }()
+    @AppStorage("home.demoPreviewActive") private var isPreviewActive = false
+    @AppStorage("home.demoPreviewMinutes") private var previewMinutes: Double = 540
     private var isDemoEffective: Bool { demoOverride || session.selectedUser?.isDemo == true }
 
     var body: some View {
@@ -183,6 +178,9 @@ struct HomeView: View {
                                 Spacer()
                             }
                             .contentShape(Rectangle())
+                            .onTapGesture {
+                                NotificationCenter.default.post(name: Notification.Name("flint.switchToTimetable"), object: nil, userInfo: ["subject": h.subject, "deadline": h.deadline.timeIntervalSince1970])
+                            }
                             .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
                             .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] + 16 }
                             .listRowBackground(
@@ -203,7 +201,16 @@ struct HomeView: View {
             .scrollContentBackground(.hidden)
             .background(colors.background)
             .refreshable { await vm.refresh(kreta: kreta, user: session.selectedUser, forceDemo: demoOverride) }
-            .task { await vm.refresh(kreta: kreta, user: session.selectedUser, forceDemo: demoOverride) }
+            .task {
+                // első indításkor a previewMinutes legyen a mostani idő (ne fix 09:00)
+                if UserDefaults.standard.object(forKey: "home.demoPreviewMinutes") == nil {
+                    let c = Calendar.current
+                    let h = c.component(.hour, from: Date())
+                    let m = c.component(.minute, from: Date())
+                    previewMinutes = Double(max(420, min(960, h*60+m)))
+                }
+                await vm.refresh(kreta: kreta, user: session.selectedUser, forceDemo: demoOverride)
+            }
             .onChange(of: demoOverride) { _, new in
                 Task { withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) { } ; await vm.refresh(kreta: kreta, user: session.selectedUser, forceDemo: new) }
                 if !new { isPreviewActive = false }
@@ -302,18 +309,22 @@ private struct HomeLiveCard: View {
                                 if let lbl = n.substitutionLabel {
                                     Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(Capsule().fill(n.isCancelled ? Color.red : Color.orange))
                                 }
-                                // kiemelt kis négyzet — 1. óra distinction + terem mellette
-                                Text("\(n.index)")
+                                Text(n.room)
                                     .font(.caption2.weight(.bold).monospacedDigit())
                                     .foregroundStyle(.white)
-                                    .frame(width: 22, height: 22)
+                                    .padding(.horizontal, 7).padding(.vertical, 4)
                                     .background(RoundedRectangle(cornerRadius: 6).fill(colors.accent))
                                     .glassEffectIfAvailable(in: RoundedRectangle(cornerRadius: 6), tint: colors.accent)
-                                Text(n.room).font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                Text("\(n.index). óra").font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
                                 Text("•").foregroundStyle(.tertiary)
                                 Text(n.teacher).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                                 Spacer()
                                 Text(n.start.formatted(date: .omitted, time: .shortened)).font(.caption.weight(.medium).monospacedDigit()).foregroundStyle(.secondary)
+                            }
+                            if calc.progress > 0 {
+                                HomeLiquidProgress(progress: calc.progress, tint: n.isCancelled ? Color.red : n.isSubstituted ? Color.orange : colors.accent, remainingText: calc.remainingText, scheme: scheme, colors: colors)
+                                    .padding(.top, 2)
                             }
                             attachedInfo(for: n)
                         } else { Text("Ma nincs órád").foregroundStyle(.secondary).font(.callout) }
@@ -328,27 +339,20 @@ private struct HomeLiveCard: View {
                                 .font(.system(size: 28, weight: .bold, design: .rounded))
                                 .lineLimit(1)
                             HStack(spacing: 6) {
-                                Text("\(c.index)")
+                                Text(c.room)
                                     .font(.caption2.weight(.bold).monospacedDigit())
                                     .foregroundStyle(.white)
-                                    .frame(width: 22, height: 22)
+                                    .padding(.horizontal, 7).padding(.vertical, 4)
                                     .background(RoundedRectangle(cornerRadius: 6).fill(colors.accent))
                                     .glassEffectIfAvailable(in: RoundedRectangle(cornerRadius: 6), tint: colors.accent)
-                                Text(c.room).font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                Text("\(c.index). óra").font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
                                 Text("•").foregroundStyle(.tertiary)
                                 Text(c.teacher).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                                 Spacer()
                                 Text("\(c.start.formatted(date: .omitted, time: .shortened))–\(c.end.formatted(date: .omitted, time: .shortened))").font(.caption.monospacedDigit()).foregroundStyle(.tertiary)
                             }
-                            // Progress bar
-                            VStack(alignment: .leading, spacing: 4) {
-                                ProgressView(value: calc.progress).tint(c.isCancelled ? Color.red : c.isSubstituted ? Color.orange : colors.accent)
-                                HStack {
-                                    Text(calc.remainingText).font(.caption2.weight(.medium)).foregroundStyle(.secondary).monospacedDigit()
-                                    Spacer()
-                                    Text("\(Int(calc.progress*100))%").font(.caption2.weight(.medium)).foregroundStyle(.secondary).monospacedDigit()
-                                }
-                            }
+                            HomeLiquidProgress(progress: calc.progress, tint: c.isCancelled ? Color.red : c.isSubstituted ? Color.orange : colors.accent, remainingText: calc.remainingText, scheme: scheme, colors: colors)
                             attachedInfo(for: c)
                             if let n = calc.next {
                                 Divider().opacity(0.5)
@@ -376,15 +380,20 @@ private struct HomeLiveCard: View {
                                 if let lbl = n.substitutionLabel {
                                     Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(Capsule().fill(n.isCancelled ? Color.red : Color.orange))
                                 }
-                                Text("\(n.index)")
+                                Text(n.room)
                                     .font(.caption2.weight(.bold).monospacedDigit())
                                     .foregroundStyle(.white)
-                                    .frame(width: 22, height: 22)
+                                    .padding(.horizontal, 7).padding(.vertical, 4)
                                     .background(RoundedRectangle(cornerRadius: 6).fill(colors.accent))
                                     .glassEffectIfAvailable(in: RoundedRectangle(cornerRadius: 6), tint: colors.accent)
-                                Text("\(n.room) • \(n.teacher)").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                    .lineLimit(1)
+                                Text("\(n.index). óra • \(n.teacher)").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                                 Spacer()
                                 Text(n.start.formatted(date: .omitted, time: .shortened)).font(.caption.weight(.medium).monospacedDigit()).foregroundStyle(.secondary)
+                            }
+                            if calc.progress > 0 {
+                                HomeLiquidProgress(progress: calc.progress, tint: n.isCancelled ? Color.red : n.isSubstituted ? Color.orange : colors.accent, remainingText: calc.remainingText, scheme: scheme, colors: colors)
+                                    .padding(.top, 2)
                             }
                             attachedInfo(for: n)
                         }
@@ -445,10 +454,49 @@ private struct LiveCalc {
             let prev = lessons.last(where: { $0.end < now })
             if let p = prev, nxt.start.timeIntervalSince(p.end) > 0 {
                 state = .duringBreak
-            } else if now < lessons.first!.start { state = .morning } else { state = .duringBreak }
+                let total = nxt.start.timeIntervalSince(p.end)
+                progress = total > 0 ? min(1, max(0, now.timeIntervalSince(p.end)/total)) : 0
+                let rem = Int(ceil(nxt.start.timeIntervalSince(now)/60))
+                remainingText = rem <= 0 ? "Kezdődik" : "\(rem) perc múlva kezdődik"
+            } else if now < lessons.first!.start {
+                state = .morning
+                let first = lessons.first!
+                // 07:00-tól az első óráig számolunk
+                let cal = Calendar.current
+                let morningStart = cal.date(bySettingHour: 7, minute: 0, second: 0, of: now) ?? now
+                let total = first.start.timeIntervalSince(morningStart)
+                if total > 0, now >= morningStart {
+                    progress = min(1, max(0, now.timeIntervalSince(morningStart)/total))
+                }
+                let rem = Int(ceil(first.start.timeIntervalSince(now)/60))
+                remainingText = rem <= 0 ? "Kezdődik" : "\(rem) perc múlva kezdődik"
+            } else {
+                state = .duringBreak
+                if let p = prev {
+                    let total = nxt.start.timeIntervalSince(p.end)
+                    progress = total > 0 ? min(1, max(0, now.timeIntervalSince(p.end)/total)) : 0
+                    let rem = Int(ceil(nxt.start.timeIntervalSince(now)/60))
+                    remainingText = rem <= 0 ? "Kezdődik" : "\(rem) perc múlva kezdődik"
+                }
+            }
             next = nxt; previous = prev
         } else {
             state = .empty
+        }
+    }
+}
+
+// MARK: - Home sima progress — régi, animáció nélkül
+private struct HomeLiquidProgress: View {
+    let progress: Double
+    let tint: Color
+    let remainingText: String
+    let scheme: ColorScheme
+    let colors: AppColors
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ProgressView(value: progress).tint(tint)
+            Text(remainingText).font(.caption2.weight(.medium)).foregroundStyle(.secondary).monospacedDigit().contentTransition(.numericText())
         }
     }
 }

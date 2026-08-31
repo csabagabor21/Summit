@@ -18,9 +18,9 @@ struct LoginView: View {
                         HStack(spacing: 8) {
                             Image("ic_rounded", bundle: nil).resizable().frame(width: 28, height: 28).clipShape(Circle())
                                 .onTapGesture { tapCount+=1; if tapCount>=10 { vm.loginDemo(session: session); tapCount=0 } }
-                            Text("Firka").font(.headline.weight(.bold))
+                            Text("Flint").font(.headline.weight(.bold))
                         }
-                        Text("Üdv a Firkában!").font(.largeTitle.weight(.bold)).tracking(-0.5)
+                        Text("Üdv a Flintben!").font(.largeTitle.weight(.bold)).tracking(-0.5)
                         Text("A nem hivatalos e-KRÉTA kliens diákoktól diákoknak. Valós idejű jegyek, órarend és feladatok — minimalista, Apple-szerű élményben.")
                             .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
@@ -49,7 +49,7 @@ struct LoginView: View {
                         Text("Bejelentkezés e-KRÉTA fiókkal").font(.headline.weight(.semibold)).frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.glassProminent).tint(colors.accent).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16)).listRowBackground(Color.clear).listRowSeparator(.hidden)
-                    Button("Adatkezelési tájékoztató") { if let u=URL(string:"https://firka.app/privacy"){ UIApplication.shared.open(u)} }
+                    Button("Adatkezelési tájékoztató") { if let u=URL(string:"https://flint.app/privacy"){ UIApplication.shared.open(u)} }
                         .font(.caption.weight(.medium)).foregroundStyle(.secondary).frame(maxWidth:.infinity).listRowBackground(Color.clear).listRowSeparator(.hidden)
                     if let e = vm.error { Text(e).font(.footnote).foregroundStyle(.red).listRowBackground(Color.clear) }
                     if vm.isLoading { ProgressView().frame(maxWidth:.infinity).listRowBackground(Color.clear).listRowSeparator(.hidden) }

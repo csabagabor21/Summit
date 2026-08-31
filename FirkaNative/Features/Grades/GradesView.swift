@@ -209,9 +209,9 @@ struct GradesView: View {
         let t = g.type.lowercased()
         return t.contains("evvegi") || t.contains("év végi") || t.contains("évvégi")
     }
-    var evkoziGrades: [GradeItem] { grades.filter { isEvkozi($0) } }
-    var feleviGrades: [GradeItem] { grades.filter { isFelevi($0) } }
-    var evvegiGrades: [GradeItem] { grades.filter { isEvvegi($0) } }
+    var evkoziGrades: [GradeItem] { grades.filter { $0.value != 0 && isEvkozi($0) } }
+    var feleviGrades: [GradeItem] { grades.filter { $0.value != 0 && isFelevi($0) } }
+    var evvegiGrades: [GradeItem] { grades.filter { $0.value != 0 && isEvvegi($0) } }
 
     var groupedEvkozi: [String: [GradeItem]] { Dictionary(grouping: evkoziGrades, by: { $0.subject }) }
     var groupedFelevi: [String: [GradeItem]] { Dictionary(grouping: feleviGrades, by: { $0.subject }) }

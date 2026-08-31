@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct FirkaNativeApp: App {
+struct FlintApp: App {
     @StateObject private var session = SessionStore()
     @StateObject private var kreta = KretaClient()
     @StateObject private var theme = ThemeStore()

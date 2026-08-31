@@ -11,7 +11,16 @@ final class SessionStore: ObservableObject {
 
     private let key = "firka.users.v1"
 
-    init() { load() }
+    init() {
+        load()
+        // Screenshot/demo helper: if running in simulator with FIRKA_DEMO=1, inject demo user
+        if users.isEmpty, ProcessInfo.processInfo.arguments.contains("-FIRKA_DEMO") || UserDefaults.standard.bool(forKey: "FIRKA_DEMO") {
+            let d = AppUser.demo
+            users = [d]
+            selectedId = d.id
+            persist()
+        }
+    }
 
     func load() {
         if let data = UserDefaults.standard.data(forKey: key),
