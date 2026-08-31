@@ -286,12 +286,12 @@ enum DemoData {
     static func lessonsToday() -> [LessonItem] {
         let cal = Calendar.current; let base = cal.startOfDay(for: Date())
         let defs: [(String,String,String,String,Int,Int)] = [
-            ("Matek","103","Kovács J.","1",8,0),
-            ("Angol","204","Smith","2",9,0),
-            ("Fizika","105","Varga","3",10,0),
-            ("Töri","102","Nagy A.","4",11,0),
-            ("Kémia","107","Kiss","5",12,0),
-            ("Irodalom","101","Szabó K.","6",13,0),
+            ("Matek","A1","Kovács J.","1",8,0),
+            ("Angol","B2","Smith","2",9,0),
+            ("Fizika","C4","Varga","3",10,0),
+            ("Töri","A3","Nagy A.","4",11,0),
+            ("Kémia","B1","Kiss","5",12,0),
+            ("Irodalom","C2","Szabó K.","6",13,0),
         ]
         return defs.enumerated().map { idx, d in
             let s = cal.date(byAdding: .hour, value: d.4, to: base)!.addingTimeInterval(Double(d.5*60))

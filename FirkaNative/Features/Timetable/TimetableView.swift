@@ -83,7 +83,8 @@ struct TimetableView: View {
 
     func load() async {
         guard let user = session.selectedUser, !user.isDemo else {
-            lessons = (0..<8).map { i in let h=8+i%5; return LessonItem(id:"m\(i)", subject:["Matek","Irodalom","Töri","Angol","Bio","Fizika","Kémia","Tesi"][i%8], room:"\(100+i)", start: Calendar.current.date(bySettingHour: h, minute: 0, second: 0, of: Date())!, end: Calendar.current.date(bySettingHour: h, minute: 45, second: 0, of: Date())!, teacher:"Tanár \(i)", index:"\(i+1)") }
+            let demoRooms = ["A1","B2","C4","A3","B1","C2","A2","B3"]
+            lessons = (0..<8).map { i in let h=8+i%5; return LessonItem(id:"m\(i)", subject:["Matek","Irodalom","Töri","Angol","Bio","Fizika","Kémia","Tesi"][i%8], room: demoRooms[i%8], start: Calendar.current.date(bySettingHour: h, minute: 0, second: 0, of: Date())!, end: Calendar.current.date(bySettingHour: h, minute: 45, second: 0, of: Date())!, teacher:"Tanár \(i)", index:"\(i+1)") }
             isLoading=false; return
         }
         isLoading=true
