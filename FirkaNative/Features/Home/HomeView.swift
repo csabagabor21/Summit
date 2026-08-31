@@ -40,18 +40,6 @@ struct HomeView: View {
                 HomeLiveCard(lessons: vm.lessonsToday, exams: vm.exams, homeworks: vm.homeworks, overrideNow: isPreviewActive && isDemoEffective ? previewDate : nil)
                     .animation(.spring(response: 0.42, dampingFraction: 0.86), value: isDemoEffective)
 
-                // Demo / valós toggle — fluid
-                if session.selectedUser?.isDemo != true {
-                    Section {
-                        Toggle(isOn: $demoOverride) {
-                            Label(demoOverride ? "Demo adatok" : "Valós adatok", systemImage: demoOverride ? "flask.fill" : "person.crop.rectangle.stack.fill")
-                                .font(.subheadline.weight(.medium))
-                        }
-                        .tint(colors.accent)
-                    } header: { Text("Adatok").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
-                    .listRowBackground(colors.surface)
-                }
-
                 // Csúszka: csak demo módban
                 if isDemoEffective {
                     Section {

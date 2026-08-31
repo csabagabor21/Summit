@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var isLoadingSubjects = true
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var showPhotoOptions = false
+    @AppStorage("home.demoOverride") private var demoOverride = false
     var colors: AppColors { theme.colors(for: scheme) }
 
     var body: some View {
@@ -110,7 +111,16 @@ struct SettingsView: View {
 
             Section(header: Text("Fiók").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)) {
                 Button("Kijelentkezés", role: .destructive) { session.logout() }
-                Button("Demo mód") { session.add(.demo) }
+                if session.selectedUser?.isDemo != true {
+                    Toggle(isOn: $demoOverride) {
+                        Label(demoOverride ? "Demo adatok" : "Valós adatok", systemImage: demoOverride ? "flask.fill" : "person.crop.rectangle.stack.fill")
+                            .font(.subheadline.weight(.medium))
+                    }
+                    .tint(colors.accent)
+                } else {
+                    // demo user esetén csak jelzés, nincs toggle
+                    Label("Demo módban vagy", systemImage: "flask.fill").font(.subheadline).foregroundStyle(.secondary)
+                }
             }
 
             Section(footer: Text("FirkaNative • iOS 26 • Liquid Glass • \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")").font(.caption2).foregroundStyle(.tertiary).frame(maxWidth:.infinity)) {
