@@ -29,7 +29,7 @@ struct RoundingDetailView: View {
             } header: { Text("Kerekítés").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) } footer: { Text("0.50 = 3.50-től 4-es, 0.80 = csak 3.80-tól 4-es. Súlyozott átlagra alkalmazva.").font(.caption2).foregroundStyle(.secondary) }
 
             Section {
-                Button("Visszaállítás alapra (0.70)") {
+                Button("Visszaállítás alapra (0.50)") {
                     threshold = GradingLogic.defaultThreshold
                     GradingLogic.setThreshold(threshold, for: subject)
                 }

@@ -61,7 +61,7 @@ struct ExamItem: Identifiable, Hashable {
 
 // MARK: - DTOs matching real e-KRÉTA JSON (keys are Hungarian)
 struct TantargyDTO: Decodable { let Nev: String?; let Uid: String? }
-struct TipusDTO: Decodable { let Nev: String? }
+struct TipusDTO: Decodable { let Nev: String?; let Kod: String?; let Uid: String? }
 
 struct KretaGradeDTO: Decodable {
     let Uid: String?

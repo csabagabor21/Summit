@@ -3,7 +3,7 @@ import Foundation
 // Per-subject rounding thresholds, stored in UserDefaults by subject name
 // Threshold = fractional part at which average rounds up (0.56 means 3.56 -> 4)
 enum GradingLogic {
-    static let defaultThreshold: Double = 0.70
+    static let defaultThreshold: Double = 0.50
     private static let key = "firka.roundingThresholds.v1"
 
     static func loadThresholds() -> [String: Double] {

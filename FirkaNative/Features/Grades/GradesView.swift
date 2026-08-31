@@ -1,70 +1,140 @@
 import SwiftUI
 
+enum GradeTab: String, CaseIterable, Identifiable {
+    case evkozi = "Évközi"
+    case felevi = "Félévi"
+    case evvegi = "Év végi"
+    var id: String { rawValue }
+}
+
 struct GradesView: View {
     @EnvironmentObject var theme: ThemeStore
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var kreta: KretaClient
     @State private var grades: [GradeItem] = []
     @State private var isLoading = true
+    @State private var selectedTab: GradeTab = .evkozi
     @Environment(\.colorScheme) var scheme
     var colors: AppColors { theme.colors(for: scheme) }
 
     var body: some View {
         NavigationStack {
             List {
+                // Tabs
+                Section {
+                    Picker("", selection: $selectedTab) {
+                        Text(GradeTab.evkozi.rawValue).tag(GradeTab.evkozi)
+                        Text(GradeTab.felevi.rawValue).tag(GradeTab.felevi)
+                        if !evvegiGrades.isEmpty {
+                            Text(GradeTab.evvegi.rawValue).tag(GradeTab.evvegi)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
+                    .listRowSeparator(.hidden)
+                }
+
                 if isLoading {
                     ForEach(0..<3, id: \.self) { _ in Text("Betöltés…").redacted(reason: .placeholder) }
-                } else if grades.isEmpty {
-                    ContentUnavailableView("Nincs jegy", systemImage: "star.slash", description: Text("Még nem érkezett értékelés."))
                 } else {
-                    // Overall = average of subject averages (as spec)
-                    Section {
-                        HStack(alignment: .firstTextBaseline) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("ÖSSZÁTLAG").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).tracking(1)
-                                Text(String(format: "%.2f", overall)).font(.system(size: 34, weight: .bold, design: .rounded))
+                    switch selectedTab {
+                    case .evkozi:
+                        if evkoziGrades.isEmpty {
+                            ContentUnavailableView("Nincs évközi jegy", systemImage: "star.slash", description: Text("Még nem érkezett évközi értékelés."))
+                        } else {
+                            Section {
+                                HStack(alignment: .firstTextBaseline) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("ÖSSZÁTLAG").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).tracking(1)
+                                        Text(String(format: "%.2f", overallEvkozi)).font(.system(size: 34, weight: .bold, design: .rounded))
+                                    }
+                                    Spacer()
+                                    VStack(alignment: .trailing, spacing: 2) {
+                                        Text("\(evkoziGrades.count) jegy • \(groupedEvkozi.count) tárgy").font(.caption).foregroundStyle(.secondary)
+                                        Text(trendEvkozi).font(.caption.weight(.bold)).foregroundStyle(trendColorEvkozi)
+                                    }
+                                }
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                             }
-                            Spacer()
-                            VStack(alignment: .trailing, spacing: 2) {
-                                Text("\(grades.count) jegy • \(grouped.count) tárgy").font(.caption).foregroundStyle(.secondary)
-                                Text(trend).font(.caption.weight(.bold)).foregroundStyle(trendColor)
+                            ForEach(groupedEvkozi.keys.sorted(), id: \.self) { subject in
+                                let items = groupedEvkozi[subject]!
+                                let raw = GradingLogic.weightedAverage(items)
+                                let thr = GradingLogic.threshold(for: subject)
+                                let rnd = GradingLogic.roundedGrade(raw: raw, threshold: thr)
+                                NavigationLink {
+                                    SubjectDetailView(subject: subject, grades: items.sorted { $0.date < $1.date })
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        ZStack {
+                                            Circle().fill(Color.clear).glassEffect(.clear, in: .circle)
+                                                .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1.2))
+                                                .frame(width: 44, height: 44)
+                                            Text("\(rnd)").font(.system(size: 18, weight: .bold, design: .rounded)).foregroundStyle(colors.gradeColor(for: rnd))
+                                        }.frame(width: 44, height: 44)
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1)
+                                            Text(String(format: "%.2f • %d jegy • kerekítés %.2f-től", raw, items.count, thr)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                                        }
+                                        Spacer()
+                                    }.padding(.vertical, 2)
+                                }
+                                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                             }
                         }
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                    }
-
-                    // Compact rows: left rounded avg + name + chevron — liquid glass
-                    ForEach(grouped.keys.sorted(), id: \.self) { subject in
-                        let items = grouped[subject]!
-                        let raw = GradingLogic.weightedAverage(items)
-                        let thr = GradingLogic.threshold(for: subject)
-                        let rnd = GradingLogic.roundedGrade(raw: raw, threshold: thr)
-                        NavigationLink {
-                            SubjectDetailView(subject: subject, grades: items.sorted { $0.date < $1.date })
-                        } label: {
-                            HStack(spacing: 12) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color.clear)
-                                        .glassEffect(.clear, in: .circle)
-                                        .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1.2))
-                                        .frame(width: 44, height: 44)
-                                    Text("\(rnd)")
-                                        .font(.system(size: 18, weight: .bold, design: .rounded))
-                                        .foregroundStyle(colors.gradeColor(for: rnd))
+                    case .felevi:
+                        if feleviGrades.isEmpty {
+                            ContentUnavailableView("Nincs félévi jegy", systemImage: "star.slash", description: Text("Még nem érkezett félévi értékelés."))
+                        } else {
+                            ForEach(groupedFelevi.keys.sorted(), id: \.self) { subject in
+                                let items = groupedFelevi[subject]!
+                                // legfrissebb félévi jegy per tárgy
+                                let latest = items.sorted { $0.date > $1.date }.first!
+                                HStack(spacing: 12) {
+                                    ZStack {
+                                        Circle().fill(Color.clear).glassEffect(.clear, in: .circle)
+                                            .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1.2))
+                                            .frame(width: 44, height: 44)
+                                        Text("\(latest.value)").font(.system(size: 18, weight: .bold, design: .rounded)).foregroundStyle(colors.gradeColor(for: latest.value))
+                                    }.frame(width: 44, height: 44)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1)
+                                        Text("Félévkor \(latest.value)-es lettél").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                        Text(latest.date.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.tertiary)
+                                    }
+                                    Spacer()
                                 }
-                                .frame(width: 44, height: 44)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                    Text(String(format: "%.2f • %d jegy • kerekítés %.2f-től", raw, items.count, thr)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                                }
-                                Spacer()
+                                .padding(.vertical, 2)
+                                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                             }
-                            .padding(.vertical, 2)
                         }
-                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                    case .evvegi:
+                        if evvegiGrades.isEmpty {
+                            ContentUnavailableView("Nincs év végi jegy", systemImage: "star.slash", description: Text("Még nem érkezett év végi értékelés."))
+                        } else {
+                            ForEach(groupedEvvegi.keys.sorted(), id: \.self) { subject in
+                                let items = groupedEvvegi[subject]!
+                                let latest = items.sorted { $0.date > $1.date }.first!
+                                HStack(spacing: 12) {
+                                    ZStack {
+                                        Circle().fill(Color.clear).glassEffect(.clear, in: .circle)
+                                            .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1.2))
+                                            .frame(width: 44, height: 44)
+                                        Text("\(latest.value)").font(.system(size: 18, weight: .bold, design: .rounded)).foregroundStyle(colors.gradeColor(for: latest.value))
+                                    }.frame(width: 44, height: 44)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1)
+                                        Text("Év végén \(latest.value)-es lettél").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                        Text(latest.date.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.tertiary)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(.vertical, 2)
+                                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                            }
+                        }
                     }
                 }
             }
@@ -73,6 +143,10 @@ struct GradesView: View {
             .background(colors.background)
             .refreshable { await load() }
             .task { await load() }
+            .onChange(of: grades) { _, _ in
+                // ha év végi elfogyott, vissza évközire
+                if selectedTab == .evvegi && evvegiGrades.isEmpty { selectedTab = .evkozi }
+            }
             .navigationTitle("Jegyek")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.visible, for: .navigationBar)
@@ -80,10 +154,37 @@ struct GradesView: View {
         .tint(colors.accent)
     }
 
-    var grouped: [String: [GradeItem]] { Dictionary(grouping: grades, by: { $0.subject }) }
-    var overall: Double { GradingLogic.overallAverage(grouped: grouped) }
-    var trend: String { overall >= 4 ? "Kiváló" : overall >= 3.5 ? "Jó" : "Fejlődő" }
-    var trendColor: Color { overall >= 4 ? colors.green : overall >= 3.5 ? colors.yellow : colors.orange }
+    // MARK: - Filtering by Tipus.Nev (evkozi_jegy_ertekeles / felevi / evvegi)
+    private func isEvkozi(_ g: GradeItem) -> Bool {
+        let t = g.type.lowercased()
+        return t.contains("evkozi") || (!t.contains("felevi") && !t.contains("félévi") && !t.contains("év végi") && !t.contains("evvegi") && !t.contains("évvégi"))
+    }
+    private func isFelevi(_ g: GradeItem) -> Bool {
+        let t = g.type.lowercased()
+        return t.contains("felevi") || t.contains("félévi")
+    }
+    private func isEvvegi(_ g: GradeItem) -> Bool {
+        let t = g.type.lowercased()
+        return t.contains("evvegi") || t.contains("év végi") || t.contains("évvégi")
+    }
+    var evkoziGrades: [GradeItem] { grades.filter { isEvkozi($0) } }
+    var feleviGrades: [GradeItem] { grades.filter { isFelevi($0) } }
+    var evvegiGrades: [GradeItem] { grades.filter { isEvvegi($0) } }
+
+    var groupedEvkozi: [String: [GradeItem]] { Dictionary(grouping: evkoziGrades, by: { $0.subject }) }
+    var groupedFelevi: [String: [GradeItem]] { Dictionary(grouping: feleviGrades, by: { $0.subject }) }
+    var groupedEvvegi: [String: [GradeItem]] { Dictionary(grouping: evvegiGrades, by: { $0.subject }) }
+
+    // overall csak évköziből, félévi/évvégi nem számít bele
+    var overallEvkozi: Double { GradingLogic.overallAverage(grouped: groupedEvkozi) }
+    var trendEvkozi: String { overallEvkozi >= 4 ? "Kiváló" : overallEvkozi >= 3.5 ? "Jó" : "Fejlődő" }
+    var trendColorEvkozi: Color { overallEvkozi >= 4 ? colors.green : overallEvkozi >= 3.5 ? colors.yellow : colors.orange }
+
+    // legacy for compatibility ( évközi )
+    var grouped: [String: [GradeItem]] { groupedEvkozi }
+    var overall: Double { overallEvkozi }
+    var trend: String { trendEvkozi }
+    var trendColor: Color { trendColorEvkozi }
 
     func load() async {
         guard let user = session.selectedUser, !user.isDemo else { grades = DemoData.gradesExpanded(); isLoading=false; return }
