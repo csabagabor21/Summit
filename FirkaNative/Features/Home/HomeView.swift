@@ -250,8 +250,23 @@ private struct HomeLiveCard: View {
         }
     }
 
+    private func cardBackground(for lesson: LessonItem?) -> Color {
+        guard let l = lesson else { return colors.surface }
+        if l.isCancelled { return Color.red.opacity(scheme == .dark ? 0.22 : 0.12) }
+        if l.isSubstituted { return Color.orange.opacity(scheme == .dark ? 0.22 : 0.14) }
+        return colors.surface
+    }
+
     @ViewBuilder
     private func cardContent(calc: LiveCalc) -> some View {
+
+            // During lesson gets colored background, others default
+            let bg: Color = {
+                if calc.state == .duringLesson, let c = calc.current { return cardBackground(for: c) }
+                if calc.state == .duringBreak, let n = calc.next { return cardBackground(for: n) }
+                if calc.state == .morning, let n = calc.next { return cardBackground(for: n) }
+                return colors.surface
+            }()
 
             Section {
                 switch calc.state {
@@ -260,27 +275,46 @@ private struct HomeLiveCard: View {
                 case .summary:
                     Label("Vége a tanévnek! Irány az összefoglaláshoz", systemImage: "arrow.right").font(.subheadline)
                 case .morning:
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 8) {
                         Label("Jó reggelt!", systemImage: "sun.max.fill").font(.headline)
                         if let n = calc.next {
-                            Text("Első órád \(n.subject) \(n.room)-ben \(n.start.formatted(date: .omitted, time: .shortened))-kor").font(.callout).foregroundStyle(.secondary)
+                            // Subject large, own line
+                            Text(n.subject)
+                                .font(.system(size: 26, weight: .bold, design: .rounded))
+                                .lineLimit(1)
+                            HStack(spacing: 6) {
+                                if let lbl = n.substitutionLabel {
+                                    Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(Capsule().fill(n.isCancelled ? Color.red : Color.orange))
+                                }
+                                Text("\(n.room) • \(n.teacher)").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                Spacer()
+                                Text(n.start.formatted(date: .omitted, time: .shortened)).font(.caption.weight(.medium).monospacedDigit()).foregroundStyle(.secondary)
+                            }
                             attachedInfo(for: n)
                         } else { Text("Ma nincs órád").foregroundStyle(.secondary).font(.callout) }
                     }
                 case .duringLesson:
                     if let c = calc.current {
-                        VStack(alignment: .leading, spacing: 8) {
-                            // Hányadik óra + milyen óra
-                            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                Text("\(c.index). óra").font(.caption.weight(.bold).monospacedDigit()).foregroundStyle(.secondary).padding(.horizontal, 7).padding(.vertical, 3).background(Capsule().fill(Color.primary.opacity(0.07)))
-                                Text(c.subject).font(.headline).lineLimit(1)
-                                Spacer()
-                                Text("\(c.start.formatted(date: .omitted, time: .shortened))–\(c.end.formatted(date: .omitted, time: .shortened))").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 10) {
+                            // Status badge if substituted/cancelled
+                            if let lbl = c.substitutionLabel {
+                                Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(c.isCancelled ? Color.red : Color.orange))
                             }
-                            Text("\(c.room) • \(c.teacher)").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
-                            // Progress bar — mennyi idő van még vissza
+                            // Subject — large, own section
+                            Text(c.subject)
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .lineLimit(1)
+                            // Teacher • Room • Time — secondary, no "x. óra" capsule
+                            HStack(spacing: 6) {
+                                Text(c.teacher).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                Text("•").foregroundStyle(.tertiary)
+                                Text(c.room).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                Spacer()
+                                Text("\(c.start.formatted(date: .omitted, time: .shortened))–\(c.end.formatted(date: .omitted, time: .shortened))").font(.caption.monospacedDigit()).foregroundStyle(.tertiary)
+                            }
+                            // Progress bar
                             VStack(alignment: .leading, spacing: 4) {
-                                ProgressView(value: calc.progress).tint(colors.accent)
+                                ProgressView(value: calc.progress).tint(c.isCancelled ? Color.red : c.isSubstituted ? Color.orange : colors.accent)
                                 HStack {
                                     Text(calc.remainingText).font(.caption2.weight(.medium)).foregroundStyle(.secondary).monospacedDigit()
                                     Spacer()
@@ -292,18 +326,32 @@ private struct HomeLiveCard: View {
                                 Divider().opacity(0.5)
                                 HStack(spacing: 6) {
                                     Image(systemName: "arrow.right.circle.fill").font(.caption).foregroundStyle(.secondary)
-                                    Text("Következő: \(n.subject) • \(n.room) • \(n.start.formatted(date: .omitted, time: .shortened))").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                    Text("Következő: \(n.subject)").font(.caption.weight(.medium)).foregroundStyle(.secondary).lineLimit(1)
+                                    if let lbl = n.substitutionLabel {
+                                        Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(n.isCancelled ? Color.red : Color.orange).padding(.horizontal, 5).padding(.vertical, 2).background(Capsule().fill((n.isCancelled ? Color.red : Color.orange).opacity(0.14)))
+                                    }
                                     Spacer()
+                                    Text(n.start.formatted(date: .omitted, time: .shortened)).font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
                                 }
                                 attachedInfo(for: n)
                             }
                         }
                     }
                 case .duringBreak:
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 8) {
                         Label("Szünet", systemImage: "cup.and.saucer.fill").font(.headline)
                         if let n = calc.next {
-                            Text("Következő: \(n.subject) • \(n.room) • \(n.start.formatted(date: .omitted, time: .shortened))").font(.subheadline).foregroundStyle(.secondary)
+                            Text(n.subject)
+                                .font(.system(size: 26, weight: .bold, design: .rounded))
+                                .lineLimit(1)
+                            HStack(spacing: 6) {
+                                if let lbl = n.substitutionLabel {
+                                    Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(Capsule().fill(n.isCancelled ? Color.red : Color.orange))
+                                }
+                                Text("\(n.room) • \(n.teacher)").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                Spacer()
+                                Text(n.start.formatted(date: .omitted, time: .shortened)).font(.caption.weight(.medium).monospacedDigit()).foregroundStyle(.secondary)
+                            }
                             attachedInfo(for: n)
                         }
                         if let c = calc.previous {
@@ -312,6 +360,7 @@ private struct HomeLiveCard: View {
                     }
                 }
             } header: { Text("Most").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
+            .listRowBackground(bg)
     }
 
     @ViewBuilder

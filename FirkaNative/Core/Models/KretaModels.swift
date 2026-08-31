@@ -19,6 +19,15 @@ struct LessonItem: Identifiable, Hashable {
     let end: Date
     let teacher: String
     let index: String
+    var isSubstituted: Bool = false
+    var isCancelled: Bool = false
+    var originalTeacher: String? = nil
+
+    var substitutionLabel: String? {
+        if isCancelled { return "Elmarad" }
+        if isSubstituted { return "Helyettesítés" }
+        return nil
+    }
 }
 struct HomeworkItem: Identifiable, Hashable {
     let id: String
@@ -102,14 +111,29 @@ struct KretaLessonDTO: Decodable {
         let df2 = ISO8601DateFormatter()
         func p(_ s: String?) -> Date { guard let s else { return Date() }; return df.date(from: s) ?? df2.date(from: s) ?? Date() }
         let room = (TeremNeve ?? "").replacingOccurrences(of: "_", with: " ").replacingOccurrences(of: " terem", with: "", options: .caseInsensitive)
+        let allapotNev = (Allapot?.Nev ?? "").lowercased()
+        let isCancelled = allapotNev.contains("elmarad")
+        let hasSubstitute = (HelyettesTanarNeve != nil && !(HelyettesTanarNeve?.trimmingCharacters(in: .whitespaces).isEmpty ?? true))
+        let isSubstituted = !isCancelled && (hasSubstitute || allapotNev.contains("helyettes"))
+        let displayTeacher: String
+        if isCancelled {
+            displayTeacher = (TanarNeve ?? "").trimmingCharacters(in: .whitespaces)
+        } else if hasSubstitute {
+            displayTeacher = HelyettesTanarNeve!.trimmingCharacters(in: .whitespaces)
+        } else {
+            displayTeacher = (TanarNeve ?? "").trimmingCharacters(in: .whitespaces)
+        }
         return LessonItem(
             id: Uid ?? UUID().uuidString,
             subject: tant,
             room: room.isEmpty ? "-" : room,
             start: p(KezdetIdopont),
             end: p(VegIdopont),
-            teacher: (HelyettesTanarNeve ?? TanarNeve ?? "").trimmingCharacters(in: .whitespaces),
-            index: Oraszam.map(String.init) ?? "-"
+            teacher: displayTeacher,
+            index: Oraszam.map(String.init) ?? "-",
+            isSubstituted: isSubstituted,
+            isCancelled: isCancelled,
+            originalTeacher: hasSubstitute ? TanarNeve : nil
         )
     }
 }

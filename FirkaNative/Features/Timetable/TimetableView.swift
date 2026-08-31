@@ -29,16 +29,28 @@ struct TimetableView: View {
                     } else {
                         ForEach(filtered) { l in
                             let cur = isCurrent(l)
+                            let bg: Color = {
+                                if l.isCancelled { return Color.red.opacity(scheme == .dark ? 0.22 : 0.12) }
+                                if l.isSubstituted { return Color.orange.opacity(scheme == .dark ? 0.22 : 0.14) }
+                                return Color.clear
+                            }()
                             HStack(spacing: 12) {
-                                Text(l.index).font(.caption.weight(.bold).monospacedDigit()).frame(width: 28, height: 28).background(cur ? colors.accent : Color.primary.opacity(0.06), in: Circle()).foregroundStyle(cur ? .white : .primary)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(l.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
+                                // Smaller, less prominent index — requested: don't emphasize yearly count
+                                Text(l.index).font(.caption2.weight(.medium).monospacedDigit()).frame(width: 24, height: 24).background(cur ? colors.accent : Color.primary.opacity(0.06), in: Circle()).foregroundStyle(cur ? .white : .secondary)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    HStack(spacing: 6) {
+                                        Text(l.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
+                                        if let lbl = l.substitutionLabel {
+                                            Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 6).padding(.vertical, 2).background(Capsule().fill(l.isCancelled ? Color.red : Color.orange))
+                                        }
+                                    }
                                     Text("\(l.room) • \(l.teacher)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                                    if cur { ProgressView(value: progress(for: l)).tint(colors.accent) }
+                                    if cur { ProgressView(value: progress(for: l)).tint(l.isCancelled ? Color.red : l.isSubstituted ? Color.orange : colors.accent) }
                                 }
                                 Spacer()
                                 Text(l.start.formatted(date: .omitted, time: .shortened)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                             }
+                            .listRowBackground(bg == Color.clear ? colors.surface : bg)
                         }
                     }
                 }
