@@ -50,6 +50,8 @@
 		F2AAF51DA4072A9050F36513 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25454AE0DF892F0ED1F9C512 /* ThemeStore.swift */; };
 		F7794CCCD968A9BF0F941DBF /* showcase3.png in Resources */ = {isa = PBXBuildFile; fileRef = 64B5366A07C7C386D8D13D27 /* showcase3.png */; };
 		FE7A7B059C38FBE9605A9627 /* GradingLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 285F897E90D9C8D0BE33377D /* GradingLogic.swift */; };
+		E1A2B3C4D5E6F7A8B9C0D1E3 /* ExemptedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F7A8B9C0D1E2 /* ExemptedStore.swift */; };
+		F1B2C3D4E5F6A7B8C9D0E1F3 /* HardcodedTimetable.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B2C3D4E5F6A7B8C9D0E1F2 /* HardcodedTimetable.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -97,6 +99,8 @@
 		E0CC61DB518F6DC6A44A7A86 /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
 		EC7FB1C72834344E7C3B2E73 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
 		F67BD9354BA995DA687993EB /* NotesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesView.swift; sourceTree = "<group>"; };
+		E1A2B3C4D5E6F7A8B9C0D1E2 /* ExemptedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExemptedStore.swift; sourceTree = "<group>"; };
+		F1B2C3D4E5F6A7B8C9D0E1F2 /* HardcodedTimetable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HardcodedTimetable.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -168,6 +172,7 @@
 			isa = PBXGroup;
 			children = (
 				285F897E90D9C8D0BE33377D /* GradingLogic.swift */,
+				F1B2C3D4E5F6A7B8C9D0E1F2 /* HardcodedTimetable.swift */,
 				8FD4CEA1E823A437ECEE860D /* KretaModels.swift */,
 				332A508C7AA3C1F38B82CE6A /* Student.swift */,
 				DF32626BFE87C0CA90E01A9D /* User.swift */,
@@ -179,6 +184,7 @@
 			isa = PBXGroup;
 			children = (
 				B1C2D3E4F5A60718293A4B5D /* CompletedStore.swift */,
+				E1A2B3C4D5E6F7A8B9C0D1E2 /* ExemptedStore.swift */,
 				EC7FB1C72834344E7C3B2E73 /* KeychainHelper.swift */,
 				2181B0D30498DBAAEC654C1D /* SessionStore.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* ProfileImageStore.swift */,
@@ -406,6 +412,8 @@
 				F2AAF51DA4072A9050F36513 /* ThemeStore.swift in Sources */,
 				1ABB8E9799CFFDA57AC575EF /* TimetableView.swift in Sources */,
 				97FF2BFB3F74B5BA6F6C6A9C /* User.swift in Sources */,
+				E1A2B3C4D5E6F7A8B9C0D1E3 /* ExemptedStore.swift in Sources */,
+				F1B2C3D4E5F6A7B8C9D0E1F3 /* HardcodedTimetable.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

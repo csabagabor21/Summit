@@ -19,9 +19,14 @@ enum KretaAPI {
     static func timetable(_ iss: String, start: Date? = nil, end: Date? = nil) -> URL {
         var url = kreta(iss) + "/ellenorzo/V3/Sajat/OrarendElemek"
         if let s = start, let e = end {
+            // KRÉTA a helyi idő szerinti dátumot várja, nem UTC-t — ezért current timeZone
             let df = ISO8601DateFormatter()
             df.formatOptions = [.withInternetDateTime]
-            url += "?datumTol=\(df.string(from: s))&datumIg=\(df.string(from: e))"
+            df.timeZone = TimeZone.current
+            // A query param value-t URL-encode-olni kell a '+' és ':' miatt
+            let sStr = df.string(from: s).addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? df.string(from: s)
+            let eStr = df.string(from: e).addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? df.string(from: e)
+            url += "?datumTol=\(sStr)&datumIg=\(eStr)"
         }
         return URL(string: url)!
     }

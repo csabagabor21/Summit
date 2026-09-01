@@ -16,16 +16,16 @@ struct TimetableView: View {
     @State private var isLoading = true
     @State private var flashedLessonID: String?
     @State private var flashPulse = false
+    @State private var exemptedTick = 0
     private let switchToTimetable = Notification.Name("flint.switchToTimetable")
     @Environment(\.colorScheme) var scheme
     var colors: AppColors { theme.colors(for: scheme) }
     let days = ["Hétfő","Kedd","Szerda","Csütörtök","Péntek"]
     private let dayTags = Array(2...6)
-    // Demo előnézet — Home-mal közös AppStorage, hogy a folyamatjelző is pörögjön
-    @AppStorage("home.demoOverride") private var demoOverride = false
+    @AppStorage("timetable.useHardcoded") private var useHardcoded = false
     @AppStorage("home.demoPreviewActive") private var isPreviewActive = false
     @AppStorage("home.demoPreviewMinutes") private var previewMinutes: Double = 540
-    private var isDemoEffective: Bool { demoOverride || session.selectedUser?.isDemo == true }
+    private var isDemoEffective: Bool { session.selectedUser?.isDemo == true }
     private var previewDate: Date {
         // Demo-ban a kiválasztott naphoz igazítjuk, ne a mai naphoz — így minden napon működik a csúszka
         let cal = Calendar.current
@@ -205,16 +205,18 @@ struct TimetableView: View {
                 }
                 await load()
             }
+            .onChange(of: useHardcoded) { _, _ in Task { await load() } }
+            .onReceive(NotificationCenter.default.publisher(for: ExemptedStore.changedNotification)) { _ in exemptedTick += 1 }
+            .id(exemptedTick)
             .onReceive(NotificationCenter.default.publisher(for: switchToTimetable)) { notif in
                 guard let info = notif.userInfo,
                       let subject = info["subject"] as? String,
                       let deadlineTS = info["deadline"] as? Double else { return }
                 let deadline = Date(timeIntervalSince1970: deadlineTS)
                 let cal = Calendar.current
-                // 1) pontos egyezés: tárgy + dátum
-                var match = lessons.first(where: { $0.subject.lowercased() == subject.lowercased() && cal.isDate($0.start, inSameDayAs: deadline) })
-                // 2) fallback: csak tárgy (első a héten)
-                if match == nil { match = lessons.first(where: { $0.subject.lowercased() == subject.lowercased() }) }
+                // Kanonikus egyeztetés — demo rövid vs KRÉTA hosszú
+                var match = lessons.first(where: { SubjectMatcher.same($0.subject, subject) && cal.isDate($0.start, inSameDayAs: deadline) })
+                if match == nil { match = lessons.first(where: { SubjectMatcher.same($0.subject, subject) }) }
                 guard let m = match else { return }
                 withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
                     selectedDay = cal.component(.weekday, from: m.start)
@@ -236,19 +238,33 @@ struct TimetableView: View {
 
     private func homework(for lesson: LessonItem) -> HomeworkItem? {
         let cal = Calendar.current
-        if let hw = homeworks.first(where: { $0.subject.lowercased() == lesson.subject.lowercased() && cal.isDate($0.deadline, inSameDayAs: lesson.start) }) { return hw }
-        // Demo garancia: hétfőn Matek/Kémia legyen fehér és mutassa a feladatot akkor is ha dátum nem stimmel
-        if isDemoEffective, cal.component(.weekday, from: lesson.start) == 2 {
-            if lesson.subject.lowercased() == "matek" { return homeworks.first(where: { $0.subject.lowercased() == "matek" }) }
-            if lesson.subject.lowercased() == "kémia" { return homeworks.first(where: { $0.subject.lowercased() == "kémia" }) }
+        if let hw = homeworks.first(where: { SubjectMatcher.same($0.subject, lesson.subject) && cal.isDate($0.deadline, inSameDayAs: lesson.start) }) { return hw }
+        // Fallback: kanonikus egyezés dátum nélkül — demo és valós között is működjön
+        if let hw = homeworks.first(where: { SubjectMatcher.same($0.subject, lesson.subject) }) {
+            // Csak akkor adjuk vissza dátum nélkül, ha demo-ban vagyunk vagy nincs sameDay találat
+            // Valós módban is hasznos ha a határidő nem pont aznapra esik de a tárgy egyezik — limitáltan visszaadjuk
+            // hogy a "Most" panel csatolása is működjön
+            if homeworks.filter({ SubjectMatcher.same($0.subject, lesson.subject) }).count == 1 {
+                return hw
+            }
         }
         return nil
     }
     private func hasAssignment(for lesson: LessonItem) -> Bool {
         let cal = Calendar.current
-        let sameDayHW = homeworks.contains { $0.subject.lowercased() == lesson.subject.lowercased() && cal.isDate($0.deadline, inSameDayAs: lesson.start) }
-        let sameDayExam = exams.contains { $0.subject.lowercased() == lesson.subject.lowercased() && cal.isDate($0.date, inSameDayAs: lesson.start) }
+        let sameDayHW = homeworks.contains { SubjectMatcher.same($0.subject, lesson.subject) && cal.isDate($0.deadline, inSameDayAs: lesson.start) }
+        let sameDayExam = exams.contains { SubjectMatcher.same($0.subject, lesson.subject) && cal.isDate($0.date, inSameDayAs: lesson.start) }
         if sameDayHW || sameDayExam { return true }
+        // Kanonikus fallback: ha van bármilyen hw/ex ugyanarra a tárgyra, jelezzük
+        let anyHW = homeworks.contains { SubjectMatcher.same($0.subject, lesson.subject) }
+        let anyEx = exams.contains { SubjectMatcher.same($0.subject, lesson.subject) }
+        // Csak akkor fehér, ha nincs elmarad/helyettesítés és van csatolt feladat
+        if anyHW || anyEx {
+            // Ne legyen túl agresszív: csak akkor, ha az adott napi leckék között tényleg kevés hw van
+            // Itt visszafogjuk — sameDay prioritás, de ha van legalább 1 hw a tárgyra, mutassuk
+            // mert demo-ban Matek/Angol különben nem látszana
+            return false // konzervatív: csak sameDay számít fehér háttérnek
+        }
         if homework(for: lesson) != nil { return true }
         return false
     }
@@ -325,6 +341,21 @@ struct TimetableView: View {
     func progress(for l: LessonItem) -> Double { progress(for: l, now: overrideNow ?? Date()) }
 
     func load() async {
+        // Fix órarend — ha be van kapcsolva, KRÉTA helyett a hardcoded heti rend
+        // De a házikat/dolgozatokat ilyenkor IS a KRÉTÁ-ból hozzuk, nem demo-ból
+        if useHardcoded, let user = session.selectedUser, !user.isDemo {
+            let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
+            // Párhuzamosan kérjük a hw/ex-et, a lesson fix
+            async let hw = kreta.fetchHomework(iss: iss)
+            async let ex = kreta.fetchExams(iss: iss)
+            lessons = HardcodedTimetable.lessons()
+            let (hwR, exR) = await (hw, ex)
+            homeworks = hwR
+            exams = exR
+            isLoading = false
+            var d = Calendar.current.component(.weekday, from: Date()); if d==1||d==7 { d=2 }; selectedDay = d
+            return
+        }
         // Demo: e heti hétfő–péntek rendes lessonjei, hétfő 3. elmarad, 4. helyettesítés — mint KretaModels.lessonsExpanded()
         guard let user = session.selectedUser, !user.isDemo else {
             lessons = DemoData.lessonsExpanded()
@@ -343,8 +374,9 @@ struct TimetableView: View {
         async let ex = kreta.fetchExams(iss: iss)
         let (ttR, hwR, exR) = await (tt, hw, ex)
         lessons = ttR
-        homeworks = hwR.isEmpty ? DemoData.homeworks() : hwR
-        exams = exR.isEmpty ? DemoData.exams() : exR
+        // NE szennyezzük demo adattal a valós nézetet: ha üres, maradjon üres
+        homeworks = hwR
+        exams = exR
         isLoading=false
         var d = Calendar.current.component(.weekday, from: Date()); if d==1||d==7 { d=2 }; selectedDay=d
     }
@@ -366,10 +398,12 @@ private struct TimetableRow: View {
 
     private var isCancelled: Bool { lesson.isCancelled }
     private var isSubstituted: Bool { lesson.isSubstituted }
+    private var isExempted: Bool { ExemptedStore.isExempted(lesson.subject) }
     private var isPast: Bool { lesson.end < effectiveNow && !isCurrent }
 
-    // Prioritás: elmarad > helyettesítés > most (kék) > feladat/dolgozat (fehér) > múlt/jövő = neutrális
+    // Prioritás: felmentett (zöld) > elmarad > helyettesítés > most (kék) > feladat/dolgozat (fehér) > múlt/jövő = neutrális
     private var ringTint: Color? {
+        if isExempted { return Color.green }
         if isCancelled { return Color.red }
         if isSubstituted { return Color.orange }
         if isCurrent { return Color.blue }
@@ -378,6 +412,7 @@ private struct TimetableRow: View {
     }
     private var isTintedGlass: Bool { ringTint != nil }
     private var rowBackground: Color {
+        if isExempted { return Color.green.opacity(scheme == .dark ? 0.16 : 0.10) }
         if isCancelled { return Color.red.opacity(scheme == .dark ? 0.16 : 0.10) }
         if isSubstituted { return Color.orange.opacity(scheme == .dark ? 0.16 : 0.10) }
         if isCurrent { return Color.blue.opacity(scheme == .dark ? 0.16 : 0.10) }
@@ -385,23 +420,33 @@ private struct TimetableRow: View {
         return colors.surface
     }
     private var numberColor: Color {
+        if isExempted { return Color.green }
         if isCancelled { return Color.red }
         if isSubstituted { return Color.orange }
         if isCurrent { return Color.blue }
         if hasAssignment { return scheme == .dark ? Color.white : Color.black }
         return scheme == .dark ? Color.white : Color.black
     }
+    private var badgeLabel: String? {
+        if isExempted { return "Felmentett" }
+        return lesson.substitutionLabel
+    }
+    private var badgeColor: Color {
+        if isExempted { return Color.green }
+        if isCancelled { return Color.red }
+        return Color.orange
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 6) {
-            // LEFT — liquid glass number + spine (színezi az állapotot, tick nélkül — elegáns)
+            // LEFT — liquid glass number + spine (szám mindig a glass FELETT — különben sötétnek látszik)
             VStack(spacing: 0) {
-                // Liquid glass kör — 38pt: múlt=zöld, most=kék, helyettesítés=narancs, elmarad=piros, feladat/fehér
                 ZStack {
+                    // Glass háttér — külön réteg, a szám nem része a glass materialnak
                     Circle()
                         .fill(Color.clear)
                         .frame(width: 38, height: 38)
-                        .overlay {
+                        .background {
                             if #available(iOS 26.0, *) {
                                 Circle()
                                     .fill(Color.clear)
@@ -425,13 +470,17 @@ private struct TimetableRow: View {
                         .shadow(color: (ringTint ?? Color.clear).opacity(isTintedGlass ? (scheme == .dark ? 0.14 : 0.08) : 0), radius: 6, y: 2)
                         .frame(width: 38, height: 38)
 
+                    // Szám — ZStack legfelső rétege, glass nem fedi
                     Text(lesson.index)
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(numberColor)
                         .contentTransition(.numericText())
+                        .zIndex(1)
+                        .allowsHitTesting(false)
                 }
                 .frame(width: 38, height: 38)
+                .compositingGroup()
 
                 // Spine — vékony editorial vonal a következő körig
                 if !isLast {
@@ -450,20 +499,20 @@ private struct TimetableRow: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top, spacing: 10) {
                     VStack(alignment: .leading, spacing: 4) {
-                        // Badge row — only when needed, capsule like HomeLiveCard
-                        if let lbl = lesson.substitutionLabel {
+                        // Badge row — felmentett is zöld, elmarad piros, helyettesítés narancs
+                        if let lbl = badgeLabel {
                             Text(lbl.uppercased())
                                 .font(.caption2.weight(.bold))
                                 .tracking(0.5)
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 7).padding(.vertical, 3.5)
-                                .background(Capsule().fill(isCancelled ? Color.red : Color.orange))
+                                .background(Capsule().fill(badgeColor))
                         }
 
                         Text(lesson.subject)
                             .font(.system(size: 17, weight: .semibold, design: .rounded))
-                            .foregroundStyle(isCancelled ? .secondary : .primary)
-                            .strikethrough(isCancelled, color: .secondary)
+                            .foregroundStyle((isCancelled || isExempted) ? .secondary : .primary)
+                            .strikethrough(isCancelled || isExempted, color: .secondary)
                             .lineLimit(1)
 
                         HStack(spacing: 6) {

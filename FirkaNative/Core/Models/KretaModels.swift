@@ -228,6 +228,38 @@ struct KretaExamDTO: Decodable {
     }
 }
 
+// MARK: - Subject matching helper — demo rövid vs KRÉTA hosszú nevek
+// Fontos: "Angol nyelv" és "Szakmai angol nyelv" KÜLÖN tantárgy — nem szabad összemosni.
+// Ezért a canonical csak a valódi szinonimákat (Matek↔Matematika, Töri↔Történelem) oldja fel,
+// a teljes tantárgyneveket (pl. "Szakmai angol nyelv", "Hálózatok I.") érintetlenül hagyja.
+enum SubjectMatcher {
+    static func canonical(_ s: String) -> String {
+        var v = s.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: .diacriticInsensitive, locale: .current)
+        v = v.replacingOccurrences(of: "  ", with: " ")
+        v = v.trimmingCharacters(in: .whitespaces)
+        // Csak a bizonyított szinonimák — demo rövidítés vs KRÉTA teljes név
+        let alias: [String: String] = [
+            "matematika": "matek",
+            "matek": "matek",
+            "tortenelem": "tori",
+            "tori": "tori",
+            // Angol: demo "Angol" ↔ KRÉTA "Angol nyelv" — de "Szakmai angol nyelv" külön marad
+            "angol nyelv": "angol",
+            "angol": "angol",
+            "nemet nyelv": "nemet",
+            "nemet": "nemet",
+        ]
+        if let mapped = alias[v] { return mapped }
+        return v
+    }
+    static func same(_ a: String, _ b: String) -> Bool {
+        if a.lowercased() == b.lowercased() { return true }
+        // folding + alias egyeztetés, de nem tartalmazás-alapú — különben "Szakmai angol nyelv" == "Angol nyelv" lenne
+        return canonical(a) == canonical(b)
+    }
+}
+
 // Keep DemoData only for true demo user or preview — enriched
 enum DemoData {
     static func grades() -> [GradeItem] { gradesExpanded().prefix(3).map { $0 } }

@@ -69,9 +69,9 @@ struct AbsencesView: View {
             List {
                 // MARK: Top — egy nagy liquid glass block, eredeti layout: bal késések | jobb felül igazolt alul igazolatlan
                 Section {
-                    HStack(alignment: .top, spacing: 0) {
-                        // Bal: késések — ring + szöveg
-                        VStack(spacing: 0) {
+                    HStack(alignment: .center, spacing: 0) {
+                        // Bal: késések — ring + szöveg — javított spacing, középre igazítva
+                        VStack(spacing: 10) {
                             HStack {
                                 Label("KÉSÉSEK", systemImage: "clock.fill")
                                     .font(.caption2.weight(.bold))
@@ -88,7 +88,6 @@ struct AbsencesView: View {
                                         .lineLimit(1)
                                 }
                             }
-                            Spacer().frame(height: 8)
                             ZStack {
                                 Circle().stroke(Color.primary.opacity(scheme == .dark ? 0.08 : 0.07), lineWidth: 7)
                                 Circle()
@@ -117,13 +116,11 @@ struct AbsencesView: View {
                                     .contentTransition(.numericText())
                             }
                             .frame(width: 78, height: 78)
-                            Spacer().frame(height: 8)
                             Text(isFullCycle ? "beszámítva" : totalDelay == 0 ? "nincs késés" : "\(displayedDelay) / 45 perc")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(isFullCycle ? Color.red : .secondary)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
-                            Spacer(minLength: 0)
                         }
                         .frame(maxWidth: .infinity)
 
@@ -134,8 +131,8 @@ struct AbsencesView: View {
                             .padding(.vertical, 8)
                             .padding(.horizontal, 12)
 
-                        // Jobb: hiányzások — felül igazolt, alul igazolatlan (balra igazítva, kompakt)
-                        VStack(alignment: .leading, spacing: 0) {
+                        // Jobb: hiányzások — felül igazolt, alul igazolatlan — javított vertikális spacing, középre igazítva
+                        VStack(alignment: .leading, spacing: 10) {
                             HStack(spacing: 6) {
                                 Image(systemName: "person.fill.xmark").font(.caption2.weight(.bold)).foregroundStyle(.secondary)
                                 Text("HIÁNYZÁSOK")
@@ -145,9 +142,8 @@ struct AbsencesView: View {
                                     .lineLimit(1)
                                 Spacer(minLength: 2)
                             }
-                            Spacer().frame(height: 10)
                             VStack(spacing: 0) {
-                                VStack(alignment: .leading, spacing: 2) {
+                                VStack(alignment: .leading, spacing: 3) {
                                     Text("\(absences.count - unjustifiedCount)")
                                         .font(.system(size: 30, weight: .bold, design: .rounded))
                                         .monospacedDigit()
@@ -163,12 +159,12 @@ struct AbsencesView: View {
                                         .lineLimit(1)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.vertical, 2)
+                                .padding(.vertical, 4)
                                 Rectangle()
                                     .fill(Color.primary.opacity(scheme == .dark ? 0.08 : 0.06))
                                     .frame(height: 1)
-                                    .padding(.vertical, 6)
-                                VStack(alignment: .leading, spacing: 2) {
+                                    .padding(.vertical, 8)
+                                VStack(alignment: .leading, spacing: 3) {
                                     Text("\(unjustifiedCount)")
                                         .font(.system(size: 30, weight: .bold, design: .rounded))
                                         .monospacedDigit()
@@ -184,13 +180,12 @@ struct AbsencesView: View {
                                         .lineLimit(1)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.vertical, 2)
+                                .padding(.vertical, 4)
                             }
-                            Spacer(minLength: 0)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .padding(12)
+                    .padding(16)
                     .background(
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
                             .fill(scheme == .dark ? Color.white.opacity(0.06) : Color.white)

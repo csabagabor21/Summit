@@ -8,11 +8,10 @@ struct HomeView: View {
     @StateObject private var vm = HomeViewModel()
     @Environment(\.colorScheme) var scheme
     var colors: AppColors { theme.colors(for: scheme) }
-    // Előnézet csúszka — melyik óra van épp (demo teszteléshez) — Timetable-lal közös AppStorage
-    @AppStorage("home.demoOverride") private var demoOverride = false
     @AppStorage("home.demoPreviewActive") private var isPreviewActive = false
     @AppStorage("home.demoPreviewMinutes") private var previewMinutes: Double = 540
-    private var isDemoEffective: Bool { demoOverride || session.selectedUser?.isDemo == true }
+    @State private var exemptedTick = 0
+    private var isDemoEffective: Bool { session.selectedUser?.isDemo == true }
 
     var body: some View {
         let user = session.selectedUser ?? .demo
@@ -96,7 +95,7 @@ struct HomeView: View {
                     }
                 } header: { Text("Legújabb jegyek").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
 
-                // Közelgő dolgozatok — csak top 3 + egyetlen nyíl a láblécben
+                // Közelgő dolgozatok — kanonikus egyeztetés
                 Section {
                     let sorted = vm.exams.sorted { $0.date < $1.date }
                     if sorted.isEmpty {
@@ -104,8 +103,8 @@ struct HomeView: View {
                     } else {
                         ForEach(sorted.prefix(3)) { e in
                             let done = completed.isExamDone(e.id)
-                            let lesson = vm.lessonsToday.first { $0.subject == e.subject && Calendar.current.isDate($0.start, inSameDayAs: e.date) }
-                                ?? vm.lessonsToday.first { $0.subject.lowercased() == e.subject.lowercased() }
+                            let lesson = vm.lessonsToday.first { SubjectMatcher.same($0.subject, e.subject) && Calendar.current.isDate($0.start, inSameDayAs: e.date) }
+                                ?? vm.lessonsToday.first { SubjectMatcher.same($0.subject, e.subject) }
                             HStack(spacing: 12) {
                                 Button { withAnimation(.spring(response: 0.3)) { completed.toggleExam(e.id) } } label: {
                                     Image(systemName: done ? "checkmark.circle.fill" : "circle")
@@ -145,7 +144,7 @@ struct HomeView: View {
                     }
                 } header: { Text("Közelgő dolgozatok").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
 
-                // Közelgő feladatok — csak top 3 + egyetlen nyíl a láblécben
+                // Közelgő feladatok — kanonikus egyeztetés
                 Section {
                     let sorted = vm.homeworks.sorted { $0.deadline < $1.deadline }
                     if sorted.isEmpty {
@@ -153,8 +152,8 @@ struct HomeView: View {
                     } else {
                         ForEach(sorted.prefix(3)) { h in
                             let done = completed.isHomeworkDone(h.id)
-                            let lesson = vm.lessonsToday.first { $0.subject == h.subject && Calendar.current.isDate($0.start, inSameDayAs: h.deadline) }
-                                ?? vm.lessonsToday.first { $0.subject.lowercased() == h.subject.lowercased() }
+                            let lesson = vm.lessonsToday.first { SubjectMatcher.same($0.subject, h.subject) && Calendar.current.isDate($0.start, inSameDayAs: h.deadline) }
+                                ?? vm.lessonsToday.first { SubjectMatcher.same($0.subject, h.subject) }
                             HStack(spacing: 12) {
                                 Button { withAnimation(.spring(response: 0.3)) { completed.toggleHomework(h.id) } } label: {
                                     Image(systemName: done ? "checkmark.circle.fill" : "circle")
@@ -200,7 +199,7 @@ struct HomeView: View {
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .background(colors.background)
-            .refreshable { await vm.refresh(kreta: kreta, user: session.selectedUser, forceDemo: demoOverride) }
+            .refreshable { await vm.refresh(kreta: kreta, user: session.selectedUser) }
             .task {
                 // első indításkor a previewMinutes legyen a mostani idő (ne fix 09:00)
                 if UserDefaults.standard.object(forKey: "home.demoPreviewMinutes") == nil {
@@ -209,13 +208,10 @@ struct HomeView: View {
                     let m = c.component(.minute, from: Date())
                     previewMinutes = Double(max(420, min(960, h*60+m)))
                 }
-                await vm.refresh(kreta: kreta, user: session.selectedUser, forceDemo: demoOverride)
+                await vm.refresh(kreta: kreta, user: session.selectedUser)
             }
-            .onChange(of: demoOverride) { _, new in
-                Task { withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) { } ; await vm.refresh(kreta: kreta, user: session.selectedUser, forceDemo: new) }
-                if !new { isPreviewActive = false }
-            }
-            .onChange(of: session.selectedId) { _, _ in Task { await vm.refresh(kreta: kreta, user: session.selectedUser, forceDemo: demoOverride) } }
+            .onReceive(NotificationCenter.default.publisher(for: ExemptedStore.changedNotification)) { _ in exemptedTick += 1 }
+            .onChange(of: session.selectedId) { _, _ in Task { await vm.refresh(kreta: kreta, user: session.selectedUser) } }
             .navigationTitle("Főoldal")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.visible, for: .navigationBar)
@@ -276,9 +272,20 @@ private struct HomeLiveCard: View {
 
     private func cardBackground(for lesson: LessonItem?) -> Color {
         guard let l = lesson else { return colors.surface }
+        if ExemptedStore.isExempted(l.subject) { return Color.green.opacity(scheme == .dark ? 0.22 : 0.12) }
         if l.isCancelled { return Color.red.opacity(scheme == .dark ? 0.22 : 0.12) }
         if l.isSubstituted { return Color.orange.opacity(scheme == .dark ? 0.22 : 0.14) }
         return colors.surface
+    }
+    private func exemptLabel(for lesson: LessonItem) -> String? {
+        if ExemptedStore.isExempted(lesson.subject) { return "Felmentett" }
+        return lesson.substitutionLabel
+    }
+    private func exemptTint(for lesson: LessonItem) -> Color? {
+        if ExemptedStore.isExempted(lesson.subject) { return Color.green }
+        if lesson.isCancelled { return Color.red }
+        if lesson.isSubstituted { return Color.orange }
+        return nil
     }
 
     @ViewBuilder
@@ -306,8 +313,8 @@ private struct HomeLiveCard: View {
                                 .font(.system(size: 26, weight: .bold, design: .rounded))
                                 .lineLimit(1)
                             HStack(spacing: 6) {
-                                if let lbl = n.substitutionLabel {
-                                    Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(Capsule().fill(n.isCancelled ? Color.red : Color.orange))
+                                if let lbl = exemptLabel(for: n) {
+                                    Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(Capsule().fill(exemptTint(for: n) ?? Color.green))
                                 }
                                 Text(n.room)
                                     .font(.caption2.weight(.bold).monospacedDigit())
@@ -332,8 +339,8 @@ private struct HomeLiveCard: View {
                 case .duringLesson:
                     if let c = calc.current {
                         VStack(alignment: .leading, spacing: 10) {
-                            if let lbl = c.substitutionLabel {
-                                Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(c.isCancelled ? Color.red : Color.orange))
+                            if let lbl = exemptLabel(for: c) {
+                                Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(exemptTint(for: c) ?? Color.green))
                             }
                             Text(c.subject)
                                 .font(.system(size: 28, weight: .bold, design: .rounded))
@@ -352,15 +359,15 @@ private struct HomeLiveCard: View {
                                 Spacer()
                                 Text("\(c.start.formatted(date: .omitted, time: .shortened))–\(c.end.formatted(date: .omitted, time: .shortened))").font(.caption.monospacedDigit()).foregroundStyle(.tertiary)
                             }
-                            HomeLiquidProgress(progress: calc.progress, tint: c.isCancelled ? Color.red : c.isSubstituted ? Color.orange : colors.accent, remainingText: calc.remainingText, scheme: scheme, colors: colors)
+                            HomeLiquidProgress(progress: calc.progress, tint: exemptTint(for: c) ?? colors.accent, remainingText: calc.remainingText, scheme: scheme, colors: colors)
                             attachedInfo(for: c)
                             if let n = calc.next {
                                 Divider().opacity(0.5)
                                 HStack(spacing: 6) {
                                     Image(systemName: "arrow.right.circle.fill").font(.caption).foregroundStyle(.secondary)
                                     Text("Következő: \(n.subject) • \(n.room)").font(.caption.weight(.medium)).foregroundStyle(.secondary).lineLimit(1)
-                                    if let lbl = n.substitutionLabel {
-                                        Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(n.isCancelled ? Color.red : Color.orange).padding(.horizontal, 5).padding(.vertical, 2).background(Capsule().fill((n.isCancelled ? Color.red : Color.orange).opacity(0.14)))
+                                    if let lbl = exemptLabel(for: n) {
+                                        Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(exemptTint(for: n) ?? Color.green).padding(.horizontal, 5).padding(.vertical, 2).background(Capsule().fill((exemptTint(for: n) ?? Color.green).opacity(0.14)))
                                     }
                                     Spacer()
                                     Text(n.start.formatted(date: .omitted, time: .shortened)).font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
@@ -377,8 +384,8 @@ private struct HomeLiveCard: View {
                                 .font(.system(size: 26, weight: .bold, design: .rounded))
                                 .lineLimit(1)
                             HStack(spacing: 6) {
-                                if let lbl = n.substitutionLabel {
-                                    Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(Capsule().fill(n.isCancelled ? Color.red : Color.orange))
+                                if let lbl = exemptLabel(for: n) {
+                                    Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(Capsule().fill(exemptTint(for: n) ?? Color.green))
                                 }
                                 Text(n.room)
                                     .font(.caption2.weight(.bold).monospacedDigit())
@@ -392,7 +399,7 @@ private struct HomeLiveCard: View {
                                 Text(n.start.formatted(date: .omitted, time: .shortened)).font(.caption.weight(.medium).monospacedDigit()).foregroundStyle(.secondary)
                             }
                             if calc.progress > 0 {
-                                HomeLiquidProgress(progress: calc.progress, tint: n.isCancelled ? Color.red : n.isSubstituted ? Color.orange : colors.accent, remainingText: calc.remainingText, scheme: scheme, colors: colors)
+                                HomeLiquidProgress(progress: calc.progress, tint: exemptTint(for: n) ?? colors.accent, remainingText: calc.remainingText, scheme: scheme, colors: colors)
                                     .padding(.top, 2)
                             }
                             attachedInfo(for: n)
@@ -408,9 +415,9 @@ private struct HomeLiveCard: View {
 
     @ViewBuilder
     func attachedInfo(for lesson: LessonItem) -> some View {
-        // Rögzítve van-e valami erre az órára (dolgozat/feladat azonos tárgy + közeli dátum)
-        let exam = exams.first { $0.subject == lesson.subject && Calendar.current.isDate($0.date, inSameDayAs: lesson.start) }
-        let hw = homeworks.first { $0.subject == lesson.subject && Calendar.current.isDate($0.deadline, inSameDayAs: lesson.start) }
+        // Rögzítve van-e valami erre az órára — kanonikus egyeztetés (Matek <-> Matematika)
+        let exam = exams.first { SubjectMatcher.same($0.subject, lesson.subject) && Calendar.current.isDate($0.date, inSameDayAs: lesson.start) }
+        let hw = homeworks.first { SubjectMatcher.same($0.subject, lesson.subject) && Calendar.current.isDate($0.deadline, inSameDayAs: lesson.start) }
         if exam != nil || hw != nil {
             VStack(alignment: .leading, spacing: 3) {
                 if let e = exam {
@@ -439,7 +446,7 @@ private struct LiveCalc {
     init(lessons: [LessonItem], now: Date) {
         if lessons.isEmpty {
             let h = Calendar.current.component(.hour, from: now)
-            if h < 7 { state = .morning } else if h < 15 { state = .duringLesson } else { state = .empty }
+            if h < 7 { state = .morning } else { state = .empty }
             return
         }
         if let cur = lessons.first(where: { $0.start <= now && $0.end >= now }) {
