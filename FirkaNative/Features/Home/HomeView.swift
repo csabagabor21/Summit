@@ -6,13 +6,16 @@ struct HomeView: View {
     @EnvironmentObject var kreta: KretaClient
     @EnvironmentObject var completed: CompletedStore
     @StateObject private var vm = HomeViewModel()
+    @ObservedObject private var liveManager = FlintLiveActivityManager.shared
     @Environment(\.colorScheme) var scheme
     @Environment(\.horizontalSizeClass) private var hSize
     private var isPad: Bool { hSize == .regular }
     var colors: AppColors { theme.colors(for: scheme) }
     @AppStorage("home.demoPreviewActive") private var isPreviewActive = false
     @AppStorage("home.demoPreviewMinutes") private var previewMinutes: Double = 540
+    @AppStorage("liveActivity.enabled") private var liveActivityEnabled = true
     @State private var exemptedTick = 0
+    @State private var liveSyncTask: Task<Void, Never>?
     private var isDemoEffective: Bool { session.selectedUser?.isDemo == true }
 
     var body: some View {
@@ -63,6 +66,39 @@ struct HomeView: View {
                                 }
                                 Button("Vissza élő időre") { withAnimation { isPreviewActive = false } }
                                     .font(.caption.weight(.semibold)).tint(colors.accent)
+                                Label("A csúszka a Live Activity-t is mozgatja", systemImage: "livephoto")
+                                    .font(.caption2).foregroundStyle(.tertiary)
+                                // Demo diagnosztika + órarend-független teszt (este is működik)
+                                HStack(spacing: 6) {
+                                    Circle().fill(liveManager.isSystemEnabled ? Color.green : Color.red).frame(width: 7, height: 7)
+                                    Text(liveManager.isSystemEnabled ? "Rendszer OK" : "Rendszer tiltva")
+                                        .font(.caption2.weight(.medium))
+                                        .foregroundStyle(liveManager.isSystemEnabled ? Color.secondary : Color.red)
+                                    Spacer()
+                                    Text("\(liveManager.activeCount) aktív • \(liveManager.lastAction)")
+                                        .font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+                                }
+                                if let err = liveManager.lastError {
+                                    Text(err).font(.caption2).foregroundStyle(.orange).lineLimit(2)
+                                }
+                                HStack(spacing: 12) {
+                                    Button("Teszt indítása most") {
+                                        Task { await liveManager.startDemoTestNow(accentHex: theme.accentHex) }
+                                    }
+                                    .font(.caption.weight(.semibold)).tint(colors.accent)
+                                    Button("Leállítás") {
+                                        Task { await liveManager.endAll(dismissalPolicy: .immediate) }
+                                    }
+                                    .font(.caption.weight(.semibold)).tint(.red)
+                                }
+                                // Widget extension telepítve? Enélkül a pill felmegy, de az expanded fekete.
+                                if isWidgetExtensionInstalled {
+                                    Label("Widget extension telepítve", systemImage: "checkmark.circle.fill")
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                } else {
+                                    Label("Widget extension HIÁNYZIK — töröld az appot és telepítsd újra Xcode-ból, ez okozza a fekete Islandet", systemImage: "exclamationmark.triangle.fill")
+                                        .font(.caption2).foregroundStyle(.red)
+                                }
                             }
                             .padding(.vertical, 4)
                         }
@@ -270,9 +306,23 @@ struct HomeView: View {
                     previewMinutes = Double(max(420, min(960, h*60+m)))
                 }
                 await vm.refresh(kreta: kreta, user: session.selectedUser)
+                await syncLiveActivity()
             }
             .onReceive(NotificationCenter.default.publisher(for: ExemptedStore.changedNotification)) { _ in exemptedTick += 1 }
-            .onChange(of: session.selectedId) { _, _ in Task { await vm.refresh(kreta: kreta, user: session.selectedUser) } }
+            .onChange(of: vm.lessonsToday) { _, _ in Task { await syncLiveActivity() } }
+            .onChange(of: session.selectedId) { _, _ in Task { await vm.refresh(kreta: kreta, user: session.selectedUser); await syncLiveActivity() } }
+            .onChange(of: previewMinutes) { _, _ in
+                if isDemoEffective && isPreviewActive { enqueueLiveSync() }
+            }
+            .onChange(of: isPreviewActive) { _, _ in
+                enqueueLiveSync()
+            }
+            // A didChangeNotification MINDEN UserDefaults-írásra tüzelt (a csúszka is oda ír!),
+            // így tickenként 2 párhuzamos sync futott → endAll/request verseny → stackelt activityk.
+            // Helyette csak a Live Activity toggle-t figyeljük, debounce-olt single-flight sync-kel.
+            .onChange(of: liveActivityEnabled) { _, _ in
+                Task { await syncLiveActivity() }
+            }
             .navigationTitle("Főoldal")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.visible, for: .navigationBar)
@@ -286,6 +336,11 @@ struct HomeView: View {
     }
 
     // MARK: - Preview helpers
+    /// A widget appex tényleg az app része? Régi telepítésnél hiányozhat → fekete expanded Island.
+    private var isWidgetExtensionInstalled: Bool {
+        let url = Bundle.main.bundleURL.appendingPathComponent("PlugIns/FlintWidgets.appex", isDirectory: true)
+        return FileManager.default.fileExists(atPath: url.path)
+    }
     private var previewDate: Date {
         let base = Calendar.current.startOfDay(for: Date())
         return base.addingTimeInterval(previewMinutes * 60)
@@ -303,6 +358,49 @@ struct HomeView: View {
         case .duringLesson: return "Óra közben"
         case .summary: return "Vége"
         }
+    }
+
+    /// Debounce-olt single-flight sync: csúszkahúzáskor tickenként csak az utolsó fut le,
+    /// különben az endAll/request párok párhuzamosan versenyeznek és stackelődnek (több aktív).
+    private func enqueueLiveSync() {
+        liveSyncTask?.cancel()
+        liveSyncTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard !Task.isCancelled else { return }
+            await syncLiveActivity()
+        }
+    }
+
+    @MainActor
+    private func syncLiveActivity() async {
+        // Demo módban az idő-csúszka mozgatja a Live Activity-t is,
+        // hogy a Lock Screen / Dynamic Island tesztelhető legyen készüléken.
+        if isPreviewActive && isDemoEffective {
+            let previewNow = previewDate
+            let realNow = Date()
+            let delta = previewNow.timeIntervalSince(realNow)
+            // Logikai óra a preview idő szerint (eredeti, nem shiftelt órarend alapján)
+            let logicalCurrent = vm.lessonsToday.first { $0.start <= previewNow && $0.end >= previewNow }
+            let logicalNext = vm.lessonsToday.first { $0.start > previewNow }
+            func shifted(_ l: LessonItem) -> LessonItem {
+                LessonItem(
+                    id: l.id, subject: l.subject, room: l.room,
+                    start: l.start.addingTimeInterval(-delta),
+                    end: l.end.addingTimeInterval(-delta),
+                    teacher: l.teacher, index: l.index,
+                    isSubstituted: l.isSubstituted, isCancelled: l.isCancelled,
+                    originalTeacher: l.originalTeacher
+                )
+            }
+            let cur = logicalCurrent.map(shifted)
+            let nxt = logicalNext.map(shifted)
+            // `now` = valós idő, `cur/nxt` shiftelve — így a rendszer
+            // Text(timerInterval:) visszaszámlálója a valós órához igazodik,
+            // de a preview időnek megfelelő állapotot mutatja.
+            await FlintLiveActivityManager.shared.startOrUpdate(current: cur, next: nxt, now: realNow, accentHex: theme.accentHex)
+            return
+        }
+        await FlintLiveActivityManager.shared.startOrUpdate(current: vm.currentLesson, next: vm.nextLesson, accentHex: theme.accentHex)
     }
 }
 

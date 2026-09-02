@@ -8,17 +8,21 @@
 
 /* Begin PBXBuildFile section */
 		035CCDDD8008E434E80735BC /* NotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D93941AC0EF9492E8E8FC87C /* NotesView.swift */; };
+		95CE7EB4304633540076C893 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 95CE7EB3304633540076C893 /* AppIcon.icon */; };
 		070BED0806B24776C9CA0378 /* TeacherRoundingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B34D700082CBC9796AA731F /* TeacherRoundingView.swift */; };
 		07425EA432B29AF616973EFD /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2796FFD5EF18E9AD20A660A2 /* SessionStore.swift */; };
 		08B20D4184B2C1194D0A0884 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30EFB3459DEFF383F8DF8668 /* ThemeStore.swift */; };
 		0D7F31ED54AD916271BAD3F5 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 114F416793F8E8A5BBB69F07 /* HomeView.swift */; };
+		1ACACC9DC25A96F900A11014 /* FlintLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B5C9EC44D39D87241B550D5 /* FlintLiveActivityAttributes.swift */; };
 		1AEDE391AD49AD57FF1571B6 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = F71E956AC45085B50004306D /* User.swift */; };
 		1DE67DADB887915E2F7D2944 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADB93DE401D53E80FEEF49D2 /* MainTabView.swift */; };
 		2BD208A43080EA01B7873BCB /* GradesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 545D16B4E6B97B9D2399B5FC /* GradesView.swift */; };
 		34D3F85661D7CEEF7CFE3AB0 /* ProfileImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11397958896C63F02493DC94 /* ProfileImageView.swift */; };
 		350860F0739797515BE0641D /* CompletedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F44247D87A1D5AF0D5AD57 /* CompletedStore.swift */; };
 		3F9A6A266B4576E426D5B504 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59B95265FA2B313F786E0034 /* SettingsView.swift */; };
+		4EB18D0CFA45C5421E6C64EF /* FlintLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B5C9EC44D39D87241B550D5 /* FlintLiveActivityAttributes.swift */; };
 		5969DACA1CC73099A7AE3ACD /* AbsencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 112CF35802F49E7BC4E6FA39 /* AbsencesView.swift */; };
+		62D5A9DA0D7F15825847108D /* FlintLiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 888F7384D4773D1C3BCE5570 /* FlintLiveActivityManager.swift */; };
 		6CC72D51E3A5DD8E4C547A50 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9CA9ED6D07518801F3F89E9 /* KeychainHelper.swift */; };
 		74842E2110FDAB09903940C3 /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B26BDB2D3FAFE6B7F461831 /* AuthViewModel.swift */; };
 		76752C875CB743BE18894408 /* LiveCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F08AAC09AED35E586880C3 /* LiveCardView.swift */; };
@@ -38,6 +42,7 @@
 		A46197861CEB176F0BEED984 /* TimetableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7CCF5CF8EB6B3291CA48C5 /* TimetableView.swift */; };
 		A9768A46A796C7C7A8666DAA /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 917F86853EF0EEB6D842FCF4 /* LoginView.swift */; };
 		AA7672F41F61BABF278B899B /* GradingLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31BC2B27C81200C54D92CECD /* GradingLogic.swift */; };
+		AC9A384890897A5C81F0A09B /* FlintWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52E5BC6F4AFDA9E5DB6D34DD /* FlintWidgetsBundle.swift */; };
 		B09C12718DC808B55FB7B786 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6699562344F56B767C796F7 /* AppTheme.swift */; };
 		BB01463BEEE7170A7C8236AA /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 3086D3040980CBE0BC5728BC /* LaunchScreen.storyboard */; };
 		C0DEA855E4E5CF1191ECADC9 /* KretaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 182D1911F7DEAA25C5ABA212 /* KretaModels.swift */; };
@@ -47,12 +52,38 @@
 		D2FD83AA4ED9E13CB151AEC9 /* FlintApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F112D8A15555A47C54624544 /* FlintApp.swift */; };
 		D41802437FBFB85E631E36D4 /* KretaClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B506EC58964F0853D14F0E87 /* KretaClient.swift */; };
 		D97BB40B5672B8870CA50F8E /* showcase2.png in Resources */ = {isa = PBXBuildFile; fileRef = 1F7FAC1C8C85C5123F473597 /* showcase2.png */; };
+		DE6D757E1643907DF761D21B /* FlintLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF8616F5C94FBEA818DD3DAF /* FlintLiveActivityWidget.swift */; };
 		E0623933380F0CCBEC687550 /* RoundingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0FB0CA7C07E5D8E328A4A6D /* RoundingDetailView.swift */; };
 		E577413793117E0C94AB97DB /* ExemptedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF82F0EE85913650A024661 /* ExemptedStore.swift */; };
 		E7501D5748228F9733F03744 /* ic_splash.png in Resources */ = {isa = PBXBuildFile; fileRef = 82A1969A19D465070B5D9D16 /* ic_splash.png */; };
 		F47C6EC0F219201108F7F3C7 /* showcase3.png in Resources */ = {isa = PBXBuildFile; fileRef = 9C8942DBC1A76729FD04B0D4 /* showcase3.png */; };
 		F8896E923D655012621E68C7 /* RootViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DB6FAC1C01D1EDE74EFCB61 /* RootViewModel.swift */; };
+		FBBDE450BF66B985896E436C /* FlintWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DD5BC59929976BB7E3C0B07C /* FlintWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		62747712C3E8D2864318F372 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5FB4A80B97536C63EDB86BDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 462BC4BB7D47D98FE2FD503A;
+			remoteInfo = FlintWidgets;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		0D7B8A2E611D98C854AB65A4 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				FBBDE450BF66B985896E436C /* FlintWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		112CF35802F49E7BC4E6FA39 /* AbsencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbsencesView.swift; sourceTree = "<group>"; };
@@ -62,12 +93,15 @@
 		182D1911F7DEAA25C5ABA212 /* KretaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaModels.swift; sourceTree = "<group>"; };
 		1F7FAC1C8C85C5123F473597 /* showcase2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase2.png; sourceTree = "<group>"; };
 		2796FFD5EF18E9AD20A660A2 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
-		27A03FE61351781FF2B0E1ED /* Flint.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Flint.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		27A03FE61351781FF2B0E1ED /* Flint.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Flint.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2B5C9EC44D39D87241B550D5 /* FlintLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlintLiveActivityAttributes.swift; sourceTree = "<group>"; };
 		3086D3040980CBE0BC5728BC /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		30EFB3459DEFF383F8DF8668 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
 		31BC2B27C81200C54D92CECD /* GradingLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradingLogic.swift; sourceTree = "<group>"; };
 		3337D352E360755819EB0510 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		95CE7EB3304633540076C893 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		35FA765F437DEF476D570261 /* ic_rounded.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_rounded.png; sourceTree = "<group>"; };
+		52E5BC6F4AFDA9E5DB6D34DD /* FlintWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlintWidgetsBundle.swift; sourceTree = "<group>"; };
 		545D16B4E6B97B9D2399B5FC /* GradesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradesView.swift; sourceTree = "<group>"; };
 		59B95265FA2B313F786E0034 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		5D821885DD5DB8AB896B9E77 /* KretaAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaAPI.swift; sourceTree = "<group>"; };
@@ -78,6 +112,7 @@
 		8080F293104888E9B66544B3 /* showcase1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase1.png; sourceTree = "<group>"; };
 		82A1969A19D465070B5D9D16 /* ic_splash.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_splash.png; sourceTree = "<group>"; };
 		85D39B9212DD03C8DC8D44A9 /* SubjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectDetailView.swift; sourceTree = "<group>"; };
+		888F7384D4773D1C3BCE5570 /* FlintLiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlintLiveActivityManager.swift; sourceTree = "<group>"; };
 		8AF82F0EE85913650A024661 /* ExemptedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExemptedStore.swift; sourceTree = "<group>"; };
 		8B34D700082CBC9796AA731F /* TeacherRoundingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeacherRoundingView.swift; sourceTree = "<group>"; };
 		8DB6FAC1C01D1EDE74EFCB61 /* RootViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootViewModel.swift; sourceTree = "<group>"; };
@@ -90,11 +125,14 @@
 		9DEF36C43E5FED1FF34023D9 /* ProfileImageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileImageStore.swift; sourceTree = "<group>"; };
 		9E954ADB490013B5DCE52078 /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		A21FFABFBD79176A7FDD582C /* KretaWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaWebView.swift; sourceTree = "<group>"; };
+		ACE0D7B2587B35F058D48BD7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		ADB93DE401D53E80FEEF49D2 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		AF8616F5C94FBEA818DD3DAF /* FlintLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlintLiveActivityWidget.swift; sourceTree = "<group>"; };
 		B506EC58964F0853D14F0E87 /* KretaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaClient.swift; sourceTree = "<group>"; };
 		D0F08AAC09AED35E586880C3 /* LiveCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCardView.swift; sourceTree = "<group>"; };
 		D71686153B4EAB1990577975 /* GradeCircle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCircle.swift; sourceTree = "<group>"; };
 		D93941AC0EF9492E8E8FC87C /* NotesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesView.swift; sourceTree = "<group>"; };
+		DD5BC59929976BB7E3C0B07C /* FlintWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FlintWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		E6699562344F56B767C796F7 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
 		E9CA9ED6D07518801F3F89E9 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
 		F0FB0CA7C07E5D8E328A4A6D /* RoundingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundingDetailView.swift; sourceTree = "<group>"; };
@@ -183,6 +221,16 @@
 			path = MainTab;
 			sourceTree = "<group>";
 		};
+		5710BE5639E0AF4B3B2E2B34 /* FlintWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				AF8616F5C94FBEA818DD3DAF /* FlintLiveActivityWidget.swift */,
+				52E5BC6F4AFDA9E5DB6D34DD /* FlintWidgetsBundle.swift */,
+				ACE0D7B2587B35F058D48BD7 /* Info.plist */,
+			);
+			path = FlintWidgets;
+			sourceTree = "<group>";
+		};
 		65A23A922B42E267EF48EAE8 /* Models */ = {
 			isa = PBXGroup;
 			children = (
@@ -230,6 +278,8 @@
 			isa = PBXGroup;
 			children = (
 				B38BA6B05F57D8CD74E679C7 /* FirkaNative */,
+				5710BE5639E0AF4B3B2E2B34 /* FlintWidgets */,
+				95CE7EB3304633540076C893 /* AppIcon.icon */,
 				C7064AF918D959AD365ED143 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -251,9 +301,19 @@
 				3868048BA738C4C7A522306A /* App */,
 				09CC6981BBCF8E6567CF6675 /* Core */,
 				BE9003340B7467FE33914CBF /* Features */,
+				B3D4FC4CEC4CBBDE47504F03 /* LiveActivity */,
 				21F08CACFC301081E046297D /* Resources */,
 			);
 			path = FirkaNative;
+			sourceTree = "<group>";
+		};
+		B3D4FC4CEC4CBBDE47504F03 /* LiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				2B5C9EC44D39D87241B550D5 /* FlintLiveActivityAttributes.swift */,
+				888F7384D4773D1C3BCE5570 /* FlintLiveActivityManager.swift */,
+			);
+			path = LiveActivity;
 			sourceTree = "<group>";
 		};
 		BE9003340B7467FE33914CBF /* Features */ = {
@@ -287,6 +347,7 @@
 			isa = PBXGroup;
 			children = (
 				27A03FE61351781FF2B0E1ED /* Flint.app */,
+				DD5BC59929976BB7E3C0B07C /* FlintWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -303,16 +364,35 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		462BC4BB7D47D98FE2FD503A /* FlintWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 162014FFBEF40BB38CEC3EB2 /* Build configuration list for PBXNativeTarget "FlintWidgets" */;
+			buildPhases = (
+				30E9F6F4FA7C477FED69F7A0 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FlintWidgets;
+			packageProductDependencies = (
+			);
+			productName = FlintWidgets;
+			productReference = DD5BC59929976BB7E3C0B07C /* FlintWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		FCBF8911DD76CDFEB024468F /* Flint */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 4A9B0C2882E997553A7DC288 /* Build configuration list for PBXNativeTarget "Flint" */;
 			buildPhases = (
 				D9AE8212788500131A76AC6F /* Sources */,
 				B8F41D787DCA63643D00EBFF /* Resources */,
+				0D7B8A2E611D98C854AB65A4 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				5862B460BD43FF3E37106510 /* PBXTargetDependency */,
 			);
 			name = Flint;
 			packageProductDependencies = (
@@ -330,6 +410,9 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
+					462BC4BB7D47D98FE2FD503A = {
+						ProvisioningStyle = Automatic;
+					};
 					FCBF8911DD76CDFEB024468F = {
 						ProvisioningStyle = Automatic;
 					};
@@ -350,6 +433,7 @@
 			projectRoot = "";
 			targets = (
 				FCBF8911DD76CDFEB024468F /* Flint */,
+				462BC4BB7D47D98FE2FD503A /* FlintWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -360,6 +444,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				984267543D8E473BA81DF5F4 /* Assets.xcassets in Resources */,
+				95CE7EB4304633540076C893 /* AppIcon.icon in Resources */,
 				BB01463BEEE7170A7C8236AA /* LaunchScreen.storyboard in Resources */,
 				A3EA64722B9F546A6CA5F77E /* ic_rounded.png in Resources */,
 				E7501D5748228F9733F03744 /* ic_splash.png in Resources */,
@@ -373,6 +458,16 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		30E9F6F4FA7C477FED69F7A0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1ACACC9DC25A96F900A11014 /* FlintLiveActivityAttributes.swift in Sources */,
+				DE6D757E1643907DF761D21B /* FlintLiveActivityWidget.swift in Sources */,
+				AC9A384890897A5C81F0A09B /* FlintWidgetsBundle.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D9AE8212788500131A76AC6F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -387,6 +482,8 @@
 				77DDD734CA756ED5F9079FFE /* FeedView.swift in Sources */,
 				CB85FF074993D6D6A40EDA90 /* FilterBarView.swift in Sources */,
 				D2FD83AA4ED9E13CB151AEC9 /* FlintApp.swift in Sources */,
+				4EB18D0CFA45C5421E6C64EF /* FlintLiveActivityAttributes.swift in Sources */,
+				62D5A9DA0D7F15825847108D /* FlintLiveActivityManager.swift in Sources */,
 				C3CD383D33EAE4841C7753CB /* GradeChartView.swift in Sources */,
 				8936464F8564BD002832C02C /* GradeCircle.swift in Sources */,
 				2BD208A43080EA01B7873BCB /* GradesView.swift in Sources */,
@@ -419,6 +516,14 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		5862B460BD43FF3E37106510 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 462BC4BB7D47D98FE2FD503A /* FlintWidgets */;
+			targetProxy = 62747712C3E8D2864318F372 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
 		1E03BB7E72CECF69A9763D74 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -427,18 +532,20 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = K3XA6V2Q36;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Flint;
 				INFOPLIST_KEY_CFBundleName = Flint;
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Profilkép készítéséhez kamera hozzáférés szükséges.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Profilkép beállításához hozzáférés a fotókönyvtárhoz szükséges.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIRequiresFullScreen = NO;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				"INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad" = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportsDocumentBrowser = NO;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -447,6 +554,30 @@
 				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.app.Flint;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		378FB1356BF8D702936F0246 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = K3XA6V2Q36;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FlintWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Flint Widgets";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.app.Flint.Widgets;
+				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -503,7 +634,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -560,7 +691,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -571,6 +702,30 @@
 			};
 			name = Release;
 		};
+		97B9AE9AFECB8609285D6021 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = K3XA6V2Q36;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FlintWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Flint Widgets";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.app.Flint.Widgets;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		E70D7193D057630958DC1E52 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -578,18 +733,20 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = K3XA6V2Q36;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Flint;
 				INFOPLIST_KEY_CFBundleName = Flint;
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Profilkép készítéséhez kamera hozzáférés szükséges.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Profilkép beállításához hozzáférés a fotókönyvtárhoz szükséges.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIRequiresFullScreen = NO;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				"INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad" = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportsDocumentBrowser = NO;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -606,6 +763,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		162014FFBEF40BB38CEC3EB2 /* Build configuration list for PBXNativeTarget "FlintWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				378FB1356BF8D702936F0246 /* Debug */,
+				97B9AE9AFECB8609285D6021 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		365D98C0A9E92BE879BB433D /* Build configuration list for PBXProject "Flint" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
