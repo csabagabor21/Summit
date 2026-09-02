@@ -1,0 +1,630 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		035CCDDD8008E434E80735BC /* NotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D93941AC0EF9492E8E8FC87C /* NotesView.swift */; };
+		070BED0806B24776C9CA0378 /* TeacherRoundingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B34D700082CBC9796AA731F /* TeacherRoundingView.swift */; };
+		07425EA432B29AF616973EFD /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2796FFD5EF18E9AD20A660A2 /* SessionStore.swift */; };
+		08B20D4184B2C1194D0A0884 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30EFB3459DEFF383F8DF8668 /* ThemeStore.swift */; };
+		0D7F31ED54AD916271BAD3F5 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 114F416793F8E8A5BBB69F07 /* HomeView.swift */; };
+		1AEDE391AD49AD57FF1571B6 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = F71E956AC45085B50004306D /* User.swift */; };
+		1DE67DADB887915E2F7D2944 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADB93DE401D53E80FEEF49D2 /* MainTabView.swift */; };
+		2BD208A43080EA01B7873BCB /* GradesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 545D16B4E6B97B9D2399B5FC /* GradesView.swift */; };
+		34D3F85661D7CEEF7CFE3AB0 /* ProfileImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11397958896C63F02493DC94 /* ProfileImageView.swift */; };
+		350860F0739797515BE0641D /* CompletedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F44247D87A1D5AF0D5AD57 /* CompletedStore.swift */; };
+		3F9A6A266B4576E426D5B504 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59B95265FA2B313F786E0034 /* SettingsView.swift */; };
+		5969DACA1CC73099A7AE3ACD /* AbsencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 112CF35802F49E7BC4E6FA39 /* AbsencesView.swift */; };
+		6CC72D51E3A5DD8E4C547A50 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9CA9ED6D07518801F3F89E9 /* KeychainHelper.swift */; };
+		74842E2110FDAB09903940C3 /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B26BDB2D3FAFE6B7F461831 /* AuthViewModel.swift */; };
+		76752C875CB743BE18894408 /* LiveCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F08AAC09AED35E586880C3 /* LiveCardView.swift */; };
+		77DDD734CA756ED5F9079FFE /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B583B6C153A6667EF44FA31 /* FeedView.swift */; };
+		7C0F28E3F337A7A37682A693 /* SubjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85D39B9212DD03C8DC8D44A9 /* SubjectDetailView.swift */; };
+		7E1A0ED474A7A629DBFC5888 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 994B88B24DE91E2B0F59CAEB /* ContentView.swift */; };
+		7E985966C1A47C81DC29F551 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E954ADB490013B5DCE52078 /* HomeViewModel.swift */; };
+		806A49F9C7B875C5E0124D34 /* showcase1.png in Resources */ = {isa = PBXBuildFile; fileRef = 8080F293104888E9B66544B3 /* showcase1.png */; };
+		891A56B341C2C628B38291F8 /* Student.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94653307B2040819726B6EC4 /* Student.swift */; };
+		8936464F8564BD002832C02C /* GradeCircle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D71686153B4EAB1990577975 /* GradeCircle.swift */; };
+		8AD801314247C79354C069BD /* KretaAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D821885DD5DB8AB896B9E77 /* KretaAPI.swift */; };
+		8E10EB72340D58DBA05AC570 /* ProfileImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DEF36C43E5FED1FF34023D9 /* ProfileImageStore.swift */; };
+		8E803F292515E61B75D6F307 /* KretaWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21FFABFBD79176A7FDD582C /* KretaWebView.swift */; };
+		984267543D8E473BA81DF5F4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3337D352E360755819EB0510 /* Assets.xcassets */; };
+		991303E9F4F90047910C0687 /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E08D7B3573B350535BD3BEE /* AppColors.swift */; };
+		A3EA64722B9F546A6CA5F77E /* ic_rounded.png in Resources */ = {isa = PBXBuildFile; fileRef = 35FA765F437DEF476D570261 /* ic_rounded.png */; };
+		A46197861CEB176F0BEED984 /* TimetableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7CCF5CF8EB6B3291CA48C5 /* TimetableView.swift */; };
+		A9768A46A796C7C7A8666DAA /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 917F86853EF0EEB6D842FCF4 /* LoginView.swift */; };
+		AA7672F41F61BABF278B899B /* GradingLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31BC2B27C81200C54D92CECD /* GradingLogic.swift */; };
+		B09C12718DC808B55FB7B786 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6699562344F56B767C796F7 /* AppTheme.swift */; };
+		BB01463BEEE7170A7C8236AA /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 3086D3040980CBE0BC5728BC /* LaunchScreen.storyboard */; };
+		C0DEA855E4E5CF1191ECADC9 /* KretaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 182D1911F7DEAA25C5ABA212 /* KretaModels.swift */; };
+		C3CD383D33EAE4841C7753CB /* GradeChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 630D3F7140DAD8A14041B2F9 /* GradeChartView.swift */; };
+		CB85FF074993D6D6A40EDA90 /* FilterBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 126C156F77EEE10AA99D4A35 /* FilterBarView.swift */; };
+		D2B776CD41AD4993371C8890 /* showcase4.png in Resources */ = {isa = PBXBuildFile; fileRef = 954A60421D8D72C5A0A1B315 /* showcase4.png */; };
+		D2FD83AA4ED9E13CB151AEC9 /* FlintApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F112D8A15555A47C54624544 /* FlintApp.swift */; };
+		D41802437FBFB85E631E36D4 /* KretaClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B506EC58964F0853D14F0E87 /* KretaClient.swift */; };
+		D97BB40B5672B8870CA50F8E /* showcase2.png in Resources */ = {isa = PBXBuildFile; fileRef = 1F7FAC1C8C85C5123F473597 /* showcase2.png */; };
+		E0623933380F0CCBEC687550 /* RoundingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0FB0CA7C07E5D8E328A4A6D /* RoundingDetailView.swift */; };
+		E577413793117E0C94AB97DB /* ExemptedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF82F0EE85913650A024661 /* ExemptedStore.swift */; };
+		E7501D5748228F9733F03744 /* ic_splash.png in Resources */ = {isa = PBXBuildFile; fileRef = 82A1969A19D465070B5D9D16 /* ic_splash.png */; };
+		F47C6EC0F219201108F7F3C7 /* showcase3.png in Resources */ = {isa = PBXBuildFile; fileRef = 9C8942DBC1A76729FD04B0D4 /* showcase3.png */; };
+		F8896E923D655012621E68C7 /* RootViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DB6FAC1C01D1EDE74EFCB61 /* RootViewModel.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		112CF35802F49E7BC4E6FA39 /* AbsencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbsencesView.swift; sourceTree = "<group>"; };
+		11397958896C63F02493DC94 /* ProfileImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileImageView.swift; sourceTree = "<group>"; };
+		114F416793F8E8A5BBB69F07 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		126C156F77EEE10AA99D4A35 /* FilterBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBarView.swift; sourceTree = "<group>"; };
+		182D1911F7DEAA25C5ABA212 /* KretaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaModels.swift; sourceTree = "<group>"; };
+		1F7FAC1C8C85C5123F473597 /* showcase2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase2.png; sourceTree = "<group>"; };
+		2796FFD5EF18E9AD20A660A2 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		27A03FE61351781FF2B0E1ED /* Flint.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Flint.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3086D3040980CBE0BC5728BC /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		30EFB3459DEFF383F8DF8668 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
+		31BC2B27C81200C54D92CECD /* GradingLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradingLogic.swift; sourceTree = "<group>"; };
+		3337D352E360755819EB0510 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		35FA765F437DEF476D570261 /* ic_rounded.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_rounded.png; sourceTree = "<group>"; };
+		545D16B4E6B97B9D2399B5FC /* GradesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradesView.swift; sourceTree = "<group>"; };
+		59B95265FA2B313F786E0034 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		5D821885DD5DB8AB896B9E77 /* KretaAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaAPI.swift; sourceTree = "<group>"; };
+		630D3F7140DAD8A14041B2F9 /* GradeChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeChartView.swift; sourceTree = "<group>"; };
+		79F44247D87A1D5AF0D5AD57 /* CompletedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompletedStore.swift; sourceTree = "<group>"; };
+		7B26BDB2D3FAFE6B7F461831 /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
+		7B583B6C153A6667EF44FA31 /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
+		8080F293104888E9B66544B3 /* showcase1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase1.png; sourceTree = "<group>"; };
+		82A1969A19D465070B5D9D16 /* ic_splash.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_splash.png; sourceTree = "<group>"; };
+		85D39B9212DD03C8DC8D44A9 /* SubjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectDetailView.swift; sourceTree = "<group>"; };
+		8AF82F0EE85913650A024661 /* ExemptedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExemptedStore.swift; sourceTree = "<group>"; };
+		8B34D700082CBC9796AA731F /* TeacherRoundingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeacherRoundingView.swift; sourceTree = "<group>"; };
+		8DB6FAC1C01D1EDE74EFCB61 /* RootViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootViewModel.swift; sourceTree = "<group>"; };
+		8E08D7B3573B350535BD3BEE /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
+		917F86853EF0EEB6D842FCF4 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		94653307B2040819726B6EC4 /* Student.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Student.swift; sourceTree = "<group>"; };
+		954A60421D8D72C5A0A1B315 /* showcase4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase4.png; sourceTree = "<group>"; };
+		994B88B24DE91E2B0F59CAEB /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		9C8942DBC1A76729FD04B0D4 /* showcase3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase3.png; sourceTree = "<group>"; };
+		9DEF36C43E5FED1FF34023D9 /* ProfileImageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileImageStore.swift; sourceTree = "<group>"; };
+		9E954ADB490013B5DCE52078 /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
+		A21FFABFBD79176A7FDD582C /* KretaWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaWebView.swift; sourceTree = "<group>"; };
+		ADB93DE401D53E80FEEF49D2 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		B506EC58964F0853D14F0E87 /* KretaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaClient.swift; sourceTree = "<group>"; };
+		D0F08AAC09AED35E586880C3 /* LiveCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCardView.swift; sourceTree = "<group>"; };
+		D71686153B4EAB1990577975 /* GradeCircle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCircle.swift; sourceTree = "<group>"; };
+		D93941AC0EF9492E8E8FC87C /* NotesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesView.swift; sourceTree = "<group>"; };
+		E6699562344F56B767C796F7 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
+		E9CA9ED6D07518801F3F89E9 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
+		F0FB0CA7C07E5D8E328A4A6D /* RoundingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundingDetailView.swift; sourceTree = "<group>"; };
+		F112D8A15555A47C54624544 /* FlintApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlintApp.swift; sourceTree = "<group>"; };
+		F71E956AC45085B50004306D /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
+		FF7CCF5CF8EB6B3291CA48C5 /* TimetableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		09CC6981BBCF8E6567CF6675 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				65A23A922B42E267EF48EAE8 /* Models */,
+				EA59F6783320A4AB45EC5E72 /* Networking */,
+				C0ABE8B07E9E75B3DF5D86DC /* Storage */,
+				33C798E4E0BF776491F261AE /* Theme */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		14890CC5436FAB1F4F8B1B4D /* Notes */ = {
+			isa = PBXGroup;
+			children = (
+				D93941AC0EF9492E8E8FC87C /* NotesView.swift */,
+			);
+			path = Notes;
+			sourceTree = "<group>";
+		};
+		21F08CACFC301081E046297D /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				35FA765F437DEF476D570261 /* ic_rounded.png */,
+				82A1969A19D465070B5D9D16 /* ic_splash.png */,
+				3086D3040980CBE0BC5728BC /* LaunchScreen.storyboard */,
+				8080F293104888E9B66544B3 /* showcase1.png */,
+				1F7FAC1C8C85C5123F473597 /* showcase2.png */,
+				9C8942DBC1A76729FD04B0D4 /* showcase3.png */,
+				954A60421D8D72C5A0A1B315 /* showcase4.png */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		319D2B6DEF1C6D384B981554 /* Timetable */ = {
+			isa = PBXGroup;
+			children = (
+				FF7CCF5CF8EB6B3291CA48C5 /* TimetableView.swift */,
+			);
+			path = Timetable;
+			sourceTree = "<group>";
+		};
+		33C798E4E0BF776491F261AE /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				8E08D7B3573B350535BD3BEE /* AppColors.swift */,
+				E6699562344F56B767C796F7 /* AppTheme.swift */,
+				630D3F7140DAD8A14041B2F9 /* GradeChartView.swift */,
+				D71686153B4EAB1990577975 /* GradeCircle.swift */,
+				30EFB3459DEFF383F8DF8668 /* ThemeStore.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		3868048BA738C4C7A522306A /* App */ = {
+			isa = PBXGroup;
+			children = (
+				994B88B24DE91E2B0F59CAEB /* ContentView.swift */,
+				F112D8A15555A47C54624544 /* FlintApp.swift */,
+				8DB6FAC1C01D1EDE74EFCB61 /* RootViewModel.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		49D67383939B0B640CFB50FA /* Absences */ = {
+			isa = PBXGroup;
+			children = (
+				112CF35802F49E7BC4E6FA39 /* AbsencesView.swift */,
+			);
+			path = Absences;
+			sourceTree = "<group>";
+		};
+		4B6FAC4C37201DEC100F469F /* MainTab */ = {
+			isa = PBXGroup;
+			children = (
+				ADB93DE401D53E80FEEF49D2 /* MainTabView.swift */,
+			);
+			path = MainTab;
+			sourceTree = "<group>";
+		};
+		65A23A922B42E267EF48EAE8 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				31BC2B27C81200C54D92CECD /* GradingLogic.swift */,
+				182D1911F7DEAA25C5ABA212 /* KretaModels.swift */,
+				94653307B2040819726B6EC4 /* Student.swift */,
+				F71E956AC45085B50004306D /* User.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		7EF67D9956BA73446E01B83D /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				7B583B6C153A6667EF44FA31 /* FeedView.swift */,
+				126C156F77EEE10AA99D4A35 /* FilterBarView.swift */,
+				114F416793F8E8A5BBB69F07 /* HomeView.swift */,
+				9E954ADB490013B5DCE52078 /* HomeViewModel.swift */,
+				D0F08AAC09AED35E586880C3 /* LiveCardView.swift */,
+				11397958896C63F02493DC94 /* ProfileImageView.swift */,
+			);
+			path = Home;
+			sourceTree = "<group>";
+		};
+		8A8B7BAE68DD8C4F2A3361D2 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				7B26BDB2D3FAFE6B7F461831 /* AuthViewModel.swift */,
+				A21FFABFBD79176A7FDD582C /* KretaWebView.swift */,
+				917F86853EF0EEB6D842FCF4 /* LoginView.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		A0BDE3FCE3AC5F4909455973 /* Grades */ = {
+			isa = PBXGroup;
+			children = (
+				545D16B4E6B97B9D2399B5FC /* GradesView.swift */,
+				85D39B9212DD03C8DC8D44A9 /* SubjectDetailView.swift */,
+			);
+			path = Grades;
+			sourceTree = "<group>";
+		};
+		A3E76599CCED446DCF6D429B = {
+			isa = PBXGroup;
+			children = (
+				B38BA6B05F57D8CD74E679C7 /* FirkaNative */,
+				C7064AF918D959AD365ED143 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B14C1C29E2CCFB9F2D16B5F7 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				F0FB0CA7C07E5D8E328A4A6D /* RoundingDetailView.swift */,
+				59B95265FA2B313F786E0034 /* SettingsView.swift */,
+				8B34D700082CBC9796AA731F /* TeacherRoundingView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		B38BA6B05F57D8CD74E679C7 /* FirkaNative */ = {
+			isa = PBXGroup;
+			children = (
+				3337D352E360755819EB0510 /* Assets.xcassets */,
+				3868048BA738C4C7A522306A /* App */,
+				09CC6981BBCF8E6567CF6675 /* Core */,
+				BE9003340B7467FE33914CBF /* Features */,
+				21F08CACFC301081E046297D /* Resources */,
+			);
+			path = FirkaNative;
+			sourceTree = "<group>";
+		};
+		BE9003340B7467FE33914CBF /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				49D67383939B0B640CFB50FA /* Absences */,
+				8A8B7BAE68DD8C4F2A3361D2 /* Auth */,
+				A0BDE3FCE3AC5F4909455973 /* Grades */,
+				7EF67D9956BA73446E01B83D /* Home */,
+				4B6FAC4C37201DEC100F469F /* MainTab */,
+				14890CC5436FAB1F4F8B1B4D /* Notes */,
+				B14C1C29E2CCFB9F2D16B5F7 /* Settings */,
+				319D2B6DEF1C6D384B981554 /* Timetable */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		C0ABE8B07E9E75B3DF5D86DC /* Storage */ = {
+			isa = PBXGroup;
+			children = (
+				79F44247D87A1D5AF0D5AD57 /* CompletedStore.swift */,
+				8AF82F0EE85913650A024661 /* ExemptedStore.swift */,
+				E9CA9ED6D07518801F3F89E9 /* KeychainHelper.swift */,
+				9DEF36C43E5FED1FF34023D9 /* ProfileImageStore.swift */,
+				2796FFD5EF18E9AD20A660A2 /* SessionStore.swift */,
+			);
+			path = Storage;
+			sourceTree = "<group>";
+		};
+		C7064AF918D959AD365ED143 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				27A03FE61351781FF2B0E1ED /* Flint.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		EA59F6783320A4AB45EC5E72 /* Networking */ = {
+			isa = PBXGroup;
+			children = (
+				5D821885DD5DB8AB896B9E77 /* KretaAPI.swift */,
+				B506EC58964F0853D14F0E87 /* KretaClient.swift */,
+			);
+			path = Networking;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		FCBF8911DD76CDFEB024468F /* Flint */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4A9B0C2882E997553A7DC288 /* Build configuration list for PBXNativeTarget "Flint" */;
+			buildPhases = (
+				D9AE8212788500131A76AC6F /* Sources */,
+				B8F41D787DCA63643D00EBFF /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Flint;
+			packageProductDependencies = (
+			);
+			productName = Flint;
+			productReference = 27A03FE61351781FF2B0E1ED /* Flint.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		5FB4A80B97536C63EDB86BDC /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					FCBF8911DD76CDFEB024468F = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 365D98C0A9E92BE879BB433D /* Build configuration list for PBXProject "Flint" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = A3E76599CCED446DCF6D429B;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = C7064AF918D959AD365ED143 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FCBF8911DD76CDFEB024468F /* Flint */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B8F41D787DCA63643D00EBFF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				984267543D8E473BA81DF5F4 /* Assets.xcassets in Resources */,
+				BB01463BEEE7170A7C8236AA /* LaunchScreen.storyboard in Resources */,
+				A3EA64722B9F546A6CA5F77E /* ic_rounded.png in Resources */,
+				E7501D5748228F9733F03744 /* ic_splash.png in Resources */,
+				806A49F9C7B875C5E0124D34 /* showcase1.png in Resources */,
+				D97BB40B5672B8870CA50F8E /* showcase2.png in Resources */,
+				F47C6EC0F219201108F7F3C7 /* showcase3.png in Resources */,
+				D2B776CD41AD4993371C8890 /* showcase4.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D9AE8212788500131A76AC6F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5969DACA1CC73099A7AE3ACD /* AbsencesView.swift in Sources */,
+				991303E9F4F90047910C0687 /* AppColors.swift in Sources */,
+				B09C12718DC808B55FB7B786 /* AppTheme.swift in Sources */,
+				74842E2110FDAB09903940C3 /* AuthViewModel.swift in Sources */,
+				350860F0739797515BE0641D /* CompletedStore.swift in Sources */,
+				7E1A0ED474A7A629DBFC5888 /* ContentView.swift in Sources */,
+				E577413793117E0C94AB97DB /* ExemptedStore.swift in Sources */,
+				77DDD734CA756ED5F9079FFE /* FeedView.swift in Sources */,
+				CB85FF074993D6D6A40EDA90 /* FilterBarView.swift in Sources */,
+				D2FD83AA4ED9E13CB151AEC9 /* FlintApp.swift in Sources */,
+				C3CD383D33EAE4841C7753CB /* GradeChartView.swift in Sources */,
+				8936464F8564BD002832C02C /* GradeCircle.swift in Sources */,
+				2BD208A43080EA01B7873BCB /* GradesView.swift in Sources */,
+				AA7672F41F61BABF278B899B /* GradingLogic.swift in Sources */,
+				0D7F31ED54AD916271BAD3F5 /* HomeView.swift in Sources */,
+				7E985966C1A47C81DC29F551 /* HomeViewModel.swift in Sources */,
+				6CC72D51E3A5DD8E4C547A50 /* KeychainHelper.swift in Sources */,
+				8AD801314247C79354C069BD /* KretaAPI.swift in Sources */,
+				D41802437FBFB85E631E36D4 /* KretaClient.swift in Sources */,
+				C0DEA855E4E5CF1191ECADC9 /* KretaModels.swift in Sources */,
+				8E803F292515E61B75D6F307 /* KretaWebView.swift in Sources */,
+				76752C875CB743BE18894408 /* LiveCardView.swift in Sources */,
+				A9768A46A796C7C7A8666DAA /* LoginView.swift in Sources */,
+				1DE67DADB887915E2F7D2944 /* MainTabView.swift in Sources */,
+				035CCDDD8008E434E80735BC /* NotesView.swift in Sources */,
+				8E10EB72340D58DBA05AC570 /* ProfileImageStore.swift in Sources */,
+				34D3F85661D7CEEF7CFE3AB0 /* ProfileImageView.swift in Sources */,
+				F8896E923D655012621E68C7 /* RootViewModel.swift in Sources */,
+				E0623933380F0CCBEC687550 /* RoundingDetailView.swift in Sources */,
+				07425EA432B29AF616973EFD /* SessionStore.swift in Sources */,
+				3F9A6A266B4576E426D5B504 /* SettingsView.swift in Sources */,
+				891A56B341C2C628B38291F8 /* Student.swift in Sources */,
+				7C0F28E3F337A7A37682A693 /* SubjectDetailView.swift in Sources */,
+				070BED0806B24776C9CA0378 /* TeacherRoundingView.swift in Sources */,
+				08B20D4184B2C1194D0A0884 /* ThemeStore.swift in Sources */,
+				A46197861CEB176F0BEED984 /* TimetableView.swift in Sources */,
+				1AEDE391AD49AD57FF1571B6 /* User.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1E03BB7E72CECF69A9763D74 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Flint;
+				INFOPLIST_KEY_CFBundleName = Flint;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Profilkép készítéséhez kamera hozzáférés szükséges.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Profilkép beállításához hozzáférés a fotókönyvtárhoz szükséges.";
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIRequiresFullScreen = NO;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				"INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad" = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportsDocumentBrowser = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.app.Flint;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		6A1EAF22F8359C9178FF97B1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		7EC338BD8D5C9FB52D8641DC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		E70D7193D057630958DC1E52 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Flint;
+				INFOPLIST_KEY_CFBundleName = Flint;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Profilkép készítéséhez kamera hozzáférés szükséges.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Profilkép beállításához hozzáférés a fotókönyvtárhoz szükséges.";
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIRequiresFullScreen = NO;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				"INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad" = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportsDocumentBrowser = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.app.Flint;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		365D98C0A9E92BE879BB433D /* Build configuration list for PBXProject "Flint" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6A1EAF22F8359C9178FF97B1 /* Debug */,
+				7EC338BD8D5C9FB52D8641DC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		4A9B0C2882E997553A7DC288 /* Build configuration list for PBXNativeTarget "Flint" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1E03BB7E72CECF69A9763D74 /* Debug */,
+				E70D7193D057630958DC1E52 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 5FB4A80B97536C63EDB86BDC /* Project object */;
+}

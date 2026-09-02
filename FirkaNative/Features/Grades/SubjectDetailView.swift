@@ -6,6 +6,8 @@ struct SubjectDetailView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var theme: ThemeStore
     @Environment(\.colorScheme) var scheme
+    @Environment(\.horizontalSizeClass) private var hSize
+    private var isPad: Bool { hSize == .regular }
     var colors: AppColors { theme.colors(for: scheme) }
 
     @State private var phantom: [GradeItem] = []
@@ -160,6 +162,8 @@ struct SubjectDetailView: View {
             } header: { Text("Jegyek").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
         }
         .listStyle(.insetGrouped)
+        .frame(maxWidth: isPad ? 860 : .infinity)
+        .frame(maxWidth: .infinity)
         .scrollContentBackground(.hidden)
         .background(colors.background)
         .navigationTitle(subject)

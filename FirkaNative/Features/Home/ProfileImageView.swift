@@ -10,7 +10,6 @@ struct ProfileImageView: View {
     @EnvironmentObject var theme: ThemeStore
 
     var body: some View {
-        let colors = AppColors.current(for: scheme)
         let accent = theme.accent
         ZStack(alignment: .topTrailing) {
             Group {

@@ -9,6 +9,8 @@ struct NotesView: View {
     @State private var isLoading = true
     @State private var filter = 0
     @Environment(\.colorScheme) var scheme
+    @Environment(\.horizontalSizeClass) private var hSize
+    private var isPad: Bool { hSize == .regular }
     var colors: AppColors { theme.colors(for: scheme) }
 
     var body: some View {
@@ -71,6 +73,8 @@ struct NotesView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .frame(maxWidth: isPad ? 860 : .infinity)
+            .frame(maxWidth: .infinity)
             .scrollContentBackground(.hidden)
             .background(colors.background)
             .animation(.spring(response: 0.36, dampingFraction: 0.84), value: filtered.isEmpty)

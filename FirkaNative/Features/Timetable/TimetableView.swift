@@ -20,6 +20,8 @@ struct TimetableView: View {
     @State private var exemptedTick = 0
     private let switchToTimetable = Notification.Name("flint.switchToTimetable")
     @Environment(\.colorScheme) var scheme
+    @Environment(\.horizontalSizeClass) private var hSize
+    private var isPad: Bool { hSize == .regular }
     var colors: AppColors { theme.colors(for: scheme) }
     let days = ["Hétfő","Kedd","Szerda","Csütörtök","Péntek"]
     private let dayTags = Array(2...6)
@@ -257,6 +259,8 @@ struct TimetableView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .frame(maxWidth: isPad ? 860 : .infinity)
+            .frame(maxWidth: .infinity)
             .scrollContentBackground(.hidden)
             .background(colors.background)
             .simultaneousGesture(
@@ -292,7 +296,6 @@ struct TimetableView: View {
             .navigationTitle("Órarend")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise") } } }
             .task {
                 if UserDefaults.standard.object(forKey: "home.demoPreviewMinutes") == nil {
                     let c = Calendar.current

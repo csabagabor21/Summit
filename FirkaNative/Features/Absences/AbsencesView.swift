@@ -35,6 +35,8 @@ struct AbsencesView: View {
     @State private var unjustifiedExpanded = false
     @State private var justifiedExpanded = false
     @Environment(\.colorScheme) var scheme
+    @Environment(\.horizontalSizeClass) private var hSize
+    private var isPad: Bool { hSize == .regular }
     var colors: AppColors { theme.colors(for: scheme) }
 
     // MARK: Derived — 45 perc = 1 óra limit, kör a 45-ből mutatja mennyit késtél már
@@ -348,6 +350,8 @@ struct AbsencesView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .frame(maxWidth: isPad ? 860 : .infinity)
+            .frame(maxWidth: .infinity)
             .scrollContentBackground(.hidden)
             .background(colors.background)
             .navigationTitle("Hiányzások")

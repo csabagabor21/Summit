@@ -84,7 +84,7 @@ final class HomeViewModel: ObservableObject {
             return
         }
         let now = Date()
-        if let cur = lessonsToday.first(where: { $0.start <= now && $0.end >= now }) {
+        if lessonsToday.contains(where: { $0.start <= now && $0.end >= now }) {
             liveState = .duringLesson
         } else if let next = lessonsToday.first(where: { $0.start > now }),
                   let prev = lessonsToday.last(where: { $0.end < now }),

@@ -7,6 +7,8 @@ struct SettingsView: View {
     @EnvironmentObject var kreta: KretaClient
     @EnvironmentObject var profileStore: ProfileImageStore
     @Environment(\.colorScheme) var scheme
+    @Environment(\.horizontalSizeClass) private var hSize
+    private var isPad: Bool { hSize == .regular }
     @State private var thresholds: [String: Double] = GradingLogic.loadThresholds()
     @State private var subjects: [String] = []
     @State private var isLoadingSubjects = true
@@ -123,6 +125,8 @@ struct SettingsView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .frame(maxWidth: isPad ? 700 : .infinity)
+        .frame(maxWidth: .infinity)
         .scrollContentBackground(.hidden)
         .background(colors.background)
         .navigationTitle("Beállítások")

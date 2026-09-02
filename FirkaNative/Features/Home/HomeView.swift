@@ -7,6 +7,8 @@ struct HomeView: View {
     @EnvironmentObject var completed: CompletedStore
     @StateObject private var vm = HomeViewModel()
     @Environment(\.colorScheme) var scheme
+    @Environment(\.horizontalSizeClass) private var hSize
+    private var isPad: Bool { hSize == .regular }
     var colors: AppColors { theme.colors(for: scheme) }
     @AppStorage("home.demoPreviewActive") private var isPreviewActive = false
     @AppStorage("home.demoPreviewMinutes") private var previewMinutes: Double = 540
@@ -95,7 +97,63 @@ struct HomeView: View {
                     }
                 } header: { Text("Legújabb jegyek").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
 
-                // Közelgő dolgozatok — kanonikus egyeztetés
+                // iPad: két oszlop egy Section-ben — kihasználja a szélességet, nem 3 külön nyújtott sor
+                if isPad {
+                    let examsSorted = vm.exams.sorted { $0.date < $1.date }.prefix(3)
+                    let hwSorted = vm.homeworks.sorted { $0.deadline < $1.deadline }.prefix(3)
+                    Section {
+                        HStack(alignment: .top, spacing: 16) {
+                            // Bal: dolgozatok
+                            VStack(alignment: .leading, spacing: 10) {
+                                Label("Közelgő dolgozatok", systemImage: "pencil.and.list.clipboard").font(.caption.weight(.bold)).foregroundStyle(.secondary).textCase(.uppercase)
+                                if vm.exams.isEmpty {
+                                    Text("Nincs dolgozat").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(RoundedRectangle(cornerRadius: 12).fill(colors.surface))
+                                } else {
+                                    ForEach(Array(examsSorted), id: \.id) { e in
+                                        let done = completed.isExamDone(e.id)
+                                        HStack(spacing: 10) {
+                                            Button { withAnimation(.spring(response: 0.3)) { completed.toggleExam(e.id) } } label: { Image(systemName: done ? "checkmark.circle.fill" : "circle").font(.system(size: 20)).foregroundStyle(done ? Color.green : .secondary) }.buttonStyle(.plain)
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(e.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
+                                                Text(e.description.isEmpty ? e.mode : "\(e.mode) • \(e.description)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                                Text(e.date.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.tertiary)
+                                            }
+                                            Spacer()
+                                        }
+                                        .padding(10).background(RoundedRectangle(cornerRadius: 12).fill(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface).overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)))
+                                    }
+                                    if vm.exams.count > 3 { NavigationLink("Összes dolgozat (\(vm.exams.count))") { NotesView() }.font(.caption.weight(.semibold)).tint(colors.accent) }
+                                }
+                            }.frame(maxWidth: .infinity, alignment: .topLeading)
+                            // Jobb: feladatok
+                            VStack(alignment: .leading, spacing: 10) {
+                                Label("Közelgő feladatok", systemImage: "checklist").font(.caption.weight(.bold)).foregroundStyle(.secondary).textCase(.uppercase)
+                                if vm.homeworks.isEmpty {
+                                    Text("Nincs feladat").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(RoundedRectangle(cornerRadius: 12).fill(colors.surface))
+                                } else {
+                                    ForEach(Array(hwSorted), id: \.id) { h in
+                                        let done = completed.isHomeworkDone(h.id)
+                                        HStack(spacing: 10) {
+                                            Button { withAnimation(.spring(response: 0.3)) { completed.toggleHomework(h.id) } } label: { Image(systemName: done ? "checkmark.circle.fill" : "circle").font(.system(size: 20)).foregroundStyle(done ? Color.green : .secondary) }.buttonStyle(.plain)
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(h.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
+                                                Text(h.title.isEmpty ? "(nincs leírás)" : h.title).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                                Text(h.deadline.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.tertiary)
+                                            }
+                                            Spacer()
+                                        }
+                                        .contentShape(Rectangle())
+                                        .onTapGesture { NotificationCenter.default.post(name: Notification.Name("flint.switchToTimetable"), object: nil, userInfo: ["subject": h.subject, "deadline": h.deadline.timeIntervalSince1970]) }
+                                        .padding(10).background(RoundedRectangle(cornerRadius: 12).fill(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface).overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)))
+                                    }
+                                    if vm.homeworks.count > 3 { NavigationLink("Összes feladat (\(vm.homeworks.count))") { NotesView() }.font(.caption.weight(.semibold)).tint(colors.accent) }
+                                }
+                            }.frame(maxWidth: .infinity, alignment: .topLeading)
+                        }.padding(.vertical, 4)
+                    }
+                    .listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 8, trailing: 4))
+                } else {
+                // iPhone: külön Section-ök maradnak
                 Section {
                     let sorted = vm.exams.sorted { $0.date < $1.date }
                     if sorted.isEmpty {
@@ -144,7 +202,6 @@ struct HomeView: View {
                     }
                 } header: { Text("Közelgő dolgozatok").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
 
-                // Közelgő feladatok — kanonikus egyeztetés
                 Section {
                     let sorted = vm.homeworks.sorted { $0.deadline < $1.deadline }
                     if sorted.isEmpty {
@@ -195,8 +252,12 @@ struct HomeView: View {
                         }
                     }
                 } header: { Text("Közelgő feladatok").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
+                }
             }
             .listStyle(.insetGrouped)
+            // iPad: keskenyebb, középre igazított lista — nem nyúlik szét 12.9"-en
+            .frame(maxWidth: isPad ? 860 : .infinity)
+            .frame(maxWidth: .infinity)
             .scrollContentBackground(.hidden)
             .background(colors.background)
             .refreshable { await vm.refresh(kreta: kreta, user: session.selectedUser) }

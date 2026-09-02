@@ -8,6 +8,8 @@ struct LoginView: View {
     @State private var showWeb = false
     @State private var tapCount = 0
     @Environment(\.colorScheme) var scheme
+    @Environment(\.horizontalSizeClass) private var hSize
+    private var isPad: Bool { hSize == .regular }
     var colors: AppColors { theme.colors(for: scheme) }
 
     var body: some View {
@@ -56,6 +58,8 @@ struct LoginView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .frame(maxWidth: isPad ? 640 : .infinity)
+            .frame(maxWidth: .infinity)
             .scrollContentBackground(.hidden)
             .background(colors.background)
             .navigationBarHidden(true)

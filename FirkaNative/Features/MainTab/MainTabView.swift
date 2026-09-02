@@ -1,43 +1,90 @@
 import SwiftUI
 
+// 100% natív — 0 custom material / glass / spring a navigáción.
+// Apple docs + WWDC26 Liquid Glass szabályai alapján:
+//
+// • "Use .tabViewStyle(.sidebarAdaptable) (iOS 18+ / iOS 26) to let the tab bar
+//   adapt to sidebar on iPad/macOS while remaining a tab bar on iPhone.
+//   Transitions fluidly with adaptive window sizes." — Axiom Liquid Glass Ref
+//   (Apple HIG / WWDC 2025 - Liquid Glass + WWDC 2024 - TabView sessions)
+// • "Glass is the navigation layer, never content. Do NOT apply .glassEffect()
+//   to list rows — it competes with navigation." — u.a.
+// • Compact (iPhone) → TabView bottom bar
+//   Regular (iPad / Stage Manager széles) → Liquid Glass sidebar (drag-gal méretezhető)
+//   Szűk ablak / Split View → visszaugrik bottom barra — hSize hack nélkül, a rendszer intézi.
+// • AdaptiveAppShell (Apple Design Templates) ugyanezt használja:
+//   compact = TabView, regular = NavigationSplitView — mi itt a modernebb
+//   .sidebarAdaptable-t használjuk, mert iOS 18+ célon a rendszer oldja meg
+//   a responsive váltást + Liquid Glass chrome-ot extra kód nélkül.
+//
 struct MainTabView: View {
     @EnvironmentObject var theme: ThemeStore
     @EnvironmentObject var session: SessionStore
+    @Environment(\.colorScheme) var scheme
     @State private var selected: Int = ProcessInfo.processInfo.arguments.contains("-FIRKA_ABSENCES") ? 4 : 0
     private let switchToTasks = Notification.Name("flint.switchToTasks")
     private let switchToTimetable = Notification.Name("flint.switchToTimetable")
 
-    @Environment(\.colorScheme) var scheme
     var colors: AppColors { theme.colors(for: scheme) }
 
     var body: some View {
-        // Native TabView — system provides Liquid Glass tab bar on iOS 26+ automatically (functional layer)
-        TabView(selection: $selected) {
-            HomeView()
-                .tabItem { Label("Főoldal", systemImage: "house.fill") }
-                .tag(0)
-            GradesView()
-                .tabItem { Label("Jegyek", systemImage: "star.fill") }
-                .tag(1)
-            TimetableView()
-                .tabItem { Label("Órarend", systemImage: "calendar") }
-                .tag(2)
-            NotesView()
-                .tabItem { Label("Feladatok", systemImage: "checklist") }
-                .tag(3)
-            AbsencesView()
-                .tabItem { Label("Hiányzások", systemImage: "person.crop.rectangle.stack") }
-                .tag(4)
+        Group {
+            if #available(iOS 18.0, *) {
+                nativeSidebar
+            } else {
+                phoneTabsLegacy
+            }
         }
         .tint(colors.accent)
-        // Content flows under bars — HIG
-        .toolbarBackground(.visible, for: .tabBar)
+        // NINCS withAnimation(.spring) — a rendszer Liquid Glass morphja animál.
+        // Custom spring felülírná a natív görbét és "cooked"-nak hat.
         .onReceive(NotificationCenter.default.publisher(for: switchToTasks)) { _ in
-            withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) { selected = 3 }
+            selected = 3
         }
         .onReceive(NotificationCenter.default.publisher(for: switchToTimetable)) { _ in
-            withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) { selected = 2 }
+            selected = 2
         }
-        // Floating glass is system-provided on iOS 26; no custom glass on content cards
+    }
+
+    // MARK: - iOS 18+ / iPadOS 26 natív — TabView sidebarAdaptable
+    // - iPhone: bottom TabBar (Liquid Glass — floating, rendszer rajzolja)
+    // - iPad nagy: Liquid Glass sidebar — a divider drag-gal méretezhető (rendszer)
+    // - iPad Stage Manager / Split View szűk: automatikusan visszaugrik TabBar-ra
+    // - Sem toolbar(removing:), sem listRowBackground(accentSoft), sem .balanced hack
+    //   — mind rendszer. A tint adja az accentet, a többit a glass.
+    @available(iOS 18.0, *)
+    private var nativeSidebar: some View {
+        TabView(selection: $selected) {
+            Tab("Főoldal", systemImage: "house.fill", value: 0) {
+                HomeView()
+            }
+            Tab("Jegyek", systemImage: "star.fill", value: 1) {
+                GradesView()
+            }
+            Tab("Órarend", systemImage: "calendar", value: 2) {
+                TimetableView()
+            }
+            Tab("Feladatok", systemImage: "checklist", value: 3) {
+                NotesView()
+            }
+            Tab("Hiányzások", systemImage: "person.crop.rectangle.stack", value: 4) {
+                AbsencesView()
+            }
+        }
+        .tabViewStyle(.sidebarAdaptable)
+        // Ne tegyél ide .toolbarBackground vagy .glassEffect-et:
+        // iOS 26-on a TabBar/Sidebar chrome magától Liquid Glass.
+        // Content glass tilos — "glass can't sample other glass".
+    }
+
+    // MARK: - iOS 17 fallback (Flint target régebbi OS-en) — natív TabView
+    private var phoneTabsLegacy: some View {
+        TabView(selection: $selected) {
+            HomeView().tabItem { Label("Főoldal", systemImage: "house.fill") }.tag(0)
+            GradesView().tabItem { Label("Jegyek", systemImage: "star.fill") }.tag(1)
+            TimetableView().tabItem { Label("Órarend", systemImage: "calendar") }.tag(2)
+            NotesView().tabItem { Label("Feladatok", systemImage: "checklist") }.tag(3)
+            AbsencesView().tabItem { Label("Hiányzások", systemImage: "person.crop.rectangle.stack") }.tag(4)
+        }
     }
 }

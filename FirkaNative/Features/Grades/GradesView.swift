@@ -16,6 +16,8 @@ struct GradesView: View {
     @State private var isLoading = true
     @State private var selectedTab: GradeTab = .evkozi
     @Environment(\.colorScheme) var scheme
+    @Environment(\.horizontalSizeClass) private var hSize
+    private var isPad: Bool { hSize == .regular }
     var colors: AppColors { theme.colors(for: scheme) }
 
     var body: some View {
@@ -70,6 +72,36 @@ struct GradesView: View {
                                     .listRowSeparator(.hidden)
                                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                             } header: { Text("Átlag alakulása — havi").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
+                            // iPad: két oszlopban, kihasználja a szélességet
+                            if isPad {
+                                let subjects = displayEvkoziSubjects
+                                let cols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+                                LazyVGrid(columns: cols, spacing: 12) {
+                                    ForEach(subjects, id: \.self) { subject in
+                                        if let items = groupedEvkozi[subject] {
+                                            let raw = GradingLogic.weightedAverage(items)
+                                            let thr = GradingLogic.threshold(for: subject)
+                                            let rnd = GradingLogic.roundedGrade(raw: raw, threshold: thr)
+                                            NavigationLink { SubjectDetailView(subject: subject, grades: items.sorted { $0.date < $1.date }) } label: {
+                                                HStack(spacing: 12) {
+                                                    ZStack { Circle().fill(Color.clear).overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1.2)).frame(width: 44, height: 44); Text("\(rnd)").font(.system(size: 18, weight: .bold, design: .rounded)).foregroundStyle(colors.gradeColor(for: rnd)) }.frame(width: 44, height: 44)
+                                                    VStack(alignment: .leading, spacing: 3) { Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1); Text(String(format: "%.2f • %d jegy", raw, items.count)).font(.caption2).foregroundStyle(.secondary).lineLimit(1) }
+                                                    Spacer()
+                                                    Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
+                                                }.padding(12).background(RoundedRectangle(cornerRadius: 14).fill(colors.surface).overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)))
+                                            }.buttonStyle(.plain)
+                                        } else {
+                                            NavigationLink { SubjectDetailView(subject: subject, grades: []) } label: {
+                                                HStack(spacing: 12) {
+                                                    ZStack { Circle().fill(Color.clear).overlay(Circle().strokeBorder(Color.primary.opacity(scheme == .dark ? 0.14 : 0.10), lineWidth: 1.2)).frame(width: 44, height: 44); Text("—").font(.system(size: 18, weight: .bold, design: .rounded)).foregroundStyle(.tertiary) }.frame(width: 44, height: 44)
+                                                    VStack(alignment: .leading, spacing: 3) { Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1); Text("Nincs jegy").font(.caption2).foregroundStyle(.tertiary).lineLimit(1) }
+                                                    Spacer()
+                                                }.padding(12).background(RoundedRectangle(cornerRadius: 14).fill(colors.surface).overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)))
+                                            }.buttonStyle(.plain)
+                                        }
+                                    }
+                                }.padding(.horizontal, 16).padding(.vertical, 8)
+                            } else {
                             ForEach(displayEvkoziSubjects, id: \.self) { subject in
                                 if let items = groupedEvkozi[subject] {
                                     let raw = GradingLogic.weightedAverage(items)
@@ -114,6 +146,7 @@ struct GradesView: View {
                                     }
                                     .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                                 }
+                            }
                             }
                             Section {
                                 let gradedCount = groupedEvkozi.count
@@ -209,6 +242,8 @@ struct GradesView: View {
             }
             .animation(.spring(response: 0.38, dampingFraction: 0.82), value: selectedTab)
             .listStyle(.insetGrouped)
+            .frame(maxWidth: isPad ? 860 : .infinity)
+            .frame(maxWidth: .infinity)
             .scrollContentBackground(.hidden)
             .background(colors.background)
             .refreshable { await load() }
