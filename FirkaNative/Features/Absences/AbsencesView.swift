@@ -190,7 +190,8 @@ struct AbsencesView: View {
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
                             .fill(scheme == .dark ? Color.white.opacity(0.06) : Color.white)
                             .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.primary.opacity(scheme == .dark ? 0.08 : 0.06), lineWidth: 1))
-                            .shadow(color: colors.shadow.opacity(scheme == .dark ? 0.30 : 0.07), radius: 14, y: 6)
+                            // Light módban nincs külső shadow — a fehér kártya szürke háttéren shadow-ja szarul nézett ki
+                            .shadow(color: scheme == .dark ? colors.shadow.opacity(0.30) : .clear, radius: 14, y: 6)
                     )
                     .functionalGlass(cornerRadius: 20)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -442,7 +443,7 @@ private struct DelayRingWidget: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(scheme == .dark ? Color.white.opacity(0.06) : Color.white)
                 .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.primary.opacity(scheme == .dark ? 0.08 : 0.06), lineWidth: 1))
-                .shadow(color: colors.shadow.opacity(scheme == .dark ? 0.30 : 0.07), radius: 14, y: 6)
+                .shadow(color: scheme == .dark ? colors.shadow.opacity(0.30) : .clear, radius: 14, y: 6)
         )
         .functionalGlass(cornerRadius: 20)
     }

@@ -17,18 +17,20 @@ enum KretaAPI {
     static func student(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/TanuloAdatlap")! }
     static func grades(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Ertekelesek")! }
     static func timetable(_ iss: String, start: Date? = nil, end: Date? = nil) -> URL {
-        var url = kreta(iss) + "/ellenorzo/V3/Sajat/OrarendElemek"
-        if let s = start, let e = end {
-            // KRÉTA a helyi idő szerinti dátumot várja, nem UTC-t — ezért current timeZone
-            let df = ISO8601DateFormatter()
-            df.formatOptions = [.withInternetDateTime]
-            df.timeZone = TimeZone.current
-            // A query param value-t URL-encode-olni kell a '+' és ':' miatt
-            let sStr = df.string(from: s).addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? df.string(from: s)
-            let eStr = df.string(from: e).addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? df.string(from: e)
-            url += "?datumTol=\(sStr)&datumIg=\(eStr)"
-        }
-        return URL(string: url)!
+        let base = kreta(iss) + "/ellenorzo/V3/Sajat/OrarendElemek"
+        guard let s = start, let e = end else { return URL(string: base)! }
+        // Refilc / firka self mintára: UTC ISO8601 — ld. refilc_kreta_api/lib/client/api.dart:
+        // "?datumTol=${start.toUtc().toIso8601String()}&datumIg=${end.toUtc().toIso8601String()}"
+        // URLComponents végzi a korrekt percent-encodinget (+, : stb.)
+        var comps = URLComponents(string: base)!
+        let df = ISO8601DateFormatter()
+        df.formatOptions = [.withInternetDateTime]
+        df.timeZone = TimeZone(secondsFromGMT: 0)
+        comps.queryItems = [
+            URLQueryItem(name: "datumTol", value: df.string(from: s)),
+            URLQueryItem(name: "datumIg", value: df.string(from: e))
+        ]
+        return comps.url ?? URL(string: base)!
     }
     static func exams(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/BejelentettSzamonkeresek")! }
     static func homework(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/HaziFeladatok")! }
@@ -36,6 +38,9 @@ enum KretaAPI {
     static func notes(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Feljegyzesek")! }
     static func events(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/FaliujsagElemek")! }
     static func messages(_ endpoint: String) -> URL { URL(string: adminBase + "/api/v1/kommunikacio/postaladaelemek/\(endpoint)")! }
+    // Tantárgyi átlagok — minden felvett tárgyat visszaad, akkor is ha még nincs benne jegy (KRÉTA tudja)
+    static func subjectAverages(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Ertekelesek/Atlagok/TantargyiAtlagok")! }
+    static func subjectAveragesAlt(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/TantargyiAtlagok")! }
 
     // OAuth authorize URL (same as Flutter)
     static var authorizeURL: URL {

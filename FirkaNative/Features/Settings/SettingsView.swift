@@ -12,7 +12,6 @@ struct SettingsView: View {
     @State private var isLoadingSubjects = true
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var showPhotoOptions = false
-    @AppStorage("timetable.useHardcoded") private var useHardcoded = false
     var colors: AppColors { theme.colors(for: scheme) }
 
     var body: some View {
@@ -54,24 +53,27 @@ struct SettingsView: View {
                 } message: { Text("Válassz új képet a Módosítás gombbal, vagy töröld a jelenlegit.") }
             }
 
-            Section(header: Text("Tanári kerekítés").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase),
-                    footer: Text(subjects.isEmpty && !isLoadingSubjects ? "Még nincs tantárgy — húzd le frissíteni." : "Koppints egy tárgyra a kerekítés finomhangolásához.").font(.caption2).foregroundStyle(.secondary)) {
-                if isLoadingSubjects {
-                    ForEach(0..<3, id: \.self) { _ in HStack { Text("Betöltés…").redacted(reason: .placeholder); Spacer() } }
-                } else if subjects.isEmpty {
-                    Text("Nincs elérhető tantárgy. Jelentkezz be vagy frissíts.").font(.subheadline).foregroundStyle(.secondary)
-                } else {
-                    ForEach(subjects, id: \.self) { subj in
-                        let thr = thresholds[subj] ?? GradingLogic.defaultThreshold
-                        NavigationLink { RoundingDetailView(subject: subj) } label: {
-                            HStack {
-                                Text(subj).font(.subheadline.weight(.semibold))
-                                Spacer()
-                                Text(String(format: "%.2f", thr)).font(.caption.monospacedDigit().weight(.medium)).foregroundStyle(.secondary)
-                            }
+            Section {
+                NavigationLink { TeacherRoundingView() } label: {
+                    HStack {
+                        Label("Tanári kerekítés", systemImage: "slider.horizontal.below.rounded")
+                            .font(.subheadline.weight(.medium))
+                        Spacer()
+                        if isLoadingSubjects {
+                            ProgressView().scaleEffect(0.85)
+                        } else if subjects.isEmpty {
+                            Text("—").foregroundStyle(.tertiary).font(.caption)
+                        } else {
+                            Text("\(subjects.count) tárgy").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                            Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
                         }
                     }
                 }
+                .tint(colors.accent)
+            } header: {
+                Text("Tanári kerekítés").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
+            } footer: {
+                Text("Tantárgyanként állítható, hogy a tanár mikortól kerekít fel — külön menüben.").font(.caption2).foregroundStyle(.secondary)
             }
 
             Section(header: Text("Megjelenés").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)) {
@@ -109,17 +111,6 @@ struct SettingsView: View {
                 .padding(.vertical, 4)
             }
 
-            if session.selectedUser?.isDemo != true && session.isLoggedIn {
-                Section(header: Text("Órarend").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase),
-                        footer: Text("Ha bekapcsolod, az órarend a megadott fix heti rendet mutatja a KRÉTA helyett.").font(.caption2).foregroundStyle(.secondary)) {
-                    Toggle(isOn: $useHardcoded) {
-                        Label(useHardcoded ? "Fix órarend bekapcsolva" : "Fix órarend", systemImage: useHardcoded ? "calendar.badge.checkmark" : "calendar")
-                            .font(.subheadline.weight(.medium))
-                    }
-                    .tint(colors.accent)
-                }
-            }
-
             Section(header: Text("Fiók").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)) {
                 Button("Kijelentkezés", role: .destructive) { session.logout() }
                 if session.selectedUser?.isDemo == true {
@@ -141,7 +132,6 @@ struct SettingsView: View {
         .refreshable { await loadSubjects(force: true) }
         .onAppear { thresholds = GradingLogic.loadThresholds() }
         .onChange(of: session.selectedId) { _, _ in Task { await loadSubjects(force: true) } }
-        .onChange(of: useHardcoded) { _, _ in Task { await loadSubjects(force: true) } }
     }
 
     private func handlePhotoChange(_ item: PhotosPickerItem?) async {
@@ -163,26 +153,6 @@ struct SettingsView: View {
     }
 
     private func loadSubjects(force: Bool = false) async {
-        // Ha fix órarend be van kapcsolva, a kerekítés menü is ahhoz igazodjon — ne KRÉTA-t hívjunk
-        if useHardcoded, session.selectedUser?.isDemo == false, session.isLoggedIn {
-            isLoadingSubjects = subjects.isEmpty
-            var collected = Set<String>(GradingLogic.loadThresholds().keys)
-            collected.formUnion(HardcodedTimetable.lessons().map(\.subject))
-            // grades-et még KRÉTÁ-ból hozzuk (jegyek valósak), de a tantárgy-listát a fix rend adja
-            if let user = session.selectedUser {
-                let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
-                if !iss.isEmpty {
-                    let grades = await kreta.fetchGrades(iss: iss)
-                    collected.formUnion(grades.map(\.subject))
-                }
-            }
-            let filtered = collected.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != "Ismeretlen" }.sorted()
-            subjects = filtered
-            isLoadingSubjects = false
-            if !filtered.isEmpty { UserDefaults.standard.set(filtered, forKey: "firka.cachedSubjects.v1") }
-            return
-        }
-
         if !force, let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1"), !cached.isEmpty, session.selectedUser?.isDemo == false {
             // still fetch in background, but show cached first
             subjects = cached; isLoadingSubjects = false

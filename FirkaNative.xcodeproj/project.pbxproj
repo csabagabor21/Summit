@@ -29,6 +29,7 @@
 		77A181BA4BA2A1A4E7235D1C /* KretaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FD4CEA1E823A437ECEE860D /* KretaModels.swift */; };
 		7A684D221ECAF35D098A7AB2 /* AbsencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A93D84B66FE61E312A51808 /* AbsencesView.swift */; };
 		7D04EF71A658AA518E13DEFA /* RoundingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 896D1F458A6A54FC3040D0E2 /* RoundingDetailView.swift */; };
+		9A1B2C3D4E5F6A78901234B /* TeacherRoundingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A1B2C3D4E5F6A78901234A /* TeacherRoundingView.swift */; };
 		8D970B6EF20F3EDECFFE2828 /* KretaWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58F96BAB6CF1CF6269B97A5A /* KretaWebView.swift */; };
 		8E3787C6575C1D32BD198C2A /* SubjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9DA17C565ED606466301808 /* SubjectDetailView.swift */; };
 		95CE7EB4304633540076C893 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 95CE7EB3304633540076C893 /* AppIcon.icon */; };
@@ -51,7 +52,6 @@
 		F7794CCCD968A9BF0F941DBF /* showcase3.png in Resources */ = {isa = PBXBuildFile; fileRef = 64B5366A07C7C386D8D13D27 /* showcase3.png */; };
 		FE7A7B059C38FBE9605A9627 /* GradingLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 285F897E90D9C8D0BE33377D /* GradingLogic.swift */; };
 		E1A2B3C4D5E6F7A8B9C0D1E3 /* ExemptedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F7A8B9C0D1E2 /* ExemptedStore.swift */; };
-		F1B2C3D4E5F6A7B8C9D0E1F3 /* HardcodedTimetable.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B2C3D4E5F6A7B8C9D0E1F2 /* HardcodedTimetable.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -79,6 +79,7 @@
 		7A93D84B66FE61E312A51808 /* AbsencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbsencesView.swift; sourceTree = "<group>"; };
 		846C1EAE5441906D06FAE04A /* LiveCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCardView.swift; sourceTree = "<group>"; };
 		896D1F458A6A54FC3040D0E2 /* RoundingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundingDetailView.swift; sourceTree = "<group>"; };
+		9A1B2C3D4E5F6A78901234A /* TeacherRoundingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeacherRoundingView.swift; sourceTree = "<group>"; };
 		8D08D1A2174AA1AE25EC7AD3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8FD4CEA1E823A437ECEE860D /* KretaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaModels.swift; sourceTree = "<group>"; };
 		95CE7EB3304633540076C893 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
@@ -100,7 +101,6 @@
 		EC7FB1C72834344E7C3B2E73 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
 		F67BD9354BA995DA687993EB /* NotesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesView.swift; sourceTree = "<group>"; };
 		E1A2B3C4D5E6F7A8B9C0D1E2 /* ExemptedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExemptedStore.swift; sourceTree = "<group>"; };
-		F1B2C3D4E5F6A7B8C9D0E1F2 /* HardcodedTimetable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HardcodedTimetable.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -108,6 +108,7 @@
 			isa = PBXGroup;
 			children = (
 				896D1F458A6A54FC3040D0E2 /* RoundingDetailView.swift */,
+				9A1B2C3D4E5F6A78901234A /* TeacherRoundingView.swift */,
 				5CF92AC77C8624060B6CA72E /* SettingsView.swift */,
 			);
 			path = Settings;
@@ -172,7 +173,6 @@
 			isa = PBXGroup;
 			children = (
 				285F897E90D9C8D0BE33377D /* GradingLogic.swift */,
-				F1B2C3D4E5F6A7B8C9D0E1F2 /* HardcodedTimetable.swift */,
 				8FD4CEA1E823A437ECEE860D /* KretaModels.swift */,
 				332A508C7AA3C1F38B82CE6A /* Student.swift */,
 				DF32626BFE87C0CA90E01A9D /* User.swift */,
@@ -404,6 +404,7 @@
 				3119A6B5D8552DDBEE274646 /* ProfileImageView.swift in Sources */,
 				2AA3D9E30982EA87FD4EFB1B /* RootViewModel.swift in Sources */,
 				7D04EF71A658AA518E13DEFA /* RoundingDetailView.swift in Sources */,
+				9A1B2C3D4E5F6A78901234B /* TeacherRoundingView.swift in Sources */,
 				C85BDA46A9060FC6AA36E18D /* SessionStore.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* ProfileImageStore.swift in Sources */,
 				AF22350B190A40F5D4AEE6AE /* SettingsView.swift in Sources */,
@@ -413,7 +414,6 @@
 				1ABB8E9799CFFDA57AC575EF /* TimetableView.swift in Sources */,
 				97FF2BFB3F74B5BA6F6C6A9C /* User.swift in Sources */,
 				E1A2B3C4D5E6F7A8B9C0D1E3 /* ExemptedStore.swift in Sources */,
-				F1B2C3D4E5F6A7B8C9D0E1F3 /* HardcodedTimetable.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

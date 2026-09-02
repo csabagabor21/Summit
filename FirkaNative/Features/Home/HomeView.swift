@@ -256,18 +256,38 @@ private struct HomeLiveCard: View {
     var colors: AppColors { theme.colors(for: scheme) }
 
     var body: some View {
-        Group {
-            if let fixed = overrideNow {
-                let calc = LiveCalc(lessons: lessons, now: fixed)
-                cardContent(calc: calc)
-            } else {
-                // TimelineView makes progress live every 15s without Timer
-                TimelineView(.periodic(from: .now, by: 15)) { context in
-                    let calc = LiveCalc(lessons: lessons, now: context.date)
-                    cardContent(calc: calc)
+        Section {
+            Group {
+                if let fixed = overrideNow {
+                    let calc = LiveCalc(lessons: lessons, now: fixed)
+                    innerContent(calc: calc)
+                        .listRowBackground(bg(for: calc))
+                } else {
+                    // TimelineView makes progress live every 15s without Timer
+                    // Header kívül — TimelineView csak a row tartalmát frissíti, nem a Section-t.
+                    TimelineView(.periodic(from: .now, by: 15)) { context in
+                        let calc = LiveCalc(lessons: lessons, now: context.date)
+                        innerContent(calc: calc)
+                            .listRowBackground(bg(for: calc))
+                    }
                 }
             }
+            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+            .listRowSeparator(.hidden)
+        } header: {
+            Text("MOST")
+                .font(.caption2.weight(.bold))
+                .tracking(1.1)
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
         }
+    }
+
+    private func bg(for calc: LiveCalc) -> Color {
+        if calc.state == .duringLesson, let c = calc.current { return cardBackground(for: c) }
+        if calc.state == .duringBreak, let n = calc.next { return cardBackground(for: n) }
+        if calc.state == .morning, let n = calc.next { return cardBackground(for: n) }
+        return colors.surface
     }
 
     private func cardBackground(for lesson: LessonItem?) -> Color {
@@ -289,17 +309,7 @@ private struct HomeLiveCard: View {
     }
 
     @ViewBuilder
-    private func cardContent(calc: LiveCalc) -> some View {
-
-            // During lesson gets colored background, others default
-            let bg: Color = {
-                if calc.state == .duringLesson, let c = calc.current { return cardBackground(for: c) }
-                if calc.state == .duringBreak, let n = calc.next { return cardBackground(for: n) }
-                if calc.state == .morning, let n = calc.next { return cardBackground(for: n) }
-                return colors.surface
-            }()
-
-            Section {
+    private func innerContent(calc: LiveCalc) -> some View {
                 switch calc.state {
                 case .empty:
                     Label("Ma nincs több órád", systemImage: "moon.zzz.fill").font(.subheadline).foregroundStyle(.secondary)
@@ -312,6 +322,8 @@ private struct HomeLiveCard: View {
                             Text(n.subject)
                                 .font(.system(size: 26, weight: .bold, design: .rounded))
                                 .lineLimit(1)
+                                .minimumScaleFactor(0.65)
+                                .truncationMode(.tail)
                             HStack(spacing: 6) {
                                 if let lbl = exemptLabel(for: n) {
                                     Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(Capsule().fill(exemptTint(for: n) ?? Color.green))
@@ -345,6 +357,8 @@ private struct HomeLiveCard: View {
                             Text(c.subject)
                                 .font(.system(size: 28, weight: .bold, design: .rounded))
                                 .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                                .truncationMode(.tail)
                             HStack(spacing: 6) {
                                 Text(c.room)
                                     .font(.caption2.weight(.bold).monospacedDigit())
@@ -383,6 +397,8 @@ private struct HomeLiveCard: View {
                             Text(n.subject)
                                 .font(.system(size: 26, weight: .bold, design: .rounded))
                                 .lineLimit(1)
+                                .minimumScaleFactor(0.65)
+                                .truncationMode(.tail)
                             HStack(spacing: 6) {
                                 if let lbl = exemptLabel(for: n) {
                                     Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(Capsule().fill(exemptTint(for: n) ?? Color.green))
@@ -409,8 +425,6 @@ private struct HomeLiveCard: View {
                         }
                     }
                 }
-            } header: { Text("Most").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
-            .listRowBackground(bg)
     }
 
     @ViewBuilder
@@ -443,32 +457,47 @@ private struct LiveCalc {
     var progress: Double = 0
     var remainingText: String = ""
 
+    // Csak az adott nap órái — holnap órája ne szivárogjon be (600 perc hiba)
+    private static func todayLessons(_ lessons: [LessonItem], now: Date) -> [LessonItem] {
+        let cal = Calendar.current
+        return lessons.filter { cal.isDate($0.start, inSameDayAs: now) || cal.isDate($0.end, inSameDayAs: now) }
+            .filter { !$0.subject.trimmingCharacters(in: .whitespaces).isEmpty }
+            .sorted { $0.start < $1.start }
+    }
+
+    private static func formatRemaining(_ minutes: Int, past: Bool = false) -> String {
+        if minutes <= 0 { return past ? "Vége" : "Kezdődik" }
+        return past ? "\(minutes) perc van hátra" : "\(minutes) perc múlva kezdődik"
+    }
+
     init(lessons: [LessonItem], now: Date) {
-        if lessons.isEmpty {
-            let h = Calendar.current.component(.hour, from: now)
-            if h < 7 { state = .morning } else { state = .empty }
+        let filtered = Self.todayLessons(lessons, now: now)
+        if filtered.isEmpty {
+            // Refilc: ha nincs mai óra, ne mutass 600 percet — üres
+            state = .empty
             return
         }
-        if let cur = lessons.first(where: { $0.start <= now && $0.end >= now }) {
+        let sorted = filtered
+        if let cur = sorted.first(where: { $0.start <= now && $0.end >= now }) {
             state = .duringLesson; current = cur
             let total = cur.end.timeIntervalSince(cur.start)
             progress = total > 0 ? min(1, max(0, now.timeIntervalSince(cur.start)/total)) : 0
             let rem = Int(ceil(cur.end.timeIntervalSince(now)/60))
-            remainingText = rem <= 0 ? "Vége" : "\(rem) perc van hátra"
-            next = lessons.first(where: { $0.start > now })
-            previous = lessons.last(where: { $0.end < now })
-        } else if let nxt = lessons.first(where: { $0.start > now }) {
-            let prev = lessons.last(where: { $0.end < now })
+            remainingText = Self.formatRemaining(rem, past: true)
+            next = sorted.first(where: { $0.start > now })
+            previous = sorted.last(where: { $0.end < now })
+        } else if let nxt = sorted.first(where: { $0.start > now }) {
+            let prev = sorted.last(where: { $0.end < now })
             if let p = prev, nxt.start.timeIntervalSince(p.end) > 0 {
                 state = .duringBreak
                 let total = nxt.start.timeIntervalSince(p.end)
                 progress = total > 0 ? min(1, max(0, now.timeIntervalSince(p.end)/total)) : 0
                 let rem = Int(ceil(nxt.start.timeIntervalSince(now)/60))
-                remainingText = rem <= 0 ? "Kezdődik" : "\(rem) perc múlva kezdődik"
-            } else if now < lessons.first!.start {
+                // Refilc: szünet max 30-40 perc — ha ennél nagyobb, valószínű hibás adat, cap 60-ra ne mutasson 600-at
+                remainingText = Self.formatRemaining(min(rem, 999), past: false)
+            } else if now < sorted.first!.start {
                 state = .morning
-                let first = lessons.first!
-                // 07:00-tól az első óráig számolunk
+                let first = sorted.first!
                 let cal = Calendar.current
                 let morningStart = cal.date(bySettingHour: 7, minute: 0, second: 0, of: now) ?? now
                 let total = first.start.timeIntervalSince(morningStart)
@@ -476,14 +505,20 @@ private struct LiveCalc {
                     progress = min(1, max(0, now.timeIntervalSince(morningStart)/total))
                 }
                 let rem = Int(ceil(first.start.timeIntervalSince(now)/60))
-                remainingText = rem <= 0 ? "Kezdődik" : "\(rem) perc múlva kezdődik"
+                // Refilc: reggel max 3 óra (7→10) — 600 perc soha nem jelenik meg, ha mégis akkor holnap órája szivárgott be
+                if rem > 180 {
+                    state = .empty
+                    remainingText = ""
+                } else {
+                    remainingText = Self.formatRemaining(rem, past: false)
+                }
             } else {
                 state = .duringBreak
                 if let p = prev {
                     let total = nxt.start.timeIntervalSince(p.end)
                     progress = total > 0 ? min(1, max(0, now.timeIntervalSince(p.end)/total)) : 0
                     let rem = Int(ceil(nxt.start.timeIntervalSince(now)/60))
-                    remainingText = rem <= 0 ? "Kezdődik" : "\(rem) perc múlva kezdődik"
+                    remainingText = Self.formatRemaining(rem, past: false)
                 }
             }
             next = nxt; previous = prev

@@ -13,6 +13,7 @@ struct TimetableView: View {
     @State private var homeworks: [HomeworkItem] = DemoData.homeworks()
     @State private var exams: [ExamItem] = DemoData.exams()
     @State private var selectedDay: Int = Calendar.current.component(.weekday, from: Date())
+    @State private var weekOffset: Int = 0 // 0 = ez a hét, -1 = múlt hét, +1 = jövő hét
     @State private var isLoading = true
     @State private var flashedLessonID: String?
     @State private var flashPulse = false
@@ -22,17 +23,34 @@ struct TimetableView: View {
     var colors: AppColors { theme.colors(for: scheme) }
     let days = ["Hétfő","Kedd","Szerda","Csütörtök","Péntek"]
     private let dayTags = Array(2...6)
-    @AppStorage("timetable.useHardcoded") private var useHardcoded = false
     @AppStorage("home.demoPreviewActive") private var isPreviewActive = false
     @AppStorage("home.demoPreviewMinutes") private var previewMinutes: Double = 540
     private var isDemoEffective: Bool { session.selectedUser?.isDemo == true }
-    private var previewDate: Date {
-        // Demo-ban a kiválasztott naphoz igazítjuk, ne a mai naphoz — így minden napon működik a csúszka
+    private var currentMonday: Date {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
         let weekday = cal.component(.weekday, from: today)
         let mondayOffset = (weekday == 1 ? -6 : 2 - weekday)
-        let monday = cal.date(byAdding: .day, value: mondayOffset, to: today)!
+        let baseMonday = cal.date(byAdding: .day, value: mondayOffset, to: today)!
+        return cal.date(byAdding: .day, value: weekOffset * 7, to: baseMonday)!
+    }
+    private var currentWeekRangeText: String {
+        let cal = Calendar.current
+        let monday = currentMonday
+        let friday = cal.date(byAdding: .day, value: 4, to: monday)!
+        let df: DateFormatter = { let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "MMM d."; return f }()
+        return "\(df.string(from: monday)) – \(df.string(from: friday))"
+    }
+    private var weekTitle: String {
+        if weekOffset == 0 { return "Ez a hét" }
+        if weekOffset == -1 { return "Múlt hét" }
+        if weekOffset == 1 { return "Jövő hét" }
+        if weekOffset < 0 { return "\(abs(weekOffset)) héttel ezelőtt" }
+        return "\(weekOffset) hét múlva"
+    }
+    private var previewDate: Date {
+        let cal = Calendar.current
+        let monday = currentMonday
         let dayOffset = max(0, min(4, selectedDay - 2)) // 0..4
         let dayBase = cal.date(byAdding: .day, value: dayOffset, to: monday)!
         return dayBase.addingTimeInterval(previewMinutes * 60)
@@ -42,6 +60,72 @@ struct TimetableView: View {
     var body: some View {
         NavigationStack {
             List {
+                // MARK: Week pager — előre/hátra a hetekben
+                Section {
+                    HStack(spacing: 0) {
+                        Button {
+                            withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) { weekOffset -= 1 }
+                            Task { await load() }
+                        } label: {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 36, height: 32)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(weekOffset <= -8)
+
+                        Spacer(minLength: 8)
+
+                        VStack(spacing: 2) {
+                            Text(weekTitle)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .contentTransition(.numericText())
+                            Text(currentWeekRangeText)
+                                .font(.caption2.weight(.medium).monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        .animation(.spring(response: 0.34, dampingFraction: 0.84), value: weekOffset)
+                        .onTapGesture {
+                            guard weekOffset != 0 else { return }
+                            withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) { weekOffset = 0 }
+                            var d = Calendar.current.component(.weekday, from: Date()); if d==1||d==7 { d=2 }; selectedDay = d
+                            Task { await load() }
+                        }
+
+                        Spacer(minLength: 8)
+
+                        Button {
+                            withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) { weekOffset += 1 }
+                            Task { await load() }
+                        } label: {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 36, height: 32)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(weekOffset >= 8)
+
+                        if weekOffset != 0 {
+                            Button("Ma") {
+                                withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) { weekOffset = 0 }
+                                var d = Calendar.current.component(.weekday, from: Date()); if d==1||d==7 { d=2 }; selectedDay = d
+                                Task { await load() }
+                            }
+                            .font(.caption.weight(.semibold))
+                            .tint(colors.accent)
+                            .padding(.leading, 8)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                    .listRowBackground(colors.surface)
+                    .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+                }
+
                 // MARK: Day picker — ugyanaz az inset mint Notes/Home
                 Section {
                     Picker("Nap", selection: $selectedDay) {
@@ -168,7 +252,7 @@ struct TimetableView: View {
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 12))
                     }
-                    .id(selectedDay)
+                    .id("\(weekOffset)-\(selectedDay)")
                     .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
                 }
             }
@@ -182,15 +266,28 @@ struct TimetableView: View {
                         let dy = value.translation.height
                         guard abs(dx) > abs(dy), abs(dx) > 52 else { return }
                         withAnimation(.spring(response: 0.36, dampingFraction: 0.84)) {
-                            if dx < 0, let idx = dayTags.firstIndex(of: selectedDay), idx < dayTags.count - 1 {
-                                selectedDay = dayTags[idx + 1]
-                            } else if dx > 0, let idx = dayTags.firstIndex(of: selectedDay), idx > 0 {
-                                selectedDay = dayTags[idx - 1]
+                            if dx < 0 {
+                                if let idx = dayTags.firstIndex(of: selectedDay), idx < dayTags.count - 1 {
+                                    selectedDay = dayTags[idx + 1]
+                                } else if weekOffset < 8 {
+                                    // péntekről → következő hét hétfő
+                                    weekOffset += 1; selectedDay = 2
+                                    Task { await load() }
+                                }
+                            } else if dx > 0 {
+                                if let idx = dayTags.firstIndex(of: selectedDay), idx > 0 {
+                                    selectedDay = dayTags[idx - 1]
+                                } else if weekOffset > -8 {
+                                    // hétfőről → előző hét péntek
+                                    weekOffset -= 1; selectedDay = 6
+                                    Task { await load() }
+                                }
                             }
                         }
                     }
             )
             .animation(.spring(response: 0.36, dampingFraction: 0.84), value: selectedDay)
+            .animation(.spring(response: 0.36, dampingFraction: 0.84), value: weekOffset)
             .refreshable { await load() }
             .navigationTitle("Órarend")
             .navigationBarTitleDisplayMode(.large)
@@ -205,7 +302,6 @@ struct TimetableView: View {
                 }
                 await load()
             }
-            .onChange(of: useHardcoded) { _, _ in Task { await load() } }
             .onReceive(NotificationCenter.default.publisher(for: ExemptedStore.changedNotification)) { _ in exemptedTick += 1 }
             .id(exemptedTick)
             .onReceive(NotificationCenter.default.publisher(for: switchToTimetable)) { notif in
@@ -330,9 +426,7 @@ struct TimetableView: View {
 
     var filtered: [LessonItem] {
         guard !lessons.isEmpty else { return [] }
-        let byDay = lessons.filter { Calendar.current.component(.weekday, from: $0.start) == selectedDay }.sorted { $0.start < $1.start }
-        if !byDay.isEmpty { return byDay }
-        return lessons.enumerated().filter { $0.offset % 5 == (selectedDay-2+7)%5 }.map { $0.element }
+        return lessons.filter { Calendar.current.component(.weekday, from: $0.start) == selectedDay }.sorted { $0.start < $1.start }
     }
     func isCurrent(_ l: LessonItem, now: Date) -> Bool { l.start<=now && l.end>=now }
     func progress(for l: LessonItem, now: Date) -> Double { let t=l.end.timeIntervalSince(l.start); return t>0 ? min(1,max(0,now.timeIntervalSince(l.start)/t)) : 0 }
@@ -341,44 +435,43 @@ struct TimetableView: View {
     func progress(for l: LessonItem) -> Double { progress(for: l, now: overrideNow ?? Date()) }
 
     func load() async {
-        // Fix órarend — ha be van kapcsolva, KRÉTA helyett a hardcoded heti rend
-        // De a házikat/dolgozatokat ilyenkor IS a KRÉTÁ-ból hozzuk, nem demo-ból
-        if useHardcoded, let user = session.selectedUser, !user.isDemo {
-            let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
-            // Párhuzamosan kérjük a hw/ex-et, a lesson fix
-            async let hw = kreta.fetchHomework(iss: iss)
-            async let ex = kreta.fetchExams(iss: iss)
-            lessons = HardcodedTimetable.lessons()
-            let (hwR, exR) = await (hw, ex)
-            homeworks = hwR
-            exams = exR
-            isLoading = false
-            var d = Calendar.current.component(.weekday, from: Date()); if d==1||d==7 { d=2 }; selectedDay = d
-            return
-        }
-        // Demo: e heti hétfő–péntek rendes lessonjei, hétfő 3. elmarad, 4. helyettesítés — mint KretaModels.lessonsExpanded()
+        // Demo: a kiválasztott hét hétfő–péntek lessonjei, hétfő 3. elmarad, 4. helyettesítés
         guard let user = session.selectedUser, !user.isDemo else {
-            lessons = DemoData.lessonsExpanded()
+            let base = DemoData.lessonsExpanded()
+            // Eltoljuk a demó órarendet a heti offsetnek megfelelően
+            if weekOffset != 0 {
+                let shift = TimeInterval(weekOffset * 7 * 86400)
+                lessons = base.map { l in LessonItem(id: l.id, subject: l.subject, room: l.room, start: l.start.addingTimeInterval(shift), end: l.end.addingTimeInterval(shift), teacher: l.teacher, index: l.index, isSubstituted: l.isSubstituted, isCancelled: l.isCancelled, originalTeacher: l.originalTeacher) }
+            } else {
+                lessons = base
+            }
             homeworks = DemoData.homeworks()
             exams = DemoData.exams()
             isLoading = false
-            var d = Calendar.current.component(.weekday, from: Date()); if d==1||d==7 { d=2 }; selectedDay = d
             return
         }
-        isLoading=true
+        isLoading = true
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
-        let start = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
-        let end = Calendar.current.date(byAdding: .day, value: 7, to: Date())!
+        if iss.isEmpty || iss == "unknown" {
+            lessons = []; homeworks = []; exams = []
+            isLoading = false
+            return
+        }
+        let monday = currentMonday
+        let start = monday
+        let end = Calendar.current.date(byAdding: .day, value: 7, to: monday)! // vasárnap 00:00 = teljes hét
         async let tt = kreta.fetchTimetable(iss: iss, from: start, to: end)
         async let hw = kreta.fetchHomework(iss: iss)
         async let ex = kreta.fetchExams(iss: iss)
         let (ttR, hwR, exR) = await (tt, hw, ex)
         lessons = ttR
-        // NE szennyezzük demo adattal a valós nézetet: ha üres, maradjon üres
         homeworks = hwR
         exams = exR
-        isLoading=false
-        var d = Calendar.current.component(.weekday, from: Date()); if d==1||d==7 { d=2 }; selectedDay=d
+        isLoading = false
+        // Csak első betöltéskor állítsuk a napot mai napra, weekOffset = 0 esetén
+        if weekOffset == 0 {
+            var d = Calendar.current.component(.weekday, from: Date()); if d==1||d==7 { d=2 }; selectedDay=d
+        }
     }
 }
 
@@ -442,45 +535,43 @@ private struct TimetableRow: View {
             // LEFT — liquid glass number + spine (szám mindig a glass FELETT — különben sötétnek látszik)
             VStack(spacing: 0) {
                 ZStack {
-                    // Glass háttér — külön réteg, a szám nem része a glass materialnak
-                    Circle()
-                        .fill(Color.clear)
-                        .frame(width: 38, height: 38)
-                        .background {
-                            if #available(iOS 26.0, *) {
-                                Circle()
-                                    .fill(Color.clear)
-                                    .glassEffect(
-                                        isTintedGlass
-                                            ? .regular.tint((ringTint ?? colors.accent).opacity(scheme == .dark ? (hasAssignment ? 0.22 : isCurrent ? 0.18 : 0.12) : (hasAssignment ? 0.18 : isCurrent ? 0.14 : 0.09))).interactive()
-                                            : .regular.tint(Color.white.opacity(scheme == .dark ? 0.06 : 0.04)).interactive(),
-                                        in: .circle
-                                    )
-                            } else {
-                                Circle().fill(isTintedGlass ? (ringTint ?? colors.accent).opacity(scheme == .dark ? 0.10 : 0.08) : Color.primary.opacity(scheme == .dark ? 0.08 : 0.07))
-                                    .overlay(Circle().fill(.ultraThinMaterial).opacity(isTintedGlass ? 0.35 : 0.82))
-                            }
+                    // Glass háttér — alsó réteg, külön a számtól
+                    Group {
+                        if #available(iOS 26.0, *) {
+                            Circle()
+                                .fill(Color.clear)
+                                .frame(width: 38, height: 38)
+                                .glassEffect(
+                                    isTintedGlass
+                                        ? .regular.tint((ringTint ?? colors.accent).opacity(scheme == .dark ? (hasAssignment ? 0.22 : isCurrent ? 0.18 : 0.12) : (hasAssignment ? 0.18 : isCurrent ? 0.14 : 0.09))).interactive()
+                                        : .regular.tint(Color.white.opacity(scheme == .dark ? 0.06 : 0.04)).interactive(),
+                                    in: .circle
+                                )
+                        } else {
+                            Circle()
+                                .fill(isTintedGlass ? (ringTint ?? colors.accent).opacity(scheme == .dark ? 0.10 : 0.08) : Color.primary.opacity(scheme == .dark ? 0.08 : 0.07))
+                                .overlay(Circle().fill(.ultraThinMaterial).opacity(isTintedGlass ? 0.35 : 0.82))
+                                .frame(width: 38, height: 38)
                         }
-                        .overlay(
-                            Circle().strokeBorder(
-                                (ringTint ?? Color.primary.opacity(scheme == .dark ? 0.14 : 0.10)).opacity(isTintedGlass ? 0.72 : (scheme == .dark ? 0.32 : 0.58)),
-                                lineWidth: isTintedGlass ? 1 : 0.8
-                            )
+                    }
+                    .frame(width: 38, height: 38)
+                    .overlay(
+                        Circle().strokeBorder(
+                            (ringTint ?? Color.primary.opacity(scheme == .dark ? 0.14 : 0.10)).opacity(isTintedGlass ? 0.72 : (scheme == .dark ? 0.32 : 0.58)),
+                            lineWidth: isTintedGlass ? 1 : 0.8
                         )
-                        .shadow(color: (ringTint ?? Color.clear).opacity(isTintedGlass ? (scheme == .dark ? 0.14 : 0.08) : 0), radius: 6, y: 2)
-                        .frame(width: 38, height: 38)
+                    )
+                    .shadow(color: (ringTint ?? Color.clear).opacity(isTintedGlass ? (scheme == .dark ? 0.14 : 0.08) : 0), radius: 6, y: 2)
 
-                    // Szám — ZStack legfelső rétege, glass nem fedi
+                    // Szám — mindig a glass FELETT, nem része a glass materialnak
                     Text(lesson.index)
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(numberColor)
                         .contentTransition(.numericText())
-                        .zIndex(1)
                         .allowsHitTesting(false)
                 }
                 .frame(width: 38, height: 38)
-                .compositingGroup()
 
                 // Spine — vékony editorial vonal a következő körig
                 if !isLast {

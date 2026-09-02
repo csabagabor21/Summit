@@ -37,13 +37,11 @@ final class HomeViewModel: ObservableObject {
             updateLiveState()
             return
         }
-        // Ha be van kapcsolva a fix órarend, Home Now panelje is azt mutassa (paritás Timetable-lal)
-        let useHardcoded = UserDefaults.standard.bool(forKey: "timetable.useHardcoded")
         isRefreshing = true
         defer { isRefreshing = false }
 
         let iss = user!.instituteCode.isEmpty ? (JWT.instituteCode(from: user!.accessToken) ?? "") : user!.instituteCode
-        if iss.isEmpty {
+        if iss.isEmpty || iss == "unknown" {
             error = "Hiányzó intézményi kód — jelentkezz be újra."
             lessonsToday = []
             updateLiveState()
@@ -56,46 +54,23 @@ final class HomeViewModel: ObservableObject {
         async let ex = kreta.fetchExams(iss: iss)
         async let msg = kreta.fetchMessages()
 
-        let start: Date
-        let end: Date
-        let ttResult: [LessonItem]
-        if useHardcoded {
-            // Fix heti rendből a mai nap
-            let all = HardcodedTimetable.lessons()
-            let todayWeekday = Calendar.current.component(.weekday, from: Date())
-            ttResult = all.filter { Calendar.current.component(.weekday, from: $0.start) == todayWeekday }.sorted { $0.start < $1.start }
-            start = Date(); end = Date() // dummy, nem használt
-            // hw/ex-et így is lekérjük KRÉTÁ-ból, de ttResult már megvan
-            let (gradesR, hwR, abR, exR, msgR) = await (g, hw, ab, ex, msg)
-            self.grades = gradesR
-            self.homeworks = hwR
-            self.absences = abR
-            self.exams = exR
-            self.messages = msgR
-            self.lessonsToday = ttResult
-            error = nil
-            // ha minden üres, az nem hiba ha fix órarend van — legalább órarend van
-            updateLiveState()
-            return
+        let start = Calendar.current.startOfDay(for: Date())
+        let end = Calendar.current.date(byAdding: .day, value: 1, to: start)!
+        async let tt = kreta.fetchTimetable(iss: iss, from: start, to: end)
+        let (gradesR, hwR, abR, exR, msgR, ttR) = await (g, hw, ab, ex, msg, tt)
+        self.grades = gradesR
+        self.homeworks = hwR
+        self.absences = abR
+        self.exams = exR
+        self.messages = msgR
+        self.lessonsToday = ttR
+        if gradesR.isEmpty && hwR.isEmpty && abR.isEmpty && exR.isEmpty && msgR.isEmpty && ttR.isEmpty {
+            error = "Nem érkezett adat a KRÉTÁ-tól — ellenőrizd a kapcsolatot vagy jelentkezz be újra."
         } else {
-            start = Calendar.current.startOfDay(for: Date())
-            end = Calendar.current.date(byAdding: .day, value: 1, to: start)!
-            async let tt = kreta.fetchTimetable(iss: iss, from: start, to: end)
-            let (gradesR, hwR, abR, exR, msgR, ttR) = await (g, hw, ab, ex, msg, tt)
-            self.grades = gradesR
-            self.homeworks = hwR
-            self.absences = abR
-            self.exams = exR
-            self.messages = msgR
-            self.lessonsToday = ttR
-            if gradesR.isEmpty && hwR.isEmpty && abR.isEmpty && exR.isEmpty && msgR.isEmpty && ttR.isEmpty {
-                error = "Nem érkezett adat a KRÉTÁ-tól — ellenőrizd a kapcsolatot vagy jelentkezz be újra."
-            } else {
-                error = nil
-            }
-            updateLiveState()
-            return
+            error = nil
         }
+        updateLiveState()
+        return
     }
 
     func updateLiveState() {

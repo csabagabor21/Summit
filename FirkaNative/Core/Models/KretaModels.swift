@@ -60,6 +60,30 @@ struct ExamItem: Identifiable, Hashable {
     let description: String
 }
 
+// MARK: - Kreta date helper — handles KRÉTA's mixed formats (with/without TZ, with/without fractional)
+enum KretaDateParser {
+    static func parse(_ s: String?) -> Date? {
+        guard let s, !s.isEmpty else { return nil }
+        let isoFrac = ISO8601DateFormatter()
+        isoFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = isoFrac.date(from: s) { return d }
+        let iso = ISO8601DateFormatter()
+        if let d = iso.date(from: s) { return d }
+        // Local datetime without TZ — KRÉTA sometimes returns "2026-09-01T08:00:00" or "2026-09-01T08:00:00.0000000"
+        let dotTrimmed = s.contains(".") ? String(s.split(separator: ".").first ?? Substring(s)) : s
+        let fmts = ["yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd"]
+        for fmt in fmts {
+            let df = DateFormatter()
+            df.locale = Locale(identifier: "en_US_POSIX")
+            df.timeZone = TimeZone.current
+            df.dateFormat = fmt
+            if let d = df.date(from: dotTrimmed) { return d }
+            if let d = df.date(from: s) { return d }
+        }
+        return nil
+    }
+}
+
 // MARK: - DTOs matching real e-KRÉTA JSON (keys are Hungarian)
 struct TantargyDTO: Decodable { let Nev: String?; let Uid: String? }
 struct TipusDTO: Decodable { let Nev: String?; let Kod: String?; let Uid: String? }
@@ -76,18 +100,12 @@ struct KretaGradeDTO: Decodable {
     let Tipus: TipusDTO?
     let Tema: String?
     func toItem() -> GradeItem {
-        let df = ISO8601DateFormatter(); df.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let df2 = ISO8601DateFormatter()
-        func parse(_ s: String?) -> Date {
-            guard let s else { return Date() }
-            return df.date(from: s) ?? df2.date(from: s) ?? Date()
-        }
         return GradeItem(
             id: Uid ?? UUID().uuidString,
             subject: Tantargy?.Nev ?? "Ismeretlen",
             value: SzamErtek ?? 0,
             valueText: SzovegesErtek ?? "\(SzamErtek ?? 0)",
-            date: parse(KeszitesDatuma ?? RogzitesDatuma),
+            date: KretaDateParser.parse(KeszitesDatuma ?? RogzitesDatuma) ?? Date(),
             teacher: (ErtekeloTanarNeve ?? "").trimmingCharacters(in: .whitespaces),
             type: Tipus?.Nev ?? "Értékelés",
             weight: SulySzazalekErteke ?? 100,
@@ -108,10 +126,8 @@ struct KretaLessonDTO: Decodable {
     let Tema: String?
     let Allapot: TipusDTO?
     func toItem() -> LessonItem? {
-        guard let tant = Tantargy?.Nev else { return nil }
-        let df = ISO8601DateFormatter(); df.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let df2 = ISO8601DateFormatter()
-        func p(_ s: String?) -> Date { guard let s else { return Date() }; return df.date(from: s) ?? df2.date(from: s) ?? Date() }
+        guard let tant = Tantargy?.Nev, !tant.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
+        guard let start = KretaDateParser.parse(KezdetIdopont), let end = KretaDateParser.parse(VegIdopont) else { return nil }
         let room = (TeremNeve ?? "").replacingOccurrences(of: "_", with: " ").replacingOccurrences(of: " terem", with: "", options: .caseInsensitive)
         let allapotNev = (Allapot?.Nev ?? "").lowercased()
         let isCancelled = allapotNev.contains("elmarad")
@@ -129,8 +145,8 @@ struct KretaLessonDTO: Decodable {
             id: Uid ?? UUID().uuidString,
             subject: tant,
             room: room.isEmpty ? "-" : room,
-            start: p(KezdetIdopont),
-            end: p(VegIdopont),
+            start: start,
+            end: end,
             teacher: displayTeacher,
             index: Oraszam.map(String.init) ?? "-",
             isSubstituted: isSubstituted,
@@ -148,8 +164,7 @@ struct KretaHomeworkDTO: Decodable {
     let FeladoTanarNeve: String?
     let IsTanuloHaziFeladatEnabled: Bool?
     func toItem() -> HomeworkItem {
-        let df = ISO8601DateFormatter(); let df2 = ISO8601DateFormatter(); df2.formatOptions = [.withFullDate]
-        func p(_ s: String?) -> Date { guard let s else { return Date() }; return df.date(from: s) ?? df2.date(from: s) ?? Date() }
+        func p(_ s: String?) -> Date { KretaDateParser.parse(s) ?? Date() }
         return HomeworkItem(
             id: Uid ?? UUID().uuidString,
             subject: TantargyNeve ?? "Házi",
@@ -169,8 +184,7 @@ struct KretaAbsenceDTO: Decodable {
     let IgazolasTipusa: TipusDTO?
     let KesesPercben: Int?
     func toItem() -> AbsenceItem {
-        let df = ISO8601DateFormatter()
-        func p(_ s: String?) -> Date { guard let s, let d = df.date(from: s) else { return Date() }; return d }
+        func p(_ s: String?) -> Date { KretaDateParser.parse(s) ?? Date() }
         return AbsenceItem(
             id: Uid ?? UUID().uuidString,
             subject: Tantargy?.Nev ?? "Hiányzás",
@@ -199,8 +213,7 @@ struct KretaMessageDTO: Decodable {
     enum CodingKeys: String, CodingKey { case azon, uzenet, feladoNev, targy, elkuldve, sender, subject, date }
 
     func toItem() -> MessageItem {
-        let df = ISO8601DateFormatter()
-        func p(_ s: String?) -> Date { guard let s, let d = df.date(from: s) else { return Date() }; return d }
+        func p(_ s: String?) -> Date { KretaDateParser.parse(s) ?? Date() }
         let s = feladoNev ?? uzenet?.feladoNev ?? sender ?? "Üzenet"
         let t = targy ?? uzenet?.targy ?? subject ?? "(nincs tárgy)"
         let d = elkuldve ?? uzenet?.elkuldve ?? date
@@ -216,8 +229,7 @@ struct KretaExamDTO: Decodable {
     let Modja: TipusDTO?
     let Tema: String?
     func toItem() -> ExamItem {
-        let df = ISO8601DateFormatter()
-        func p(_ s: String?) -> Date { guard let s, let d = df.date(from: s) else { return Date() }; return d }
+        func p(_ s: String?) -> Date { KretaDateParser.parse(s) ?? Date() }
         return ExamItem(
             id: Uid ?? UUID().uuidString,
             subject: TantargyNeve ?? Tantargy?.Nev ?? "Dolgozat",
@@ -225,6 +237,17 @@ struct KretaExamDTO: Decodable {
             mode: Modja?.Nev ?? "Számonkérés",
             description: Tema ?? ""
         )
+    }
+}
+
+struct KretaSubjectAvgDTO: Decodable {
+    let Tantargy: TantargyDTO?
+    let TantargyNeve: String?
+    // Atlag lehet null ha nincs jegy — attól még a tárgy létezik
+    func subjectName() -> String? {
+        if let n = Tantargy?.Nev?.trimmingCharacters(in: .whitespaces), !n.isEmpty { return n }
+        if let n = TantargyNeve?.trimmingCharacters(in: .whitespaces), !n.isEmpty { return n }
+        return nil
     }
 }
 

@@ -3,7 +3,9 @@ import Combine
 
 @MainActor
 final class SessionStore: ObservableObject {
-    @Published var users: [AppUser] = []
+    @Published var users: [AppUser] = [] {
+        didSet { persist() }
+    }
     @Published var selectedId: String? {
         didSet { persist() }
     }
@@ -45,6 +47,15 @@ final class SessionStore: ObservableObject {
         if let id = selectedId { users.removeAll { $0.id == id } }
         selectedId = users.first?.id
         persist()
+    }
+    /// Token refresh után frissíti a kiválasztott user tokenjeit és perzisztálja
+    func updateTokens(accessToken: String, refreshToken: String?, expiresIn: Int?) {
+        guard let id = selectedId, let idx = users.firstIndex(where: { $0.id == id }) else { return }
+        users[idx].accessToken = accessToken
+        if let rt = refreshToken, !rt.isEmpty { users[idx].refreshToken = rt }
+        if let exp = expiresIn { users[idx].accessTokenExpire = Date().addingTimeInterval(Double(exp - 30)) }
+        persist()
+        objectWillChange.send()
     }
     var isLoggedIn: Bool { selectedUser != nil }
 }
