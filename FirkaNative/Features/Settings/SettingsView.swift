@@ -78,6 +78,12 @@ struct SettingsView: View {
                 Text("Tantárgyanként állítható, hogy a tanár mikortól kerekít fel — külön menüben.").font(.caption2).foregroundStyle(.secondary)
             }
 
+            Section {
+                LiveActivitySettingsRow()
+            } header: { Text("Élő óra").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) } footer: {
+                Text("Lock Screen + Dynamic Island — szünetben a következőt mutatja. Rendszer tiltás esetén a Beállításokban engedélyezd.").font(.caption2).foregroundStyle(.secondary)
+            }
+
             Section(header: Text("Megjelenés").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)) {
                 Picker("Téma", selection: Binding(get: { theme.mode }, set: { theme.mode = $0 })) {
                     ForEach(AppThemeMode.allCases) { m in
@@ -157,42 +163,119 @@ struct SettingsView: View {
     }
 
     private func loadSubjects(force: Bool = false) async {
-        if !force, let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1"), !cached.isEmpty, session.selectedUser?.isDemo == false {
+        let isDemo = session.selectedUser?.isDemo == true
+        if !force, let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1"), !cached.isEmpty, !isDemo {
             // still fetch in background, but show cached first
             subjects = cached; isLoadingSubjects = false
-        } else if !force, session.selectedUser?.isDemo == true {
+        } else if !force, isDemo {
             let s = Set(DemoData.gradesExpanded().map(\.subject))
             subjects = s.sorted(); isLoadingSubjects = false
             return
         }
         isLoadingSubjects = subjects.isEmpty
-        var collected = Set<String>()
-        // thresholds already saved subjects
-        collected.formUnion(GradingLogic.loadThresholds().keys)
-        if let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1") { collected.formUnion(cached) }
-
-        if session.selectedUser?.isDemo == true {
+        // Demo / kijelentkezett: demo-tárgyak, de a közös cache-be SOHA nem írunk —
+        // különben a hardcodolt demo-tárgyak leakelnek valós módba.
+        if isDemo || session.selectedUser == nil {
+            var collected = Set<String>()
+            collected.formUnion(GradingLogic.loadThresholds().keys)
             collected.formUnion(DemoData.gradesExpanded().map(\.subject))
             collected.formUnion(DemoData.lessonsToday().map(\.subject))
-        } else if let user = session.selectedUser {
-            let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
-            if !iss.isEmpty {
-                let grades = await kreta.fetchGrades(iss: iss)
-                collected.formUnion(grades.map(\.subject))
-                // also timetable last 14 days for subjects without grades yet
-                let start = Calendar.current.date(byAdding: .day, value: -14, to: Date())!
-                let end = Calendar.current.date(byAdding: .day, value: 14, to: Date())!
-                let lessons = await kreta.fetchTimetable(iss: iss, from: start, to: end)
-                collected.formUnion(lessons.map(\.subject))
-            }
-        } else {
-            // not logged in -> show demo subjects so UI is not empty
-            collected.formUnion(DemoData.gradesExpanded().map(\.subject))
+            let filtered = collected.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != "Ismeretlen" }.sorted()
+            subjects = filtered
+            isLoadingSubjects = false
+            return
         }
+        // Valós mód: csak hálózati tárgyak + a hozzájuk tartozó mentett thresholdök.
+        // A cache csak instant placeholder (fent), a mentés felülírja a szennyezést.
+        guard let user = session.selectedUser else { isLoadingSubjects = false; return }
+        let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
+        var real = Set<String>()
+        if !iss.isEmpty {
+            let grades = await kreta.fetchGrades(iss: iss)
+            real.formUnion(grades.map(\.subject))
+            // also timetable last 14 days for subjects without grades yet
+            let start = Calendar.current.date(byAdding: .day, value: -14, to: Date())!
+            let end = Calendar.current.date(byAdding: .day, value: 14, to: Date())!
+            let lessons = await kreta.fetchTimetable(iss: iss, from: start, to: end)
+            real.formUnion(lessons.map(\.subject))
+        }
+        real.formUnion(GradingLogic.loadThresholds().keys.filter { real.contains($0) })
         // filter out empty / unknown
-        let filtered = collected.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != "Ismeretlen" }.sorted()
+        let filtered = real.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != "Ismeretlen" }.sorted()
         subjects = filtered
         isLoadingSubjects = false
         if !filtered.isEmpty { UserDefaults.standard.set(filtered, forKey: "firka.cachedSubjects.v1") }
+    }
+}
+
+// MARK: - Élő óra toggle (beállítási problémák miatt külön komponens)
+private struct LiveActivitySettingsRow: View {
+    @StateObject private var manager = FlintLiveActivityManager.shared
+    @AppStorage("liveActivity.enabled") private var enabled: Bool = true
+    @State private var showSystemAlert = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle(isOn: Binding(
+                get: { enabled },
+                set: { new in
+                    enabled = new
+                    manager.setAppEnabled(new)
+                    if new { Task { await tryStartPreview() } }
+                    manager.refreshSystemState()
+                    if new && !manager.isSystemEnabled { showSystemAlert = true }
+                }
+            )) {
+                Label("Élő óra (Live Activity)", systemImage: "clock.badge.checkmark")
+                    .font(.subheadline.weight(.medium))
+            }
+            .tint(Color(hex: 0xA7DC22))
+
+            // Rendszer állapot — ez szokott kavarni
+            HStack(spacing: 6) {
+                Circle().fill(manager.isSystemEnabled ? Color.green : Color.red).frame(width: 7, height: 7)
+                Text(manager.isSystemEnabled ? "Rendszer engedélyezve" : "Rendszer tiltva — Beállításokban kapcsold be")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(manager.isSystemEnabled ? Color.secondary : Color.red)
+                Spacer()
+                if !manager.isSystemEnabled {
+                    Button("Megnyitás") { manager.openSystemSettings() }
+                        .font(.caption2.weight(.semibold))
+                }
+            }
+
+            if manager.activeCount > 0 {
+                Text("\(manager.activeCount) aktív éló óra")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+            Text("Állapot: \(manager.lastAction)")
+                .font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+            if let err = manager.lastError {
+                Text(err).font(.caption2).foregroundStyle(.orange).lineLimit(2)
+            }
+
+            if !enabled {
+                Text("Kikapcsolva — nem indul új élő óra, a futók lezárva.")
+                    .font(.caption2).foregroundStyle(.tertiary)
+            } else if !manager.isSystemEnabled {
+                Text("Az app szeretné, de az iOS letiltotta. Először iOS Beállítások → Flint → Live Activities → BE.")
+                    .font(.caption2).foregroundStyle(.orange)
+            }
+        }
+        .padding(.vertical, 2)
+        .onAppear { manager.refreshSystemState() }
+        .onReceive(manager.objectWillChange) { _ in }
+        .alert("Live Activities tiltva", isPresented: $showSystemAlert) {
+            Button("Beállítások") { manager.openSystemSettings() }
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("iOS Beállítások → Flint → Live Activities kapcsolót kapcsold BE, különben nem jelenik meg a Lock Screen-en / Dynamic Islanden.")
+        }
+    }
+
+    private func tryStartPreview() async {
+        // Ne itt indítsunk valódi órát — csak jogosultság próba (üres nem indít)
+        // A valódi indítás a HomeView-ban történik, amikor van aktuális óra.
+        manager.refreshSystemState()
     }
 }

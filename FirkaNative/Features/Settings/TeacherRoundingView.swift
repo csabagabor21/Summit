@@ -59,35 +59,41 @@ struct TeacherRoundingView: View {
     }
 
     private func loadSubjects(force: Bool = false) async {
-        if !force, let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1"), !cached.isEmpty, session.selectedUser?.isDemo == false {
+        let isDemo = session.selectedUser?.isDemo == true
+        if !force, let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1"), !cached.isEmpty, !isDemo {
             subjects = cached; isLoading = false
-        } else if !force, session.selectedUser?.isDemo == true {
+        } else if !force, isDemo {
             let s = Set(DemoData.gradesExpanded().map(\.subject))
             subjects = s.sorted(); isLoading = false
             return
         }
         isLoading = subjects.isEmpty
-        var collected = Set<String>()
-        collected.formUnion(GradingLogic.loadThresholds().keys)
-        if let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1") { collected.formUnion(cached) }
-
-        if session.selectedUser?.isDemo == true {
+        // Demo / kijelentkezett: demo-tárgyak, de a közös cache-be SOHA nem írunk —
+        // különben a hardcodolt demo-tárgyak leakelnek valós módba.
+        if isDemo || session.selectedUser == nil {
+            var collected = Set<String>()
+            collected.formUnion(GradingLogic.loadThresholds().keys)
             collected.formUnion(DemoData.gradesExpanded().map(\.subject))
             collected.formUnion(DemoData.lessonsToday().map(\.subject))
-        } else if let user = session.selectedUser {
-            let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
-            if !iss.isEmpty {
-                let grades = await kreta.fetchGrades(iss: iss)
-                collected.formUnion(grades.map(\.subject))
-                let start = Calendar.current.date(byAdding: .day, value: -14, to: Date())!
-                let end = Calendar.current.date(byAdding: .day, value: 14, to: Date())!
-                let lessons = await kreta.fetchTimetable(iss: iss, from: start, to: end)
-                collected.formUnion(lessons.map(\.subject))
-            }
-        } else {
-            collected.formUnion(DemoData.gradesExpanded().map(\.subject))
+            let filtered = collected.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != "Ismeretlen" }.sorted()
+            subjects = filtered
+            isLoading = false
+            return
         }
-        let filtered = collected.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != "Ismeretlen" }.sorted()
+        // Valós mód: csak hálózati tárgyak + a hozzájuk tartozó mentett thresholdök.
+        guard let user = session.selectedUser else { isLoading = false; return }
+        let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
+        var real = Set<String>()
+        if !iss.isEmpty {
+            let grades = await kreta.fetchGrades(iss: iss)
+            real.formUnion(grades.map(\.subject))
+            let start = Calendar.current.date(byAdding: .day, value: -14, to: Date())!
+            let end = Calendar.current.date(byAdding: .day, value: 14, to: Date())!
+            let lessons = await kreta.fetchTimetable(iss: iss, from: start, to: end)
+            real.formUnion(lessons.map(\.subject))
+        }
+        real.formUnion(GradingLogic.loadThresholds().keys.filter { real.contains($0) })
+        let filtered = real.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != "Ismeretlen" }.sorted()
         subjects = filtered
         isLoading = false
         if !filtered.isEmpty { UserDefaults.standard.set(filtered, forKey: "firka.cachedSubjects.v1") }

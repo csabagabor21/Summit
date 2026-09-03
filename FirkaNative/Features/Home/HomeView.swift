@@ -308,6 +308,19 @@ struct HomeView: View {
                 await vm.refresh(kreta: kreta, user: session.selectedUser)
                 await syncLiveActivity()
             }
+            // Percenkénti élő sync: az activity különben beragad (óraváltáskor
+            // semmi nem triggerelte az update-et), a percek és a progress pontatlanok.
+            // Háttérben az iOS úgyis felfüggeszt — ez csak előtérben pörög.
+            .task {
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 60_000_000_000)
+                    guard !Task.isCancelled else { break }
+                    await syncLiveActivity()
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                Task { await syncLiveActivity() }
+            }
             .onReceive(NotificationCenter.default.publisher(for: ExemptedStore.changedNotification)) { _ in exemptedTick += 1 }
             .onChange(of: vm.lessonsToday) { _, _ in Task { await syncLiveActivity() } }
             .onChange(of: session.selectedId) { _, _ in Task { await vm.refresh(kreta: kreta, user: session.selectedUser); await syncLiveActivity() } }

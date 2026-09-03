@@ -10,8 +10,9 @@ struct TimetableView: View {
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var kreta: KretaClient
     @State private var lessons: [LessonItem] = []
-    @State private var homeworks: [HomeworkItem] = DemoData.homeworks()
-    @State private var exams: [ExamItem] = DemoData.exams()
+    // Üres initial: a demo-értékek valós módban az első load előtt is belekacsintottak a UI-ba.
+    @State private var homeworks: [HomeworkItem] = []
+    @State private var exams: [ExamItem] = []
     @State private var selectedDay: Int = Calendar.current.component(.weekday, from: Date())
     @State private var weekOffset: Int = 0 // 0 = ez a hét, -1 = múlt hét, +1 = jövő hét
     @State private var isLoading = true
@@ -305,6 +306,9 @@ struct TimetableView: View {
                 }
                 await load()
             }
+            // Live Activity sync EGYKEZES: csak a HomeView írja (ugyanaz az AppStorage kulcs!).
+            // Két író (Home + Timetable eltérő nap locked lessons-szel) egymást ütötte:
+            // csúszkánál az egyik indított, a másik endAll-ozott → villogó/blank Island.
             .onReceive(NotificationCenter.default.publisher(for: ExemptedStore.changedNotification)) { _ in exemptedTick += 1 }
             .id(exemptedTick)
             .onReceive(NotificationCenter.default.publisher(for: switchToTimetable)) { notif in
@@ -429,7 +433,17 @@ struct TimetableView: View {
 
     var filtered: [LessonItem] {
         guard !lessons.isEmpty else { return [] }
-        return lessons.filter { Calendar.current.component(.weekday, from: $0.start) == selectedDay }.sorted { $0.start < $1.start }
+        // Nap-pontos szűrés (nem csak hétköznap): ha a lessons-ben két hét anyaga
+        // vagy duplikált KRÉTA-sorok vannak, a hétfő nem duplázódhat 14-re.
+        let cal = Calendar.current
+        guard let dayIdx = dayTags.firstIndex(of: selectedDay),
+              let dayDate = cal.date(byAdding: .day, value: dayIdx, to: currentMonday) else { return [] }
+        return lessons.filter { cal.isDate($0.start, inSameDayAs: dayDate) }.sorted { $0.start < $1.start }
+    }
+    /// KRÉTA néha ugyanazt az órát kétszer adja (pl. csoportbontás) — tárgy+időpont kulccsal irtjuk.
+    private func deduped(_ items: [LessonItem]) -> [LessonItem] {
+        var seen = Set<String>()
+        return items.filter { seen.insert("\($0.subject)|\($0.start.timeIntervalSince1970)|\($0.end.timeIntervalSince1970)").inserted }
     }
     func isCurrent(_ l: LessonItem, now: Date) -> Bool { l.start<=now && l.end>=now }
     func progress(for l: LessonItem, now: Date) -> Double { let t=l.end.timeIntervalSince(l.start); return t>0 ? min(1,max(0,now.timeIntervalSince(l.start)/t)) : 0 }
@@ -444,9 +458,9 @@ struct TimetableView: View {
             // Eltoljuk a demó órarendet a heti offsetnek megfelelően
             if weekOffset != 0 {
                 let shift = TimeInterval(weekOffset * 7 * 86400)
-                lessons = base.map { l in LessonItem(id: l.id, subject: l.subject, room: l.room, start: l.start.addingTimeInterval(shift), end: l.end.addingTimeInterval(shift), teacher: l.teacher, index: l.index, isSubstituted: l.isSubstituted, isCancelled: l.isCancelled, originalTeacher: l.originalTeacher) }
+                lessons = deduped(base.map { l in LessonItem(id: l.id, subject: l.subject, room: l.room, start: l.start.addingTimeInterval(shift), end: l.end.addingTimeInterval(shift), teacher: l.teacher, index: l.index, isSubstituted: l.isSubstituted, isCancelled: l.isCancelled, originalTeacher: l.originalTeacher) })
             } else {
-                lessons = base
+                lessons = deduped(base)
             }
             homeworks = DemoData.homeworks()
             exams = DemoData.exams()
@@ -467,7 +481,7 @@ struct TimetableView: View {
         async let hw = kreta.fetchHomework(iss: iss)
         async let ex = kreta.fetchExams(iss: iss)
         let (ttR, hwR, exR) = await (tt, hw, ex)
-        lessons = ttR
+        lessons = deduped(ttR)
         homeworks = hwR
         exams = exR
         isLoading = false

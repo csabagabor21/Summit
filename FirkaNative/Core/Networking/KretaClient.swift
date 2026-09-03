@@ -195,10 +195,9 @@ final class KretaClient: ObservableObject {
             let lessons = await fetchTimetable(iss: iss, from: start, to: end)
             for l in lessons { names.insert(l.subject) }
         }
-        // 3) Cached subjects — beállításokból már ismert tárgyak
-        if let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1") {
-            for c in cached where !c.trimmingCharacters(in: .whitespaces).isEmpty { names.insert(c) }
-        }
+        // Szándékosan NINCS cached-union: a cache demo-módból szennyezett lehet,
+        // a hívó (GradesView) külön fűzi hozzá megjelenítéshez, mentéshez viszont
+        // csak ez a hálózati lista megy.
         return names.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != "Ismeretlen" }.sorted()
     }
 }

@@ -15,13 +15,16 @@ struct GradesView: View {
     @State private var allSubjects: [String] = []
     @State private var isLoading = true
     @State private var selectedTab: GradeTab = .evkozi
+    // Explicit path: adat-újratöltéskor a value-less linkek állapota átsiklott
+    // sorok között, a vissza gomb így végigment a tárgyakon. Path-szal egy pop = egy szint.
+    @State private var path = NavigationPath()
     @Environment(\.colorScheme) var scheme
     @Environment(\.horizontalSizeClass) private var hSize
     private var isPad: Bool { hSize == .regular }
     var colors: AppColors { theme.colors(for: scheme) }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
                 // Tabs — csak ha van félévi, különben teljesen rejtve
                 if !isLoading && !feleviGrades.isEmpty {
@@ -82,7 +85,7 @@ struct GradesView: View {
                                             let raw = GradingLogic.weightedAverage(items)
                                             let thr = GradingLogic.threshold(for: subject)
                                             let rnd = GradingLogic.roundedGrade(raw: raw, threshold: thr)
-                                            NavigationLink { SubjectDetailView(subject: subject, grades: items.sorted { $0.date < $1.date }) } label: {
+                                            NavigationLink(value: subject) {
                                                 HStack(spacing: 12) {
                                                     ZStack { Circle().fill(Color.clear).overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1.2)).frame(width: 44, height: 44); Text("\(rnd)").font(.system(size: 18, weight: .bold, design: .rounded)).foregroundStyle(colors.gradeColor(for: rnd)) }.frame(width: 44, height: 44)
                                                     VStack(alignment: .leading, spacing: 3) { Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1); Text(String(format: "%.2f • %d jegy", raw, items.count)).font(.caption2).foregroundStyle(.secondary).lineLimit(1) }
@@ -91,7 +94,7 @@ struct GradesView: View {
                                                 }.padding(12).background(RoundedRectangle(cornerRadius: 14).fill(colors.surface).overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)))
                                             }.buttonStyle(.plain)
                                         } else {
-                                            NavigationLink { SubjectDetailView(subject: subject, grades: []) } label: {
+                                            NavigationLink(value: subject) {
                                                 HStack(spacing: 12) {
                                                     ZStack { Circle().fill(Color.clear).overlay(Circle().strokeBorder(Color.primary.opacity(scheme == .dark ? 0.14 : 0.10), lineWidth: 1.2)).frame(width: 44, height: 44); Text("—").font(.system(size: 18, weight: .bold, design: .rounded)).foregroundStyle(.tertiary) }.frame(width: 44, height: 44)
                                                     VStack(alignment: .leading, spacing: 3) { Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1); Text("Nincs jegy").font(.caption2).foregroundStyle(.tertiary).lineLimit(1) }
@@ -107,9 +110,7 @@ struct GradesView: View {
                                     let raw = GradingLogic.weightedAverage(items)
                                     let thr = GradingLogic.threshold(for: subject)
                                     let rnd = GradingLogic.roundedGrade(raw: raw, threshold: thr)
-                                    NavigationLink {
-                                        SubjectDetailView(subject: subject, grades: items.sorted { $0.date < $1.date })
-                                    } label: {
+                                    NavigationLink(value: subject) {
                                         HStack(spacing: 12) {
                                             ZStack {
                                                 Circle().fill(Color.clear).glassEffect(.clear, in: .circle)
@@ -127,9 +128,7 @@ struct GradesView: View {
                                     .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                                 } else {
                                     // Nincs még jegy — KRÉTA tudja a tantárgyat, üresen mutatjuk
-                                    NavigationLink {
-                                        SubjectDetailView(subject: subject, grades: [])
-                                    } label: {
+                                    NavigationLink(value: subject) {
                                         HStack(spacing: 12) {
                                             ZStack {
                                                 Circle().fill(Color.clear)
@@ -248,6 +247,9 @@ struct GradesView: View {
             .background(colors.background)
             .refreshable { await load() }
             .task { await load() }
+            .navigationDestination(for: String.self) { subject in
+                SubjectDetailView(subject: subject, grades: gradesFor(subject))
+            }
             .onChange(of: grades) { _, _ in
                 if selectedTab == .felevi && feleviGrades.isEmpty { selectedTab = .evkozi }
                 if selectedTab == .evvegi && evvegiGrades.isEmpty { selectedTab = .evkozi }
@@ -277,6 +279,10 @@ struct GradesView: View {
     var evvegiGrades: [GradeItem] { grades.filter { $0.value != 0 && isEvvegi($0) } }
 
     var groupedEvkozi: [String: [GradeItem]] { Dictionary(grouping: evkoziGrades, by: { $0.subject }) }
+
+    private func gradesFor(_ subject: String) -> [GradeItem] {
+        (groupedEvkozi[subject] ?? []).sorted { $0.date < $1.date }
+    }
     var groupedFelevi: [String: [GradeItem]] { Dictionary(grouping: feleviGrades, by: { $0.subject }) }
     var groupedEvvegi: [String: [GradeItem]] { Dictionary(grouping: evvegiGrades, by: { $0.subject }) }
 
@@ -323,8 +329,11 @@ struct GradesView: View {
         async let subjectsTask = kreta.fetchAllSubjectNames(iss: iss)
         let (g, s) = await (gradesTask, subjectsTask)
         grades = g
-        allSubjects = s
-        if !s.isEmpty { UserDefaults.standard.set(s, forKey: "firka.cachedSubjects.v1") }
+        // Megjelenítéshez a cache is jöhet (offline), de vissza csak hálózati tárgyakat
+        // mentünk — a demo-módból beszennyezett cache így következő online loadkor kigyógyul.
+        let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1") ?? []
+        allSubjects = Array(Set(s).union(cached)).sorted()
+        if !s.isEmpty { UserDefaults.standard.set(s.sorted(), forKey: "firka.cachedSubjects.v1") }
         isLoading=false
     }
 }
