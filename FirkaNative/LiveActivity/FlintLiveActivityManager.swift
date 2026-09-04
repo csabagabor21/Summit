@@ -24,6 +24,20 @@ final class FlintLiveActivityManager: ObservableObject {
 
     private var authTask: Task<Void, Never>?
 
+    // MARK: - Single-flight lánc (duplikátum-védelem)
+    // A @MainActor a szinkron szakaszokat sorosítja, de az await-eknél
+    // két párhuzamos sync összeakadhatott: mindkettő endAll-t + request-et
+    // indított → néha 2 activity jelent meg. Minden start/update/end
+    // ezen a láncon fut át, így sosem fedik egymást.
+    private var serial: Task<Void, Never>?
+
+    private func runSerialized<T>(_ op: @escaping () async -> T) async -> T {
+        await serial?.value
+        let t = Task<T, Never> { await op() }
+        serial = Task<Void, Never> { _ = await t.value }
+        return await t.value
+    }
+
     private init() {
         refreshSystemState()
         observeAuthorization()
@@ -90,39 +104,37 @@ final class FlintLiveActivityManager: ObservableObject {
     /// Ha nincs aktuális óra, next óra info-val "szünet" phase-et indítunk; ha nincs óra egyáltalán, nem indítunk.
     @discardableResult
     func startOrUpdate(current: LessonItem?, next: LessonItem?, now: Date = Date(), accentHex: Int = 0xA7DC22) async -> Bool {
+        await runSerialized { await self.startOrUpdateImpl(current: current, next: next, now: now, accentHex: accentHex) }
+    }
+
+    private func startOrUpdateImpl(current: LessonItem?, next: LessonItem?, now: Date, accentHex: Int) async -> Bool {
         guard #available(iOS 16.1, *) else { lastError = "iOS 16.1 alatt nem támogatott"; return false }
         guard canStart else {
             // Ha az app kikapcsolta, biztosan zárunk — ne maradjon beragadt activity
             if !isAppEnabled {
                 lastError = "App toggle KI — futók lezárva"
-                await endAll(dismissalPolicy: .immediate)
+                await endAllImpl(dismissalPolicy: .immediate)
             } else {
                 lastError = "Rendszer tiltja (Beállítások → Flint → Live Activities)"
             }
             return false
         }
-        // Nincs aktuális óra → csak szigorú feltételekkel mutatunk activityt:
-        // 1) a következő óra MA van (holnapi órára nincs "486 perc" countdown),
-        // 2) max 30 perc van hátra (első óra előtt 30 perccel jelenik meg).
-        // Utolsó óra után (nincs mai következő) azonnal zárunk.
+        // Nincs aktuális óra → ha a következő óra MA van, a szünet-activity
+        // végig élőben visszaszámol a következő óráig (élő timerInterval miatt
+        // ez már nem igényel app-ébresztést, és nem öljük meg lyukasórában sem).
+        // Csak akkor zárunk, ha ma már nincs több óra (holnapi órára nincs countdown).
         guard let cur = current else {
             if let nxt = next {
                 let cal = Calendar.current
                 guard cal.isDate(nxt.start, inSameDayAs: now) else {
                     lastAction = "Mai órák vége → lezárva"
-                    await endAll(dismissalPolicy: .default)
+                    await endAllImpl(dismissalPolicy: .default)
                     return false
                 }
-                let minsLeft = nxt.start.timeIntervalSince(now) / 60
-                guard minsLeft <= 30 else {
-                    lastAction = "Köv. óra messze (\(Int(minsLeft)) p) → nincs activity"
-                    await endAll(dismissalPolicy: .default)
-                    return false
-                }
-                return await startBreak(next: nxt, now: now, accentHex: accentHex)
+                return await startBreakImpl(next: nxt, now: now, accentHex: accentHex)
             } else {
                 lastAction = "Nincs óra → lezárva"
-                await endAll(dismissalPolicy: .default)
+                await endAllImpl(dismissalPolicy: .default)
                 return false
             }
         }
@@ -139,6 +151,8 @@ final class FlintLiveActivityManager: ObservableObject {
             isSubstituted: cur.isSubstituted,
             accentHex: accentHex
         )
+        // staleDate = óra vége: az élő timerInterval magától tickel, így óra közben
+        // nincs "stale / lagging behind" halványítás. (A régi now+30p itt járatta le.)
         let state = FlintLiveActivityAttributes.ContentState(
             lessonStart: cur.start,
             lessonEnd: lessonEnd,
@@ -146,7 +160,7 @@ final class FlintLiveActivityManager: ObservableObject {
             nextRoom: next?.room,
             nextStart: next?.start,
             phase: "lesson",
-            staleDate: Date(timeIntervalSinceNow: 60 * 30)
+            staleDate: lessonEnd
         )
         // Ha már fut ugyanerre az órára, csak update.
         // FONTOS: az attributes immutable — másik órára NEM szabad update-elni,
@@ -156,11 +170,13 @@ final class FlintLiveActivityManager: ObservableObject {
             lastError = nil
             lastAction = "Update: \(cur.subject) \(cur.index). óra"
             refreshActiveCount()
+            LiveActivityBackgroundRefresh.scheduleBoundary(lessonEnd: lessonEnd, nextStart: next?.start)
             return true
         }
         // Másik óra/szünet fut → előbb zárjuk, csak 1 activity legyen (különben az Island összeakad).
+        // (Sorosítva futunk, így két request sosem indulhat párhuzamosan → nincs duplikátum.)
         if !Activity<FlintLiveActivityAttributes>.activities.isEmpty {
-            await endAll(dismissalPolicy: .immediate)
+            await endAllImpl(dismissalPolicy: .immediate)
         }
         do {
             let content = ActivityContent(state: state, staleDate: state.staleDate)
@@ -168,6 +184,7 @@ final class FlintLiveActivityManager: ObservableObject {
             lastError = nil
             lastAction = "Indítva: \(cur.subject) \(cur.index). óra"
             refreshActiveCount()
+            LiveActivityBackgroundRefresh.scheduleBoundary(lessonEnd: lessonEnd, nextStart: next?.start)
             return true
         } catch {
             // Gyakori hiba: "maximum 5", "not enabled", "background" — ne crash-eljünk
@@ -177,7 +194,7 @@ final class FlintLiveActivityManager: ObservableObject {
         }
     }
 
-    private func startBreak(next: LessonItem, now: Date, accentHex: Int) async -> Bool {
+    private func startBreakImpl(next: LessonItem, now: Date, accentHex: Int) async -> Bool {
         guard #available(iOS 16.1, *) else { return false }
         // Szünet Live Activity — statikus a "Szünet", dinamikus a következő óra.
         // Az attributes itt is immutable: csak egyező Szünet+index activity update-elhető.
@@ -192,6 +209,8 @@ final class FlintLiveActivityManager: ObservableObject {
             isSubstituted: false,
             accentHex: accentHex
         )
+        // staleDate = szünet vége (következő óra kezdete): a countdown végig élő,
+        // a rendszer nem halványítja "stale"-re szünet közben sem.
         let state = FlintLiveActivityAttributes.ContentState(
             lessonStart: now,
             lessonEnd: breakEnd,
@@ -199,23 +218,25 @@ final class FlintLiveActivityManager: ObservableObject {
             nextRoom: next.room,
             nextStart: next.start,
             phase: "break",
-            staleDate: Date(timeIntervalSinceNow: 60 * 15)
+            staleDate: breakEnd
         )
         if let existing = Activity<FlintLiveActivityAttributes>.activities.first(where: { $0.attributes.subject == "Szünet" && $0.attributes.index == next.index }) {
             await existing.update(ActivityContent(state: state, staleDate: state.staleDate))
             lastError = nil
             lastAction = "Update: Szünet → \(next.subject)"
             refreshActiveCount()
+            LiveActivityBackgroundRefresh.scheduleBoundary(lessonEnd: breakEnd, nextStart: next.start)
             return true
         }
         if !Activity<FlintLiveActivityAttributes>.activities.isEmpty {
-            await endAll(dismissalPolicy: .immediate)
+            await endAllImpl(dismissalPolicy: .immediate)
         }
         do {
             _ = try Activity.request(attributes: attrs, content: ActivityContent(state: state, staleDate: state.staleDate), pushType: nil)
             lastError = nil
             lastAction = "Indítva: Szünet → \(next.subject)"
             refreshActiveCount()
+            LiveActivityBackgroundRefresh.scheduleBoundary(lessonEnd: breakEnd, nextStart: next.start)
             return true
         } catch {
             lastError = "Szünet indítás sikertelen: \(error.localizedDescription)"
@@ -225,7 +246,14 @@ final class FlintLiveActivityManager: ObservableObject {
     }
 
     func endAll(dismissalPolicy: ActivityUIDismissalPolicy = .default) async {
+        await runSerialized { await self.endAllImpl(dismissalPolicy: dismissalPolicy) }
+    }
+
+    private func endAllImpl(dismissalPolicy: ActivityUIDismissalPolicy) async {
         guard #available(iOS 16.1, *) else { return }
+        // Záráskor a függő háttér-ébresztést is töröljük; sikeres új
+        // start/update úgyis újraütemezi a következő határra.
+        LiveActivityBackgroundRefresh.cancel()
         let had = !Activity<FlintLiveActivityAttributes>.activities.isEmpty
         for act in Activity<FlintLiveActivityAttributes>.activities {
             let final = act.content.state

@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		035CCDDD8008E434E80735BC /* NotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D93941AC0EF9492E8E8FC87C /* NotesView.swift */; };
-		95CE7EB4304633540076C893 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 95CE7EB3304633540076C893 /* AppIcon.icon */; };
 		070BED0806B24776C9CA0378 /* TeacherRoundingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B34D700082CBC9796AA731F /* TeacherRoundingView.swift */; };
 		07425EA432B29AF616973EFD /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2796FFD5EF18E9AD20A660A2 /* SessionStore.swift */; };
 		08B20D4184B2C1194D0A0884 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30EFB3459DEFF383F8DF8668 /* ThemeStore.swift */; };
@@ -36,6 +35,7 @@
 		8AD801314247C79354C069BD /* KretaAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D821885DD5DB8AB896B9E77 /* KretaAPI.swift */; };
 		8E10EB72340D58DBA05AC570 /* ProfileImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DEF36C43E5FED1FF34023D9 /* ProfileImageStore.swift */; };
 		8E803F292515E61B75D6F307 /* KretaWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21FFABFBD79176A7FDD582C /* KretaWebView.swift */; };
+		95CE7EB4304633540076C893 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 95CE7EB3304633540076C893 /* AppIcon.icon */; };
 		984267543D8E473BA81DF5F4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3337D352E360755819EB0510 /* Assets.xcassets */; };
 		991303E9F4F90047910C0687 /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E08D7B3573B350535BD3BEE /* AppColors.swift */; };
 		A3EA64722B9F546A6CA5F77E /* ic_rounded.png in Resources */ = {isa = PBXBuildFile; fileRef = 35FA765F437DEF476D570261 /* ic_rounded.png */; };
@@ -43,6 +43,7 @@
 		A9768A46A796C7C7A8666DAA /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 917F86853EF0EEB6D842FCF4 /* LoginView.swift */; };
 		AA7672F41F61BABF278B899B /* GradingLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31BC2B27C81200C54D92CECD /* GradingLogic.swift */; };
 		AC9A384890897A5C81F0A09B /* FlintWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52E5BC6F4AFDA9E5DB6D34DD /* FlintWidgetsBundle.swift */; };
+		AE02E34AD6872D3120D1F37C /* LiveActivityBackgroundRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BD24134911466149B1A0C22 /* LiveActivityBackgroundRefresh.swift */; };
 		B09C12718DC808B55FB7B786 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6699562344F56B767C796F7 /* AppTheme.swift */; };
 		BB01463BEEE7170A7C8236AA /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 3086D3040980CBE0BC5728BC /* LaunchScreen.storyboard */; };
 		C0DEA855E4E5CF1191ECADC9 /* KretaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 182D1911F7DEAA25C5ABA212 /* KretaModels.swift */; };
@@ -99,8 +100,8 @@
 		30EFB3459DEFF383F8DF8668 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
 		31BC2B27C81200C54D92CECD /* GradingLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradingLogic.swift; sourceTree = "<group>"; };
 		3337D352E360755819EB0510 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		95CE7EB3304633540076C893 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		35FA765F437DEF476D570261 /* ic_rounded.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_rounded.png; sourceTree = "<group>"; };
+		4BD24134911466149B1A0C22 /* LiveActivityBackgroundRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityBackgroundRefresh.swift; sourceTree = "<group>"; };
 		52E5BC6F4AFDA9E5DB6D34DD /* FlintWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlintWidgetsBundle.swift; sourceTree = "<group>"; };
 		545D16B4E6B97B9D2399B5FC /* GradesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradesView.swift; sourceTree = "<group>"; };
 		59B95265FA2B313F786E0034 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -120,6 +121,7 @@
 		917F86853EF0EEB6D842FCF4 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		94653307B2040819726B6EC4 /* Student.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Student.swift; sourceTree = "<group>"; };
 		954A60421D8D72C5A0A1B315 /* showcase4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase4.png; sourceTree = "<group>"; };
+		95CE7EB3304633540076C893 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		994B88B24DE91E2B0F59CAEB /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		9C8942DBC1A76729FD04B0D4 /* showcase3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase3.png; sourceTree = "<group>"; };
 		9DEF36C43E5FED1FF34023D9 /* ProfileImageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileImageStore.swift; sourceTree = "<group>"; };
@@ -312,6 +314,7 @@
 			children = (
 				2B5C9EC44D39D87241B550D5 /* FlintLiveActivityAttributes.swift */,
 				888F7384D4773D1C3BCE5570 /* FlintLiveActivityManager.swift */,
+				4BD24134911466149B1A0C22 /* LiveActivityBackgroundRefresh.swift */,
 			);
 			path = LiveActivity;
 			sourceTree = "<group>";
@@ -388,6 +391,7 @@
 				D9AE8212788500131A76AC6F /* Sources */,
 				B8F41D787DCA63643D00EBFF /* Resources */,
 				0D7B8A2E611D98C854AB65A4 /* Embed Foundation Extensions */,
+				3FC377A5152C26468A84C0FA /* Inject background refresh plist keys */,
 			);
 			buildRules = (
 			);
@@ -457,6 +461,27 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		3FC377A5152C26468A84C0FA /* Inject background refresh plist keys */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Inject background refresh plist keys";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# A BGAppRefreshTask két tömb típusú plist-kulcsot igényel, amit az\n# INFOPLIST_KEY_* build settingek nem tudnak (csak stringet) — ezért\n# injektáljuk a legenerált Info.plist-be. Az aláírás ezután történik,\n# így az App Store / TestFlight buildeken is érvényes marad.\nPLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n/usr/libexec/PlistBuddy -c \"Delete :UIBackgroundModes\" \"$PLIST\" 2>/dev/null || true\n/usr/libexec/PlistBuddy -c \"Add :UIBackgroundModes array\" \"$PLIST\"\n/usr/libexec/PlistBuddy -c \"Add :UIBackgroundModes:0 string fetch\" \"$PLIST\"\n/usr/libexec/PlistBuddy -c \"Delete :BGTaskSchedulerPermittedIdentifiers\" \"$PLIST\" 2>/dev/null || true\n/usr/libexec/PlistBuddy -c \"Add :BGTaskSchedulerPermittedIdentifiers array\" \"$PLIST\"\n/usr/libexec/PlistBuddy -c \"Add :BGTaskSchedulerPermittedIdentifiers:0 string hu.flint.app.Flint.liveactivity-refresh\" \"$PLIST\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		30E9F6F4FA7C477FED69F7A0 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -495,6 +520,7 @@
 				D41802437FBFB85E631E36D4 /* KretaClient.swift in Sources */,
 				C0DEA855E4E5CF1191ECADC9 /* KretaModels.swift in Sources */,
 				8E803F292515E61B75D6F307 /* KretaWebView.swift in Sources */,
+				AE02E34AD6872D3120D1F37C /* LiveActivityBackgroundRefresh.swift in Sources */,
 				76752C875CB743BE18894408 /* LiveCardView.swift in Sources */,
 				A9768A46A796C7C7A8666DAA /* LoginView.swift in Sources */,
 				1DE67DADB887915E2F7D2944 /* MainTabView.swift in Sources */,

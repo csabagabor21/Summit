@@ -8,6 +8,12 @@ struct FlintApp: App {
     @StateObject private var completed = CompletedStore()
     @StateObject private var profileImages = ProfileImageStore()
 
+    init() {
+        // Live Activity háttér-ébresztés: óra/szünet végén az app
+        // megnyitása nélkül is átkapcsol az activity.
+        LiveActivityBackgroundRefresh.register()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

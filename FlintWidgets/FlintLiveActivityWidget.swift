@@ -10,8 +10,12 @@ import SwiftUI
 struct FlintLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: FlintLiveActivityAttributes.self) { context in
+            // Átlátszó liquid glass háttér (mint a zenelejátszó): a .clear
+            // engedi, hogy a rendszer rajzolja az áttetsző üveg-hátteret.
+            // Bármilyen színes tint lapos, nem üveg hatást adna iOS 26-ban.
+            // (Az accent csak a tartalomban — progress, badge, ikon — él.)
             LockScreenView(context: context)
-                .activityBackgroundTint(accentColor(context).opacity(0.14))
+                .activityBackgroundTint(.clear)
                 .activitySystemActionForegroundColor(accentColor(context))
         } dynamicIsland: { context in
             DynamicIsland {
@@ -31,7 +35,10 @@ struct FlintLiveActivityWidget: Widget {
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text(remainingShort(context))
+                    // ÉLŐ timer: a rendszer másodpercenként frissíti, app-ébresztés nélkül.
+                    // (A statikus Date()-alapú szöveg beragadt, mert a Widgetet csak
+                    // app-update rajzolja újra — ez okozta a "lagging behind"-ot.)
+                    Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true)
                         .font(.callout.monospacedDigit().weight(.semibold))
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .monospacedDigit()
@@ -53,10 +60,10 @@ struct FlintLiveActivityWidget: Widget {
                 Image(systemName: pillSymbol(index: context.attributes.index, cancelled: context.attributes.isCancelled))
                     .foregroundStyle(statusTint(context))
             } compactTrailing: {
-                // Fix szélesség: ne ugráljon a pill
-                Text(remainingCompact(context))
+                // ÉLŐ timer a pillben is — mm:ss-hez szélesebb fix keret kell, hogy ne ugráljon
+                Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true)
                     .font(.caption2.monospacedDigit().weight(.semibold))
-                    .frame(width: 46)
+                    .frame(width: 58)
                     .monospacedDigit()
             } minimal: {
                 Image(systemName: pillSymbol(index: context.attributes.index, cancelled: false))
@@ -84,18 +91,6 @@ struct FlintLiveActivityWidget: Widget {
         if context.attributes.isCancelled { return Color.red }
         if context.attributes.isSubstituted { return Color.orange }
         return accentColor(context)
-    }
-
-    /// Rövid perces szöveg az expanded nézetbe (renderkori érték).
-    private func remainingShort(_ context: ActivityViewContext<FlintLiveActivityAttributes>) -> String {
-        let m = max(0, Int(ceil(context.state.lessonEnd.timeIntervalSince(Date()) / 60)))
-        return "\(m) perc"
-    }
-
-    /// Extra rövid perces szöveg a compact pillbe (renderkori érték).
-    private func remainingCompact(_ context: ActivityViewContext<FlintLiveActivityAttributes>) -> String {
-        let m = max(0, Int(ceil(context.state.lessonEnd.timeIntervalSince(Date()) / 60)))
-        return "\(m)p"
     }
 
     /// Biztonságos SF Symbol: "10", "-", üres indexre nincs *.circle.fill → üres pill helyett fallback.
@@ -174,9 +169,15 @@ private struct LockScreenView: View {
                         .font(.caption.weight(.medium)).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer()
-                Text(remainingText)
-                    .font(.caption.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(.secondary)
+                // ÉLŐ timer a Lock Screenen is — a rendszer tickeli, nem kell app-update.
+                HStack(spacing: 4) {
+                    Text(isBreak ? "kezdődik" : "hátra")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.tertiary)
+                    Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true)
+                        .font(.caption.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .padding(.horizontal, 16)
@@ -189,17 +190,8 @@ private struct LockScreenView: View {
         return accent
     }
 
-    /// Fennmaradó idő percekben — mint a MOST-kártya "X perc van hátra".
-    /// Statikus (renderkori) érték: az activity csak app-eseményekre frissül,
-    /// a rendszer-élő timerInterval másodperces formátuma nem kérhető perc-only módban.
-    private var remainingText: String {
-        let m = max(0, Int(ceil(context.state.lessonEnd.timeIntervalSince(Date()) / 60)))
-        if isBreak {
-            return m <= 0 ? "Kezdődik" : "\(m) perc múlva kezdődik"
-        }
-        return m <= 0 ? "Vége" : "\(m) perc van hátra"
-    }
-
+    // A progress csík renderkori érték (óra-átmenetkor frissül),
+    // a percre pontos élő visszaszámlálást a fenti timerInterval adja.
     private func progress(start: Date, end: Date) -> Double {
         let total = end.timeIntervalSince(start)
         guard total > 0 else { return 0 }

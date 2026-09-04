@@ -10,11 +10,30 @@ targets:
     type: application
     platform: iOS
     deploymentTarget: "26.0"
+    # Live Activity háttér-ébresztés (BGAppRefreshTask): óra/szünet végén
+    # az app megnyitása nélkül is átkapcsol az activity.
+    postBuildScripts:
+      - name: Inject background refresh plist keys
+        script: |
+          # A BGAppRefreshTask két tömb típusú plist-kulcsot igényel, amit az
+          # INFOPLIST_KEY_* build settingek nem tudnak (csak stringet) — ezért
+          # injektáljuk a legenerált Info.plist-be. Az aláírás ezután történik,
+          # így az App Store / TestFlight buildeken is érvényes marad.
+          PLIST="${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
+          /usr/libexec/PlistBuddy -c "Delete :UIBackgroundModes" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes array" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes:0 string fetch" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Delete :BGTaskSchedulerPermittedIdentifiers" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :BGTaskSchedulerPermittedIdentifiers array" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :BGTaskSchedulerPermittedIdentifiers:0 string hu.flint.app.Flint.liveactivity-refresh" "$PLIST"
     sources:
       - path: FirkaNative
         excludes:
           - "LiveActivity/FlintLiveActivityWidget.swift"
     resources:
+      # FIGYELEM: az xcodegen 2.46 regen kidobja az AppIcon.icon-t a pbxproj-ból
+      # (nem ismeri az .icon csomagot) — regen után kézzel vissza kell tenni
+      # (a 95CE7EB3/95CE7EB4 sorokat: BuildFile, FileReference, group, Resources).
       - path: AppIcon.icon
     settings:
       base:
@@ -43,7 +62,10 @@ targets:
     type: app-extension
     platform: iOS
     deploymentTarget: "26.0"
-    bundleId: hu.flint.app.Flint.Widgets
+    # Az extension bundle ID-nak a fő app ID-jával kell kezdődnie, különben
+    # telepítéskor "App Extensions must be prefixed..." hiba jön. Az xcodegen
+    # a target nevéből generálna (hu.flint.app.FlintWidgets — rossz), ezért
+    # itt explicit felülírjuk. (A régi `bundleId:` kulcsot nem ismeri, törölve.)
     info:
       path: FlintWidgets/Info.plist
       properties:
@@ -57,6 +79,7 @@ targets:
         SWIFT_VERSION: "5.0"
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: PPZB956QW6
+        PRODUCT_BUNDLE_IDENTIFIER: hu.flint.app.Flint.Widgets
         GENERATE_INFOPLIST_FILE: YES
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"

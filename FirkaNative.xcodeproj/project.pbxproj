@@ -52,6 +52,9 @@
 		F7794CCCD968A9BF0F941DBF /* showcase3.png in Resources */ = {isa = PBXBuildFile; fileRef = 64B5366A07C7C386D8D13D27 /* showcase3.png */; };
 		FE7A7B059C38FBE9605A9627 /* GradingLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 285F897E90D9C8D0BE33377D /* GradingLogic.swift */; };
 		E1A2B3C4D5E6F7A8B9C0D1E3 /* ExemptedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F7A8B9C0D1E2 /* ExemptedStore.swift */; };
+		4CE9E3F78D2767770F1FAFFD /* FlintLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFE07E34D42FE7A883ECB3D /* FlintLiveActivityWidget.swift */; };
+		4EB18D0CFA45C5421E6C64EF /* FlintLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B5C9EC44D39D87241B550D5 /* FlintLiveActivityAttributes.swift */; };
+		62D5A9DA0D7F15825847108D /* FlintLiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 888F7384D4773D1C3BCE5570 /* FlintLiveActivityManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -101,6 +104,9 @@
 		EC7FB1C72834344E7C3B2E73 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
 		F67BD9354BA995DA687993EB /* NotesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesView.swift; sourceTree = "<group>"; };
 		E1A2B3C4D5E6F7A8B9C0D1E2 /* ExemptedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExemptedStore.swift; sourceTree = "<group>"; };
+		FDFE07E34D42FE7A883ECB3D /* FlintLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlintLiveActivityWidget.swift; sourceTree = "<group>"; };
+		2B5C9EC44D39D87241B550D5 /* FlintLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlintLiveActivityAttributes.swift; sourceTree = "<group>"; };
+		888F7384D4773D1C3BCE5570 /* FlintLiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlintLiveActivityManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -260,6 +266,7 @@
 				D381CB68E16E8BB9DF2ACBEF /* App */,
 				BD86837C106F3E3A059C5E54 /* Core */,
 				C3548BBC49A45A270DEC3C6F /* Features */,
+				B3D4FC4CEC4CBBDE47504F03 /* LiveActivity */,
 				13584DC16D78EFDC114DF7E0 /* Resources */,
 			);
 			path = FirkaNative;
@@ -298,6 +305,16 @@
 				59F30B8D233258EA06EF5C3F /* TimetableView.swift */,
 			);
 			path = Timetable;
+			sourceTree = "<group>";
+		};
+		B3D4FC4CEC4CBBDE47504F03 /* LiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				2B5C9EC44D39D87241B550D5 /* FlintLiveActivityAttributes.swift */,
+				888F7384D4773D1C3BCE5570 /* FlintLiveActivityManager.swift */,
+				FDFE07E34D42FE7A883ECB3D /* FlintLiveActivityWidget.swift */,
+			);
+			path = LiveActivity;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -414,6 +431,9 @@
 				1ABB8E9799CFFDA57AC575EF /* TimetableView.swift in Sources */,
 				97FF2BFB3F74B5BA6F6C6A9C /* User.swift in Sources */,
 				E1A2B3C4D5E6F7A8B9C0D1E3 /* ExemptedStore.swift in Sources */,
+				4EB18D0CFA45C5421E6C64EF /* FlintLiveActivityAttributes.swift in Sources */,
+				62D5A9DA0D7F15825847108D /* FlintLiveActivityManager.swift in Sources */,
+				4CE9E3F78D2767770F1FAFFD /* FlintLiveActivityWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -431,7 +451,20 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Profilkép készítéséhez kamera hozzáférés szükséges.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Profilkép beállításához hozzáférés a fotókönyvtárhoz szükséges.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIRequiresFullScreen = NO;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				"INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad" = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportsDocumentBrowser = NO;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_UISupportsDocumentBrowser = NO;
+				"INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad" = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UIRequiresFullScreen = NO;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -497,6 +530,12 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIRequiresFullScreen = NO;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				"INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad" = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportsDocumentBrowser = NO;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -519,7 +558,14 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Profilkép készítéséhez kamera hozzáférés szükséges.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Profilkép beállításához hozzáférés a fotókönyvtárhoz szükséges.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIRequiresFullScreen = NO;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				"INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad" = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportsDocumentBrowser = NO;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -579,6 +625,12 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIRequiresFullScreen = NO;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				"INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad" = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportsDocumentBrowser = NO;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
