@@ -2,6 +2,8 @@
 
 Nem hivatalos e-KRÉTA kliens iOS-re — SwiftUI, iOS 26, Liquid Glass.
 
+https://github.com/csabagabor21/Flint
+
 ## Funkciók
 - Valós idejű jegyek, átlagok, súlyozás, tanári kerekítés per-tárgy
 - Órarend, házi feladatok, dolgozatok, hiányzások, üzenetek
@@ -17,7 +19,7 @@ Nem hivatalos e-KRÉTA kliens iOS-re — SwiftUI, iOS 26, Liquid Glass.
 ## Telepítés
 ```bash
 # klónozás
-git clone <repo-url>
+git clone https://github.com/csabagabor21/Flint.git
 cd Flint
 
 # projekt generálás (ha van xcodegen)
