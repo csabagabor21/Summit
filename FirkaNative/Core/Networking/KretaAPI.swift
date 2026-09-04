@@ -33,7 +33,22 @@ enum KretaAPI {
         return comps.url ?? URL(string: base)!
     }
     static func exams(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/BejelentettSzamonkeresek")! }
-    static func homework(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/HaziFeladatok")! }
+    // refilc mintára: a lista ?datumTol=yyyy-MM-dd dátumszűrővel jön le
+    // (csupasz endpointra a KRÉTA nem ad vissza használható listát),
+    // majd minden házi részlete külön: HaziFeladatok/{uid}
+    static func homework(_ iss: String, from: Date? = nil) -> URL {
+        let base = kreta(iss) + "/ellenorzo/V3/Sajat/HaziFeladatok"
+        guard let f = from else { return URL(string: base)! }
+        var comps = URLComponents(string: base)!
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.dateFormat = "yyyy-MM-dd"
+        comps.queryItems = [URLQueryItem(name: "datumTol", value: df.string(from: f))]
+        return comps.url ?? URL(string: base)!
+    }
+    static func homeworkDetail(_ iss: String, id: String) -> URL {
+        URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/HaziFeladatok/\(id)")!
+    }
     static func absences(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Mulasztasok")! }
     static func notes(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Feljegyzesek")! }
     static func events(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/FaliujsagElemek")! }

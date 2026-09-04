@@ -37,6 +37,219 @@ struct HomeworkItem: Identifiable, Hashable {
     let deadline: Date
     let teacher: String
     let isDone: Bool
+    /// A KRÉTA Szoveg mezője gyakran nyers HTML — ez a tagektől tisztított,
+    /// egy soros előnézetekhez való változat.
+    var plainTitle: String { HomeworkPlain.text(from: title) }
+}
+
+/// Házi–óra csatolás egyetlen szabálya, mindkét irányba:
+/// CSAK az az óra kapja meg a házit, amelyik napjára a határidő esik.
+/// Nincs tárgy-alapú fallback — az egyetlen házit is minden órára ráírná.
+enum HomeworkMatcher {
+    static func homework(for lesson: LessonItem, in homeworks: [HomeworkItem], calendar: Calendar = .current) -> HomeworkItem? {
+        homeworks.first {
+            SubjectMatcher.same($0.subject, lesson.subject)
+            && calendar.isDate($0.deadline, inSameDayAs: lesson.start)
+        }
+    }
+    static func lesson(for homework: HomeworkItem, in lessons: [LessonItem], calendar: Calendar = .current) -> LessonItem? {
+        lessons.first {
+            SubjectMatcher.same($0.subject, homework.subject)
+            && calendar.isDate($0.start, inSameDayAs: homework.deadline)
+        }
+    }
+}
+
+/// KRÉTA HTML → stílusos szegmensek (félkövér/dőlt/aláhúzott/áthúzott/link/címsor).
+/// Szándékosan kézi parser WebKit nélkül: az NSAttributedString HTML-importja
+/// SwiftUI body-ból hívva AttributeGraph-crash-t (SIGABRT) okozott, amit
+/// try? sem véd ki. Ez tiszta string-művelet, bárhonnan biztonságos.
+struct HomeworkSegment {
+    var text: String
+    var bold = false
+    var italic = false
+    var underline = false
+    var strike = false
+    var heading = false
+    var link: URL?
+}
+enum HomeworkRich {
+    static func segments(from html: String) -> [HomeworkSegment] {
+        let plainFallback: [HomeworkSegment] = {
+            let t = HomeworkPlain.text(from: html)
+            return t.isEmpty ? [] : [HomeworkSegment(text: t)]
+        }()
+        guard html.contains("<") else { return plainFallback }
+        // Magányos "<" (pl. "a < b") nem tag — entitássá védjük
+        let src = html.replacingOccurrences(of: "<(?![a-zA-Z/!?])", with: "&lt;", options: .regularExpression)
+        guard let re = try? NSRegularExpression(pattern: "<!--.*?-->|<[^>]*>|[^<]+", options: [.dotMatchesLineSeparators]) else {
+            return plainFallback
+        }
+        let ns = src as NSString
+        let full = NSRange(location: 0, length: ns.length)
+        var segs: [HomeworkSegment] = []
+        var buf = ""
+        var bold = 0, italic = 0, underline = 0, strike = 0, heading = 0
+        var link: URL?
+        var skipDepth = 0 // <style>/<script> tartalma nem szöveg
+        var pendingBreaks = 0
+        var bullet = false
+
+        func bump(_ c: inout Int, _ closing: Bool) {
+            if closing { c = max(0, c - 1) } else { c += 1 }
+        }
+        func flush() {
+            if buf.isEmpty { return } // semmi nem gyűlt össze — nincs mit lezárni
+            if buf.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                // Csak szóköz: sortörés/szöveg elején eldobjuk, szavak közt egyre tömörítjük
+                if pendingBreaks > 0 || segs.isEmpty { buf = ""; bullet = false; return }
+                buf = " "
+            }
+            var t = buf; buf = ""
+            if bullet { t = "• " + t; bullet = false }
+            if pendingBreaks > 0 { t = String(repeating: "\n", count: min(pendingBreaks, 2)) + t; pendingBreaks = 0 }
+            segs.append(HomeworkSegment(text: t, bold: bold > 0, italic: italic > 0,
+                                        underline: underline > 0, strike: strike > 0,
+                                        heading: heading > 0, link: link))
+        }
+        func tagName(_ tok: String) -> (closing: Bool, name: String) {
+            var t = String(tok.dropFirst().dropLast()).trimmingCharacters(in: .whitespaces)
+            var closing = false
+            if t.hasPrefix("/") { closing = true; t = String(t.dropFirst()).trimmingCharacters(in: .whitespaces) }
+            if t.hasPrefix("!") || t.hasPrefix("?") { return (false, "") }
+            let name = String(t.prefix(while: { $0.isLetter || $0.isNumber }).lowercased())
+            return (closing, name)
+        }
+        func attr(_ tok: String, _ key: String) -> String? {
+            guard let are = try? NSRegularExpression(pattern: key + "\\s*=\\s*\"([^\"]*)\"|" + key + "\\s*=\\s*'([^']*)'", options: .caseInsensitive) else { return nil }
+            let nt = tok as NSString
+            guard let m = are.firstMatch(in: tok, range: NSRange(location: 0, length: nt.length)) else { return nil }
+            for i in 1..<m.numberOfRanges {
+                let r = m.range(at: i)
+                if r.location != NSNotFound { return nt.substring(with: r) }
+            }
+            return nil
+        }
+
+        for m in re.matches(in: src, range: full) {
+            let tok = ns.substring(with: m.range)
+            if tok.hasPrefix("<") {
+                let (closing, name) = tagName(tok)
+                switch name {
+                case "style", "script", "head":
+                    if closing { skipDepth = max(0, skipDepth - 1) } else { skipDepth += 1 }
+                case "": break
+                case "br", "hr":
+                    if skipDepth == 0 { flush(); pendingBreaks = max(pendingBreaks, 1) }
+                case "p", "div", "h1", "h2", "h3", "h4", "h5", "h6",
+                     "blockquote", "section", "article", "header", "footer",
+                     "table", "tr", "ul", "ol", "dl", "pre":
+                    if skipDepth == 0 {
+                        flush() // előbb kiírjuk (záráskor még az aktuális stílussal), aztán lép a számláló
+                        if name.hasPrefix("h") { bump(&heading, closing) }
+                        pendingBreaks = max(pendingBreaks, 2)
+                    }
+                case "li":
+                    if skipDepth == 0, !closing {
+                        flush(); pendingBreaks = max(pendingBreaks, 1); bullet = true
+                    }
+                case "b", "strong": if skipDepth == 0 { flush(); bump(&bold, closing) }
+                case "i", "em": if skipDepth == 0 { flush(); bump(&italic, closing) }
+                case "u", "ins": if skipDepth == 0 { flush(); bump(&underline, closing) }
+                case "s", "strike", "del": if skipDepth == 0 { flush(); bump(&strike, closing) }
+                case "a":
+                    if skipDepth == 0 {
+                        flush()
+                        if closing { link = nil }
+                        else if let h = attr(tok, "href"), let u = URL(string: h),
+                                let s = u.scheme?.lowercased(), s == "http" || s == "https" { link = u }
+                        else { link = nil }
+                    }
+                case "img":
+                    if skipDepth == 0, !closing {
+                        flush()
+                        let a = attr(tok, "alt") ?? ""
+                        buf = a.isEmpty ? "[kép]" : "[kép: \(a)]"
+                        flush()
+                    }
+                default: break // span/font/szín: szándékosan figyelmen kívül (sötét mód!)
+                }
+            } else if skipDepth == 0 {
+                var t = HomeworkPlain.decodeEntities(tok)
+                t = t.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+                buf += t
+            }
+        }
+        flush()
+        // Szélső sortörések levágása
+        if !segs.isEmpty {
+            var f = segs[0]
+            let tf = String(f.text.drop(while: { $0 == "\n" }))
+            if tf.isEmpty { segs.removeFirst() } else { f.text = tf; segs[0] = f }
+        }
+        if !segs.isEmpty {
+            var l = segs[segs.count - 1]
+            while l.text.hasSuffix("\n") { l.text = String(l.text.dropLast()) }
+            if l.text.isEmpty { segs.removeLast() } else { segs[segs.count - 1] = l }
+        }
+        return segs
+    }
+}
+
+/// KRÉTA HTML-takarítás: blokk-tagek → sortörés, többi tag eldobva,
+/// entitások dekódolva. Tiszta Foundation, UI-független.
+enum HomeworkPlain {
+    static func text(from html: String) -> String {
+        guard html.contains("<") || html.contains("&") else {
+            return normalizeWhitespace(html)
+        }
+        var s = html
+        s = s.replacingOccurrences(
+            of: "(?i)<\\s*(?:p|div|br|li|ul|ol|tr|h[1-6]|blockquote|section|article)[^>]*/?>",
+            with: "\n", options: .regularExpression)
+        s = s.replacingOccurrences(
+            of: "(?i)</\\s*(?:p|div|li|ul|ol|tr|h[1-6]|blockquote|section|article)[^>]*>",
+            with: "\n", options: .regularExpression)
+        s = s.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+        s = decodeEntities(s)
+        return normalizeWhitespace(s)
+    }
+
+    static func decodeEntities(_ s: String) -> String {
+        let named: [String: String] = [
+            "nbsp": " ", "amp": "&", "lt": "<", "gt": ">", "quot": "\"",
+            "apos": "'", "hellip": "…", "ndash": "–", "mdash": "—",
+            "laquo": "«", "raquo": "»", "szlig": "ß"
+        ]
+        guard let re = try? NSRegularExpression(pattern: "&(#x[0-9a-fA-F]+|#\\d+|[a-zA-Z]+);") else { return s }
+        let ns = s as NSString
+        var out = ""
+        var last = 0
+        for m in re.matches(in: s, range: NSRange(location: 0, length: ns.length)) {
+            let body = ns.substring(with: m.range(at: 1))
+            var rep: String?
+            if body.hasPrefix("#x") || body.hasPrefix("#X") {
+                if let v = UInt32(body.dropFirst(2), radix: 16), let sc = Unicode.Scalar(v) { rep = String(sc) }
+            } else if body.hasPrefix("#") {
+                if let v = UInt32(body.dropFirst()), let sc = Unicode.Scalar(v) { rep = String(sc) }
+            } else {
+                rep = named[body]
+            }
+            out += ns.substring(with: NSRange(location: last, length: m.range.location - last))
+            out += rep ?? ns.substring(with: m.range)
+            last = m.range.location + m.range.length
+        }
+        out += ns.substring(from: last)
+        return out
+    }
+
+    static func normalizeWhitespace(_ s: String) -> String {
+        // Előnézetekhez: üres sorok eldobva, minden tartalmi sor külön sorban
+        return s.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+    }
 }
 struct AbsenceItem: Identifiable, Hashable {
     let id: String
@@ -159,19 +372,74 @@ struct KretaLessonDTO: Decodable {
 struct KretaHomeworkDTO: Decodable {
     let Uid: String?
     let TantargyNeve: String?
+    let Tantargy: TantargyDTO?
     let Szoveg: String?
     let HataridoDatuma: String?
+    let FeladasDatuma: String?
+    let RogzitesIdopontja: String?
     let FeladoTanarNeve: String?
+    let RogzitoTanarNeve: String?
     let IsTanuloHaziFeladatEnabled: Bool?
+    let IsMegoldva: Bool?
+    /// Uid-k kinyerése a lista-válaszból (refilc: a lista elemei csak
+    /// hivatkozások, a tartalom a HaziFeladatok/{uid} részletekből jön).
+    /// String és szám Uid-t is elfogad, a hibás elemeket kihagyja.
+    static func uids(from data: Data) -> [String] {
+        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [Any] else { return [] }
+        var seen = Set<String>()
+        var out: [String] = []
+        for el in raw {
+            guard let d = el as? [String: Any] else { continue }
+            let uid: String?
+            if let s = d["Uid"] as? String, !s.isEmpty { uid = s }
+            else if let n = d["Uid"] as? Int { uid = String(n) }
+            else if let n = d["Uid"] as? Int64 { uid = String(n) }
+            else { uid = nil }
+            if let u = uid, seen.insert(u).inserted { out.append(u) }
+        }
+        return out
+    }
+    /// Elemenkénti toleráns dekódolás: a hibás elemeket kihagyja ahelyett,
+    /// hogy az egész tömb dekódolása elbukna (és üres lista lenne).
+    static func lenientDTOs(from data: Data) -> [KretaHomeworkDTO] {
+        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [Any] else {
+            return (try? JSONDecoder().decode([KretaHomeworkDTO].self, from: data)) ?? []
+        }
+        let decoder = JSONDecoder()
+        return raw.compactMap { element in
+            guard let ed = try? JSONSerialization.data(withJSONObject: element),
+                  let dto = try? decoder.decode(KretaHomeworkDTO.self, from: ed) else { return nil }
+            return dto
+        }
+    }
+    static func lenientItems(from data: Data) -> [HomeworkItem] {
+        lenientDTOs(from: data).map { $0.toItem() }
+    }
+    /// A lista-elem hordoz-e érdemi tartalmat, vagy csak hivatkozás (Uid),
+    /// amihez a HaziFeladatok/{uid} részletet kell lekérni?
+    var hasContent: Bool {
+        let hasText = !(Szoveg ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasSubject = !(TantargyNeve ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !(Tantargy?.Nev ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return hasText && hasSubject
+    }
     func toItem() -> HomeworkItem {
-        func p(_ s: String?) -> Date { KretaDateParser.parse(s) ?? Date() }
+        // Határidő fallback-lánc: a KRÉTA-ban a határidő nem kötelező —
+        // ilyenkor a feladás dátuma az igazodási pont, nem a "most".
+        let deadline = KretaDateParser.parse(HataridoDatuma)
+            ?? KretaDateParser.parse(FeladasDatuma)
+            ?? KretaDateParser.parse(RogzitesIdopontja)
+            ?? Date()
         return HomeworkItem(
             id: Uid ?? UUID().uuidString,
-            subject: TantargyNeve ?? "Házi",
+            subject: (TantargyNeve?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 }
+                ?? Tantargy?.Nev ?? "Házi",
             title: (Szoveg ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
-            deadline: p(HataridoDatuma),
-            teacher: FeladoTanarNeve ?? "",
-            isDone: !(IsTanuloHaziFeladatEnabled ?? true)
+            deadline: deadline,
+            // Valós API-kulcs a RogzitoTanarNeve; FeladoTanarNeve csak fallback
+            teacher: (FeladoTanarNeve?.isEmpty == false ? FeladoTanarNeve : RogzitoTanarNeve) ?? "",
+            // IsMegoldva a szerver oldali "kész" flag; ha nincs, a régi negálás marad
+            isDone: IsMegoldva ?? !(IsTanuloHaziFeladatEnabled ?? true)
         )
     }
 }

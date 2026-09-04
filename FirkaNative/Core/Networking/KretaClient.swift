@@ -149,8 +149,41 @@ final class KretaClient: ObservableObject {
     }
     func fetchHomework(iss: String) async -> [HomeworkItem] {
         do {
-            let dtos: [KretaHomeworkDTO] = try await get(KretaAPI.homework(iss))
-            return dtos.map { $0.toItem() }.sorted { $0.deadline < $1.deadline }
+            // refilc mintára, két lépcsőben:
+            // 1) lista ?datumTol-lal (utolsó 30 nap) — elemei csak hivatkozások
+            // 2) minden házi tartalma külön: HaziFeladatok/{uid}
+            // Nincs típus szerinti szűrés: minden visszakapott elem megjelenik.
+            let from = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
+            let listData: Data = try await getRaw(KretaAPI.homework(iss, from: from))
+            let dtos = KretaHomeworkDTO.lenientDTOs(from: listData)
+            // A tartalmas lista-elemeket azonnal elfogadjuk; a csupasz
+            // hivatkozásokhoz (csak Uid) lekérjük a HaziFeladatok/{uid} részletet.
+            var items = dtos.filter { $0.hasContent }.map { $0.toItem() }
+            let have = Set(items.map { $0.id })
+            let missing = KretaHomeworkDTO.uids(from: listData).filter { !have.contains($0) }
+            if (!missing.isEmpty) {
+                let detailed: [HomeworkItem] = await withTaskGroup(of: HomeworkItem?.self) { group in
+                    for uid in missing {
+                        group.addTask { [self] in
+                            do {
+                                let d: Data = try await self.getRaw(KretaAPI.homeworkDetail(iss, id: uid))
+                                guard let dto = try? JSONDecoder().decode(KretaHomeworkDTO.self, from: d) else { return nil }
+                                return dto.toItem()
+                            } catch { return nil }
+                        }
+                    }
+                    var out: [HomeworkItem] = []
+                    for await item in group { if let item { out.append(item) } }
+                    return out
+                }
+                items.append(contentsOf: detailed)
+            }
+            // Készítetlen előre: a Főoldal csak az első 3-at mutatja, a kész/régi
+            // lejárt házik nem szoríthatják ki az új feladatot.
+            return items.sorted {
+                if $0.isDone != $1.isDone { return !$0.isDone }
+                return $0.deadline < $1.deadline
+            }
         } catch { return [] }
     }
     func fetchAbsences(iss: String) async -> [AbsenceItem] {

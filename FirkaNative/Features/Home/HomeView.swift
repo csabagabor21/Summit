@@ -173,7 +173,7 @@ struct HomeView: View {
                                             Button { withAnimation(.spring(response: 0.3)) { completed.toggleHomework(h.id) } } label: { Image(systemName: done ? "checkmark.circle.fill" : "circle").font(.system(size: 20)).foregroundStyle(done ? Color.green : .secondary) }.buttonStyle(.plain)
                                             VStack(alignment: .leading, spacing: 2) {
                                                 Text(h.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                                Text(h.title.isEmpty ? "(nincs leírás)" : h.title).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                                Text(h.plainTitle.isEmpty ? "(nincs leírás)" : h.plainTitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                                                 Text(h.deadline.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.tertiary)
                                             }
                                             Spacer()
@@ -245,8 +245,9 @@ struct HomeView: View {
                     } else {
                         ForEach(sorted.prefix(3)) { h in
                             let done = completed.isHomeworkDone(h.id)
-                            let lesson = vm.lessonsToday.first { SubjectMatcher.same($0.subject, h.subject) && Calendar.current.isDate($0.start, inSameDayAs: h.deadline) }
-                                ?? vm.lessonsToday.first { SubjectMatcher.same($0.subject, h.subject) }
+                            // Csak határidő-napi óra jelölhető — fallback nélkül,
+                            // különben rossz nap órája/terme jelenne meg (HomeworkMatcher)
+                            let lesson = HomeworkMatcher.lesson(for: h, in: vm.lessonsToday)
                             HStack(spacing: 12) {
                                 Button { withAnimation(.spring(response: 0.3)) { completed.toggleHomework(h.id) } } label: {
                                     Image(systemName: done ? "checkmark.circle.fill" : "circle")
@@ -258,7 +259,7 @@ struct HomeView: View {
                                 .buttonStyle(.plain)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(h.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                    Text(h.title.isEmpty ? "(nincs leírás)" : h.title).font(.callout).foregroundStyle(.secondary).lineLimit(2)
+                                    Text(h.plainTitle.isEmpty ? "(nincs leírás)" : h.plainTitle).font(.callout).foregroundStyle(.secondary).lineLimit(2)
                                     HStack(spacing: 6) {
                                         Text(h.deadline.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.secondary)
                                         if let l = lesson {

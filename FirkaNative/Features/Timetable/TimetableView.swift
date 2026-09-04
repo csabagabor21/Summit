@@ -340,18 +340,9 @@ struct TimetableView: View {
     }
 
     private func homework(for lesson: LessonItem) -> HomeworkItem? {
-        let cal = Calendar.current
-        if let hw = homeworks.first(where: { SubjectMatcher.same($0.subject, lesson.subject) && cal.isDate($0.deadline, inSameDayAs: lesson.start) }) { return hw }
-        // Fallback: kanonikus egyezés dátum nélkül — demo és valós között is működjön
-        if let hw = homeworks.first(where: { SubjectMatcher.same($0.subject, lesson.subject) }) {
-            // Csak akkor adjuk vissza dátum nélkül, ha demo-ban vagyunk vagy nincs sameDay találat
-            // Valós módban is hasznos ha a határidő nem pont aznapra esik de a tárgy egyezik — limitáltan visszaadjuk
-            // hogy a "Most" panel csatolása is működjön
-            if homeworks.filter({ SubjectMatcher.same($0.subject, lesson.subject) }).count == 1 {
-                return hw
-            }
-        }
-        return nil
+        // Szigorúan határidő-napra csatolunk — dátum nélküli fallback nélkül,
+        // különben egy házi minden órára ráíródna (HomeworkMatcher)
+        HomeworkMatcher.homework(for: lesson, in: homeworks)
     }
     private func hasAssignment(for lesson: LessonItem) -> Bool {
         let cal = Calendar.current
@@ -651,7 +642,7 @@ private struct TimetableRow: View {
                                 HStack(spacing: 4) {
                                     Image(systemName: "checklist")
                                         .font(.caption2.weight(.semibold))
-                                    Text(hw.title.isEmpty ? "Házi feladat" : hw.title)
+                                    Text(hw.plainTitle.isEmpty ? "Házi feladat" : hw.plainTitle)
                                         .font(.caption.weight(.medium))
                                         .lineLimit(1)
                                 }
