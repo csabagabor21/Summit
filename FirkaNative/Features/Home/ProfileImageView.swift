@@ -48,3 +48,27 @@ struct ProfileImageView: View {
         return String(name.prefix(2)).uppercased()
     }
 }
+
+/// Toolbar profilgomb natív Apple-elemekből: fotó esetén körbevágott kép,
+/// különben SF Symbol — semmi custom glass, mindig szabályos kör.
+struct ToolbarAvatar: View {
+    var userId: String? = nil
+    @EnvironmentObject var profileStore: ProfileImageStore
+    @EnvironmentObject var theme: ThemeStore
+
+    var body: some View {
+        Group {
+            if let uid = userId, let ui = profileStore.image(for: uid) {
+                Image(uiImage: ui)
+                    .resizable().scaledToFill()
+                    .frame(width: 34, height: 34)
+                    .clipShape(Circle())
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5))
+            } else {
+                Image(systemName: "person.crop.circle.fill")
+                    .font(.system(size: 32))
+                    .foregroundStyle(theme.accent)
+            }
+        }
+    }
+}
