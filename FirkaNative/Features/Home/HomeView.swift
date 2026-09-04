@@ -146,17 +146,9 @@ struct HomeView: View {
                                     Text("Nincs dolgozat").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(RoundedRectangle(cornerRadius: 12).fill(colors.surface))
                                 } else {
                                     ForEach(Array(examsSorted), id: \.id) { e in
-                                        let done = completed.isExamDone(e.id)
-                                        HStack(spacing: 10) {
-                                            Button { withAnimation(.spring(response: 0.3)) { completed.toggleExam(e.id) } } label: { Image(systemName: done ? "checkmark.circle.fill" : "circle").font(.system(size: 20)).foregroundStyle(done ? Color.green : .secondary) }.buttonStyle(.plain)
-                                            VStack(alignment: .leading, spacing: 2) {
-                                                Text(e.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                                Text(e.description.isEmpty ? e.mode : "\(e.mode) • \(e.description)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                                                Text(e.date.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.tertiary)
-                                            }
-                                            Spacer()
+                                        PadExamRow(exam: e, done: completed.isExamDone(e.id), colors: colors, scheme: scheme) {
+                                            withAnimation(.spring(response: 0.3)) { completed.toggleExam(e.id) }
                                         }
-                                        .padding(10).background(RoundedRectangle(cornerRadius: 12).fill(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface).overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)))
                                     }
                                     if vm.exams.count > 3 { NavigationLink("Összes dolgozat (\(vm.exams.count))") { NotesView() }.font(.caption.weight(.semibold)).tint(colors.accent) }
                                 }
@@ -168,19 +160,9 @@ struct HomeView: View {
                                     Text("Nincs feladat").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(RoundedRectangle(cornerRadius: 12).fill(colors.surface))
                                 } else {
                                     ForEach(Array(hwSorted), id: \.id) { h in
-                                        let done = completed.isHomeworkDone(h.id)
-                                        HStack(spacing: 10) {
-                                            Button { withAnimation(.spring(response: 0.3)) { completed.toggleHomework(h.id) } } label: { Image(systemName: done ? "checkmark.circle.fill" : "circle").font(.system(size: 20)).foregroundStyle(done ? Color.green : .secondary) }.buttonStyle(.plain)
-                                            VStack(alignment: .leading, spacing: 2) {
-                                                Text(h.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                                Text(h.plainTitle.isEmpty ? "(nincs leírás)" : h.plainTitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                                                Text(h.deadline.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.tertiary)
-                                            }
-                                            Spacer()
+                                        PadHomeworkRow(homework: h, done: completed.isHomeworkDone(h.id), colors: colors, scheme: scheme) {
+                                            withAnimation(.spring(response: 0.3)) { completed.toggleHomework(h.id) }
                                         }
-                                        .contentShape(Rectangle())
-                                        .onTapGesture { NotificationCenter.default.post(name: Notification.Name("flint.switchToTimetable"), object: nil, userInfo: ["subject": h.subject, "deadline": h.deadline.timeIntervalSince1970]) }
-                                        .padding(10).background(RoundedRectangle(cornerRadius: 12).fill(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface).overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)))
                                     }
                                     if vm.homeworks.count > 3 { NavigationLink("Összes feladat (\(vm.homeworks.count))") { NotesView() }.font(.caption.weight(.semibold)).tint(colors.accent) }
                                 }
@@ -416,6 +398,68 @@ struct HomeView: View {
             return
         }
         await FlintLiveActivityManager.shared.startOrUpdate(current: vm.currentLesson, next: vm.nextLesson, accentHex: theme.accentHex)
+    }
+}
+
+// iPad kétoszlopos sorok külön nézetenként — az egybeírt óriás-kifejezést
+// a lassabb toolchain-ek nem tudták típusellenőrizni (150:41 hiba)
+private struct PadExamRow: View {
+    var exam: ExamItem
+    var done: Bool
+    var colors: AppColors
+    var scheme: ColorScheme
+    var onToggle: () -> Void
+    var body: some View {
+        HStack(spacing: 10) {
+            Button(action: onToggle) {
+                Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 20)).foregroundStyle(done ? Color.green : .secondary)
+            }.buttonStyle(.plain)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(exam.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
+                Text(exam.description.isEmpty ? exam.mode : "\(exam.mode) • \(exam.description)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(exam.date.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.tertiary)
+            }
+            Spacer()
+        }
+        .padding(10).background(cardBackground)
+    }
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 12)
+            .fill(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface)
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
+    }
+}
+
+private struct PadHomeworkRow: View {
+    var homework: HomeworkItem
+    var done: Bool
+    var colors: AppColors
+    var scheme: ColorScheme
+    var onToggle: () -> Void
+    var body: some View {
+        HStack(spacing: 10) {
+            Button(action: onToggle) {
+                Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 20)).foregroundStyle(done ? Color.green : .secondary)
+            }.buttonStyle(.plain)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(homework.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
+                Text(homework.plainTitle.isEmpty ? "(nincs leírás)" : homework.plainTitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(homework.deadline.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.tertiary)
+            }
+            Spacer()
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            NotificationCenter.default.post(name: Notification.Name("flint.switchToTimetable"), object: nil, userInfo: ["subject": homework.subject, "deadline": homework.deadline.timeIntervalSince1970])
+        }
+        .padding(10).background(cardBackground)
+    }
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 12)
+            .fill(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface)
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
     }
 }
 
