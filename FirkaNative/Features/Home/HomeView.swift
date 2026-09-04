@@ -342,8 +342,9 @@ struct HomeView: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink { SettingsView() } label: { ProfileImageView(name: user.name, userId: user.id, size: 30) }
+                    NavigationLink { SettingsView() } label: { ProfileImageView(name: user.name, userId: user.id, size: 36) }
                         .buttonStyle(.plain) // különben a rendszer glass-pilleket tesz a kör mögé
+                        .padding(.trailing, -8) // toolbar alap paddingjének visszavétele
                 }
             }
         }
