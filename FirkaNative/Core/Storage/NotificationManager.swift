@@ -83,6 +83,14 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         didReceive response: UNNotificationResponse
     ) async {
         let info = response.notification.request.content.userInfo
+        // Dolgozat-koppintás → Feladatok/Dolgozatok tab
+        if (info["kind"] as? String) == "exams" {
+            NotificationCenter.default.post(
+                name: Notification.Name("flint.switchToTasks"),
+                object: nil, userInfo: ["segment": "exams"]
+            )
+            return
+        }
         guard let grade = Self.gradeFromUserInfo(info) else { return }
         await MainActor.run { NotificationManager.shared.celebrationGrade = grade }
     }
@@ -278,19 +286,21 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         guard Self.isEnabled(Self.tasksKey) else { return 0 }
         let byId = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
         return diffAndNotify(kind: "Exams", userId: userId, ids: items.map(\.id)) { fresh in
+            let df = DateFormatter(); df.locale = Locale(identifier: "hu_HU"); df.dateFormat = "MMM d."
             if fresh.count == 1, let e = byId[fresh[0]] {
-                let df = DateFormatter(); df.dateStyle = .medium; df.timeStyle = .none; df.locale = .current
                 self.schedule(
                     id: "flint.exam.\(e.id)", title: "Új dolgozat: \(e.subject)",
                     body: "\(e.mode) • \(df.string(from: e.date))\(e.description.isEmpty ? "" : " • \(e.description)")",
-                    userId: userId, bumpBy: 1
+                    userId: userId, bumpBy: 1,
+                    userInfo: ["kind": "exams"]
                 )
             } else {
                 self.schedule(
                     id: "flint.exam.\(Int(Date().timeIntervalSince1970))",
                     title: "\(fresh.count) új dolgozat",
                     body: fresh.compactMap { byId[$0] }.prefix(3).map(\.subject).joined(separator: ", "),
-                    userId: userId, bumpBy: fresh.count
+                    userId: userId, bumpBy: fresh.count,
+                    userInfo: ["kind": "exams"]
                 )
             }
         }

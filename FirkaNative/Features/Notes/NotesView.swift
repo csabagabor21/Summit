@@ -8,8 +8,11 @@ struct NotesView: View {
     @State private var homeworks: [HomeworkItem] = []
     @State private var exams: [ExamItem] = []
     @State private var isLoading = true
-    @State private var filter = 0 // 0 = Feladatok, 1 = Dolgozatok
+    @State private var filter = 0 // 0 = Feladatok, 1 = Dolgozatok, 2 = Kész
     @State private var expandedIDs: Set<String> = []
+    @State private var flashedID: String?
+    @State private var flashPulse = false
+    @State private var scrollProxy: ScrollViewProxy?
     private let switchToTasks = Notification.Name("flint.switchToTasks")
     @Environment(\.colorScheme) var scheme
     @Environment(\.horizontalSizeClass) private var hSize
@@ -18,10 +21,11 @@ struct NotesView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             List {
                 Section {
                     Picker("", selection: $filter) {
-                        Text("Feladatok").tag(0); Text("Dolgozatok").tag(1)
+                        Text("Feladatok").tag(0); Text("Dolgozatok").tag(1); Text("Kész").tag(2)
                     }
                     .pickerStyle(.segmented)
                     .listRowBackground(Color.clear)
@@ -38,9 +42,9 @@ struct NotesView: View {
                 } else if currentIsEmpty {
                     Section {
                         ContentUnavailableView(
-                            filter == 1 ? "Nincs dolgozat" : "Nincs feladat",
+                            filter == 1 ? "Nincs dolgozat" : filter == 2 ? "Nincs kész feladat" : "Nincs feladat",
                             systemImage: filter == 1 ? "doc.text" : "checklist",
-                            description: Text(filter == 1 ? "Nincs bejelentett számonkérés" : "Minden kész")
+                            description: Text(filter == 1 ? "Nincs bejelentett számonkérés" : filter == 2 ? "A kipipált feladatok ide kerülnek" : "Minden kész")
                         )
                             .frame(maxWidth: .infinity, minHeight: 220)
                             .padding(.vertical, 16)
@@ -53,11 +57,15 @@ struct NotesView: View {
                     Section {
                         if filter == 1 {
                             ForEach(filteredExams, id: \.id) { exam in
-                                examRow(exam)
+                                examRow(exam, isFlash: flashedID == exam.id)
+                            }
+                        } else if filter == 2 {
+                            ForEach(filteredDoneHomeworks, id: \.id) { hw in
+                                homeworkRow(hw, isFlash: flashedID == hw.id)
                             }
                         } else {
                             ForEach(filteredHomeworks, id: \.id) { hw in
-                                homeworkRow(hw)
+                                homeworkRow(hw, isFlash: flashedID == hw.id)
                             }
                         }
                     }
@@ -77,28 +85,69 @@ struct NotesView: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .task { await load() }
             .refreshable { await load() }
-            // Órarend-pillből érkezve a Dolgozatok szegmensre ugrik
+            // Órarend-pillből érkezve a megfelelő szegmensre ugrik + kiemeli a sort
             .onReceive(NotificationCenter.default.publisher(for: switchToTasks)) { notif in
                 if (notif.userInfo?["segment"] as? String) == "exams" {
                     filter = 1
                 } else {
                     filter = 0
                 }
+                if let fid = notif.userInfo?["flash"] as? String {
+                    // Tabváltás után fusson, hogy a sorok már legyenek
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { flash(id: fid) }
+                } else {
+                    flashedID = nil; flashPulse = false
+                }
+            }
+            .onAppear { scrollProxy = proxy }
             }
         }
         .tint(colors.accent)
+    }
+
+    /// Kiemelőszínű flash + odagörgetés az órarendből átjött feladathoz/dolgozathoz.
+    private func flash(id: String) {
+        withAnimation { flashedID = id }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            withAnimation(.easeInOut(duration: 0.45).repeatCount(3, autoreverses: true)) { flashPulse = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                withAnimation { scrollProxy?.scrollTo(id, anchor: .center) }
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+            withAnimation { flashedID = nil; flashPulse = false }
+        }
     }
 
     // Kipipált házi nem jelenik meg (eltűnik a Feladatok tabról), Home-on marad zölden
     var filteredHomeworks: [HomeworkItem] {
         homeworks.filter { !completed.isHomeworkDone($0.id) }.sorted { $0.deadline < $1.deadline }
     }
+    // Kész szegmens — innen vissza is hozható (kipipálás visszavonása)
+    var filteredDoneHomeworks: [HomeworkItem] {
+        homeworks.filter { completed.isHomeworkDone($0.id) || $0.isDone }.sorted { $0.deadline < $1.deadline }
+    }
     // Régi dolgozatok nem kellenek — tegnaptól felfelé, időrendben
     var filteredExams: [ExamItem] {
         let cutoff = Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: Date()))!
         return exams.filter { $0.date >= cutoff }.sorted { $0.date < $1.date }
     }
-    private var currentIsEmpty: Bool { filter == 1 ? filteredExams.isEmpty : filteredHomeworks.isEmpty }
+    private var currentIsEmpty: Bool {
+        if filter == 1 { return filteredExams.isEmpty }
+        if filter == 2 { return filteredDoneHomeworks.isEmpty }
+        return filteredHomeworks.isEmpty
+    }
+    // Magyar dátum — az eszköz nyelve angol is lehet, a KRÉTA-dátum éjfélkor időpont nélkül
+    private func huDate(_ d: Date) -> String {
+        let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "yyyy. MMM d."
+        return f.string(from: d)
+    }
+    private func huDateTime(_ d: Date) -> String {
+        let c = Calendar.current.dateComponents([.hour, .minute], from: d)
+        if c.hour == 0 && c.minute == 0 { return huDate(d) }
+        let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "yyyy. MMM d. HH:mm"
+        return f.string(from: d)
+    }
     private func toggleExpanded(_ id: String, expanded: Bool) {
         withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
             if expanded { expandedIDs.remove(id) } else { expandedIDs.insert(id) }
@@ -106,7 +155,7 @@ struct NotesView: View {
     }
 
     @ViewBuilder
-    private func homeworkRow(_ hw: HomeworkItem) -> some View {
+    private func homeworkRow(_ hw: HomeworkItem, isFlash: Bool = false) -> some View {
         let done = completed.isHomeworkDone(hw.id) || hw.isDone
         let expanded = expandedIDs.contains(hw.id)
         HStack(alignment: .top, spacing: 10) {
@@ -161,11 +210,19 @@ struct NotesView: View {
             .buttonStyle(.plain)
         }
         .listRowBackground(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(colors.accent.opacity(isFlash ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlash ? 2.2 : 0)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(colors.accent.opacity(isFlash ? (flashPulse ? 0.16 : 0.04) : 0))
+        )
         .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
     }
 
     @ViewBuilder
-    private func examRow(_ exam: ExamItem) -> some View {
+    private func examRow(_ exam: ExamItem, isFlash: Bool = false) -> some View {
         let expanded = expandedIDs.contains(exam.id)
         // Kipipálható (ready vagy-e), de a listában marad — nem tűnik el, mint a házi
         let ready = completed.isExamDone(exam.id)
@@ -178,7 +235,7 @@ struct NotesView: View {
             .buttonStyle(.plain)
             .padding(.top, 2)
             VStack(alignment: .leading, spacing: 6) {
-                HStack { Text(exam.subject).font(.subheadline.weight(.semibold)); Spacer(); Text(exam.date.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.orange.opacity(0.14))) }
+                HStack { Text(exam.subject).font(.subheadline.weight(.semibold)); Spacer(); Text(huDate(exam.date)).font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.orange.opacity(0.14))) }
                     .contentShape(Rectangle())
                     .onTapGesture { toggleExpanded(exam.id, expanded: expanded) }
                 if expanded {
@@ -190,8 +247,12 @@ struct NotesView: View {
                             .font(.callout).foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    // Dátum időponttal — ebből látszik, melyik nap órájára csatolódik
-                    Label(exam.date.formatted(date: .abbreviated, time: .shortened), systemImage: "clock")
+                    if !exam.teacher.isEmpty {
+                        Label(exam.teacher, systemImage: "person.fill")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    // Dátum időponttal (éjfélkor csak dátum) — ebből látszik, melyik nap órájára csatolódik
+                    Label(huDateTime(exam.date), systemImage: "clock")
                         .font(.caption).foregroundStyle(.secondary)
                     Button {
                         NotificationCenter.default.post(name: Notification.Name("flint.switchToTimetable"), object: nil, userInfo: ["subject": exam.subject, "deadline": exam.date.timeIntervalSince1970])
@@ -218,6 +279,14 @@ struct NotesView: View {
             .buttonStyle(.plain)
         }
         .listRowBackground(ready ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(colors.accent.opacity(isFlash ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlash ? 2.2 : 0)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(colors.accent.opacity(isFlash ? (flashPulse ? 0.16 : 0.04) : 0))
+        )
         .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
     }
 

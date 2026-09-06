@@ -204,6 +204,9 @@ struct HomeView: View {
                                 Spacer()
                             }
                             .contentShape(Rectangle())
+                            .onTapGesture {
+                                NotificationCenter.default.post(name: Notification.Name("flint.switchToTimetable"), object: nil, userInfo: ["subject": e.subject, "deadline": e.date.timeIntervalSince1970])
+                            }
                             .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
                             .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] + 16 }
                             .listRowBackground(
@@ -423,6 +426,10 @@ private struct PadExamRow: View {
                 Text(exam.date.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.tertiary)
             }
             Spacer()
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            NotificationCenter.default.post(name: Notification.Name("flint.switchToTimetable"), object: nil, userInfo: ["subject": exam.subject, "deadline": exam.date.timeIntervalSince1970])
         }
         .padding(10).background(cardBackground)
     }

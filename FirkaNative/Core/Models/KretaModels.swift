@@ -271,6 +271,37 @@ struct ExamItem: Identifiable, Hashable {
     let date: Date
     let mode: String
     let description: String
+    var teacher: String = ""
+}
+
+/// KRÉTA nyers számonkérés-mód (pl. "szobeli_felelet") → szép magyar név.
+/// Ismeretlen kódra snake_case-ből csinálunk olvashatót, üresre fallback.
+func friendlyExamMode(_ raw: String) -> String {
+    let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    if t.isEmpty { return "Számonkérés" }
+    let key = t.lowercased()
+    let map: [String: String] = [
+        "szobeli_felelet": "Szóbeli felelet",
+        "szobeli": "Szóbeli",
+        "irasbeli_dolgozat": "Írásbeli dolgozat",
+        "irasbeli": "Írásbeli",
+        "temazaro": "Témazáró",
+        "temazaro_dolgozat": "Témazáró",
+        "dolgozat": "Dolgozat",
+        "ropdolgozat": "Röpdolgozat",
+        "felmeres": "Felmérés",
+        "beszamolo": "Beszámoló",
+        "gyakorlati": "Gyakorlati",
+        "gyakorlati_feladat": "Gyakorlati feladat",
+        "projektmunka": "Projektmunka",
+        "vizsga": "Vizsga",
+        "szamonkeres": "Számonkérés",
+        "hazifeladat": "Házi feladat",
+        "oral": "Órai munka",
+    ]
+    if let m = map[key] { return m }
+    let words = t.replacingOccurrences(of: "_", with: " ").replacingOccurrences(of: "-", with: " ")
+    return words.prefix(1).uppercased() + words.dropFirst().lowercased()
 }
 
 // MARK: - Kreta date helper — handles KRÉTA's mixed formats (with/without TZ, with/without fractional)
@@ -496,14 +527,16 @@ struct KretaExamDTO: Decodable {
     let Datum: String?
     let Modja: TipusDTO?
     let Tema: String?
+    let RogzitoNeve: String?
     func toItem() -> ExamItem {
         func p(_ s: String?) -> Date { KretaDateParser.parse(s) ?? Date() }
         return ExamItem(
             id: Uid ?? UUID().uuidString,
-            subject: TantargyNeve ?? Tantargy?.Nev ?? "Dolgozat",
+            subject: (TantargyNeve ?? Tantargy?.Nev ?? "Dolgozat").trimmingCharacters(in: .whitespaces),
             date: p(Datum),
-            mode: Modja?.Nev ?? "Számonkérés",
-            description: Tema ?? ""
+            mode: friendlyExamMode(Modja?.Nev ?? ""),
+            description: (Tema ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
+            teacher: (RogzitoNeve ?? "").trimmingCharacters(in: .whitespaces)
         )
     }
 }
@@ -607,11 +640,11 @@ enum DemoData {
         let monday = cal.date(byAdding: .day, value: (weekday == 1 ? -6 : 2 - weekday), to: today)!
         func at(_ weekDay: Int, hour: Int = 10) -> Date { cal.date(byAdding: .day, value: weekDay, to: monday)!.addingTimeInterval(Double(hour*3600)) }
         return [
-            ExamItem(id: "e1", subject: "Kémia", date: at(0, hour: 10), mode: "Írásbeli", description: "Sav-bázis"),
-            ExamItem(id: "e2", subject: "Matek", date: at(1, hour: 9), mode: "Témazáró", description: "Függvények"),
-            ExamItem(id: "e3", subject: "Fizika", date: at(2, hour: 10), mode: "Dolgozat", description: "Munka, energia"),
-            ExamItem(id: "e4", subject: "Töri", date: at(3, hour: 11), mode: "Témazáró", description: "II. vh."),
-            ExamItem(id: "e5", subject: "Angol", date: at(4, hour: 9), mode: "Szóbeli", description: "Unit 5"),
+            ExamItem(id: "e1", subject: "Kémia", date: at(0, hour: 10), mode: "Írásbeli", description: "Sav-bázis", teacher: "Kiss"),
+            ExamItem(id: "e2", subject: "Matek", date: at(1, hour: 9), mode: "Témazáró", description: "Függvények", teacher: "Kovács J."),
+            ExamItem(id: "e3", subject: "Fizika", date: at(2, hour: 10), mode: "Dolgozat", description: "Munka, energia", teacher: "Varga"),
+            ExamItem(id: "e4", subject: "Töri", date: at(3, hour: 11), mode: "Témazáró", description: "II. vh.", teacher: "Nagy A."),
+            ExamItem(id: "e5", subject: "Angol", date: at(4, hour: 9), mode: "Szóbeli", description: "Unit 5", teacher: "Smith"),
         ]
     }
     /// Today's demo timetable — 6 lessons covering 8:00–13:45, subjects aligned with DemoData homeworks/exams

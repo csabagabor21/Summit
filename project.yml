@@ -40,7 +40,7 @@ targets:
         SWIFT_VERSION: "5.0"
         SWIFT_EMIT_LOC_STRINGS: YES
         MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "5"
+        CURRENT_PROJECT_VERSION: "6"
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: 38DAVMRN66
         PRODUCT_BUNDLE_IDENTIFIER: hu.flint
@@ -83,7 +83,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: hu.flint.Widgets
         GENERATE_INFOPLIST_FILE: YES
         MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "5"
+        CURRENT_PROJECT_VERSION: "6"
         IPHONEOS_DEPLOYMENT_TARGET: "26.0"
         INFOPLIST_KEY_CFBundleDisplayName: "Flint Widgets"
         INFOPLIST_KEY_NSSupportsLiveActivities: YES

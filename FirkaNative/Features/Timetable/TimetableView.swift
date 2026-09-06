@@ -529,7 +529,7 @@ struct TimetableView: View {
                 let shift = TimeInterval(weekOffset * 7 * 86400)
                 lessons = deduped(base.map { l in LessonItem(id: l.id, subject: l.subject, room: l.room, start: l.start.addingTimeInterval(shift), end: l.end.addingTimeInterval(shift), teacher: l.teacher, index: l.index, isSubstituted: l.isSubstituted, isCancelled: l.isCancelled, originalTeacher: l.originalTeacher) })
                 homeworks = baseHW.map { h in HomeworkItem(id: h.id, subject: h.subject, title: h.title, deadline: h.deadline.addingTimeInterval(shift), teacher: h.teacher, isDone: h.isDone) }
-                exams = baseEx.map { e in ExamItem(id: e.id, subject: e.subject, date: e.date.addingTimeInterval(shift), mode: e.mode, description: e.description) }
+                exams = baseEx.map { e in ExamItem(id: e.id, subject: e.subject, date: e.date.addingTimeInterval(shift), mode: e.mode, description: e.description, teacher: e.teacher) }
             }
             isLoading = false
             return
@@ -714,7 +714,7 @@ private struct TimetableRow: View {
                         // Feladat pill — óra neve alatt, tap → Feladatok tab
                         if let hw = homework {
                             Button {
-                                NotificationCenter.default.post(name: Notification.Name("flint.switchToTasks"), object: nil)
+                                NotificationCenter.default.post(name: Notification.Name("flint.switchToTasks"), object: nil, userInfo: ["flash": hw.id])
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: "checklist")
@@ -737,7 +737,7 @@ private struct TimetableRow: View {
                         // Dolgozat pill — tap → Feladatok/Dolgozatok tab
                         if let ex = exam {
                             Button {
-                                NotificationCenter.default.post(name: Notification.Name("flint.switchToTasks"), object: nil, userInfo: ["segment": "exams"])
+                                NotificationCenter.default.post(name: Notification.Name("flint.switchToTasks"), object: nil, userInfo: ["segment": "exams", "flash": ex.id])
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: "doc.text.fill")
@@ -794,11 +794,11 @@ private struct TimetableRow: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Color.blue.opacity(isFlashing ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlashing ? 2.2 : 0)
+                    .strokeBorder(colors.accent.opacity(isFlashing ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlashing ? 2.2 : 0)
             )
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.blue.opacity(isFlashing ? (flashPulse ? 0.18 : 0.04) : 0))
+                    .fill(colors.accent.opacity(isFlashing ? (flashPulse ? 0.18 : 0.04) : 0))
             )
             .scaleEffect(isFlashing && flashPulse ? 1.02 : 1.0)
             .animation(isFlashing ? .easeInOut(duration: 0.45) : .default, value: flashPulse)
