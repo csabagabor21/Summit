@@ -6,7 +6,7 @@ final class KretaClient: ObservableObject {
     var refreshToken: String?
     var instituteCode: String?
     var userAgent: String = "eKretaStudent/264745 CFNetwork/1494.0.7 Darwin/23.4.0"
-    /// SessionStore callback token frissítés után — FlintApp köti be
+    /// SessionStore callback token frissítés után — SummitApp köti be
     var onTokensRefreshed: ((String, String?, Int?) -> Void)?
 
     private let session: URLSession = {
@@ -194,8 +194,9 @@ final class KretaClient: ObservableObject {
     }
     func fetchExams(iss: String) async -> [ExamItem] {
         do {
-            let dtos: [KretaExamDTO] = try await get(KretaAPI.exams(iss))
-            return dtos.map { $0.toItem() }.sorted { $0.date < $1.date }
+            // Lenient: egy hibás elem nem nullázhatja a teljes dolgozatlistát
+            let data: Data = try await getRaw(KretaAPI.exams(iss))
+            return KretaExamDTO.lenientItems(from: data).sorted { $0.date < $1.date }
         } catch { return [] }
     }
     func fetchMessages() async -> [MessageItem] {

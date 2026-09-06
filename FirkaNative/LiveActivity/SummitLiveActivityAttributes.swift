@@ -1,7 +1,7 @@
 import ActivityKit
 import Foundation
 
-// MARK: - Flint Live Activity Attributes
+// MARK: - Summit Live Activity Attributes
 // Shared between main app + Widget extension (Target Membership: both).
 // Keep total size < 4 KB (attributes + contentState együtt).
 //
@@ -10,13 +10,13 @@ import Foundation
 //   // csak ha push-on keresztül is frissítenéd másodpercenként:
 //   // INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES
 //
-// Rendszer toggle: Settings → Flint → Live Activities
+// Rendszer toggle: Settings → Summit → Live Activities
 //   -> ActivityAuthorizationInfo().areActivitiesEnabled
 //   Ha OFF, a rendszer nem indít activityt — nem hibázunk, hanem jelezzük.
 //   Heti "szokásos hibák" ezért vannak: app toggle ON, de rendszer OFF → csend.
 //   Ezért külön kezeljük a kettőt (lásd SettingsView + Manager).
 //
-struct FlintLiveActivityAttributes: ActivityAttributes {
+struct SummitLiveActivityAttributes: ActivityAttributes {
     // Static — nem változik az activity élete alatt.
     var subject: String
     var room: String

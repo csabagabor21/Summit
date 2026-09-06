@@ -12,7 +12,7 @@ struct GradeCelebrationView: View {
     @State private var appeared = false
     @State private var pulse = false
     @State private var shownPct = 0
-    private let switchToGrades = Notification.Name("flint.switchToGrades")
+    private let switchToGrades = Notification.Name("summit.switchToGrades")
 
     var colors: AppColors { theme.colors(for: scheme) }
     private var gradeColor: Color { colors.gradeColor(for: grade.value) }

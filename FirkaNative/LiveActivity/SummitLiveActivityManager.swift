@@ -13,8 +13,8 @@ import UIKit
 //   5) Háttérben nem indítunk újat — csak updateelünk (Apple limit).
 //
 @MainActor
-final class FlintLiveActivityManager: ObservableObject {
-    static let shared = FlintLiveActivityManager()
+final class SummitLiveActivityManager: ObservableObject {
+    static let shared = SummitLiveActivityManager()
 
     @Published private(set) var isSystemEnabled: Bool = true
     @Published private(set) var activeCount: Int = 0
@@ -75,7 +75,7 @@ final class FlintLiveActivityManager: ObservableObject {
 
     private func refreshActiveCount() {
         if #available(iOS 16.1, *) {
-            activeCount = Activity<FlintLiveActivityAttributes>.activities.count
+            activeCount = Activity<SummitLiveActivityAttributes>.activities.count
         }
     }
 
@@ -103,7 +103,7 @@ final class FlintLiveActivityManager: ObservableObject {
     /// Órarendből vagy Home-ból hívd — minden éles frissítési pont itt fut át.
     /// Ha nincs aktuális óra, next óra info-val "szünet" phase-et indítunk; ha nincs óra egyáltalán, nem indítunk.
     @discardableResult
-    func startOrUpdate(current: LessonItem?, next: LessonItem?, now: Date = Date(), accentHex: Int = 0xA7DC22) async -> Bool {
+    func startOrUpdate(current: LessonItem?, next: LessonItem?, now: Date = Date(), accentHex: Int = 0x2B4C7E) async -> Bool {
         await runSerialized { await self.startOrUpdateImpl(current: current, next: next, now: now, accentHex: accentHex) }
     }
 
@@ -115,7 +115,7 @@ final class FlintLiveActivityManager: ObservableObject {
                 lastError = "App toggle KI — futók lezárva"
                 await endAllImpl(dismissalPolicy: .immediate)
             } else {
-                lastError = "Rendszer tiltja (Beállítások → Flint → Live Activities)"
+                lastError = "Rendszer tiltja (Beállítások → Summit → Live Activities)"
             }
             return false
         }
@@ -142,7 +142,7 @@ final class FlintLiveActivityManager: ObservableObject {
         // Előfordulhat fordított intervallum (demo shift kerekítés, hibás KRÉTA adat).
         var lessonEnd = cur.end
         if lessonEnd <= cur.start { lessonEnd = cur.start.addingTimeInterval(45 * 60) }
-        let attrs = FlintLiveActivityAttributes(
+        let attrs = SummitLiveActivityAttributes(
             subject: cur.subject,
             room: cur.room,
             teacher: cur.teacher,
@@ -153,7 +153,7 @@ final class FlintLiveActivityManager: ObservableObject {
         )
         // staleDate = óra vége: az élő timerInterval magától tickel, így óra közben
         // nincs "stale / lagging behind" halványítás. (A régi now+30p itt járatta le.)
-        let state = FlintLiveActivityAttributes.ContentState(
+        let state = SummitLiveActivityAttributes.ContentState(
             lessonStart: cur.start,
             lessonEnd: lessonEnd,
             nextSubject: next?.subject,
@@ -165,7 +165,7 @@ final class FlintLiveActivityManager: ObservableObject {
         // Ha már fut ugyanerre az órára, csak update.
         // FONTOS: az attributes immutable — másik órára NEM szabad update-elni,
         // különben beragadt rossz subject/index marad az Islanden.
-        if let existing = Activity<FlintLiveActivityAttributes>.activities.first(where: { $0.attributes.subject == cur.subject && $0.attributes.index == cur.index }) {
+        if let existing = Activity<SummitLiveActivityAttributes>.activities.first(where: { $0.attributes.subject == cur.subject && $0.attributes.index == cur.index }) {
             await existing.update(ActivityContent(state: state, staleDate: state.staleDate))
             lastError = nil
             lastAction = "Update: \(cur.subject) \(cur.index). óra"
@@ -175,7 +175,7 @@ final class FlintLiveActivityManager: ObservableObject {
         }
         // Másik óra/szünet fut → előbb zárjuk, csak 1 activity legyen (különben az Island összeakad).
         // (Sorosítva futunk, így két request sosem indulhat párhuzamosan → nincs duplikátum.)
-        if !Activity<FlintLiveActivityAttributes>.activities.isEmpty {
+        if !Activity<SummitLiveActivityAttributes>.activities.isEmpty {
             await endAllImpl(dismissalPolicy: .immediate)
         }
         do {
@@ -200,7 +200,7 @@ final class FlintLiveActivityManager: ObservableObject {
         // Az attributes itt is immutable: csak egyező Szünet+index activity update-elhető.
         var breakEnd = next.start
         if breakEnd <= now { breakEnd = now.addingTimeInterval(60) }
-        let attrs = FlintLiveActivityAttributes(
+        let attrs = SummitLiveActivityAttributes(
             subject: "Szünet",
             room: next.room,
             teacher: next.teacher,
@@ -211,7 +211,7 @@ final class FlintLiveActivityManager: ObservableObject {
         )
         // staleDate = szünet vége (következő óra kezdete): a countdown végig élő,
         // a rendszer nem halványítja "stale"-re szünet közben sem.
-        let state = FlintLiveActivityAttributes.ContentState(
+        let state = SummitLiveActivityAttributes.ContentState(
             lessonStart: now,
             lessonEnd: breakEnd,
             nextSubject: next.subject,
@@ -220,7 +220,7 @@ final class FlintLiveActivityManager: ObservableObject {
             phase: "break",
             staleDate: breakEnd
         )
-        if let existing = Activity<FlintLiveActivityAttributes>.activities.first(where: { $0.attributes.subject == "Szünet" && $0.attributes.index == next.index }) {
+        if let existing = Activity<SummitLiveActivityAttributes>.activities.first(where: { $0.attributes.subject == "Szünet" && $0.attributes.index == next.index }) {
             await existing.update(ActivityContent(state: state, staleDate: state.staleDate))
             lastError = nil
             lastAction = "Update: Szünet → \(next.subject)"
@@ -228,7 +228,7 @@ final class FlintLiveActivityManager: ObservableObject {
             LiveActivityBackgroundRefresh.scheduleBoundary(lessonEnd: breakEnd, nextStart: next.start)
             return true
         }
-        if !Activity<FlintLiveActivityAttributes>.activities.isEmpty {
+        if !Activity<SummitLiveActivityAttributes>.activities.isEmpty {
             await endAllImpl(dismissalPolicy: .immediate)
         }
         do {
@@ -254,8 +254,8 @@ final class FlintLiveActivityManager: ObservableObject {
         // Záráskor a függő háttér-ébresztést is töröljük; sikeres új
         // start/update úgyis újraütemezi a következő határra.
         LiveActivityBackgroundRefresh.cancel()
-        let had = !Activity<FlintLiveActivityAttributes>.activities.isEmpty
-        for act in Activity<FlintLiveActivityAttributes>.activities {
+        let had = !Activity<SummitLiveActivityAttributes>.activities.isEmpty
+        for act in Activity<SummitLiveActivityAttributes>.activities {
             let final = act.content.state
             await act.end(ActivityContent(state: final, staleDate: nil), dismissalPolicy: dismissalPolicy)
         }
@@ -265,7 +265,7 @@ final class FlintLiveActivityManager: ObservableObject {
 
     /// Demo teszt: órarendtől független, valós időre horgonyzott activity.
     /// Este is működik — a widget renderelés önmagában tesztelhető vele.
-    func startDemoTestNow(label: String = "Matek (teszt)", accentHex: Int = 0xA7DC22) async -> Bool {
+    func startDemoTestNow(label: String = "Matek (teszt)", accentHex: Int = 0x2B4C7E) async -> Bool {
         guard #available(iOS 16.1, *) else { return false }
         let now = Date()
         let demo = LessonItem(

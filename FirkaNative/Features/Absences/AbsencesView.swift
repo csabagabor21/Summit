@@ -351,7 +351,7 @@ struct AbsencesView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .frame(maxWidth: isPad ? 860 : .infinity)
+            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
             .frame(maxWidth: .infinity)
             .scrollContentBackground(.hidden)
             .background(colors.background)

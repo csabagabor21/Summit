@@ -2,8 +2,20 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var session: SessionStore
+    @EnvironmentObject var theme: ThemeStore
 
     var body: some View {
+        Group {
+            if let cat = theme.sizeCategoryOverride {
+                content.environment(\.sizeCategory, cat)
+            } else {
+                content
+            }
+        }
+        .animation(.spring(response: 0.42, dampingFraction: 0.86), value: session.isLoggedIn)
+    }
+
+    private var content: some View {
         Group {
             if session.isLoggedIn {
                 MainTabView()
@@ -13,6 +25,5 @@ struct ContentView: View {
                     .transition(.opacity)
             }
         }
-        .animation(.spring(response: 0.42, dampingFraction: 0.86), value: session.isLoggedIn)
     }
 }

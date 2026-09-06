@@ -60,6 +60,23 @@ enum HomeworkMatcher {
     }
 }
 
+/// Dolgozat–óra csatolás:
+/// ha a KRÉTA tudja, hányadik órára szól (OrarendiOraOraszama), CSAK az az
+/// óra kapja meg — különben minden aznapi, azonos tárgyú órára ráíródna.
+/// Óraszám nélküli dolgozatra marad a régi nap-alapú viselkedés.
+enum ExamMatcher {
+    static func exam(for lesson: LessonItem, in exams: [ExamItem], calendar: Calendar = .current) -> ExamItem? {
+        let sameDay = exams.filter {
+            SubjectMatcher.same($0.subject, lesson.subject)
+            && calendar.isDate($0.date, inSameDayAs: lesson.start)
+        }
+        if let pinned = sameDay.first(where: { $0.lessonIndex != nil && Int(lesson.index) == $0.lessonIndex }) {
+            return pinned
+        }
+        return sameDay.first(where: { $0.lessonIndex == nil })
+    }
+}
+
 /// KRÉTA HTML → stílusos szegmensek (félkövér/dőlt/aláhúzott/áthúzott/link/címsor).
 /// Szándékosan kézi parser WebKit nélkül: az NSAttributedString HTML-importja
 /// SwiftUI body-ból hívva AttributeGraph-crash-t (SIGABRT) okozott, amit
@@ -272,6 +289,11 @@ struct ExamItem: Identifiable, Hashable {
     let mode: String
     let description: String
     var teacher: String = ""
+    var lessonIndex: Int? = nil // hányadik óra (a hivatalos app is írja: "1. óra")
+    /// Mikor jelentették be (KRÉTA: BejelentesDatuma) — a hivatalos app ezt is mutatja
+    var announcedDate: Date? = nil
+    /// Melyik osztály/csoportnak szól (KRÉTA: OsztalyCsoport.Nev, pl. "12.HBS - Technikum")
+    var groupName: String = ""
 }
 
 /// KRÉTA nyers számonkérés-mód (pl. "szobeli_felelet") → szép magyar név.
@@ -282,13 +304,17 @@ func friendlyExamMode(_ raw: String) -> String {
     let key = t.lowercased()
     let map: [String: String] = [
         "szobeli_felelet": "Szóbeli felelet",
+        "szobeli_feleles": "Szóbeli felelet",
         "szobeli": "Szóbeli",
         "irasbeli_dolgozat": "Írásbeli dolgozat",
+        "irasbeli_temazaro_dolgozat": "Írásbeli témazáró dolgozat",
         "irasbeli": "Írásbeli",
+        "szobeli_temazaro_dolgozat": "Szóbeli témazáró",
         "temazaro": "Témazáró",
         "temazaro_dolgozat": "Témazáró",
         "dolgozat": "Dolgozat",
         "ropdolgozat": "Röpdolgozat",
+        "irasbeli_ropdolgozat": "Írásbeli röpdolgozat",
         "felmeres": "Felmérés",
         "beszamolo": "Beszámoló",
         "gyakorlati": "Gyakorlati",
@@ -298,6 +324,7 @@ func friendlyExamMode(_ raw: String) -> String {
         "szamonkeres": "Számonkérés",
         "hazifeladat": "Házi feladat",
         "oral": "Órai munka",
+        "orai_munka": "Órai munka",
     ]
     if let m = map[key] { return m }
     let words = t.replacingOccurrences(of: "_", with: " ").replacingOccurrences(of: "-", with: " ")
@@ -330,7 +357,22 @@ enum KretaDateParser {
 
 // MARK: - DTOs matching real e-KRÉTA JSON (keys are Hungarian)
 struct TantargyDTO: Decodable { let Nev: String?; let Uid: String? }
-struct TipusDTO: Decodable { let Nev: String?; let Kod: String?; let Uid: String? }
+struct OsztalyCsoportDTO: Decodable { let Nev: String?; let Uid: String? }
+struct TipusDTO: Decodable {
+    let Nev: String?
+    let Kod: String?
+    let Uid: String?
+    /// A BejelentettSzamonkeresek Modja-objektuma Leiras kulcson hozza a
+    /// szép magyar módnevet (pl. "Írásbeli témazáró dolgozat"), míg a Nev
+    /// a snake_case kód (pl. "irasbeli_temazaro_dolgozat").
+    let Leiras: String?
+    /// Emberi módnév: Leiras élvez elsőbbséget, utána a Nev-kód barátságosítva.
+    var displayName: String {
+        let l = (Leiras ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !l.isEmpty { return l }
+        return friendlyExamMode((Nev ?? Kod) ?? "")
+    }
+}
 
 struct KretaGradeDTO: Decodable {
     let Uid: String?
@@ -526,17 +568,101 @@ struct KretaExamDTO: Decodable {
     let Tantargy: TantargyDTO?
     let Datum: String?
     let Modja: TipusDTO?
+    /// Nyers mód string-esethez (ha a Modja nem objektum, hanem kód-szöveg)
+    let ModjaRaw: String?
     let Tema: String?
     let RogzitoNeve: String?
+    let Oraszam: Int?
+    let BejelentesDatuma: String?
+    let OsztalyCsoport: OsztalyCsoportDTO?
+
+    // Valós KRÉTA-kulcsok (ekreta-docs-v3 szerint):
+    //   Temaja (leírás!), OrarendiOraOraszama (hányadik óra),
+    //   Modja: { Nev: kód, Leiras: szép név }, BejelentesDatuma, OsztalyCsoport.Nev.
+    // A hivatalos app mutat leírást (pl. MEMORITER-téma) — az "Temaja"
+    // kulcson jön, nem "Tema"-n, ezért a régi kód üres leírást adott.
+    private struct AnyKey: CodingKey {
+        var stringValue: String
+        init?(stringValue: String) { self.stringValue = stringValue }
+        var intValue: Int? { nil }
+        init?(intValue: Int) { nil }
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: AnyKey.self)
+        func s(_ keys: String...) -> String? {
+            for k in keys {
+                guard let key = AnyKey(stringValue: k) else { continue }
+                if let v = try? c.decodeIfPresent(String.self, forKey: key),
+                   !v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return v }
+            }
+            return nil
+        }
+        func i(_ keys: String...) -> Int? {
+            for k in keys {
+                guard let key = AnyKey(stringValue: k) else { continue }
+                if let v = try? c.decodeIfPresent(Int.self, forKey: key) { return v }
+                // Az óraszám néha stringként jön ("1") — azt is fogadjuk
+                if let vs = try? c.decodeIfPresent(String.self, forKey: key),
+                   let v = Int(vs.trimmingCharacters(in: .whitespaces)) { return v }
+            }
+            return nil
+        }
+        Uid = s("Uid")
+        TantargyNeve = s("TantargyNeve")
+        Tantargy = try? c.decodeIfPresent(TantargyDTO.self, forKey: AnyKey(stringValue: "Tantargy")!)
+        Datum = s("Datum", "Datuma", "Idopont", "KezdetIdopont")
+        Modja = try? c.decodeIfPresent(TipusDTO.self, forKey: AnyKey(stringValue: "Modja")!)
+        ModjaRaw = s("Modja", "Mod", "ModNev", "SzamonkeresModja")
+        Tema = s("Temaja", "Tema", "Szoveg", "Leiras", "Tematika", "Megjegyzes", "SzovegesLeiras", "FeladatLeiras")
+        RogzitoNeve = s("RogzitoTanarNeve", "RogzitoNeve", "TanarNeve", "FeladoTanarNeve", "Rogzitette", "BejelentoNeve")
+        Oraszam = i("OrarendiOraOraszama", "Oraszam", "OraSzam")
+        BejelentesDatuma = s("BejelentesDatuma")
+        OsztalyCsoport = try? c.decodeIfPresent(OsztalyCsoportDTO.self, forKey: AnyKey(stringValue: "OsztalyCsoport")!)
+    }
+
+    /// Elemenkénti toleráns dekódolás: egy hibás elem nem ránthatja magával
+    /// az egész listát (a házi feladatoknál bevált minta).
+    static func lenientDTOs(from data: Data) -> [KretaExamDTO] {
+        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [Any] else {
+            return (try? JSONDecoder().decode([KretaExamDTO].self, from: data)) ?? []
+        }
+        let decoder = JSONDecoder()
+        return raw.compactMap { element in
+            guard let ed = try? JSONSerialization.data(withJSONObject: element),
+                  let dto = try? decoder.decode(KretaExamDTO.self, from: ed) else { return nil }
+            return dto
+        }
+    }
+
+    static func lenientItems(from data: Data) -> [ExamItem] {
+        // Üres/hibás elemek (se dátum, se tárgy, se leírás) nem kerülnek a listába
+        lenientDTOs(from: data).filter { dto in
+            !(dto.Datum ?? "").isEmpty
+                || !(dto.TantargyNeve ?? "").isEmpty
+                || !(dto.Tantargy?.Nev ?? "").isEmpty
+                || !(dto.Tema ?? "").isEmpty
+        }.map { $0.toItem() }
+    }
+
     func toItem() -> ExamItem {
         func p(_ s: String?) -> Date { KretaDateParser.parse(s) ?? Date() }
+        let mode: String
+        if let m = Modja {
+            mode = m.displayName
+        } else {
+            mode = friendlyExamMode(ModjaRaw ?? "")
+        }
         return ExamItem(
             id: Uid ?? UUID().uuidString,
             subject: (TantargyNeve ?? Tantargy?.Nev ?? "Dolgozat").trimmingCharacters(in: .whitespaces),
             date: p(Datum),
-            mode: friendlyExamMode(Modja?.Nev ?? ""),
+            mode: mode,
             description: (Tema ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
-            teacher: (RogzitoNeve ?? "").trimmingCharacters(in: .whitespaces)
+            teacher: (RogzitoNeve ?? "").trimmingCharacters(in: .whitespaces),
+            lessonIndex: Oraszam,
+            announcedDate: KretaDateParser.parse(BejelentesDatuma),
+            groupName: (OsztalyCsoport?.Nev ?? "").trimmingCharacters(in: .whitespaces)
         )
     }
 }

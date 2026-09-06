@@ -27,8 +27,42 @@ final class ThemeStore: ObservableObject {
     @AppStorage("theme.mode") var modeRaw: String = AppThemeMode.dark.rawValue {
         didSet { objectWillChange.send() }
     }
-    @AppStorage("theme.accentHex") var accentHex: Int = 0xA7DC22 {
+    @AppStorage("theme.accentHex") var accentHex: Int = 0x2B4C7E {
         didSet { objectWillChange.send() }
+    }
+    // Szövegméret-felülírás ("system" = rendszer). Macen (iPad-app Macen)
+    // alapból nagyobb, hogy ne legyen apró az egész felület.
+    // (A SwiftUI-s ContentSizeCategory nem String-rawValue-s, ezért saját kulcs.)
+    @AppStorage("ui.sizeCategory") var sizeCategoryKey: String = MacSupport.isMac ? "extraLarge" : "system" {
+        didSet { objectWillChange.send() }
+    }
+    var sizeCategoryOverride: ContentSizeCategory? {
+        get { Self.category(for: sizeCategoryKey) }
+        set { sizeCategoryKey = Self.key(for: newValue) }
+    }
+    static let sizeSteps: [(title: String, key: String)] = [
+        ("Rendszer", "system"),
+        ("Alap", "large"),
+        ("Nagy", "extraLarge"),
+        ("Nagyobb", "extraExtraLarge"),
+        ("Hatalmas", "extraExtraExtraLarge"),
+    ]
+    static func category(for key: String) -> ContentSizeCategory? {
+        switch key {
+        case "large": return .large
+        case "extraLarge": return .extraLarge
+        case "extraExtraLarge": return .extraExtraLarge
+        case "extraExtraExtraLarge": return .extraExtraExtraLarge
+        default: return nil
+        }
+    }
+    static func key(for value: ContentSizeCategory?) -> String {
+        guard let v = value else { return "system" }
+        if v == .large { return "large" }
+        if v == .extraLarge { return "extraLarge" }
+        if v == .extraExtraLarge { return "extraExtraLarge" }
+        if v == .extraExtraExtraLarge { return "extraExtraExtraLarge" }
+        return "system"
     }
 
     var mode: AppThemeMode {
@@ -39,7 +73,7 @@ final class ThemeStore: ObservableObject {
 
     // Preset accent colors — simple to change
     static let presets: [Int] = [
-        0xA7DC22, // Flint lime
+        0x2B4C7E, // Summit blue
         0x4A90E2, // Apple blue
         0xFF6B6B, // Coral
         0x8B5CF6, // Violet

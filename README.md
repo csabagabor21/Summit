@@ -1,8 +1,8 @@
-# Flint
+# Summit
 
 Nem hivatalos e-KRÉTA kliens iOS-re — SwiftUI, iOS 26, Liquid Glass.
 
-https://github.com/csabagabor21/Flint
+https://github.com/csabagabor21/Summit
 
 ## Funkciók
 - Valós idejű jegyek, átlagok, súlyozás, tanári kerekítés per-tárgy
@@ -15,19 +15,19 @@ https://github.com/csabagabor21/Flint
 ## Követelmények
 - iOS 26.0+
 - Xcode 15+
-- XcodeGen (opcionális, `project.yml` -> `Flint.xcodeproj`)
+- XcodeGen (opcionális, `project.yml` -> `Summit.xcodeproj`)
 
 ## Telepítés
 ```bash
 # klónozás
-git clone https://github.com/csabagabor21/Flint.git
-cd Flint
+git clone https://github.com/csabagabor21/Summit.git
+cd Summit
 
 # projekt generálás (ha van xcodegen)
 xcodegen generate
 
 # megnyitás
-open Flint.xcodeproj
+open Summit.xcodeproj
 ```
 
 `project.yml` a `bundleIdPrefix: hu.flint.app` alatt generálja a projektet.
@@ -35,7 +35,7 @@ open Flint.xcodeproj
 ## Projekt struktúra
 ```
 FirkaNative/
-  App/          ContentView, FlintApp, RootViewModel
+  App/          ContentView, SummitApp, RootViewModel
   Core/
     Models/     KretaModels, GradingLogic, User
     Networking/ KretaAPI, KretaClient

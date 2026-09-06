@@ -6,7 +6,7 @@ struct HomeView: View {
     @EnvironmentObject var kreta: KretaClient
     @EnvironmentObject var completed: CompletedStore
     @StateObject private var vm = HomeViewModel()
-    @ObservedObject private var liveManager = FlintLiveActivityManager.shared
+    @ObservedObject private var liveManager = SummitLiveActivityManager.shared
     @Environment(\.colorScheme) var scheme
     @Environment(\.horizontalSizeClass) private var hSize
     private var isPad: Bool { hSize == .regular }
@@ -198,6 +198,8 @@ struct HomeView: View {
                                         if let l = lesson {
                                             Label("\(l.index). óra • \(l.room)", systemImage: "graduationcap.fill")
                                                 .font(.caption2.weight(.medium)).foregroundStyle(.secondary).lineLimit(1)
+                                        } else if let n = e.lessonIndex {
+                                            Text("(\(n). óra)").font(.caption2).foregroundStyle(.secondary)
                                         }
                                     }
                                 }
@@ -205,7 +207,7 @@ struct HomeView: View {
                             }
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                NotificationCenter.default.post(name: Notification.Name("flint.switchToTimetable"), object: nil, userInfo: ["subject": e.subject, "deadline": e.date.timeIntervalSince1970])
+                                NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": e.subject, "deadline": e.date.timeIntervalSince1970])
                             }
                             .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
                             .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] + 16 }
@@ -257,7 +259,7 @@ struct HomeView: View {
                             }
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                NotificationCenter.default.post(name: Notification.Name("flint.switchToTimetable"), object: nil, userInfo: ["subject": h.subject, "deadline": h.deadline.timeIntervalSince1970])
+                                NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": h.subject, "deadline": h.deadline.timeIntervalSince1970])
                             }
                             .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
                             .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] + 16 }
@@ -278,7 +280,7 @@ struct HomeView: View {
             }
             .listStyle(.insetGrouped)
             // iPad: keskenyebb, középre igazított lista — nem nyúlik szét 12.9"-en
-            .frame(maxWidth: isPad ? 860 : .infinity)
+            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
             .frame(maxWidth: .infinity)
             .scrollContentBackground(.hidden)
             .background(colors.background)
@@ -340,7 +342,7 @@ struct HomeView: View {
     // MARK: - Preview helpers
     /// A widget appex tényleg az app része? Régi telepítésnél hiányozhat → fekete expanded Island.
     private var isWidgetExtensionInstalled: Bool {
-        let url = Bundle.main.bundleURL.appendingPathComponent("PlugIns/FlintWidgets.appex", isDirectory: true)
+        let url = Bundle.main.bundleURL.appendingPathComponent("PlugIns/SummitWidgets.appex", isDirectory: true)
         return FileManager.default.fileExists(atPath: url.path)
     }
     private var previewDate: Date {
@@ -399,10 +401,10 @@ struct HomeView: View {
             // `now` = valós idő, `cur/nxt` shiftelve — így a rendszer
             // Text(timerInterval:) visszaszámlálója a valós órához igazodik,
             // de a preview időnek megfelelő állapotot mutatja.
-            await FlintLiveActivityManager.shared.startOrUpdate(current: cur, next: nxt, now: realNow, accentHex: theme.accentHex)
+            await SummitLiveActivityManager.shared.startOrUpdate(current: cur, next: nxt, now: realNow, accentHex: theme.accentHex)
             return
         }
-        await FlintLiveActivityManager.shared.startOrUpdate(current: vm.currentLesson, next: vm.nextLesson, accentHex: theme.accentHex)
+        await SummitLiveActivityManager.shared.startOrUpdate(current: vm.currentLesson, next: vm.nextLesson, accentHex: theme.accentHex)
     }
 }
 
@@ -423,13 +425,13 @@ private struct PadExamRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(exam.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
                 Text(exam.description.isEmpty ? exam.mode : "\(exam.mode) • \(exam.description)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                Text(exam.date.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.tertiary)
+                Text(examLessonLine(exam)).font(.caption2).foregroundStyle(.tertiary)
             }
             Spacer()
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            NotificationCenter.default.post(name: Notification.Name("flint.switchToTimetable"), object: nil, userInfo: ["subject": exam.subject, "deadline": exam.date.timeIntervalSince1970])
+            NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": exam.subject, "deadline": exam.date.timeIntervalSince1970])
         }
         .padding(10).background(cardBackground)
     }
@@ -438,6 +440,12 @@ private struct PadExamRow: View {
             .fill(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface)
             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
     }
+}
+
+private func examLessonLine(_ exam: ExamItem) -> String {
+    let d = exam.date.formatted(date: .abbreviated, time: .omitted)
+    if let n = exam.lessonIndex { return "\(d) (\(n). óra)" }
+    return d
 }
 
 private struct PadHomeworkRow: View {
@@ -461,7 +469,7 @@ private struct PadHomeworkRow: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            NotificationCenter.default.post(name: Notification.Name("flint.switchToTimetable"), object: nil, userInfo: ["subject": homework.subject, "deadline": homework.deadline.timeIntervalSince1970])
+            NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": homework.subject, "deadline": homework.deadline.timeIntervalSince1970])
         }
         .padding(10).background(cardBackground)
     }
@@ -656,8 +664,9 @@ private struct HomeLiveCard: View {
 
     @ViewBuilder
     func attachedInfo(for lesson: LessonItem) -> some View {
-        // Rögzítve van-e valami erre az órára — kanonikus egyeztetés (Matek <-> Matematika)
-        let exam = exams.first { SubjectMatcher.same($0.subject, lesson.subject) && Calendar.current.isDate($0.date, inSameDayAs: lesson.start) }
+        // Rögzítve van-e valami erre az órára — kanonikus egyeztetés (Matek <-> Matematika).
+        // Óraszámos dolgozat csak a saját órájára kerül (ExamMatcher).
+        let exam = ExamMatcher.exam(for: lesson, in: exams)
         let hw = homeworks.first { SubjectMatcher.same($0.subject, lesson.subject) && Calendar.current.isDate($0.deadline, inSameDayAs: lesson.start) }
         if exam != nil || hw != nil {
             VStack(alignment: .leading, spacing: 3) {

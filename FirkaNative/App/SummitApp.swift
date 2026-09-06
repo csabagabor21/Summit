@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct FlintApp: App {
+struct SummitApp: App {
     @StateObject private var session = SessionStore()
     @StateObject private var kreta = KretaClient()
     @StateObject private var theme = ThemeStore()
@@ -25,6 +25,8 @@ struct FlintApp: App {
                 .tint(theme.accent)
                 .preferredColorScheme(theme.mode.scheme)
                 .onAppear {
+                    // Macen (iPad-app Macen) ne tudjon pici ablakba zsugorodni
+                    MacSupport.applyWindowSizing()
                     // Előtéri banner-delegált az értesítésekhez
                     NotificationManager.shared.configure()
                     kreta.accessToken = session.selectedUser?.accessToken

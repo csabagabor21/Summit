@@ -13,7 +13,7 @@ struct NotesView: View {
     @State private var flashedID: String?
     @State private var flashPulse = false
     @State private var scrollProxy: ScrollViewProxy?
-    private let switchToTasks = Notification.Name("flint.switchToTasks")
+    private let switchToTasks = Notification.Name("summit.switchToTasks")
     @Environment(\.colorScheme) var scheme
     @Environment(\.horizontalSizeClass) private var hSize
     private var isPad: Bool { hSize == .regular }
@@ -74,7 +74,7 @@ struct NotesView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .frame(maxWidth: isPad ? 860 : .infinity)
+            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
             .frame(maxWidth: .infinity)
             .scrollContentBackground(.hidden)
             .background(colors.background)
@@ -148,6 +148,16 @@ struct NotesView: View {
         let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "yyyy. MMM d. HH:mm"
         return f.string(from: d)
     }
+    /// Fejléc-pill: dátum + hányadik óra (pl. "2026. szept. 15. (1. óra)")
+    private func examDatePill(_ exam: ExamItem) -> String {
+        if let n = exam.lessonIndex { return "\(huDate(exam.date)) (\(n). óra)" }
+        return huDate(exam.date)
+    }
+    /// Részletező dátumsor: időpont (ha van) + hányadik óra
+    private func examDateLine(_ exam: ExamItem) -> String {
+        if let n = exam.lessonIndex { return "\(huDateTime(exam.date)) (\(n). óra)" }
+        return huDateTime(exam.date)
+    }
     private func toggleExpanded(_ id: String, expanded: Bool) {
         withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
             if expanded { expandedIDs.remove(id) } else { expandedIDs.insert(id) }
@@ -186,7 +196,7 @@ struct NotesView: View {
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Button {
-                        NotificationCenter.default.post(name: Notification.Name("flint.switchToTimetable"), object: nil, userInfo: ["subject": hw.subject, "deadline": hw.deadline.timeIntervalSince1970])
+                        NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": hw.subject, "deadline": hw.deadline.timeIntervalSince1970])
                     } label: {
                         Label("Mutatás az órarendben", systemImage: "calendar")
                             .font(.caption.weight(.semibold))
@@ -235,7 +245,7 @@ struct NotesView: View {
             .buttonStyle(.plain)
             .padding(.top, 2)
             VStack(alignment: .leading, spacing: 6) {
-                HStack { Text(exam.subject).font(.subheadline.weight(.semibold)); Spacer(); Text(huDate(exam.date)).font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.orange.opacity(0.14))) }
+                HStack { Text(exam.subject).font(.subheadline.weight(.semibold)); Spacer(); Text(examDatePill(exam)).font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.orange.opacity(0.14))) }
                     .contentShape(Rectangle())
                     .onTapGesture { toggleExpanded(exam.id, expanded: expanded) }
                 if expanded {
@@ -251,11 +261,20 @@ struct NotesView: View {
                         Label(exam.teacher, systemImage: "person.fill")
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    // Dátum időponttal (éjfélkor csak dátum) — ebből látszik, melyik nap órájára csatolódik
-                    Label(huDateTime(exam.date), systemImage: "clock")
+                    // Dátum időponttal (éjfélkor csak dátum) + hányadik óra — a hivatalos
+                    // app is írja: "2026. szeptember 15., kedd (1. óra)"
+                    Label(examDateLine(exam), systemImage: "clock")
                         .font(.caption).foregroundStyle(.secondary)
+                    if let announced = exam.announcedDate {
+                        Label("Bejelentve: \(huDate(announced))", systemImage: "megaphone")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    if !exam.groupName.isEmpty {
+                        Label(exam.groupName, systemImage: "person.2.fill")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     Button {
-                        NotificationCenter.default.post(name: Notification.Name("flint.switchToTimetable"), object: nil, userInfo: ["subject": exam.subject, "deadline": exam.date.timeIntervalSince1970])
+                        NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": exam.subject, "deadline": exam.date.timeIntervalSince1970])
                     } label: {
                         Label("Mutatás az órarendben", systemImage: "calendar")
                             .font(.caption.weight(.semibold))

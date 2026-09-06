@@ -20,7 +20,7 @@ import Foundation
 enum LiveActivityBackgroundRefresh {
     static let taskIdentifier = "hu.flint.app.Flint.liveactivity-refresh"
 
-    // MARK: - Regisztráció (app induláskor, FlintApp.init-ből)
+    // MARK: - Regisztráció (app induláskor, SummitApp.init-ből)
 
     static func register() {
         BGTaskScheduler.shared.register(forTaskWithIdentifier: taskIdentifier, using: nil) { task in
@@ -107,7 +107,7 @@ enum LiveActivityBackgroundRefresh {
         let now = Date()
         let cur = lessons.first { $0.start <= now && $0.end >= now }
         let nxt = lessons.first { $0.start > now }
-        let accent = UserDefaults.standard.object(forKey: "theme.accentHex") as? Int ?? 0xA7DC22
-        return await FlintLiveActivityManager.shared.startOrUpdate(current: cur, next: nxt, now: now, accentHex: accent)
+        let accent = UserDefaults.standard.object(forKey: "theme.accentHex") as? Int ?? 0x2B4C7E
+        return await SummitLiveActivityManager.shared.startOrUpdate(current: cur, next: nxt, now: now, accentHex: accent)
     }
 }

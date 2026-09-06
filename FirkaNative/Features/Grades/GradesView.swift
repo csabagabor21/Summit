@@ -226,7 +226,7 @@ struct GradesView: View {
             }
             .animation(.spring(response: 0.38, dampingFraction: 0.82), value: selectedTab)
             .listStyle(.insetGrouped)
-            .frame(maxWidth: isPad ? 860 : .infinity)
+            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
             .frame(maxWidth: .infinity)
             .scrollContentBackground(.hidden)
             .background(colors.background)

@@ -5,15 +5,15 @@ import SwiftUI
 // MARK: - Widget Extension Live Activity UI
 // FONTOS: Ezt a fájlt a Widget Extension target-be kell tenni!
 // Lépések (egyszeri, 2 perc Xcode-ban):
-//   1) File > New > Target > Widget Extension → név: FlintWidgets
+//   1) File > New > Target > Widget Extension → név: SummitWidgets
 //      → pipáld: "Include Live Activity" (generál egy WidgetBundle-t)
 //      → deployment target: iOS 16.1 (nem 16.0!)
-//   2) A generált FlintWidgetsBundle.swift-ben regisztráld:
-//        @main struct FlintWidgetsBundle: WidgetBundle {
-//            var body: some Widget { FlintLiveActivityWidget() }
+//   2) A generált SummitWidgetsBundle.swift-ben regisztráld:
+//        @main struct SummitWidgetsBundle: WidgetBundle {
+//            var body: some Widget { SummitLiveActivityWidget() }
 //        }
-//   3) Ez a fájl + FlintLiveActivityAttributes.swift legyen MINDKÉT target tagja:
-//      File Inspector → Target Membership → Flint + FlintWidgets bepipálva.
+//   3) Ez a fájl + SummitLiveActivityAttributes.swift legyen MINDKÉT target tagja:
+//      File Inspector → Target Membership → Summit + SummitWidgets bepipálva.
 //   4) Info.plist kulcs már a project.yml-ben: NSSupportsLiveActivities = YES.
 //      Widget extension Info.plist-jében is ugyanez kell (Xcode automatikusan teszi).
 //
@@ -27,13 +27,13 @@ import SwiftUI
 // - Watch: .supplementalActivityFamilies([.small]) opcionális.
 
 @available(iOS 16.2, *)
-struct FlintLiveActivityWidget: Widget {
+struct SummitLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
-        ActivityConfiguration(for: FlintLiveActivityAttributes.self) { context in
+        ActivityConfiguration(for: SummitLiveActivityAttributes.self) { context in
             // MARK: Lock Screen / Banner
             LockScreenView(context: context)
-                .activityBackgroundTint(Color(hex: 0xA7DC22).opacity(0.12))
-                .activitySystemActionForegroundColor(Color(hex: 0xA7DC22))
+                .activityBackgroundTint(Color(hex: 0x2B4C7E).opacity(0.12))
+                .activitySystemActionForegroundColor(Color(hex: 0x2B4C7E))
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
@@ -55,20 +55,20 @@ struct FlintLiveActivityWidget: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     ProgressView(value: progress(start: context.state.lessonStart, end: context.state.lessonEnd))
-                        .tint(Color(hex: 0xA7DC22))
+                        .tint(Color(hex: 0x2B4C7E))
                 }
             } compactLeading: {
                 Image(systemName: context.attributes.isCancelled ? "xmark.circle.fill" : "\(context.attributes.index).circle.fill")
-                    .foregroundStyle(Color(hex: 0xA7DC22))
+                    .foregroundStyle(Color(hex: 0x2B4C7E))
             } compactTrailing: {
                 Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true)
                     .font(.caption2.monospacedDigit())
                     .frame(width: 46)
             } minimal: {
                 Image(systemName: "\(context.attributes.index).circle.fill")
-                    .foregroundStyle(Color(hex: 0xA7DC22))
+                    .foregroundStyle(Color(hex: 0x2B4C7E))
             }
-            .keylineTint(Color(hex: 0xA7DC22))
+            .keylineTint(Color(hex: 0x2B4C7E))
         }
     }
 
@@ -82,16 +82,16 @@ struct FlintLiveActivityWidget: Widget {
 
 @available(iOS 16.2, *)
 private struct LockScreenView: View {
-    let context: ActivityViewContext<FlintLiveActivityAttributes>
+    let context: ActivityViewContext<SummitLiveActivityAttributes>
 
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
-                Circle().fill(Color(hex: 0xA7DC22).opacity(0.16))
+                Circle().fill(Color(hex: 0x2B4C7E).opacity(0.16))
                     .frame(width: 42, height: 42)
                 Text(context.attributes.index)
                     .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color(hex: 0xA7DC22))
+                    .foregroundStyle(Color(hex: 0x2B4C7E))
             }
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
@@ -118,7 +118,7 @@ private struct LockScreenView: View {
                 Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true)
                     .font(.system(size: 14, weight: .semibold, design: .rounded).monospacedDigit())
                 ProgressView(value: progress(start: context.state.lessonStart, end: context.state.lessonEnd))
-                    .tint(Color(hex: 0xA7DC22))
+                    .tint(Color(hex: 0x2B4C7E))
                     .frame(width: 72)
             }
         }
@@ -136,9 +136,9 @@ private struct LockScreenView: View {
 
 // Fallback iOS 16.1 (ActivityConfiguration ott még nem 16.2) — iOS 16.1-en a DynamicIsland üres nem engedett, ezért külön.
 @available(iOS 16.1, *)
-struct FlintLiveActivityWidgetLegacy: Widget {
+struct SummitLiveActivityWidgetLegacy: Widget {
     var body: some WidgetConfiguration {
-        ActivityConfiguration(for: FlintLiveActivityAttributes.self) { context in
+        ActivityConfiguration(for: SummitLiveActivityAttributes.self) { context in
             LockScreenView(context: context)
         } dynamicIsland: { context in
             DynamicIsland {

@@ -19,7 +19,7 @@ struct ProfileImageView: View {
                         .clipShape(Circle())
                 } else {
                     Circle()
-                        .fill(Color(hex: 0xA7DC22))
+                        .fill(Color(hex: 0x2B4C7E))
                         .frame(width: size, height: size)
                         .overlay {
                             Text(initials)

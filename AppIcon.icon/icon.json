@@ -1,9 +1,7 @@
 {
   "fill-specializations" : [
     {
-      "value" : {
-        "solid" : "display-p3:0.39990,0.39990,0.39990,1.00000"
-      }
+      "value" : "system-light"
     },
     {
       "appearance" : "dark",
@@ -16,19 +14,33 @@
         {
           "fill-specializations" : [
             {
+              "value" : "system-dark"
+            },
+            {
               "appearance" : "dark",
-              "value" : "none"
+              "value" : "system-light"
             },
             {
               "appearance" : "tinted",
-              "value" : "automatic"
+              "value" : "system-light"
             }
           ],
-          "glass" : true,
-          "image-name" : "108021799.png",
-          "name" : "108021799",
+          "glass-specializations" : [
+            {
+              "appearance" : "tinted",
+              "value" : true
+            }
+          ],
+          "image-name" : "mountain-512.png",
+          "name" : "mountain-512",
+          "opacity-specializations" : [
+            {
+              "appearance" : "tinted",
+              "value" : 1
+            }
+          ],
           "position" : {
-            "scale" : 3,
+            "scale" : 2,
             "translation-in-points" : [
               0,
               0

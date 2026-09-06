@@ -15,12 +15,15 @@ struct TimetableView: View {
     @State private var exams: [ExamItem] = []
     @State private var selectedDay: Int = Calendar.current.component(.weekday, from: Date())
     @State private var weekOffset: Int = 0 // 0 = ez a hét, -1 = múlt hét, +1 = jövő hét
+    // Kézi navigálás (hét/nap lapozás) után az okos ugrás nem dobhat vissza —
+    // csak a "Ma" gomb és az első betöltés ugorhat a következő tanítási napra.
+    @State private var userHasNavigated = false
     @State private var isLoading = true
     @State private var flashedLessonID: String?
     @State private var suppressAutoJumpUntil = Date.distantPast // házi-deeplink alatt nincs okos ugrás
     @State private var flashPulse = false
     @State private var exemptedTick = 0
-    private let switchToTimetable = Notification.Name("flint.switchToTimetable")
+    private let switchToTimetable = Notification.Name("summit.switchToTimetable")
     @Environment(\.colorScheme) var scheme
     @Environment(\.horizontalSizeClass) private var hSize
     private var isPad: Bool { hSize == .regular }
@@ -91,6 +94,16 @@ struct TimetableView: View {
         selectedDay = t.weekday
         return true
     }
+    /// "Ma" gomb / hétnév-tap: vissza a 0. hétre, majd a load() végi okos
+    /// ugrás (userHasNavigated == false) finomít a következő tanítási napra
+    /// (hétvége / nap vége → kövi tanítási nap). Direkt a cache-ből nem
+    /// számolunk, mert az még a régi hetet mutathatná.
+    private func goToSmartToday() {
+        suppressAutoJumpUntil = .distantPast
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) { weekOffset = 0 }
+        userHasNavigated = false
+        Task { await load() }
+    }
     private var currentWeekRangeText: String {
         let cal = Calendar.current
         let monday = currentMonday
@@ -121,6 +134,7 @@ struct TimetableView: View {
                 Section {
                     HStack(spacing: 0) {
                         Button {
+                            userHasNavigated = true
                             withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) { weekOffset -= 1 }
                             Task { await load() }
                         } label: {
@@ -147,14 +161,13 @@ struct TimetableView: View {
                         .animation(.spring(response: 0.34, dampingFraction: 0.84), value: weekOffset)
                         .onTapGesture {
                             guard weekOffset != 0 else { return }
-                            withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) { weekOffset = 0 }
-                            var d = Calendar.current.component(.weekday, from: Date()); if d==1||d==7 { d=2 }; selectedDay = d
-                            Task { await load() }
+                            goToSmartToday()
                         }
 
                         Spacer(minLength: 8)
 
                         Button {
+                            userHasNavigated = true
                             withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) { weekOffset += 1 }
                             Task { await load() }
                         } label: {
@@ -168,11 +181,7 @@ struct TimetableView: View {
                         .disabled(weekOffset >= 8)
 
                         if weekOffset != 0 {
-                            Button("Ma") {
-                                withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) { weekOffset = 0 }
-                                var d = Calendar.current.component(.weekday, from: Date()); if d==1||d==7 { d=2 }; selectedDay = d
-                                Task { await load() }
-                            }
+                            Button("Ma") { goToSmartToday() }
                             .font(.caption.weight(.semibold))
                             .tint(colors.accent)
                             .padding(.leading, 8)
@@ -189,6 +198,7 @@ struct TimetableView: View {
                         ForEach(2...6, id: \.self) { d in Text(days[d-2]).tag(d) }
                     }
                     .pickerStyle(.segmented)
+                    .onChange(of: selectedDay) { _, _ in userHasNavigated = true }
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 6, trailing: 16))
                     .listRowSeparator(.hidden)
@@ -308,7 +318,7 @@ struct TimetableView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .frame(maxWidth: isPad ? 860 : .infinity)
+            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
             .frame(maxWidth: .infinity)
             .scrollContentBackground(.hidden)
             .background(colors.background)
@@ -318,6 +328,7 @@ struct TimetableView: View {
                         let dx = value.translation.width
                         let dy = value.translation.height
                         guard abs(dx) > abs(dy), abs(dx) > 52 else { return }
+                        userHasNavigated = true
                         withAnimation(.spring(response: 0.36, dampingFraction: 0.84)) {
                             if dx < 0 {
                                 if let idx = dayTags.firstIndex(of: selectedDay), idx < dayTags.count - 1 {
@@ -356,9 +367,10 @@ struct TimetableView: View {
             }
             .onAppear {
                 // Órarend tabra koppintáskor: ha az utolsó mai óra már lement
-                // vagy hétvége van, a következő tanítási napot mutassa.
+                // vagy hétvége van, a következő tanítási napot mutassa —
+                // DE csak ha a user nem lapozott kézzel máshova.
                 // (Első betöltés alatt a load() intézi az okos ugrást.)
-                guard !isLoading else { return }
+                guard !isLoading, !userHasNavigated else { return }
                 if applySmartDay() {
                     Task { await load() }
                 }
@@ -403,18 +415,15 @@ struct TimetableView: View {
         HomeworkMatcher.homework(for: lesson, in: homeworks)
     }
     private func exam(for lesson: LessonItem) -> ExamItem? {
-        // Ugyanaz a szabály mint a házinál: csak az az óra kapja meg a
-        // dolgozatot, amelyik napjára a dolgozat dátuma esik.
-        let cal = Calendar.current
-        return exams.first {
-            SubjectMatcher.same($0.subject, lesson.subject)
-            && cal.isDate($0.date, inSameDayAs: lesson.start)
-        }
+        // Óraszámos dolgozat csak a saját órájára kerül (ExamMatcher),
+        // óraszám nélkül marad a nap-alapú csatolás.
+        ExamMatcher.exam(for: lesson, in: exams)
     }
     private func hasAssignment(for lesson: LessonItem) -> Bool {
         let cal = Calendar.current
         let sameDayHW = homeworks.contains { SubjectMatcher.same($0.subject, lesson.subject) && cal.isDate($0.deadline, inSameDayAs: lesson.start) }
-        let sameDayExam = exams.contains { SubjectMatcher.same($0.subject, lesson.subject) && cal.isDate($0.date, inSameDayAs: lesson.start) }
+        // Óraszámos dolgozat csak a saját óráját színezi (ExamMatcher)
+        let sameDayExam = exam(for: lesson) != nil
         if sameDayHW || sameDayExam { return true }
         // Kanonikus fallback: ha van bármilyen hw/ex ugyanarra a tárgyra, jelezzük
         let anyHW = homeworks.contains { SubjectMatcher.same($0.subject, lesson.subject) }
@@ -518,11 +527,12 @@ struct TimetableView: View {
             let base = DemoData.lessonsExpanded()
             let baseHW = DemoData.homeworks()
             let baseEx = DemoData.exams()
-            // Okos nap csak a 0. hétről indulva (kézi heti lapozásnál nem bántjuk)
+            // Okos nap csak a 0. hétről indulva ÉS csak ha a user nem lapozott
+            // kézzel máshova (különben a visszalapozást visszadobná)
             lessons = deduped(base)
             homeworks = baseHW
             exams = baseEx
-            if entryOffset == 0 { applySmartDay() }
+            if entryOffset == 0, !userHasNavigated { applySmartDay() }
             // A végleges héthez toljuk a demó órarendet + a csatolt házikat/vizsgákat,
             // különben lapozáskor a pillek eltűnnének a nap-pontos csatolás miatt
             if weekOffset != 0 {
@@ -538,14 +548,15 @@ struct TimetableView: View {
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         if iss.isEmpty || iss == "unknown" {
             lessons = []; homeworks = []; exams = []
-            if entryOffset == 0 { applySmartDay() }
+            if entryOffset == 0, !userHasNavigated { applySmartDay() }
             isLoading = false
             return
         }
         await fetchWeek()
-        // Okos nap csak a 0. hétről indulva: ha az utolsó mai óra lement / hétvége
-        // van, a következő tanítási napra ugrunk — ha az másik hét, annak az adata is kell.
-        if entryOffset == 0, applySmartDay(), weekOffset != entryOffset {
+        // Okos nap csak a 0. hétről indulva ÉS csak ha a user nem lapozott
+        // kézzel: ha az utolsó mai óra lement / hétvége van, a következő
+        // tanítási napra ugrunk — ha az másik hét, annak az adata is kell.
+        if entryOffset == 0, !userHasNavigated, applySmartDay(), weekOffset != entryOffset {
             await fetchWeek()
         }
         isLoading = false
@@ -714,7 +725,7 @@ private struct TimetableRow: View {
                         // Feladat pill — óra neve alatt, tap → Feladatok tab
                         if let hw = homework {
                             Button {
-                                NotificationCenter.default.post(name: Notification.Name("flint.switchToTasks"), object: nil, userInfo: ["flash": hw.id])
+                                NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ["flash": hw.id])
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: "checklist")
@@ -737,7 +748,7 @@ private struct TimetableRow: View {
                         // Dolgozat pill — tap → Feladatok/Dolgozatok tab
                         if let ex = exam {
                             Button {
-                                NotificationCenter.default.post(name: Notification.Name("flint.switchToTasks"), object: nil, userInfo: ["segment": "exams", "flash": ex.id])
+                                NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ["segment": "exams", "flash": ex.id])
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: "doc.text.fill")

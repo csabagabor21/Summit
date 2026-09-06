@@ -23,9 +23,9 @@ struct MainTabView: View {
     @Environment(\.colorScheme) var scheme
     @State private var selected: Int = ProcessInfo.processInfo.arguments.contains("-FIRKA_ABSENCES") ? 4 : 0
     @ObservedObject private var notif = NotificationManager.shared
-    private let switchToTasks = Notification.Name("flint.switchToTasks")
-    private let switchToTimetable = Notification.Name("flint.switchToTimetable")
-    private let switchToGrades = Notification.Name("flint.switchToGrades")
+    private let switchToTasks = Notification.Name("summit.switchToTasks")
+    private let switchToTimetable = Notification.Name("summit.switchToTimetable")
+    private let switchToGrades = Notification.Name("summit.switchToGrades")
 
     var colors: AppColors { theme.colors(for: scheme) }
 
@@ -86,7 +86,7 @@ struct MainTabView: View {
         // Content glass tilos — "glass can't sample other glass".
     }
 
-    // MARK: - iOS 17 fallback (Flint target régebbi OS-en) — natív TabView
+    // MARK: - iOS 17 fallback (Summit target régebbi OS-en) — natív TabView
     private var phoneTabsLegacy: some View {
         TabView(selection: $selected) {
             HomeView().tabItem { Label("Főoldal", systemImage: "house.fill") }.tag(0)

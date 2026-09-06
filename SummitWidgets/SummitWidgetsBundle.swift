@@ -2,9 +2,9 @@ import WidgetKit
 import SwiftUI
 
 @main
-struct FlintWidgetsBundle: WidgetBundle {
+struct SummitWidgetsBundle: WidgetBundle {
     var body: some Widget {
-        FlintLiveActivityWidget()
+        SummitLiveActivityWidget()
         // Legacy fallback nem kell regisztrálni külön — az ActivityConfiguration
         // az iOS verzió alapján választ.
     }

@@ -1,4 +1,4 @@
-name: Flint
+name: Summit
 options:
   bundleIdPrefix: hu.flint.app
   deploymentTarget:
@@ -6,7 +6,7 @@ options:
   xcodeVersion: "15.0"
   generateEmptyDirectories: true
 targets:
-  Flint:
+  Summit:
     type: application
     platform: iOS
     deploymentTarget: "26.0"
@@ -29,7 +29,7 @@ targets:
     sources:
       - path: FirkaNative
         excludes:
-          - "LiveActivity/FlintLiveActivityWidget.swift"
+          - "LiveActivity/SummitLiveActivityWidget.swift"
     resources:
       # FIGYELEM: az xcodegen 2.46 regen kidobja az AppIcon.icon-t a pbxproj-ból
       # (nem ismeri az .icon csomagot) — regen után kézzel vissza kell tenni
@@ -40,14 +40,14 @@ targets:
         SWIFT_VERSION: "5.0"
         SWIFT_EMIT_LOC_STRINGS: YES
         MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "6"
+        CURRENT_PROJECT_VERSION: "8"
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: 38DAVMRN66
         PRODUCT_BUNDLE_IDENTIFIER: hu.flint
         GENERATE_INFOPLIST_FILE: YES
         IPHONEOS_DEPLOYMENT_TARGET: "26.0"
-        INFOPLIST_KEY_CFBundleDisplayName: "Flint"
-        INFOPLIST_KEY_CFBundleName: "Flint"
+        INFOPLIST_KEY_CFBundleDisplayName: "Summit"
+        INFOPLIST_KEY_CFBundleName: "Summit"
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
         INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace: YES
         INFOPLIST_KEY_UISupportsDocumentBrowser: NO
@@ -58,23 +58,23 @@ targets:
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Profilkép beállításához hozzáférés a fotókönyvtárhoz szükséges."
         INFOPLIST_KEY_NSCameraUsageDescription: "Profilkép készítéséhez kamera hozzáférés szükséges."
     dependencies:
-      - target: FlintWidgets
-  FlintWidgets:
+      - target: SummitWidgets
+  SummitWidgets:
     type: app-extension
     platform: iOS
     deploymentTarget: "26.0"
     # Az extension bundle ID-nak a fő app ID-jával kell kezdődnie, különben
     # telepítéskor "App Extensions must be prefixed..." hiba jön. Az xcodegen
-    # a target nevéből generálna (hu.flint.app.FlintWidgets — rossz), ezért
+    # a target nevéből generálna (hu.flint.app.SummitWidgets — rossz), ezért
     # itt explicit felülírjuk. (A régi `bundleId:` kulcsot nem ismeri, törölve.)
     info:
-      path: FlintWidgets/Info.plist
+      path: SummitWidgets/Info.plist
       properties:
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     sources:
-      - FlintWidgets
-      - path: FirkaNative/LiveActivity/FlintLiveActivityAttributes.swift
+      - SummitWidgets
+      - path: FirkaNative/LiveActivity/SummitLiveActivityAttributes.swift
     settings:
       base:
         SWIFT_VERSION: "5.0"
@@ -83,7 +83,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: hu.flint.Widgets
         GENERATE_INFOPLIST_FILE: YES
         MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "6"
+        CURRENT_PROJECT_VERSION: "8"
         IPHONEOS_DEPLOYMENT_TARGET: "26.0"
-        INFOPLIST_KEY_CFBundleDisplayName: "Flint Widgets"
+        INFOPLIST_KEY_CFBundleDisplayName: "Summit Widgets"
         INFOPLIST_KEY_NSSupportsLiveActivities: YES

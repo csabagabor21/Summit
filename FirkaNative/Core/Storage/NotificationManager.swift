@@ -36,7 +36,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
     // MARK: - Setup
 
-    /// Egyszer hívandó (FlintApp .onAppear) — különben előtérben nem jelenik meg banner.
+    /// Egyszer hívandó (SummitApp .onAppear) — különben előtérben nem jelenik meg banner.
     func configure() {
         UNUserNotificationCenter.current().delegate = self
         Task { await refreshPermission() }
@@ -86,7 +86,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         // Dolgozat-koppintás → Feladatok/Dolgozatok tab
         if (info["kind"] as? String) == "exams" {
             NotificationCenter.default.post(
-                name: Notification.Name("flint.switchToTasks"),
+                name: Notification.Name("summit.switchToTasks"),
                 object: nil, userInfo: ["segment": "exams"]
             )
             return
@@ -126,7 +126,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     // MARK: - Diff + értesítés
 
     private func seenKey(_ kind: String, userId: String) -> String {
-        "flint.seen\(kind).v1.\(userId)"
+        "summit.seen\(kind).v1.\(userId)"
     }
 
     private func loadSeen(_ kind: String, userId: String) -> Set<String> {
@@ -160,7 +160,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     }
 
     /// Olvasatlan-számláló per felhasználó — ebből lesz az ikon-jelvény száma.
-    private func unreadKey(_ userId: String) -> String { "flint.unread.v1.\(userId)" }
+    private func unreadKey(_ userId: String) -> String { "summit.unread.v1.\(userId)" }
 
     var currentBadgeUserId: String?
 
@@ -183,7 +183,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     /// Jegy-szám kép a bannerhez: 5-ösre 5-öst rajzol, 2-esre 2-est.
     /// Az app ikonját nem lehet cserélgetni, de a banner melléklet-képe igen.
     private func gradeImageURL(value: Int) -> URL? {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("flint-grade-\(value).png")
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("summit-grade-\(value).png")
         if FileManager.default.fileExists(atPath: url.path) { return url }
         let hexes = [1: 0xFF4D6E, 2: 0xFF7A45, 3: 0xFFD23C, 4: 0x92EA3B, 5: 0x22CCAD]
         let hex = hexes[value] ?? 0x888888
@@ -242,7 +242,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             }
             if fresh.count == 1, let g = byId[fresh[0]] {
                 self.schedule(
-                    id: "flint.grade.\(g.id)",
+                    id: "summit.grade.\(g.id)",
                     title: "Új jegy: \(g.valueText) (\(g.subject))",
                     body: [g.type, g.topic, g.teacher].filter { !$0.isEmpty }.joined(separator: " • "),
                     userId: userId, bumpBy: 1,
@@ -252,7 +252,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             } else {
                 let latest = freshGrades.sorted(by: { $0.date > $1.date }).first
                 self.schedule(
-                    id: "flint.grades.\(Int(Date().timeIntervalSince1970))",
+                    id: "summit.grades.\(Int(Date().timeIntervalSince1970))",
                     title: "\(fresh.count) új jegy érkezett",
                     body: freshGrades.prefix(3)
                         .map { "\($0.valueText) • \($0.subject)" }.joined(separator: ", "),
@@ -269,10 +269,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         let byId = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
         return diffAndNotify(kind: "Homework", userId: userId, ids: items.map(\.id)) { fresh in
             if fresh.count == 1, let h = byId[fresh[0]] {
-                self.schedule(id: "flint.hw.\(h.id)", title: "Új házi: \(h.subject)", body: h.plainTitle, userId: userId, bumpBy: 1)
+                self.schedule(id: "summit.hw.\(h.id)", title: "Új házi: \(h.subject)", body: h.plainTitle, userId: userId, bumpBy: 1)
             } else {
                 self.schedule(
-                    id: "flint.hw.\(Int(Date().timeIntervalSince1970))",
+                    id: "summit.hw.\(Int(Date().timeIntervalSince1970))",
                     title: "\(fresh.count) új házi feladat",
                     body: fresh.compactMap { byId[$0] }.prefix(3).map(\.subject).joined(separator: ", "),
                     userId: userId, bumpBy: fresh.count
@@ -289,14 +289,14 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             let df = DateFormatter(); df.locale = Locale(identifier: "hu_HU"); df.dateFormat = "MMM d."
             if fresh.count == 1, let e = byId[fresh[0]] {
                 self.schedule(
-                    id: "flint.exam.\(e.id)", title: "Új dolgozat: \(e.subject)",
+                    id: "summit.exam.\(e.id)", title: "Új dolgozat: \(e.subject)",
                     body: "\(e.mode) • \(df.string(from: e.date))\(e.description.isEmpty ? "" : " • \(e.description)")",
                     userId: userId, bumpBy: 1,
                     userInfo: ["kind": "exams"]
                 )
             } else {
                 self.schedule(
-                    id: "flint.exam.\(Int(Date().timeIntervalSince1970))",
+                    id: "summit.exam.\(Int(Date().timeIntervalSince1970))",
                     title: "\(fresh.count) új dolgozat",
                     body: fresh.compactMap { byId[$0] }.prefix(3).map(\.subject).joined(separator: ", "),
                     userId: userId, bumpBy: fresh.count,
@@ -311,7 +311,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         guard Self.isEnabled(Self.absencesKey) else { return 0 }
         return diffAndNotify(kind: "Absences", userId: userId, ids: items.map(\.id)) { fresh in
             self.schedule(
-                id: "flint.abs.\(Int(Date().timeIntervalSince1970))",
+                id: "summit.abs.\(Int(Date().timeIntervalSince1970))",
                 title: fresh.count == 1 ? "Új hiányzás" : "\(fresh.count) új hiányzás",
                 body: "Nézd meg a Hiányzások fülön.",
                 userId: userId, bumpBy: fresh.count
@@ -333,9 +333,9 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     /// A jelvényt is +1-gyel mutatja, hogy az is tesztelhető legyen.
     func sendTest(userId: String) async {
         _ = await requestPermission()
-        schedule(id: "flint.test.\(Int(Date().timeIntervalSince1970))",
+        schedule(id: "summit.test.\(Int(Date().timeIntervalSince1970))",
                  title: "Teszt értesítés",
-                 body: "Ha ezt látod, működnek a Flint értesítések.",
+                 body: "Ha ezt látod, működnek a Summit értesítések.",
                  userId: userId, bumpBy: 1)
     }
 

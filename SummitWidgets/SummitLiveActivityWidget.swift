@@ -4,12 +4,12 @@ import SwiftUI
 
 // MARK: - Shared Live Activity UI — Widget Extension target
 // Ez a fájl CSAK a Widget Extensionben forduljon — fő appban nem kell.
-// A FlintLiveActivityAttributes.swift-et mindkét target fordítja (shared).
+// A SummitLiveActivityAttributes.swift-et mindkét target fordítja (shared).
 
 @available(iOS 16.2, *)
-struct FlintLiveActivityWidget: Widget {
+struct SummitLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
-        ActivityConfiguration(for: FlintLiveActivityAttributes.self) { context in
+        ActivityConfiguration(for: SummitLiveActivityAttributes.self) { context in
             // Átlátszó liquid glass háttér (mint a zenelejátszó): a .clear
             // engedi, hogy a rendszer rajzolja az áttetsző üveg-hátteret.
             // Bármilyen színes tint lapos, nem üveg hatást adna iOS 26-ban.
@@ -81,13 +81,13 @@ struct FlintLiveActivityWidget: Widget {
     }
 
     /// Az appban választott accent (Beállítások) — indításkor kapja az activity.
-    private func accentColor(_ context: ActivityViewContext<FlintLiveActivityAttributes>) -> Color {
+    private func accentColor(_ context: ActivityViewContext<SummitLiveActivityAttributes>) -> Color {
         let hex = context.attributes.accentHex
-        return Color(hex: UInt(hex == 0 ? 0xA7DC22 : hex))
+        return Color(hex: UInt(hex == 0 ? 0x2B4C7E : hex))
     }
 
     /// Elmarad/Helyettesítés esetén a progress és a pill is átveszi a státuszszínt.
-    private func statusTint(_ context: ActivityViewContext<FlintLiveActivityAttributes>) -> Color {
+    private func statusTint(_ context: ActivityViewContext<SummitLiveActivityAttributes>) -> Color {
         if context.attributes.isCancelled { return Color.red }
         if context.attributes.isSubstituted { return Color.orange }
         return accentColor(context)
@@ -104,10 +104,10 @@ struct FlintLiveActivityWidget: Widget {
 
 @available(iOS 16.2, *)
 private struct LockScreenView: View {
-    let context: ActivityViewContext<FlintLiveActivityAttributes>
+    let context: ActivityViewContext<SummitLiveActivityAttributes>
     private var accent: Color {
         let hex = context.attributes.accentHex
-        return Color(hex: UInt(hex == 0 ? 0xA7DC22 : hex))
+        return Color(hex: UInt(hex == 0 ? 0x2B4C7E : hex))
     }
 
     private var isBreak: Bool { context.state.phase == "break" }

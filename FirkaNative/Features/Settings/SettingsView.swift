@@ -74,7 +74,6 @@ struct SettingsView: View {
                             Text("—").foregroundStyle(.tertiary).font(.caption)
                         } else {
                             Text("\(subjects.count) tárgy").font(.caption.weight(.medium)).foregroundStyle(.secondary)
-                            Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
                         }
                     }
                 }
@@ -87,7 +86,7 @@ struct SettingsView: View {
 
             Section {
                 LiveActivitySettingsRow()
-            } header: { Text("Élő óra").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) } footer: {
+            } header: { Text("Live Activity").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) } footer: {
                 Text("Lock Screen + Dynamic Island — szünetben a következőt mutatja. Rendszer tiltás esetén a Beállításokban engedélyezd.").font(.caption2).foregroundStyle(.secondary)
             }
 
@@ -113,21 +112,23 @@ struct SettingsView: View {
                 .onChange(of: notifyAbsences) { _, new in
                     if new { Task { await NotificationManager.shared.requestPermission() } }
                 }
-                HStack {
-                    Text("Rendszerengedély").font(.subheadline)
-                    Spacer()
-                    Text(notifStatus).font(.caption.weight(.medium)).foregroundStyle(.secondary)
-                    Button("Kérés") { Task {
-                        await NotificationManager.shared.requestPermission()
+                if session.selectedUser?.isDemo == true {
+                    HStack {
+                        Text("Rendszerengedély").font(.subheadline)
+                        Spacer()
+                        Text(notifStatus).font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                        Button("Kérés") { Task {
+                            await NotificationManager.shared.requestPermission()
+                            notifStatus = NotificationManager.shared.permissionStatus
+                        } }
+                        .font(.caption.weight(.semibold)).tint(colors.accent)
+                    }
+                    Button("Teszt értesítés küldése") { Task {
+                        await NotificationManager.shared.sendTest(userId: session.selectedUser?.id ?? "demo-user")
                         notifStatus = NotificationManager.shared.permissionStatus
                     } }
-                    .font(.caption.weight(.semibold)).tint(colors.accent)
+                    .tint(colors.accent)
                 }
-                Button("Teszt értesítés küldése") { Task {
-                    await NotificationManager.shared.sendTest(userId: session.selectedUser?.id ?? "demo-user")
-                    notifStatus = NotificationManager.shared.permissionStatus
-                } }
-                .tint(colors.accent)
                 if session.selectedUser?.isDemo == true {
                     Button("Új demo jegy szimulálása (5-ös Matek + kártya)") { Task {
                         _ = await NotificationManager.shared.simulateDemoGrade()
@@ -142,7 +143,7 @@ struct SettingsView: View {
                     .tint(.red)
                 }
             } header: { Text("Értesítések").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) } footer: {
-                Text("A KRÉTA nem küld push-t, ezért az app minden adatfrissítéskor (megnyitás, lehúzás, háttér-ébresztés) megnézi, mi az új, és arra küld helyi értesítést. Demo módban a fenti gombokkal tesztelhető.").font(.caption2).foregroundStyle(.secondary)
+                Text("A KRÉTA nem küld push-t, ezért az app minden adatfrissítéskor (megnyitás, lehúzás, háttér-ébresztés) megnézi, mi az új, és arra küld helyi értesítést.").font(.caption2).foregroundStyle(.secondary)
             }
 
             Section(header: Text("Megjelenés").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)) {
@@ -178,6 +179,15 @@ struct SettingsView: View {
                     }
                 }
                 .padding(.vertical, 4)
+
+                // Szövegméret — Macen (iPad-app Macen) alapból nagyobb
+                Picker("Szövegméret", selection: Binding(get: { theme.sizeCategoryKey }, set: { theme.sizeCategoryKey = $0 })) {
+                    ForEach(ThemeStore.sizeSteps, id: \.key) { step in
+                        Text(step.title).tag(step.key)
+                    }
+                }
+                .pickerStyle(.navigationLink)
+                .padding(.vertical, 4)
             }
 
             Section(header: Text("Fiók").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)) {
@@ -187,12 +197,12 @@ struct SettingsView: View {
                 }
             }
 
-            Section(footer: Text("Flint • iOS 26 • Liquid Glass • \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")").font(.caption2).foregroundStyle(.tertiary).frame(maxWidth:.infinity)) {
-                Link("Adatkezelés", destination: URL(string: "https://flint.app/privacy")!)
+            Section(footer: Text("Summit • Gábor Csaba").font(.caption2).foregroundStyle(.tertiary).frame(maxWidth:.infinity)) {
+                Link("Adatkezelés", destination: URL(string: "https://summit.app/privacy")!)
             }
         }
         .listStyle(.insetGrouped)
-        .frame(maxWidth: isPad ? 700 : .infinity)
+        .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 800, mac: 920) : .infinity)
         .frame(maxWidth: .infinity)
         .scrollContentBackground(.hidden)
         .background(colors.background)
@@ -298,68 +308,36 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Élő óra toggle (beállítási problémák miatt külön komponens)
+// MARK: - Live Activity toggle — csak a kapcsoló, státusz nélkül
 private struct LiveActivitySettingsRow: View {
-    @StateObject private var manager = FlintLiveActivityManager.shared
+    @EnvironmentObject var theme: ThemeStore
+    @Environment(\.colorScheme) var scheme
+    @StateObject private var manager = SummitLiveActivityManager.shared
     @AppStorage("liveActivity.enabled") private var enabled: Bool = true
     @State private var showSystemAlert = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Toggle(isOn: Binding(
-                get: { enabled },
-                set: { new in
-                    enabled = new
-                    manager.setAppEnabled(new)
-                    if new { Task { await tryStartPreview() } }
-                    manager.refreshSystemState()
-                    if new && !manager.isSystemEnabled { showSystemAlert = true }
-                }
-            )) {
-                Label("Élő óra (Live Activity)", systemImage: "clock.badge.checkmark")
-                    .font(.subheadline.weight(.medium))
+        Toggle(isOn: Binding(
+            get: { enabled },
+            set: { new in
+                enabled = new
+                manager.setAppEnabled(new)
+                if new { Task { await tryStartPreview() } }
+                manager.refreshSystemState()
+                if new && !manager.isSystemEnabled { showSystemAlert = true }
             }
-            .tint(Color(hex: 0xA7DC22))
-
-            // Rendszer állapot — ez szokott kavarni
-            HStack(spacing: 6) {
-                Circle().fill(manager.isSystemEnabled ? Color.green : Color.red).frame(width: 7, height: 7)
-                Text(manager.isSystemEnabled ? "Rendszer engedélyezve" : "Rendszer tiltva — Beállításokban kapcsold be")
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(manager.isSystemEnabled ? Color.secondary : Color.red)
-                Spacer()
-                if !manager.isSystemEnabled {
-                    Button("Megnyitás") { manager.openSystemSettings() }
-                        .font(.caption2.weight(.semibold))
-                }
-            }
-
-            if manager.activeCount > 0 {
-                Text("\(manager.activeCount) aktív éló óra")
-                    .font(.caption2).foregroundStyle(.secondary)
-            }
-            Text("Állapot: \(manager.lastAction)")
-                .font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
-            if let err = manager.lastError {
-                Text(err).font(.caption2).foregroundStyle(.orange).lineLimit(2)
-            }
-
-            if !enabled {
-                Text("Kikapcsolva — nem indul új élő óra, a futók lezárva.")
-                    .font(.caption2).foregroundStyle(.tertiary)
-            } else if !manager.isSystemEnabled {
-                Text("Az app szeretné, de az iOS letiltotta. Először iOS Beállítások → Flint → Live Activities → BE.")
-                    .font(.caption2).foregroundStyle(.orange)
-            }
+        )) {
+            Label("Live Activity", systemImage: "clock.badge.checkmark")
+                .font(.subheadline.weight(.medium))
         }
+        .tint(theme.colors(for: scheme).accent)
         .padding(.vertical, 2)
         .onAppear { manager.refreshSystemState() }
-        .onReceive(manager.objectWillChange) { _ in }
         .alert("Live Activities tiltva", isPresented: $showSystemAlert) {
             Button("Beállítások") { manager.openSystemSettings() }
             Button("OK", role: .cancel) {}
         } message: {
-            Text("iOS Beállítások → Flint → Live Activities kapcsolót kapcsold BE, különben nem jelenik meg a Lock Screen-en / Dynamic Islanden.")
+            Text("iOS Beállítások → Summit → Live Activities kapcsolót kapcsold BE, különben nem jelenik meg a Lock Screen-en / Dynamic Islanden.")
         }
     }
 
