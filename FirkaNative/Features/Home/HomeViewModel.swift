@@ -34,6 +34,11 @@ final class HomeViewModel: ObservableObject {
             exams = DemoData.exams()
             lessonsToday = DemoData.lessonsToday()
             error = nil
+            // Helyi értesítés-diff (elsőre csak magot vet, nem spamel)
+            NotificationManager.shared.checkAll(
+                grades: DemoData.gradesExpanded(), homeworks: homeworks,
+                exams: exams, absences: absences, userId: user?.id ?? "demo-user"
+            )
             updateLiveState()
             return
         }
@@ -64,6 +69,12 @@ final class HomeViewModel: ObservableObject {
         self.exams = exR
         self.messages = msgR
         self.lessonsToday = ttR
+        // Helyi értesítés-diff az újakról (KRÉTA push nincs, ez polling-alapú)
+        if let uid = user?.id {
+            NotificationManager.shared.checkAll(
+                grades: gradesR, homeworks: hwR, exams: exR, absences: abR, userId: uid
+            )
+        }
         if gradesR.isEmpty && hwR.isEmpty && abR.isEmpty && exR.isEmpty && msgR.isEmpty && ttR.isEmpty {
             error = "Nem érkezett adat a KRÉTÁ-tól — ellenőrizd a kapcsolatot vagy jelentkezz be újra."
         } else {

@@ -25,6 +25,8 @@ struct FlintApp: App {
                 .tint(theme.accent)
                 .preferredColorScheme(theme.mode.scheme)
                 .onAppear {
+                    // Előtéri banner-delegált az értesítésekhez
+                    NotificationManager.shared.configure()
                     kreta.accessToken = session.selectedUser?.accessToken
                     kreta.refreshToken = session.selectedUser?.refreshToken
                     kreta.instituteCode = session.selectedUser?.instituteCode

@@ -17,6 +17,7 @@ struct TimetableView: View {
     @State private var weekOffset: Int = 0 // 0 = ez a hét, -1 = múlt hét, +1 = jövő hét
     @State private var isLoading = true
     @State private var flashedLessonID: String?
+    @State private var suppressAutoJumpUntil = Date.distantPast // házi-deeplink alatt nincs okos ugrás
     @State private var flashPulse = false
     @State private var exemptedTick = 0
     private let switchToTimetable = Notification.Name("flint.switchToTimetable")
@@ -29,13 +30,66 @@ struct TimetableView: View {
     @AppStorage("home.demoPreviewActive") private var isPreviewActive = false
     @AppStorage("home.demoPreviewMinutes") private var previewMinutes: Double = 540
     private var isDemoEffective: Bool { session.selectedUser?.isDemo == true }
-    private var currentMonday: Date {
+    private func mondayOfWeek(offset: Int) -> Date {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
         let weekday = cal.component(.weekday, from: today)
         let mondayOffset = (weekday == 1 ? -6 : 2 - weekday)
         let baseMonday = cal.date(byAdding: .day, value: mondayOffset, to: today)!
-        return cal.date(byAdding: .day, value: weekOffset * 7, to: baseMonday)!
+        return cal.date(byAdding: .day, value: offset * 7, to: baseMonday)!
+    }
+    private var currentMonday: Date { mondayOfWeek(offset: weekOffset) }
+    /// Naptári nap → (weekOffset, hétköznap-tag) a 0. hét hétfőjéhez képest.
+    private func offsetAndTag(for day: Date) -> (weekOffset: Int, weekday: Int) {
+        let cal = Calendar.current
+        let base = mondayOfWeek(offset: 0)
+        let diff = cal.dateComponents([.day], from: base, to: cal.startOfDay(for: day)).day ?? 0
+        let wd = cal.component(.weekday, from: day)
+        guard wd >= 2 && wd <= 6 else { return (0, 2) }
+        return (Int(floor(Double(diff) / 7.0)), wd)
+    }
+    /// Ha a mai utolsó óra már véget ért (vagy hétvége van), a következő tanítási
+    /// (órával rendelkező) nap weekOffset/hétköznap párját adja vissza.
+    private func smartDayTarget(now: Date, items: [LessonItem]) -> (weekOffset: Int, weekday: Int) {
+        let cal = Calendar.current
+        let weekday = cal.component(.weekday, from: now)
+        let isWeekend = (weekday == 1 || weekday == 7)
+        if !isWeekend {
+            let todays = items.filter { cal.isDate($0.start, inSameDayAs: now) }
+            if let lastEnd = todays.map(\.end).max() {
+                if now < lastEnd { return (0, weekday) } // még tart / hátravan a mai tanítás
+            } else if items.isEmpty {
+                return (0, weekday) // még nincs adat — naptár szerint ma
+            }
+            // Mai órák lementek (vagy ma nincs óra, de van cache): első órás nap előre
+            for i in 1...14 {
+                guard let day = cal.date(byAdding: .day, value: i, to: now) else { continue }
+                let wd = cal.component(.weekday, from: day)
+                guard wd >= 2 && wd <= 6 else { continue }
+                if items.contains(where: { cal.isDate($0.start, inSameDayAs: day) }) {
+                    return offsetAndTag(for: day)
+                }
+            }
+        }
+        // Hétvége, vagy a cache-ben nincs előrébb óra (pl. a jövő hét még nincs
+        // lehúzva): naptár szerinti következő hétköznap.
+        for i in 1...7 {
+            guard let day = cal.date(byAdding: .day, value: i, to: now) else { continue }
+            let wd = cal.component(.weekday, from: day)
+            if wd >= 2 && wd <= 6 { return offsetAndTag(for: day) }
+        }
+        return isWeekend ? (1, 2) : (0, weekday)
+    }
+    /// Tabra lépéskor / betöltés után a következő tanítási napra ugrik, ha kell.
+    /// Igazat ad vissza, ha napot (vagy hetet) váltott.
+    @discardableResult
+    private func applySmartDay(now: Date = Date()) -> Bool {
+        guard now > suppressAutoJumpUntil else { return false }
+        let t = smartDayTarget(now: now, items: lessons)
+        guard t.weekOffset != weekOffset || t.weekday != selectedDay else { return false }
+        weekOffset = t.weekOffset
+        selectedDay = t.weekday
+        return true
     }
     private var currentWeekRangeText: String {
         let cal = Calendar.current
@@ -306,6 +360,15 @@ struct TimetableView: View {
                 }
                 await load()
             }
+            .onAppear {
+                // Órarend tabra koppintáskor: ha az utolsó mai óra már lement
+                // vagy hétvége van, a következő tanítási napot mutassa.
+                // (Első betöltés alatt a load() intézi az okos ugrást.)
+                guard !isLoading else { return }
+                if applySmartDay() {
+                    Task { await load() }
+                }
+            }
             // Live Activity sync EGYKEZES: csak a HomeView írja (ugyanaz az AppStorage kulcs!).
             // Két író (Home + Timetable eltérő nap locked lessons-szel) egymást ütötte:
             // csúszkánál az egyik indított, a másik endAll-ozott → villogó/blank Island.
@@ -321,6 +384,7 @@ struct TimetableView: View {
                 var match = lessons.first(where: { SubjectMatcher.same($0.subject, subject) && cal.isDate($0.start, inSameDayAs: deadline) })
                 if match == nil { match = lessons.first(where: { SubjectMatcher.same($0.subject, subject) }) }
                 guard let m = match else { return }
+                suppressAutoJumpUntil = Date().addingTimeInterval(3) // deeplink célja marad, nincs okos ugrás
                 withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
                     selectedDay = cal.component(.weekday, from: m.start)
                     flashedLessonID = m.id
@@ -443,18 +507,20 @@ struct TimetableView: View {
     func progress(for l: LessonItem) -> Double { progress(for: l, now: overrideNow ?? Date()) }
 
     func load() async {
+        let entryOffset = weekOffset
         // Demo: a kiválasztott hét hétfő–péntek lessonjei, hétfő 3. elmarad, 4. helyettesítés
         guard let user = session.selectedUser, !user.isDemo else {
             let base = DemoData.lessonsExpanded()
-            // Eltoljuk a demó órarendet a heti offsetnek megfelelően
+            homeworks = DemoData.homeworks()
+            exams = DemoData.exams()
+            // Okos nap csak a 0. hétről indulva (kézi heti lapozásnál nem bántjuk)
+            lessons = deduped(base)
+            if entryOffset == 0 { applySmartDay() }
+            // A végleges héthez toljuk a demó órarendet
             if weekOffset != 0 {
                 let shift = TimeInterval(weekOffset * 7 * 86400)
                 lessons = deduped(base.map { l in LessonItem(id: l.id, subject: l.subject, room: l.room, start: l.start.addingTimeInterval(shift), end: l.end.addingTimeInterval(shift), teacher: l.teacher, index: l.index, isSubstituted: l.isSubstituted, isCancelled: l.isCancelled, originalTeacher: l.originalTeacher) })
-            } else {
-                lessons = deduped(base)
             }
-            homeworks = DemoData.homeworks()
-            exams = DemoData.exams()
             isLoading = false
             return
         }
@@ -462,9 +528,24 @@ struct TimetableView: View {
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         if iss.isEmpty || iss == "unknown" {
             lessons = []; homeworks = []; exams = []
+            if entryOffset == 0 { applySmartDay() }
             isLoading = false
             return
         }
+        await fetchWeek()
+        // Okos nap csak a 0. hétről indulva: ha az utolsó mai óra lement / hétvége
+        // van, a következő tanítási napra ugrunk — ha az másik hét, annak az adata is kell.
+        if entryOffset == 0, applySmartDay(), weekOffset != entryOffset {
+            await fetchWeek()
+        }
+        isLoading = false
+    }
+
+    /// Az aktuális weekOffset hetének lehúzása (KRÉTA: hétfő–vasárnap).
+    private func fetchWeek() async {
+        guard let user = session.selectedUser else { return }
+        let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
+        guard !iss.isEmpty, iss != "unknown" else { lessons = []; homeworks = []; exams = []; return }
         let monday = currentMonday
         let start = monday
         let end = Calendar.current.date(byAdding: .day, value: 7, to: monday)! // vasárnap 00:00 = teljes hét
@@ -475,11 +556,6 @@ struct TimetableView: View {
         lessons = deduped(ttR)
         homeworks = hwR
         exams = exR
-        isLoading = false
-        // Csak első betöltéskor állítsuk a napot mai napra, weekOffset = 0 esetén
-        if weekOffset == 0 {
-            var d = Calendar.current.component(.weekday, from: Date()); if d==1||d==7 { d=2 }; selectedDay=d
-        }
     }
 }
 

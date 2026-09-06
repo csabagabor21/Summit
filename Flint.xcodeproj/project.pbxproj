@@ -19,6 +19,7 @@
 		34D3F85661D7CEEF7CFE3AB0 /* ProfileImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11397958896C63F02493DC94 /* ProfileImageView.swift */; };
 		350860F0739797515BE0641D /* CompletedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F44247D87A1D5AF0D5AD57 /* CompletedStore.swift */; };
 		3F9A6A266B4576E426D5B504 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59B95265FA2B313F786E0034 /* SettingsView.swift */; };
+		488FA74DB8C609136814EA37 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56AB3DC865533A530A9162C8 /* NotificationManager.swift */; };
 		4EB18D0CFA45C5421E6C64EF /* FlintLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B5C9EC44D39D87241B550D5 /* FlintLiveActivityAttributes.swift */; };
 		5969DACA1CC73099A7AE3ACD /* AbsencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 112CF35802F49E7BC4E6FA39 /* AbsencesView.swift */; };
 		62D5A9DA0D7F15825847108D /* FlintLiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 888F7384D4773D1C3BCE5570 /* FlintLiveActivityManager.swift */; };
@@ -104,6 +105,7 @@
 		4BD24134911466149B1A0C22 /* LiveActivityBackgroundRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityBackgroundRefresh.swift; sourceTree = "<group>"; };
 		52E5BC6F4AFDA9E5DB6D34DD /* FlintWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlintWidgetsBundle.swift; sourceTree = "<group>"; };
 		545D16B4E6B97B9D2399B5FC /* GradesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradesView.swift; sourceTree = "<group>"; };
+		56AB3DC865533A530A9162C8 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		59B95265FA2B313F786E0034 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		5D821885DD5DB8AB896B9E77 /* KretaAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaAPI.swift; sourceTree = "<group>"; };
 		630D3F7140DAD8A14041B2F9 /* GradeChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeChartView.swift; sourceTree = "<group>"; };
@@ -340,6 +342,7 @@
 				79F44247D87A1D5AF0D5AD57 /* CompletedStore.swift */,
 				8AF82F0EE85913650A024661 /* ExemptedStore.swift */,
 				E9CA9ED6D07518801F3F89E9 /* KeychainHelper.swift */,
+				56AB3DC865533A530A9162C8 /* NotificationManager.swift */,
 				9DEF36C43E5FED1FF34023D9 /* ProfileImageStore.swift */,
 				2796FFD5EF18E9AD20A660A2 /* SessionStore.swift */,
 			);
@@ -413,14 +416,6 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1500;
-				TargetAttributes = {
-					462BC4BB7D47D98FE2FD503A = {
-						ProvisioningStyle = Automatic;
-					};
-					FCBF8911DD76CDFEB024468F = {
-						ProvisioningStyle = Automatic;
-					};
-				};
 			};
 			buildConfigurationList = 365D98C0A9E92BE879BB433D /* Build configuration list for PBXProject "Flint" */;
 			developmentRegion = en;
@@ -525,6 +520,7 @@
 				A9768A46A796C7C7A8666DAA /* LoginView.swift in Sources */,
 				1DE67DADB887915E2F7D2944 /* MainTabView.swift in Sources */,
 				035CCDDD8008E434E80735BC /* NotesView.swift in Sources */,
+				488FA74DB8C609136814EA37 /* NotificationManager.swift in Sources */,
 				8E10EB72340D58DBA05AC570 /* ProfileImageStore.swift in Sources */,
 				34D3F85661D7CEEF7CFE3AB0 /* ProfileImageView.swift in Sources */,
 				F8896E923D655012621E68C7 /* RootViewModel.swift in Sources */,
@@ -556,9 +552,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = K3XA6V2Q36;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Flint;
 				INFOPLIST_KEY_CFBundleName = Flint;
@@ -577,7 +575,9 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.app.Flint;
+				PRODUCT_BUNDLE_IDENTIFIER = hu.flint;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = csaba;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -588,9 +588,11 @@
 		378FB1356BF8D702936F0246 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = K3XA6V2Q36;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FlintWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Flint Widgets";
@@ -602,7 +604,9 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.app.Flint.Widgets;
+				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.Widgets;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = wideget;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -731,9 +735,11 @@
 		97B9AE9AFECB8609285D6021 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = K3XA6V2Q36;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FlintWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Flint Widgets";
@@ -745,7 +751,9 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.app.Flint.Widgets;
+				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.Widgets;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = wideget;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -757,9 +765,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = K3XA6V2Q36;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Flint;
 				INFOPLIST_KEY_CFBundleName = Flint;
@@ -778,7 +788,9 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.app.Flint;
+				PRODUCT_BUNDLE_IDENTIFIER = hu.flint;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = csaba;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;

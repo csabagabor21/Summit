@@ -14,6 +14,12 @@ struct SettingsView: View {
     @State private var isLoadingSubjects = true
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var showPhotoOptions = false
+    @AppStorage("notify.grades") private var notifyGrades = true
+    @AppStorage("notify.tasks") private var notifyTasks = true
+    @AppStorage("notify.absences") private var notifyAbsences = true
+    @State private var notifStatus = "Ismeretlen"
+    @State private var simMessage: String?
+    @State private var showSimAlert = false
     var colors: AppColors { theme.colors(for: scheme) }
 
     var body: some View {
@@ -84,6 +90,61 @@ struct SettingsView: View {
                 Text("Lock Screen + Dynamic Island — szünetben a következőt mutatja. Rendszer tiltás esetén a Beállításokban engedélyezd.").font(.caption2).foregroundStyle(.secondary)
             }
 
+            Section {
+                Toggle(isOn: $notifyGrades) {
+                    Label("Új jegy", systemImage: "star.fill").font(.subheadline.weight(.medium))
+                }
+                .tint(colors.accent)
+                .onChange(of: notifyGrades) { _, new in
+                    if new { Task { await NotificationManager.shared.requestPermission() } }
+                }
+                Toggle(isOn: $notifyTasks) {
+                    Label("Új házi / dolgozat", systemImage: "checklist").font(.subheadline.weight(.medium))
+                }
+                .tint(colors.accent)
+                .onChange(of: notifyTasks) { _, new in
+                    if new { Task { await NotificationManager.shared.requestPermission() } }
+                }
+                Toggle(isOn: $notifyAbsences) {
+                    Label("Új hiányzás", systemImage: "person.crop.rectangle.stack").font(.subheadline.weight(.medium))
+                }
+                .tint(colors.accent)
+                .onChange(of: notifyAbsences) { _, new in
+                    if new { Task { await NotificationManager.shared.requestPermission() } }
+                }
+                HStack {
+                    Text("Rendszerengedély").font(.subheadline)
+                    Spacer()
+                    Text(notifStatus).font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                    Button("Kérés") { Task {
+                        await NotificationManager.shared.requestPermission()
+                        notifStatus = NotificationManager.shared.permissionStatus
+                    } }
+                    .font(.caption.weight(.semibold)).tint(colors.accent)
+                }
+                Button("Teszt értesítés küldése") { Task {
+                    await NotificationManager.shared.sendTest(userId: session.selectedUser?.id ?? "demo-user")
+                    notifStatus = NotificationManager.shared.permissionStatus
+                } }
+                .tint(colors.accent)
+                if session.selectedUser?.isDemo == true {
+                    Button("Új demo jegy szimulálása (5-ös Matek)") { Task {
+                        let g = await NotificationManager.shared.simulateDemoGrade()
+                        simMessage = "\(g.valueText)-ös \(g.subject) (\(g.type)) — értesítés elküldve."
+                        showSimAlert = true
+                    } }
+                    .tint(colors.accent)
+                    Button("Értesítési előzmény törlése (újrateszteléshez)") {
+                        NotificationManager.shared.resetDemoSeen()
+                        simMessage = "Előzmény törölve — a következő frissítés csendben magot vet."
+                        showSimAlert = true
+                    }
+                    .tint(.red)
+                }
+            } header: { Text("Értesítések").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) } footer: {
+                Text("A KRÉTA nem küld push-t, ezért az app minden adatfrissítéskor (megnyitás, lehúzás, háttér-ébresztés) megnézi, mi az új, és arra küld helyi értesítést. Demo módban a fenti gombokkal tesztelhető.").font(.caption2).foregroundStyle(.secondary)
+            }
+
             Section(header: Text("Megjelenés").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)) {
                 Picker("Téma", selection: Binding(get: { theme.mode }, set: { theme.mode = $0 })) {
                     ForEach(AppThemeMode.allCases) { m in
@@ -140,7 +201,18 @@ struct SettingsView: View {
         .toolbarBackground(.visible, for: .navigationBar)
         .task { await loadSubjects() }
         .refreshable { await loadSubjects(force: true) }
-        .onAppear { thresholds = GradingLogic.loadThresholds() }
+        .onAppear {
+            thresholds = GradingLogic.loadThresholds()
+            Task {
+                await NotificationManager.shared.refreshPermission()
+                notifStatus = NotificationManager.shared.permissionStatus
+            }
+        }
+        .alert("Demo értesítés", isPresented: $showSimAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(simMessage ?? "")
+        }
         .onChange(of: session.selectedId) { _, _ in Task { await loadSubjects(force: true) } }
     }
 

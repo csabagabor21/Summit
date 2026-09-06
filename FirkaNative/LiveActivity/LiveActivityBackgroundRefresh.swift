@@ -99,6 +99,10 @@ enum LiveActivityBackgroundRefresh {
             guard let end = cal.date(byAdding: .day, value: 1, to: start) else { return false }
             lessons = await kreta.fetchTimetable(iss: iss, from: start, to: end)
             if lessons.isEmpty { return false }
+            // Polling-alapú jegy-értesítés háttérből is: ha a rendszer
+            // felébreszt az élő órához, az új jegyeket is észrevesszük.
+            let bgGrades = await kreta.fetchGrades(iss: iss)
+            await NotificationManager.shared.checkGrades(bgGrades, userId: user!.id)
         }
         let now = Date()
         let cur = lessons.first { $0.start <= now && $0.end >= now }

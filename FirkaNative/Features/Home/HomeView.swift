@@ -302,6 +302,8 @@ struct HomeView: View {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                // Olvasottnak vesszük: jelvény nullázása (a frissítés úgyis diffel)
+                if let uid = session.selectedUser?.id { NotificationManager.shared.clearBadge(userId: uid) }
                 Task { await syncLiveActivity() }
             }
             .onReceive(NotificationCenter.default.publisher(for: ExemptedStore.changedNotification)) { _ in exemptedTick += 1 }
@@ -324,8 +326,8 @@ struct HomeView: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink { SettingsView() } label: { ToolbarAvatar(userId: user.id) }
-                        .buttonStyle(.plain)
+                    NavigationLink { SettingsView() } label: { ProfileImageView(name: user.name, userId: user.id, size: 30) }
+                        .buttonStyle(.plain) // különben a rendszer glass-pilleket tesz a kör mögé
                 }
             }
         }
