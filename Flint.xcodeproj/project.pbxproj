@@ -16,9 +16,11 @@
 		1AEDE391AD49AD57FF1571B6 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = F71E956AC45085B50004306D /* User.swift */; };
 		1DE67DADB887915E2F7D2944 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADB93DE401D53E80FEEF49D2 /* MainTabView.swift */; };
 		2BD208A43080EA01B7873BCB /* GradesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 545D16B4E6B97B9D2399B5FC /* GradesView.swift */; };
+		138A5FE91FAA46F7BD543BF2 /* GradeCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFB24E078D65400F947E6C37 /* GradeCelebrationView.swift */; };
 		34D3F85661D7CEEF7CFE3AB0 /* ProfileImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11397958896C63F02493DC94 /* ProfileImageView.swift */; };
 		350860F0739797515BE0641D /* CompletedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F44247D87A1D5AF0D5AD57 /* CompletedStore.swift */; };
 		3F9A6A266B4576E426D5B504 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59B95265FA2B313F786E0034 /* SettingsView.swift */; };
+		1C9E9A5B58414865BD85D754 /* ProfileCropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B53DEDFDFC4992BB7AFADD /* ProfileCropView.swift */; };
 		488FA74DB8C609136814EA37 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56AB3DC865533A530A9162C8 /* NotificationManager.swift */; };
 		4EB18D0CFA45C5421E6C64EF /* FlintLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B5C9EC44D39D87241B550D5 /* FlintLiveActivityAttributes.swift */; };
 		5969DACA1CC73099A7AE3ACD /* AbsencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 112CF35802F49E7BC4E6FA39 /* AbsencesView.swift */; };
@@ -105,8 +107,10 @@
 		4BD24134911466149B1A0C22 /* LiveActivityBackgroundRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityBackgroundRefresh.swift; sourceTree = "<group>"; };
 		52E5BC6F4AFDA9E5DB6D34DD /* FlintWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlintWidgetsBundle.swift; sourceTree = "<group>"; };
 		545D16B4E6B97B9D2399B5FC /* GradesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradesView.swift; sourceTree = "<group>"; };
+		EFB24E078D65400F947E6C37 /* GradeCelebrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCelebrationView.swift; sourceTree = "<group>"; };
 		56AB3DC865533A530A9162C8 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		59B95265FA2B313F786E0034 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		F2B53DEDFDFC4992BB7AFADD /* ProfileCropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileCropView.swift; sourceTree = "<group>"; };
 		5D821885DD5DB8AB896B9E77 /* KretaAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaAPI.swift; sourceTree = "<group>"; };
 		630D3F7140DAD8A14041B2F9 /* GradeChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeChartView.swift; sourceTree = "<group>"; };
 		79F44247D87A1D5AF0D5AD57 /* CompletedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompletedStore.swift; sourceTree = "<group>"; };
@@ -274,6 +278,7 @@
 			children = (
 				545D16B4E6B97B9D2399B5FC /* GradesView.swift */,
 				85D39B9212DD03C8DC8D44A9 /* SubjectDetailView.swift */,
+				EFB24E078D65400F947E6C37 /* GradeCelebrationView.swift */,
 			);
 			path = Grades;
 			sourceTree = "<group>";
@@ -294,6 +299,7 @@
 				F0FB0CA7C07E5D8E328A4A6D /* RoundingDetailView.swift */,
 				59B95265FA2B313F786E0034 /* SettingsView.swift */,
 				8B34D700082CBC9796AA731F /* TeacherRoundingView.swift */,
+				F2B53DEDFDFC4992BB7AFADD /* ProfileCropView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -504,6 +510,7 @@
 				D2FD83AA4ED9E13CB151AEC9 /* FlintApp.swift in Sources */,
 				4EB18D0CFA45C5421E6C64EF /* FlintLiveActivityAttributes.swift in Sources */,
 				62D5A9DA0D7F15825847108D /* FlintLiveActivityManager.swift in Sources */,
+				138A5FE91FAA46F7BD543BF2 /* GradeCelebrationView.swift in Sources */,
 				C3CD383D33EAE4841C7753CB /* GradeChartView.swift in Sources */,
 				8936464F8564BD002832C02C /* GradeCircle.swift in Sources */,
 				2BD208A43080EA01B7873BCB /* GradesView.swift in Sources */,
@@ -523,6 +530,7 @@
 				488FA74DB8C609136814EA37 /* NotificationManager.swift in Sources */,
 				8E10EB72340D58DBA05AC570 /* ProfileImageStore.swift in Sources */,
 				34D3F85661D7CEEF7CFE3AB0 /* ProfileImageView.swift in Sources */,
+				1C9E9A5B58414865BD85D754 /* ProfileCropView.swift in Sources */,
 				F8896E923D655012621E68C7 /* RootViewModel.swift in Sources */,
 				E0623933380F0CCBEC687550 /* RoundingDetailView.swift in Sources */,
 				07425EA432B29AF616973EFD /* SessionStore.swift in Sources */,

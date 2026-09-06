@@ -18,6 +18,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     /// Engedély-állapot a Beállítások sornak (unknown / denied / authorized)
     @Published var permissionStatus: String = "Ismeretlen"
 
+    /// Fullscreen ünneplő kártya célja — ha nem nil, a MainTabView felteszi.
+    /// Új jegy diffjekor, értesítés-koppintáskor és demo szimuláláskor töltődik.
+    @Published var celebrationGrade: GradeItem?
+
     // MARK: - Toggle kulcsok (SettingsView @AppStorage-gal írja)
 
     static let gradesKey = "notify.grades"
@@ -71,6 +75,44 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
         [.banner, .sound]
+    }
+
+    // Értesítés-koppintás: jegy-értesítésből az ünneplő kártyát nyitja.
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        let info = response.notification.request.content.userInfo
+        guard let grade = Self.gradeFromUserInfo(info) else { return }
+        await MainActor.run { NotificationManager.shared.celebrationGrade = grade }
+    }
+
+    // MARK: - Kártya userInfo (koppintás kilőtt appból is működik)
+
+    nonisolated static func gradeUserInfo(_ g: GradeItem) -> [AnyHashable: Any] {
+        [
+            "kind": "grade", "id": g.id, "subject": g.subject, "value": g.value,
+            "valueText": g.valueText, "topic": g.topic, "type": g.type,
+            "teacher": g.teacher, "weight": g.weight,
+            "date": g.date.timeIntervalSince1970,
+        ]
+    }
+
+    nonisolated static func gradeFromUserInfo(_ info: [AnyHashable: Any]) -> GradeItem? {
+        guard (info["kind"] as? String) == "grade",
+              let subject = info["subject"] as? String,
+              let value = info["value"] as? Int
+        else { return nil }
+        return GradeItem(
+            id: (info["id"] as? String) ?? UUID().uuidString,
+            subject: subject, value: value,
+            valueText: (info["valueText"] as? String) ?? "\(value)",
+            date: Date(timeIntervalSince1970: (info["date"] as? Double) ?? Date().timeIntervalSince1970),
+            teacher: (info["teacher"] as? String) ?? "",
+            type: (info["type"] as? String) ?? "",
+            weight: (info["weight"] as? Int) ?? 100,
+            topic: (info["topic"] as? String) ?? ""
+        )
     }
 
     // MARK: - Diff + értesítés
@@ -161,12 +203,13 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         return url
     }
 
-    private func schedule(id: String, title: String, body: String, userId: String, bumpBy: Int, imageURL: URL? = nil) {
+    private func schedule(id: String, title: String, body: String, userId: String, bumpBy: Int, imageURL: URL? = nil, userInfo: [AnyHashable: Any] = [:]) {
         if bumpBy > 0 { bumpBadge(userId: userId, by: bumpBy) }
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
+        content.userInfo = userInfo
         // Rendszer rajzolja a jelvényt — nem formázható (Liquid Glass sem megy rá).
         content.badge = (UserDefaults.standard.object(forKey: unreadKey(userId)) as? Int ?? 0) as NSNumber
         if let imageURL, let att = try? UNNotificationAttachment(identifier: "grade", url: imageURL, options: nil) {
@@ -184,21 +227,29 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         guard Self.isEnabled(Self.gradesKey) else { return 0 }
         let byId = Dictionary(uniqueKeysWithValues: grades.map { ($0.id, $0) })
         return diffAndNotify(kind: "Grades", userId: userId, ids: grades.map(\.id)) { fresh in
+            let freshGrades = fresh.compactMap { byId[$0] }
+            // A legfrissebb új jegyre fullscreen ünneplő kártya is jár.
+            if let latest = freshGrades.sorted(by: { $0.date > $1.date }).first {
+                self.celebrationGrade = latest
+            }
             if fresh.count == 1, let g = byId[fresh[0]] {
                 self.schedule(
                     id: "flint.grade.\(g.id)",
                     title: "Új jegy: \(g.valueText) (\(g.subject))",
                     body: [g.type, g.topic, g.teacher].filter { !$0.isEmpty }.joined(separator: " • "),
                     userId: userId, bumpBy: 1,
-                    imageURL: self.gradeImageURL(value: g.value)
+                    imageURL: self.gradeImageURL(value: g.value),
+                    userInfo: Self.gradeUserInfo(g)
                 )
             } else {
+                let latest = freshGrades.sorted(by: { $0.date > $1.date }).first
                 self.schedule(
                     id: "flint.grades.\(Int(Date().timeIntervalSince1970))",
                     title: "\(fresh.count) új jegy érkezett",
-                    body: fresh.compactMap { byId[$0] }.prefix(3)
+                    body: freshGrades.prefix(3)
                         .map { "\($0.valueText) • \($0.subject)" }.joined(separator: ", "),
-                    userId: userId, bumpBy: fresh.count
+                    userId: userId, bumpBy: fresh.count,
+                    userInfo: latest.map { Self.gradeUserInfo($0) } ?? [:]
                 )
             }
         }
@@ -295,6 +346,8 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             topic: "Függvények (szimulált)"
         )
         checkGrades(base + [fake], userId: userId)
+        // Demo teszt: a kártya azonnal felpattan (az értesítés mellé).
+        celebrationGrade = fake
         return fake
     }
 

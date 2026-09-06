@@ -572,17 +572,20 @@ enum DemoData {
         ]
     }
     static func homeworks() -> [HomeworkItem] {
-        // deadlines aligned to demo lessons (same-day) so LiveCard attachedInfo is verifiable
+        // Tanítási napokra horgonyozva (ehhez a héthez, hétfő–péntek),
+        // hogy az órarend nap-pontos csatolása mindig találjon órát.
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
-        func at(_ dayOffset: Int, hour: Int = 23) -> Date { cal.date(byAdding: .day, value: dayOffset, to: today)!.addingTimeInterval(Double(hour*3600)) }
+        let weekday = cal.component(.weekday, from: today)
+        let monday = cal.date(byAdding: .day, value: (weekday == 1 ? -6 : 2 - weekday), to: today)!
+        func at(_ weekDay: Int, hour: Int = 16) -> Date { cal.date(byAdding: .day, value: weekDay, to: monday)!.addingTimeInterval(Double(hour*3600)) }
         return [
-            HomeworkItem(id: "h1", subject: "Matek", title: "Gyakorló 12-15 (HF)", deadline: at(0, hour: 16), teacher: "Kovács", isDone: false),
-            HomeworkItem(id: "h2", subject: "Angol", title: "Unit 5 vocab + essay 300 szó", deadline: at(0, hour: 16), teacher: "Smith", isDone: false),
-            HomeworkItem(id: "h3", subject: "Fizika", title: "Munkafüzet 42.o / 5 feladat", deadline: at(1, hour: 16), teacher: "Varga", isDone: false),
-            HomeworkItem(id: "h4", subject: "Töri", title: "Esszé vázlat", deadline: at(1, hour: 16), teacher: "Nagy", isDone: false),
-            HomeworkItem(id: "h5", subject: "Irodalom", title: "Olvasónapló 2. fejezet", deadline: at(2, hour: 16), teacher: "Szabó", isDone: false),
-            HomeworkItem(id: "h6", subject: "Kémia", title: "Tk. 56.o feladatok", deadline: at(3, hour: 16), teacher: "Kiss", isDone: false),
+            HomeworkItem(id: "h1", subject: "Matek", title: "Gyakorló 12-15 (HF)", deadline: at(0), teacher: "Kovács", isDone: false),
+            HomeworkItem(id: "h2", subject: "Angol", title: "Unit 5 vocab + essay 300 szó", deadline: at(0), teacher: "Smith", isDone: false),
+            HomeworkItem(id: "h3", subject: "Fizika", title: "Munkafüzet 42.o / 5 feladat", deadline: at(1), teacher: "Varga", isDone: false),
+            HomeworkItem(id: "h4", subject: "Töri", title: "Esszé vázlat", deadline: at(1), teacher: "Nagy", isDone: false),
+            HomeworkItem(id: "h5", subject: "Irodalom", title: "Olvasónapló 2. fejezet", deadline: at(2), teacher: "Szabó", isDone: false),
+            HomeworkItem(id: "h6", subject: "Kémia", title: "Tk. 56.o feladatok", deadline: at(3), teacher: "Kiss", isDone: false),
         ]
     }
     static func absences() -> [AbsenceItem] { [
@@ -596,15 +599,19 @@ enum DemoData {
         MessageItem(id: "m3", sender: "Kovács J.", subject: "Pót ZH időpont", date: Date().addingTimeInterval(-86400*2), isRead: false),
     ]}
     static func exams() -> [ExamItem] {
+        // Tanítási napokra horgonyozva (ehhez a héthez, hétfő–péntek),
+        // hogy az órarend nap-pontos csatolása mindig találjon órát.
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
-        func at(_ dayOffset: Int, hour: Int = 10) -> Date { cal.date(byAdding: .day, value: dayOffset, to: today)!.addingTimeInterval(Double(hour*3600)) }
+        let weekday = cal.component(.weekday, from: today)
+        let monday = cal.date(byAdding: .day, value: (weekday == 1 ? -6 : 2 - weekday), to: today)!
+        func at(_ weekDay: Int, hour: Int = 10) -> Date { cal.date(byAdding: .day, value: weekDay, to: monday)!.addingTimeInterval(Double(hour*3600)) }
         return [
             ExamItem(id: "e1", subject: "Kémia", date: at(0, hour: 10), mode: "Írásbeli", description: "Sav-bázis"),
             ExamItem(id: "e2", subject: "Matek", date: at(1, hour: 9), mode: "Témazáró", description: "Függvények"),
             ExamItem(id: "e3", subject: "Fizika", date: at(2, hour: 10), mode: "Dolgozat", description: "Munka, energia"),
-            ExamItem(id: "e4", subject: "Töri", date: at(4, hour: 11), mode: "Témazáró", description: "II. vh."),
-            ExamItem(id: "e5", subject: "Angol", date: at(5, hour: 9), mode: "Szóbeli", description: "Unit 5"),
+            ExamItem(id: "e4", subject: "Töri", date: at(3, hour: 11), mode: "Témazáró", description: "II. vh."),
+            ExamItem(id: "e5", subject: "Angol", date: at(4, hour: 9), mode: "Szóbeli", description: "Unit 5"),
         ]
     }
     /// Today's demo timetable — 6 lessons covering 8:00–13:45, subjects aligned with DemoData homeworks/exams

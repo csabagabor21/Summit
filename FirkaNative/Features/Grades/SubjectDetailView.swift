@@ -78,16 +78,15 @@ struct SubjectDetailView: View {
                                 .foregroundStyle(.tertiary)
                         }
                         Spacer()
-                        ZStack {
-                            Circle().fill(Color.clear).glassEffect(.clear, in: .circle)
-                                .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1.2))
-                                .frame(width: 50, height: 50)
-                            Text("\(rounded)")
-                                .font(.system(size: 22, weight: .bold, design: .rounded))
-                                .foregroundStyle(colors.gradeColor(for: rounded))
-                        }
-                        .frame(width: 50, height: 50)
-                        .shadow(color: colors.gradeColor(for: rounded).opacity(0.18), radius: 10, y: 4)
+                        Text("\(rounded)")
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .foregroundStyle(colors.gradeColor(for: rounded))
+                            .frame(width: 50, height: 50)
+                            .background {
+                                Circle().fill(Color.clear).glassEffect(.clear, in: .circle)
+                            }
+                            .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1.2))
+                            .shadow(color: colors.gradeColor(for: rounded).opacity(0.18), radius: 10, y: 4)
                     }
 
                     Divider().opacity(0.45)
@@ -132,13 +131,12 @@ struct SubjectDetailView: View {
                 ForEach(allGrades.sorted(by: { $0.date > $1.date })) { g in
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 10) {
-                            ZStack {
-                                Circle().fill(Color.clear).glassEffect(.clear, in: .circle)
-                                    .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1))
-                                    .frame(width: 28, height: 28)
-                                Text("\(g.value)").font(.caption.weight(.bold).monospacedDigit()).foregroundStyle(colors.gradeColor(for: g.value))
-                            }
+                            Text("\(g.value)").font(.caption.weight(.bold).monospacedDigit()).foregroundStyle(colors.gradeColor(for: g.value))
                             .frame(width: 28, height: 28)
+                            .background {
+                                Circle().fill(Color.clear).glassEffect(.clear, in: .circle)
+                            }
+                            .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1))
                             .opacity(g.id.hasPrefix("phantom") ? 0.6 : 1)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(g.date.formatted(date: .abbreviated, time: .omitted) + " • \(g.weight)%").font(.caption.weight(.medium))

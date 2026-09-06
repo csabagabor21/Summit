@@ -13,6 +13,7 @@ struct SettingsView: View {
     @State private var subjects: [String] = []
     @State private var isLoadingSubjects = true
     @State private var selectedPhoto: PhotosPickerItem?
+    @State private var cropImage: UIImage?
     @State private var showPhotoOptions = false
     @AppStorage("notify.grades") private var notifyGrades = true
     @AppStorage("notify.tasks") private var notifyTasks = true
@@ -128,10 +129,9 @@ struct SettingsView: View {
                 } }
                 .tint(colors.accent)
                 if session.selectedUser?.isDemo == true {
-                    Button("Új demo jegy szimulálása (5-ös Matek)") { Task {
-                        let g = await NotificationManager.shared.simulateDemoGrade()
-                        simMessage = "\(g.valueText)-ös \(g.subject) (\(g.type)) — értesítés elküldve."
-                        showSimAlert = true
+                    Button("Új demo jegy szimulálása (5-ös Matek + kártya)") { Task {
+                        _ = await NotificationManager.shared.simulateDemoGrade()
+                        // A fullscreen ünneplő kártya magától felpattan — ez a tesztje.
                     } }
                     .tint(colors.accent)
                     Button("Értesítési előzmény törlése (újrateszteléshez)") {
@@ -213,16 +213,34 @@ struct SettingsView: View {
         } message: {
             Text(simMessage ?? "")
         }
+        .fullScreenCover(
+            isPresented: Binding(get: { cropImage != nil }, set: { if !$0 { cropImage = nil } })
+        ) { cropSheet }
         .onChange(of: session.selectedId) { _, _ in Task { await loadSubjects(force: true) } }
     }
 
     private func handlePhotoChange(_ item: PhotosPickerItem?) async {
         guard let item, let data = try? await item.loadTransferable(type: Data.self), let ui = UIImage(data: data),
-              let id = session.selectedUser?.id else { return }
-        // resize to max 512 to save storage
-        let resized = resize(image: ui, maxSize: 512)
-        profileStore.save(image: resized, for: id)
+              session.selectedUser?.id != nil else { return }
+        // Mentés előtt rendszer-fotós kivágó — a kész képet 512-re méretezzük
+        cropImage = ui
         selectedPhoto = nil
+    }
+
+    @ViewBuilder
+    private var cropSheet: some View {
+        if let img = cropImage {
+            ProfileCropView(
+                image: img,
+                onDone: { out in
+                    if let id = session.selectedUser?.id {
+                        profileStore.save(image: resize(image: out, maxSize: 512), for: id)
+                    }
+                    cropImage = nil
+                },
+                onCancel: { cropImage = nil }
+            )
+        }
     }
 
     private func resize(image: UIImage, maxSize: CGFloat) -> UIImage {

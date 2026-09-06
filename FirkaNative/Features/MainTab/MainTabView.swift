@@ -22,8 +22,10 @@ struct MainTabView: View {
     @EnvironmentObject var session: SessionStore
     @Environment(\.colorScheme) var scheme
     @State private var selected: Int = ProcessInfo.processInfo.arguments.contains("-FIRKA_ABSENCES") ? 4 : 0
+    @ObservedObject private var notif = NotificationManager.shared
     private let switchToTasks = Notification.Name("flint.switchToTasks")
     private let switchToTimetable = Notification.Name("flint.switchToTimetable")
+    private let switchToGrades = Notification.Name("flint.switchToGrades")
 
     var colors: AppColors { theme.colors(for: scheme) }
 
@@ -43,6 +45,13 @@ struct MainTabView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: switchToTimetable)) { _ in
             selected = 2
+        }
+        .onReceive(NotificationCenter.default.publisher(for: switchToGrades)) { _ in
+            selected = 1
+        }
+        // Új jegy ünneplő kártya (diff, értesítés-koppintás vagy demo szimulálás után)
+        .fullScreenCover(item: $notif.celebrationGrade) { grade in
+            GradeCelebrationView(grade: grade)
         }
     }
 

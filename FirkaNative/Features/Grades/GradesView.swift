@@ -87,7 +87,7 @@ struct GradesView: View {
                                             let rnd = GradingLogic.roundedGrade(raw: raw, threshold: thr)
                                             NavigationLink(value: subject) {
                                                 HStack(spacing: 12) {
-                                                    ZStack { Circle().fill(Color.clear).overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1.2)).frame(width: 44, height: 44); Text("\(rnd)").font(.system(size: 18, weight: .bold, design: .rounded)).foregroundStyle(colors.gradeColor(for: rnd)) }.frame(width: 44, height: 44)
+                                                    GradeCircle(value: rnd, size: 44)
                                                     VStack(alignment: .leading, spacing: 3) { Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1); Text(String(format: "%.2f • %d jegy", raw, items.count)).font(.caption2).foregroundStyle(.secondary).lineLimit(1) }
                                                     Spacer()
                                                     Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
@@ -112,12 +112,7 @@ struct GradesView: View {
                                     let rnd = GradingLogic.roundedGrade(raw: raw, threshold: thr)
                                     NavigationLink(value: subject) {
                                         HStack(spacing: 12) {
-                                            ZStack {
-                                                Circle().fill(Color.clear).glassEffect(.clear, in: .circle)
-                                                    .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1.2))
-                                                    .frame(width: 44, height: 44)
-                                                Text("\(rnd)").font(.system(size: 18, weight: .bold, design: .rounded)).foregroundStyle(colors.gradeColor(for: rnd))
-                                            }.frame(width: 44, height: 44)
+                                            GradeCircle(value: rnd, size: 44)
                                             VStack(alignment: .leading, spacing: 3) {
                                                 Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1)
                                                 Text(String(format: "%.2f • %d jegy • kerekítés %.2f-től", raw, items.count, thr)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
@@ -177,12 +172,7 @@ struct GradesView: View {
                                 let items = groupedFelevi[subject]!
                                 let latest = items.sorted { $0.date > $1.date }.first!
                                 HStack(spacing: 12) {
-                                    ZStack {
-                                        Circle().fill(Color.clear).glassEffect(.clear, in: .circle)
-                                            .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1.2))
-                                            .frame(width: 44, height: 44)
-                                        Text("\(latest.value)").font(.system(size: 18, weight: .bold, design: .rounded)).foregroundStyle(colors.gradeColor(for: latest.value))
-                                    }.frame(width: 44, height: 44)
+                                    GradeCircle(value: latest.value, size: 44)
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1)
                                         Text("Félévkor \(latest.value)-es lettél").font(.caption).foregroundStyle(.secondary).lineLimit(1)
@@ -217,12 +207,7 @@ struct GradesView: View {
                                 let items = groupedEvvegi[subject]!
                                 let latest = items.sorted { $0.date > $1.date }.first!
                                 HStack(spacing: 12) {
-                                    ZStack {
-                                        Circle().fill(Color.clear).glassEffect(.clear, in: .circle)
-                                            .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1.2))
-                                            .frame(width: 44, height: 44)
-                                        Text("\(latest.value)").font(.system(size: 18, weight: .bold, design: .rounded)).foregroundStyle(colors.gradeColor(for: latest.value))
-                                    }.frame(width: 44, height: 44)
+                                    GradeCircle(value: latest.value, size: 44)
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1)
                                         Text("Év végén \(latest.value)-es lettél").font(.caption).foregroundStyle(.secondary).lineLimit(1)
@@ -320,6 +305,8 @@ struct GradesView: View {
             var s = demoSubjects.sorted()
             if !s.contains("Etika") { s.append("Etika"); s.sort() }
             allSubjects = s
+            // Lehúzáskor új demo jegy → ünneplő kártya (elsőre csak magot vet)
+            NotificationManager.shared.checkGrades(grades, userId: session.selectedUser?.id ?? "demo-user")
             isLoading=false; return
         }
         isLoading=true
@@ -329,6 +316,8 @@ struct GradesView: View {
         async let subjectsTask = kreta.fetchAllSubjectNames(iss: iss)
         let (g, s) = await (gradesTask, subjectsTask)
         grades = g
+        // Lehúzáskor új jegy → ünneplő kártya (elsőre csak magot vet, duplán nem jelez)
+        NotificationManager.shared.checkGrades(g, userId: user.id)
         // Megjelenítéshez a cache is jöhet (offline), de vissza csak hálózati tárgyakat
         // mentünk — a demo-módból beszennyezett cache így következő online loadkor kigyógyul.
         let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1") ?? []

@@ -1,7 +1,7 @@
 import SwiftUI
 
 // MARK: - Editorial Timetable — liquid glass számozás + spine timeline
-// - Baloldalt: minden óra 1,2,3... liquid glass körben (GradeCircle mintára, GlassEffectContainer-rel)
+// - Baloldalt: minden óra 1,2,3... liquid glass körben (az üveg a szám háttere)
 // - Editorial tipó: nagy rounded subject, tracked label, finom progress, spine vonal
 // - Current óra kiemelve: accent tinted glass + élő progress
 // - Elmarad / helyettesítés: tinted surface + capsule badge
@@ -294,17 +294,11 @@ struct TimetableView: View {
                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 2, trailing: 16))
                     }
 
-                    // MARK: Timeline — liquid glass körök + spine (egy list row, GlassEffectContainer-rel)
+                    // MARK: Timeline — liquid glass körök + spine (egy list row)
+                    // GlassEffectContainer nélkül: a konténer az üveg-passzt a számok
+                    // fölé rántaná, a számok szellemként látszanának az üveg mögött.
                     Section {
-                        Group {
-                            if #available(iOS 26.0, *) {
-                                GlassEffectContainer(spacing: 16) {
-                                    VStack(spacing: 0) { timelineContent }
-                                }
-                            } else {
-                                VStack(spacing: 0) { timelineContent }
-                            }
-                        }
+                        VStack(spacing: 0) { timelineContent }
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 12))
@@ -408,6 +402,15 @@ struct TimetableView: View {
         // különben egy házi minden órára ráíródna (HomeworkMatcher)
         HomeworkMatcher.homework(for: lesson, in: homeworks)
     }
+    private func exam(for lesson: LessonItem) -> ExamItem? {
+        // Ugyanaz a szabály mint a házinál: csak az az óra kapja meg a
+        // dolgozatot, amelyik napjára a dolgozat dátuma esik.
+        let cal = Calendar.current
+        return exams.first {
+            SubjectMatcher.same($0.subject, lesson.subject)
+            && cal.isDate($0.date, inSameDayAs: lesson.start)
+        }
+    }
     private func hasAssignment(for lesson: LessonItem) -> Bool {
         let cal = Calendar.current
         let sameDayHW = homeworks.contains { SubjectMatcher.same($0.subject, lesson.subject) && cal.isDate($0.deadline, inSameDayAs: lesson.start) }
@@ -446,6 +449,7 @@ struct TimetableView: View {
                         effectiveNow: fixed,
                         hasAssignment: hasAssignment(for: lesson),
                         homework: homework(for: lesson),
+                        exam: exam(for: lesson),
                         isFlashing: isFlash,
                         flashPulse: flashPulse
                     )
@@ -470,6 +474,7 @@ struct TimetableView: View {
                             effectiveNow: now,
                             hasAssignment: hasAssignment(for: lesson),
                             homework: homework(for: lesson),
+                            exam: exam(for: lesson),
                             isFlashing: isFlash,
                             flashPulse: flashPulse
                         )
@@ -511,15 +516,20 @@ struct TimetableView: View {
         // Demo: a kiválasztott hét hétfő–péntek lessonjei, hétfő 3. elmarad, 4. helyettesítés
         guard let user = session.selectedUser, !user.isDemo else {
             let base = DemoData.lessonsExpanded()
-            homeworks = DemoData.homeworks()
-            exams = DemoData.exams()
+            let baseHW = DemoData.homeworks()
+            let baseEx = DemoData.exams()
             // Okos nap csak a 0. hétről indulva (kézi heti lapozásnál nem bántjuk)
             lessons = deduped(base)
+            homeworks = baseHW
+            exams = baseEx
             if entryOffset == 0 { applySmartDay() }
-            // A végleges héthez toljuk a demó órarendet
+            // A végleges héthez toljuk a demó órarendet + a csatolt házikat/vizsgákat,
+            // különben lapozáskor a pillek eltűnnének a nap-pontos csatolás miatt
             if weekOffset != 0 {
                 let shift = TimeInterval(weekOffset * 7 * 86400)
                 lessons = deduped(base.map { l in LessonItem(id: l.id, subject: l.subject, room: l.room, start: l.start.addingTimeInterval(shift), end: l.end.addingTimeInterval(shift), teacher: l.teacher, index: l.index, isSubstituted: l.isSubstituted, isCancelled: l.isCancelled, originalTeacher: l.originalTeacher) })
+                homeworks = baseHW.map { h in HomeworkItem(id: h.id, subject: h.subject, title: h.title, deadline: h.deadline.addingTimeInterval(shift), teacher: h.teacher, isDone: h.isDone) }
+                exams = baseEx.map { e in ExamItem(id: e.id, subject: e.subject, date: e.date.addingTimeInterval(shift), mode: e.mode, description: e.description) }
             }
             isLoading = false
             return
@@ -570,6 +580,7 @@ private struct TimetableRow: View {
     var effectiveNow: Date = Date()
     var hasAssignment: Bool = false
     var homework: HomeworkItem? = nil
+    var exam: ExamItem? = nil
     var isFlashing: Bool = false
     var flashPulse: Bool = false
 
@@ -593,7 +604,8 @@ private struct TimetableRow: View {
         if isCancelled { return Color.red.opacity(scheme == .dark ? 0.16 : 0.10) }
         if isSubstituted { return Color.orange.opacity(scheme == .dark ? 0.16 : 0.10) }
         if isCurrent { return Color.blue.opacity(scheme == .dark ? 0.16 : 0.10) }
-        if hasAssignment { return Color.white.opacity(scheme == .dark ? 0.22 : 0.92) }
+        // Light módban a fehér sor beleolvadt a kártyába — ott inverz szürke
+        if hasAssignment { return scheme == .dark ? Color.white.opacity(0.22) : Color.black.opacity(0.07) }
         return colors.surface
     }
     private var numberColor: Color {
@@ -616,46 +628,35 @@ private struct TimetableRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 6) {
-            // LEFT — liquid glass number + spine (szám mindig a glass FELETT — különben sötétnek látszik)
+            // LEFT — liquid glass number + spine. Az üveg a szám HÁTTERE (mint a
+            // gyári glass-gomboknál): testvér-ZStackben az üveg-passz a számot takarná.
             VStack(spacing: 0) {
-                ZStack {
-                    // Glass háttér — alsó réteg, külön a számtól
-                    Group {
-                        if #available(iOS 26.0, *) {
-                            Circle()
-                                .fill(Color.clear)
-                                .frame(width: 38, height: 38)
-                                .glassEffect(
-                                    isTintedGlass
-                                        ? .regular.tint((ringTint ?? colors.accent).opacity(scheme == .dark ? (hasAssignment ? 0.22 : isCurrent ? 0.18 : 0.12) : (hasAssignment ? 0.18 : isCurrent ? 0.14 : 0.09))).interactive()
-                                        : .regular.tint(Color.white.opacity(scheme == .dark ? 0.06 : 0.04)).interactive(),
-                                    in: .circle
-                                )
-                        } else {
-                            Circle()
-                                .fill(isTintedGlass ? (ringTint ?? colors.accent).opacity(scheme == .dark ? 0.10 : 0.08) : Color.primary.opacity(scheme == .dark ? 0.08 : 0.07))
-                                .overlay(Circle().fill(.ultraThinMaterial).opacity(isTintedGlass ? 0.35 : 0.82))
-                                .frame(width: 38, height: 38)
+                Text(lesson.index)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(numberColor)
+                    .contentTransition(.numericText())
+                    .allowsHitTesting(false)
+                    .frame(width: 38, height: 38)
+                    .background {
+                        Group {
+                            if #available(iOS 26.0, *) {
+                                Circle()
+                                    .fill(Color.clear)
+                                    .glassEffect(
+                                        isTintedGlass
+                                            ? .regular.tint((ringTint ?? colors.accent).opacity(scheme == .dark ? (hasAssignment ? 0.22 : isCurrent ? 0.18 : 0.12) : (hasAssignment ? 0.18 : isCurrent ? 0.14 : 0.09))).interactive()
+                                            : .regular.tint(Color.white.opacity(scheme == .dark ? 0.06 : 0.04)).interactive(),
+                                        in: .circle
+                                    )
+                            } else {
+                                Circle()
+                                    .fill(isTintedGlass ? (ringTint ?? colors.accent).opacity(scheme == .dark ? 0.10 : 0.08) : Color.primary.opacity(scheme == .dark ? 0.08 : 0.07))
+                                    .overlay(Circle().fill(.ultraThinMaterial).opacity(isTintedGlass ? 0.35 : 0.82))
+                            }
                         }
                     }
-                    .frame(width: 38, height: 38)
-                    .overlay(
-                        Circle().strokeBorder(
-                            (ringTint ?? Color.primary.opacity(scheme == .dark ? 0.14 : 0.10)).opacity(isTintedGlass ? 0.72 : (scheme == .dark ? 0.32 : 0.58)),
-                            lineWidth: isTintedGlass ? 1 : 0.8
-                        )
-                    )
                     .shadow(color: (ringTint ?? Color.clear).opacity(isTintedGlass ? (scheme == .dark ? 0.14 : 0.08) : 0), radius: 6, y: 2)
-
-                    // Szám — mindig a glass FELETT, nem része a glass materialnak
-                    Text(lesson.index)
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(numberColor)
-                        .contentTransition(.numericText())
-                        .allowsHitTesting(false)
-                }
-                .frame(width: 38, height: 38)
 
                 // Spine — vékony editorial vonal a következő körig
                 if !isLast {
@@ -728,6 +729,29 @@ private struct TimetableRow: View {
                                     Capsule()
                                         .fill(scheme == .dark ? Color.white.opacity(0.14) : Color.black.opacity(0.06))
                                         .overlay(Capsule().strokeBorder(Color.primary.opacity(scheme == .dark ? 0.12 : 0.08), lineWidth: 1))
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.top, 2)
+                        }
+                        // Dolgozat pill — tap → Feladatok/Dolgozatok tab
+                        if let ex = exam {
+                            Button {
+                                NotificationCenter.default.post(name: Notification.Name("flint.switchToTasks"), object: nil, userInfo: ["segment": "exams"])
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "doc.text.fill")
+                                        .font(.caption2.weight(.semibold))
+                                    Text(ex.description.isEmpty ? ex.mode : "\(ex.mode): \(ex.description)")
+                                        .font(.caption.weight(.medium))
+                                        .lineLimit(1)
+                                }
+                                .foregroundStyle(scheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.72))
+                                .padding(.horizontal, 8).padding(.vertical, 5)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.orange.opacity(scheme == .dark ? 0.22 : 0.14))
+                                        .overlay(Capsule().strokeBorder(Color.orange.opacity(scheme == .dark ? 0.35 : 0.25), lineWidth: 1))
                                 )
                             }
                             .buttonStyle(.plain)

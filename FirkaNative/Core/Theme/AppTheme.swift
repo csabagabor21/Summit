@@ -16,6 +16,13 @@ extension View {
         }
     }
 
+    // Feltételes glass: light módban a List-sorokban a glass saját árnyéka
+    // dobozosan clipelődik — ott sima kártya marad, glass csak sötétben.
+    @ViewBuilder
+    func functionalGlassWhen(_ cond: Bool, cornerRadius: CGFloat = 20, tint: Color? = nil) -> some View {
+        if cond { functionalGlass(cornerRadius: cornerRadius, tint: tint) } else { self }
+    }
+
     @ViewBuilder
     func glassEffectIfAvailable(in circle: Circle = Circle(), tint: Color? = nil) -> some View {
         if #available(iOS 26.0, *) {

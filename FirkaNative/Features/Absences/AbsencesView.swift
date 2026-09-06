@@ -195,7 +195,8 @@ struct AbsencesView: View {
                             // Light módban nincs külső shadow — a fehér kártya szürke háttéren shadow-ja szarul nézett ki
                             .shadow(color: scheme == .dark ? colors.shadow.opacity(0.30) : .clear, radius: 14, y: 6)
                     )
-                    .functionalGlass(cornerRadius: 20)
+                    // Light módban glass nélkül — a glass saját árnyéka dobozba clipelődik a List-sorban
+                    .functionalGlassWhen(scheme == .dark, cornerRadius: 20)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
@@ -220,15 +221,15 @@ struct AbsencesView: View {
                     Section {
                         if unjustifiedItems.isEmpty {
                             HStack(spacing: 10) {
-                                ZStack {
-                                    Circle().fill(Color.clear)
-                                        .glassEffect(.clear, in: .circle)
-                                        .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1))
-                                        .frame(width: 30, height: 30)
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundStyle(Color.green)
-                                }.frame(width: 30, height: 30)
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(Color.green)
+                                    .frame(width: 30, height: 30)
+                                    .background {
+                                        Circle().fill(Color.clear)
+                                            .glassEffect(.clear, in: .circle)
+                                    }
+                                    .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1))
                                 Text("Nincs igazolatlan hiányzás")
                                     .font(.subheadline.weight(.medium))
                                     .foregroundStyle(.secondary)
@@ -286,15 +287,15 @@ struct AbsencesView: View {
                     Section {
                         if justifiedItems.isEmpty {
                             HStack(spacing: 10) {
-                                ZStack {
-                                    Circle().fill(Color.clear)
-                                        .glassEffect(.clear, in: .circle)
-                                        .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1))
-                                        .frame(width: 30, height: 30)
-                                    Image(systemName: "minus.circle.fill")
-                                        .font(.system(size: 14))
-                                        .foregroundStyle(.secondary)
-                                }.frame(width: 30, height: 30)
+                                Image(systemName: "minus.circle.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 30, height: 30)
+                                    .background {
+                                        Circle().fill(Color.clear)
+                                            .glassEffect(.clear, in: .circle)
+                                    }
+                                    .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1))
                                 Text("Nincs igazolt hiányzás")
                                     .font(.subheadline.weight(.medium))
                                     .foregroundStyle(.secondary)
@@ -550,15 +551,15 @@ private struct AbsenceRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            ZStack {
-                Circle().fill(Color.clear)
-                    .glassEffect(.clear, in: .circle)
-                    .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1))
-                    .frame(width: 32, height: 32)
-                Image(systemName: iconName)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(dotIconColor)
-            }.frame(width: 32, height: 32)
+            Image(systemName: iconName)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(dotIconColor)
+                .frame(width: 32, height: 32)
+                .background {
+                    Circle().fill(Color.clear)
+                        .glassEffect(.clear, in: .circle)
+                }
+                .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1))
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
