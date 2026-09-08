@@ -78,11 +78,9 @@ final class HomeViewModel: ObservableObject {
         self.messages = msgR
         self.lessonsToday = ttR
         // Helyi értesítés-diff az újakról (KRÉTA push nincs, ez polling-alapú)
-        if let uid = user?.id {
-            NotificationManager.shared.checkAll(
-                grades: gradesR, homeworks: hwR, exams: exR, absences: abR, userId: uid
-            )
-        }
+        NotificationManager.shared.checkAll(
+            grades: gradesR, homeworks: hwR, exams: exR, absences: abR, userId: user.id
+        )
         error = nil
         updateLiveState()
         return

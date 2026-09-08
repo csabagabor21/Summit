@@ -21,6 +21,7 @@
 		350860F0739797515BE0641D /* CompletedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F44247D87A1D5AF0D5AD57 /* CompletedStore.swift */; };
 		3F9A6A266B4576E426D5B504 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59B95265FA2B313F786E0034 /* SettingsView.swift */; };
 		A0FCEF0EED7B41D6BA47C2F7 /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2EFD6BB47BB4BDCB2B70305 /* DiagnosticsView.swift */; };
+		C9E1519A1D0042F8B08CE8A0 /* DeveloperView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BD7C3F1A894B639B0E0137 /* DeveloperView.swift */; };
 		1C9E9A5B58414865BD85D754 /* ProfileCropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B53DEDFDFC4992BB7AFADD /* ProfileCropView.swift */; };
 		488FA74DB8C609136814EA37 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56AB3DC865533A530A9162C8 /* NotificationManager.swift */; };
 		4EB18D0CFA45C5421E6C64EF /* SummitLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B5C9EC44D39D87241B550D5 /* SummitLiveActivityAttributes.swift */; };
@@ -112,6 +113,7 @@
 		56AB3DC865533A530A9162C8 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		59B95265FA2B313F786E0034 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		F2EFD6BB47BB4BDCB2B70305 /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
+		30BD7C3F1A894B639B0E0137 /* DeveloperView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperView.swift; sourceTree = "<group>"; };
 		F2B53DEDFDFC4992BB7AFADD /* ProfileCropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileCropView.swift; sourceTree = "<group>"; };
 		5D821885DD5DB8AB896B9E77 /* KretaAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaAPI.swift; sourceTree = "<group>"; };
 		630D3F7140DAD8A14041B2F9 /* GradeChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeChartView.swift; sourceTree = "<group>"; };
@@ -303,6 +305,7 @@
 				F2EFD6BB47BB4BDCB2B70305 /* DiagnosticsView.swift */,
 				8B34D700082CBC9796AA731F /* TeacherRoundingView.swift */,
 				F2B53DEDFDFC4992BB7AFADD /* ProfileCropView.swift */,
+				30BD7C3F1A894B639B0E0137 /* DeveloperView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -539,6 +542,7 @@
 				07425EA432B29AF616973EFD /* SessionStore.swift in Sources */,
 				3F9A6A266B4576E426D5B504 /* SettingsView.swift in Sources */,
 				A0FCEF0EED7B41D6BA47C2F7 /* DiagnosticsView.swift in Sources */,
+				C9E1519A1D0042F8B08CE8A0 /* DeveloperView.swift in Sources */,
 				891A56B341C2C628B38291F8 /* Student.swift in Sources */,
 				7C0F28E3F337A7A37682A693 /* SubjectDetailView.swift in Sources */,
 				070BED0806B24776C9CA0378 /* TeacherRoundingView.swift in Sources */,

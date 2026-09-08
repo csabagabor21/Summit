@@ -10,10 +10,16 @@ Nincs kivétel: egy soros fix, UI-csiszolás, komment-átírás után is commit 
 Ne várj a userre, ne gyűjtögess több promptot egy commitba — egy feladat = egy commit.
 A commit előtt `xcodebuild ... build` sikerrel kell futhasson (Simulator, Debug).
 
+## Környezet
+A gépen Xcode **beta** van: `/Applications/Xcode-beta.app`. Az `xcode-select`
+a Command Line Tools-ra mutat, ezért az `xcodebuild` hívások elé MINDIG
+`DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer` kell
+(vagy `sudo xcode-select -s` egyszer — de azt csak a user állítsa át).
+
 ## Release notes formátum (kötelező, minden AI-asszisztensre vonatkozik)
 Ha a user release note-ot kér, a válasz MINDIG egy angol Summit-szójáték
 címsorral kezdődjön — a `To Summit up:` csak egy minta, mindig új, a
-tartalomhoz illő szójáték kell (pl. `Summit's fresh peak:`, `Reaching new Summits:`).
+tartalomhoz illő szójáték kell
 A címsor KÖTELEZŐEN tartalmazza a `Summit` szót — enélkül a release note érvénytelen.
 Utána csak bulletpointok (`- `), egy commitot vagy többet is egyben, egyetlen
 listába sűrítve. A release note nyelve MINDIG angol. Felhasználóbarát, tömör
