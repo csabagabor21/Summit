@@ -27,7 +27,7 @@ final class ThemeStore: ObservableObject {
     @AppStorage("theme.mode") var modeRaw: String = AppThemeMode.dark.rawValue {
         didSet { objectWillChange.send() }
     }
-    @AppStorage("theme.accentHex") var accentHex: Int = 0x2B4C7E {
+    @AppStorage("theme.accentHex") var accentHex: Int = 0x4A90E2 {
         didSet { objectWillChange.send() }
     }
     // Szövegméret-felülírás ("system" = rendszer). Macen (iPad-app Macen)
@@ -73,8 +73,8 @@ final class ThemeStore: ObservableObject {
 
     // Preset accent colors — simple to change
     static let presets: [Int] = [
-        0x2B4C7E, // Summit blue
-        0x4A90E2, // Apple blue
+        0x4A90E2, // Summit blue (világos kék, default)
+        0x2B4C7E, // Navy
         0xFF6B6B, // Coral
         0x8B5CF6, // Violet
         0xEC4899, // Pink

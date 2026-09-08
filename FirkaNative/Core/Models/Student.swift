@@ -12,9 +12,9 @@ struct StudentResponse: Decodable {
 
 extension AppUser {
     static func from(token: TokenResponse, studentData: Data) -> AppUser? {
-        // decode JWT for institute/username
+        // decode JWT for institute/username (keményített parser — lásd JWT.instituteCode)
         let payload = JWT.payload(token.access_token)
-        let iss = (payload?["kreta:institute_code"] as? String) ?? "unknown"
+        let iss = JWT.instituteCode(from: token.access_token) ?? "unknown"
         let uname = (payload?["sub"] as? String) ?? (payload?["email"] as? String) ?? "user"
         let name = (try? JSONDecoder().decode(StudentResponse.self, from: studentData))?.Nev ?? uname
         let school = (try? JSONDecoder().decode(StudentResponse.self, from: studentData))?.IntezmenyNeve ?? ""

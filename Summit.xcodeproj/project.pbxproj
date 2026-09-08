@@ -20,6 +20,7 @@
 		34D3F85661D7CEEF7CFE3AB0 /* ProfileImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11397958896C63F02493DC94 /* ProfileImageView.swift */; };
 		350860F0739797515BE0641D /* CompletedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F44247D87A1D5AF0D5AD57 /* CompletedStore.swift */; };
 		3F9A6A266B4576E426D5B504 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59B95265FA2B313F786E0034 /* SettingsView.swift */; };
+		A0FCEF0EED7B41D6BA47C2F7 /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2EFD6BB47BB4BDCB2B70305 /* DiagnosticsView.swift */; };
 		1C9E9A5B58414865BD85D754 /* ProfileCropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B53DEDFDFC4992BB7AFADD /* ProfileCropView.swift */; };
 		488FA74DB8C609136814EA37 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56AB3DC865533A530A9162C8 /* NotificationManager.swift */; };
 		4EB18D0CFA45C5421E6C64EF /* SummitLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B5C9EC44D39D87241B550D5 /* SummitLiveActivityAttributes.swift */; };
@@ -110,6 +111,7 @@
 		EFB24E078D65400F947E6C37 /* GradeCelebrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCelebrationView.swift; sourceTree = "<group>"; };
 		56AB3DC865533A530A9162C8 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		59B95265FA2B313F786E0034 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		F2EFD6BB47BB4BDCB2B70305 /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
 		F2B53DEDFDFC4992BB7AFADD /* ProfileCropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileCropView.swift; sourceTree = "<group>"; };
 		5D821885DD5DB8AB896B9E77 /* KretaAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaAPI.swift; sourceTree = "<group>"; };
 		630D3F7140DAD8A14041B2F9 /* GradeChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeChartView.swift; sourceTree = "<group>"; };
@@ -298,6 +300,7 @@
 			children = (
 				F0FB0CA7C07E5D8E328A4A6D /* RoundingDetailView.swift */,
 				59B95265FA2B313F786E0034 /* SettingsView.swift */,
+				F2EFD6BB47BB4BDCB2B70305 /* DiagnosticsView.swift */,
 				8B34D700082CBC9796AA731F /* TeacherRoundingView.swift */,
 				F2B53DEDFDFC4992BB7AFADD /* ProfileCropView.swift */,
 			);
@@ -535,6 +538,7 @@
 				E0623933380F0CCBEC687550 /* RoundingDetailView.swift in Sources */,
 				07425EA432B29AF616973EFD /* SessionStore.swift in Sources */,
 				3F9A6A266B4576E426D5B504 /* SettingsView.swift in Sources */,
+				A0FCEF0EED7B41D6BA47C2F7 /* DiagnosticsView.swift in Sources */,
 				891A56B341C2C628B38291F8 /* Student.swift in Sources */,
 				7C0F28E3F337A7A37682A693 /* SubjectDetailView.swift in Sources */,
 				070BED0806B24776C9CA0378 /* TeacherRoundingView.swift in Sources */,
@@ -568,6 +572,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Summit;
 				INFOPLIST_KEY_CFBundleName = Summit;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Profilkép készítéséhez kamera hozzáférés szükséges.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Profilkép beállításához hozzáférés a fotókönyvtárhoz szükséges.";
@@ -781,6 +786,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Summit;
 				INFOPLIST_KEY_CFBundleName = Summit;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Profilkép készítéséhez kamera hozzáférés szükséges.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Profilkép beállításához hozzáférés a fotókönyvtárhoz szükséges.";

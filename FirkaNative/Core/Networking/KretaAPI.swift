@@ -13,16 +13,21 @@ enum KretaAPI {
 
     static func kreta(_ iss: String) -> String { "https://\(iss).e-kreta.hu" }
     static let adminBase = "https://eugyintezes.e-kreta.hu"
+    static var userinfo: URL { URL(string: idpBase + "/connect/userinfo")! }
 
-    static func student(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/TanuloAdatlap")! }
-    static func grades(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Ertekelesek")! }
-    static func timetable(_ iss: String, start: Date? = nil, end: Date? = nil) -> URL {
+    // Minden institut-függő builder opcionális: koszos institut-kód
+    // (szóköz, URL) esetén a URL(string:) nil-t adna, és a régi `!`
+    // force-unwrap egy async Task-ban az APP-ot ölte meg (crash-loop
+    // bejelentkezés után). Nil → a hívó kegyesen üres adattal tér vissza.
+    static func student(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/TanuloAdatlap") }
+    static func grades(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Ertekelesek") }
+    static func timetable(_ iss: String, start: Date? = nil, end: Date? = nil) -> URL? {
         let base = kreta(iss) + "/ellenorzo/V3/Sajat/OrarendElemek"
-        guard let s = start, let e = end else { return URL(string: base)! }
+        guard let s = start, let e = end else { return URL(string: base) }
         // Refilc / firka self mintára: UTC ISO8601 — ld. refilc_kreta_api/lib/client/api.dart:
         // "?datumTol=${start.toUtc().toIso8601String()}&datumIg=${end.toUtc().toIso8601String()}"
         // URLComponents végzi a korrekt percent-encodinget (+, : stb.)
-        var comps = URLComponents(string: base)!
+        guard var comps = URLComponents(string: base) else { return nil }
         let df = ISO8601DateFormatter()
         df.formatOptions = [.withInternetDateTime]
         df.timeZone = TimeZone(secondsFromGMT: 0)
@@ -30,32 +35,32 @@ enum KretaAPI {
             URLQueryItem(name: "datumTol", value: df.string(from: s)),
             URLQueryItem(name: "datumIg", value: df.string(from: e))
         ]
-        return comps.url ?? URL(string: base)!
+        return comps.url ?? URL(string: base)
     }
-    static func exams(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/BejelentettSzamonkeresek")! }
+    static func exams(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/BejelentettSzamonkeresek") }
     // refilc mintára: a lista ?datumTol=yyyy-MM-dd dátumszűrővel jön le
     // (csupasz endpointra a KRÉTA nem ad vissza használható listát),
     // majd minden házi részlete külön: HaziFeladatok/{uid}
-    static func homework(_ iss: String, from: Date? = nil) -> URL {
+    static func homework(_ iss: String, from: Date? = nil) -> URL? {
         let base = kreta(iss) + "/ellenorzo/V3/Sajat/HaziFeladatok"
-        guard let f = from else { return URL(string: base)! }
-        var comps = URLComponents(string: base)!
+        guard let f = from else { return URL(string: base) }
+        guard var comps = URLComponents(string: base) else { return nil }
         let df = DateFormatter()
         df.locale = Locale(identifier: "en_US_POSIX")
         df.dateFormat = "yyyy-MM-dd"
         comps.queryItems = [URLQueryItem(name: "datumTol", value: df.string(from: f))]
-        return comps.url ?? URL(string: base)!
+        return comps.url ?? URL(string: base)
     }
-    static func homeworkDetail(_ iss: String, id: String) -> URL {
-        URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/HaziFeladatok/\(id)")!
+    static func homeworkDetail(_ iss: String, id: String) -> URL? {
+        URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/HaziFeladatok/\(id)")
     }
-    static func absences(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Mulasztasok")! }
-    static func notes(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Feljegyzesek")! }
-    static func events(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/FaliujsagElemek")! }
-    static func messages(_ endpoint: String) -> URL { URL(string: adminBase + "/api/v1/kommunikacio/postaladaelemek/\(endpoint)")! }
+    static func absences(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Mulasztasok") }
+    static func notes(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Feljegyzesek") }
+    static func events(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/FaliujsagElemek") }
+    static func messages(_ endpoint: String) -> URL? { URL(string: adminBase + "/api/v1/kommunikacio/postaladaelemek/\(endpoint)") }
     // Tantárgyi átlagok — minden felvett tárgyat visszaad, akkor is ha még nincs benne jegy (KRÉTA tudja)
-    static func subjectAverages(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Ertekelesek/Atlagok/TantargyiAtlagok")! }
-    static func subjectAveragesAlt(_ iss: String) -> URL { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/TantargyiAtlagok")! }
+    static func subjectAverages(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Ertekelesek/Atlagok/TantargyiAtlagok") }
+    static func subjectAveragesAlt(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/TantargyiAtlagok") }
 
     // OAuth authorize URL (same as Flutter)
     static var authorizeURL: URL {

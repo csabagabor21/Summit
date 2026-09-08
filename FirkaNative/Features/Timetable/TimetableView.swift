@@ -19,6 +19,7 @@ struct TimetableView: View {
     // csak a "Ma" gomb és az első betöltés ugorhat a következő tanítási napra.
     @State private var userHasNavigated = false
     @State private var isLoading = true
+    @State private var loadError: String? = nil
     @State private var flashedLessonID: String?
     @State private var suppressAutoJumpUntil = Date.distantPast // házi-deeplink alatt nincs okos ugrás
     @State private var flashPulse = false
@@ -190,6 +191,19 @@ struct TimetableView: View {
                     .padding(.vertical, 2)
                     .listRowBackground(colors.surface)
                     .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+                }
+
+                // Frissítési hiba: ne haljon meg némán az órarend sem.
+                if let err = loadError, !kreta.sessionExpired {
+                    Section {
+                        Label(err, systemImage: "wifi.exclamationmark")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .listRowBackground(Color.orange.opacity(scheme == .dark ? 0.12 : 0.08))
+                            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                            .listRowSeparator(.hidden)
+                    }
                 }
 
                 // MARK: Day picker — ugyanaz az inset mint Notes/Home
@@ -541,6 +555,7 @@ struct TimetableView: View {
                 homeworks = baseHW.map { h in HomeworkItem(id: h.id, subject: h.subject, title: h.title, deadline: h.deadline.addingTimeInterval(shift), teacher: h.teacher, isDone: h.isDone) }
                 exams = baseEx.map { e in ExamItem(id: e.id, subject: e.subject, date: e.date.addingTimeInterval(shift), mode: e.mode, description: e.description, teacher: e.teacher) }
             }
+            loadError = nil
             isLoading = false
             return
         }
@@ -548,16 +563,38 @@ struct TimetableView: View {
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         if iss.isEmpty || iss == "unknown" {
             lessons = []; homeworks = []; exams = []
+            loadError = "Hiányzó intézményi kód — jelentkezz be újra."
             if entryOffset == 0, !userHasNavigated { applySmartDay() }
             isLoading = false
             return
         }
+        // Totális fetch-hiba (lejárt token, offline) ellen: ha minden üresen
+        // jön vissza, de volt adatunk ÉS még mindig ugyanazt a hetet nézzük,
+        // a régit tartjuk meg — különben egy sikertelen refresh kiürítené a napot.
+        let prevLessons = lessons, prevHW = homeworks, prevEx = exams
+        let hadData = !(prevLessons.isEmpty && prevHW.isEmpty && prevEx.isEmpty)
         await fetchWeek()
         // Okos nap csak a 0. hétről indulva ÉS csak ha a user nem lapozott
         // kézzel: ha az utolsó mai óra lement / hétvége van, a következő
         // tanítási napra ugrunk — ha az másik hét, annak az adata is kell.
         if entryOffset == 0, !userHasNavigated, applySmartDay(), weekOffset != entryOffset {
             await fetchWeek()
+        }
+        if lessons.isEmpty && homeworks.isEmpty && exams.isEmpty {
+            if hadData && weekOffset == entryOffset {
+                lessons = prevLessons; homeworks = prevHW; exams = prevEx
+                loadError = kreta.sessionExpired
+                    ? "A KRÉTA-munkamenet lejárt — jelentkezz be újra."
+                    : "Nem sikerült frissíteni — a legutóbbi adatokat mutatjuk."
+            } else if !hadData {
+                loadError = kreta.sessionExpired
+                    ? "A KRÉTA-munkamenet lejárt — jelentkezz be újra."
+                    : "Nem érkezett adat a KRÉTÁ-tól — ellenőrizd a kapcsolatot vagy jelentkezz be újra."
+            } else {
+                loadError = nil
+            }
+        } else {
+            loadError = nil
         }
         isLoading = false
     }
@@ -753,7 +790,7 @@ private struct TimetableRow: View {
                                 HStack(spacing: 4) {
                                     Image(systemName: "doc.text.fill")
                                         .font(.caption2.weight(.semibold))
-                                    Text(ex.description.isEmpty ? ex.mode : "\(ex.mode): \(ex.description)")
+                                    Text(ex.plainDescription.isEmpty ? ex.mode : "\(ex.mode): \(ex.plainDescription)")
                                         .font(.caption.weight(.medium))
                                         .lineLimit(1)
                                 }

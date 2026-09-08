@@ -12,25 +12,39 @@ final class AuthViewModel: ObservableObject {
         error = nil
         do {
             let token = try await kreta.exchangeCode(code)
-            // Fetch student to get name/school
-            let iss = JWT.payload(token.access_token)?["kreta:institute_code"] as? String
-                ?? JWT.instituteCode(from: token.access_token)
-                ?? "unknown"
-            // Try to fetch student, fallback to demo-like user if fails (outside HU)
-            var user: AppUser
-            do {
-                let data: Data = try await kreta.getRaw(KretaAPI.student(iss))
-                if let u = AppUser.from(token: token, studentData: data) {
-                    user = u
-                } else {
-                    throw KretaError.network
+            // Institut-fejtés próbálgatással (refilc-minta: az iskolalista halott,
+            // a tokenben lévő rövid kód meg nem host): minden jelöltet
+            // végigpróbálunk access token + id_token + userinfo forrásokból,
+            // és az ELSŐ MŰKÖDŐT tartjuk meg — tippelés és beírogatás nélkül.
+            var candidates = JWT.allInstituteCandidates(from: token.access_token)
+            if let idt = token.id_token {
+                for c in JWT.allInstituteCandidates(from: idt) where !candidates.contains(c) {
+                    candidates.append(c)
                 }
-            } catch {
-                // Fallback - create minimal user from JWT
-                let name = (JWT.payload(token.access_token)?["name"] as? String) ?? "Diák"
-                user = AppUser(id: UUID().uuidString, name: name, username: name, instituteCode: iss, role: "student", accessToken: token.access_token, refreshToken: token.refresh_token ?? "", accessTokenExpire: Date().addingTimeInterval(Double((token.expires_in ?? 3600)-30)), studentName: name, schoolName: iss, schoolCity: "")
             }
-            session.add(user)
+            if candidates.isEmpty, let info = await kreta.fetchUserInfo() {
+                candidates = JWT.allInstituteCandidates(fromUserInfo: info)
+            }
+            candidates = Array(candidates.prefix(8))
+            var user: AppUser? = nil
+            for cand in candidates {
+                if let data = await kreta.probeInstitute(cand),
+                   var u = AppUser.from(token: token, studentData: data) {
+                    u.instituteCode = cand
+                    kreta.instituteCode = cand
+                    user = u
+                    break
+                }
+            }
+            if user == nil {
+                // Minden próba elbukott (pl. külföldről): minimál user, az üres
+                // tabok + diagnosztika megmondja, miért — nincs néma halál.
+                kreta.diag("login: minden institut-próba elbukott (\(candidates.joined(separator: ",")))")
+                let name = (JWT.payload(token.access_token)?["name"] as? String) ?? "Diák"
+                let fb = candidates.first ?? "unknown"
+                user = AppUser(id: UUID().uuidString, name: name, username: name, instituteCode: fb, role: "student", accessToken: token.access_token, refreshToken: token.refresh_token ?? "", accessTokenExpire: Date().addingTimeInterval(Double((token.expires_in ?? 3600)-30)), studentName: name, schoolName: fb, schoolCity: "")
+            }
+            session.add(user!)
         } catch {
             self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }

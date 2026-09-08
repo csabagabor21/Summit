@@ -35,6 +35,43 @@ struct HomeView: View {
                     .listRowSeparator(.hidden)
                 }
 
+                // Frissítési hiba (NEM halott munkamenet — arra ott a piros sáv):
+                // végre látszik, miért üres az oldal, nem hal meg némán.
+                if let err = vm.error, !kreta.sessionExpired {
+                    Section {
+                        Label(err, systemImage: "wifi.exclamationmark")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .listRowBackground(Color.orange.opacity(scheme == .dark ? 0.12 : 0.08))
+                            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                            .listRowSeparator(.hidden)
+                    }
+                }
+
+                // Halott KRÉTA-munkamenet ("Később" után): a pillanatnyi adatok
+                // maradnak, de a MOST-kártya felett piros sáv jelzi, hogy a
+                // KRÉTA-munkamenet már nem létezik és nincs frissítés.
+                if kreta.sessionExpired {
+                    Section {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.subheadline.weight(.semibold))
+                            Text("A KRÉTA-munkamenet már nem létezik — csak a legutóbbi mentett adatokat látod.")
+                                .font(.subheadline.weight(.semibold))
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 4)
+                            Button("Bejelentkezés") { session.logout() }
+                                .font(.subheadline.weight(.bold))
+                                .buttonStyle(.plain)
+                        }
+                        .foregroundStyle(.red)
+                        .listRowBackground(Color.red.opacity(scheme == .dark ? 0.12 : 0.08))
+                        .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                        .listRowSeparator(.hidden)
+                    }
+                }
+
                 // LIVE TOP CARD — continuously shows current lesson + progress + next + rögzítve
                 HomeLiveCard(lessons: vm.lessonsToday, exams: vm.exams, homeworks: vm.homeworks, overrideNow: isPreviewActive && isDemoEffective ? previewDate : nil)
                     .animation(.spring(response: 0.42, dampingFraction: 0.86), value: isDemoEffective)
@@ -120,8 +157,8 @@ struct HomeView: View {
                                     GradeCircle(value: g.value, size: 32)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(g.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                        if !g.topic.isEmpty {
-                                            Text(g.topic).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                        if !g.plainTopic.isEmpty {
+                                            Text(g.plainTopic).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                                         }
                                     }
                                     Spacer()
@@ -171,50 +208,34 @@ struct HomeView: View {
                     }
                     .listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 8, trailing: 4))
                 } else {
-                // iPhone: külön Section-ök maradnak
+                // iPhone: külön Section-ök, de ugyanazzal a sor-komponenssel
+                // (HomeAssignmentRow) — a dolgozat és a feladat kiírása
+                // betűtípusra, ikonra és meta-sorra is azonos.
                 Section {
                     let sorted = vm.exams.sorted { $0.date < $1.date }
                     if sorted.isEmpty {
                         Text("Nincs közelgő dolgozat").foregroundStyle(.secondary)
                     } else {
                         ForEach(sorted.prefix(3)) { e in
-                            let done = completed.isExamDone(e.id)
-                            let lesson = vm.lessonsToday.first { SubjectMatcher.same($0.subject, e.subject) && Calendar.current.isDate($0.start, inSameDayAs: e.date) }
-                                ?? vm.lessonsToday.first { SubjectMatcher.same($0.subject, e.subject) }
-                            HStack(spacing: 12) {
-                                Button { withAnimation(.spring(response: 0.3)) { completed.toggleExam(e.id) } } label: {
-                                    Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                                        .font(.system(size: 21, weight: .regular))
-                                        .foregroundStyle(done ? Color.green : .secondary)
-                                        .frame(width: 22, height: 22)
-                                        .contentShape(Rectangle())
+                            // Csak határidő-napi óra jelölhető — fallback nélkül,
+                            // különben rossz nap órája/terme jelenne meg (mint a házinál)
+                            let lesson = HomeworkMatcher.lesson(
+                                for: HomeworkItem(id: e.id, subject: e.subject, title: "", deadline: e.date, teacher: "", isDone: false),
+                                in: vm.lessonsToday
+                            )
+                            HomeAssignmentRow(
+                                subject: e.subject,
+                                detail: e.plainDescription.isEmpty ? e.mode : "\(e.mode) • \(e.plainDescription)",
+                                date: e.date,
+                                lesson: lesson,
+                                lessonIndexFallback: e.lessonIndex,
+                                done: completed.isExamDone(e.id),
+                                colors: colors,
+                                scheme: scheme,
+                                onToggle: { withAnimation(.spring(response: 0.3)) { completed.toggleExam(e.id) } },
+                                onTap: {
+                                    NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": e.subject, "deadline": e.date.timeIntervalSince1970])
                                 }
-                                .buttonStyle(.plain)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(e.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                    Text(e.description.isEmpty ? e.mode : "\(e.mode) • \(e.description)").font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                                    HStack(spacing: 6) {
-                                        Text(e.date.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.secondary)
-                                        if let l = lesson {
-                                            Label("\(l.index). óra • \(l.room)", systemImage: "graduationcap.fill")
-                                                .font(.caption2.weight(.medium)).foregroundStyle(.secondary).lineLimit(1)
-                                        } else if let n = e.lessonIndex {
-                                            Text("(\(n). óra)").font(.caption2).foregroundStyle(.secondary)
-                                        }
-                                    }
-                                }
-                                Spacer()
-                            }
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": e.subject, "deadline": e.date.timeIntervalSince1970])
-                            }
-                            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
-                            .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] + 16 }
-                            .listRowBackground(
-                                done
-                                ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07)
-                                : colors.surface
                             )
                         }
                         if sorted.count > 3 {
@@ -231,42 +252,22 @@ struct HomeView: View {
                         Text("Nincs feladat").foregroundStyle(.secondary)
                     } else {
                         ForEach(sorted.prefix(3)) { h in
-                            let done = completed.isHomeworkDone(h.id)
                             // Csak határidő-napi óra jelölhető — fallback nélkül,
                             // különben rossz nap órája/terme jelenne meg (HomeworkMatcher)
                             let lesson = HomeworkMatcher.lesson(for: h, in: vm.lessonsToday)
-                            HStack(spacing: 12) {
-                                Button { withAnimation(.spring(response: 0.3)) { completed.toggleHomework(h.id) } } label: {
-                                    Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                                        .font(.system(size: 21))
-                                        .foregroundStyle(done ? Color.green : .secondary)
-                                        .frame(width: 22, height: 22)
-                                        .contentShape(Rectangle())
+                            HomeAssignmentRow(
+                                subject: h.subject,
+                                detail: h.plainTitle.isEmpty ? "(nincs leírás)" : h.plainTitle,
+                                date: h.deadline,
+                                lesson: lesson,
+                                lessonIndexFallback: nil,
+                                done: completed.isHomeworkDone(h.id),
+                                colors: colors,
+                                scheme: scheme,
+                                onToggle: { withAnimation(.spring(response: 0.3)) { completed.toggleHomework(h.id) } },
+                                onTap: {
+                                    NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": h.subject, "deadline": h.deadline.timeIntervalSince1970])
                                 }
-                                .buttonStyle(.plain)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(h.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                    Text(h.plainTitle.isEmpty ? "(nincs leírás)" : h.plainTitle).font(.callout).foregroundStyle(.secondary).lineLimit(2)
-                                    HStack(spacing: 6) {
-                                        Text(h.deadline.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.secondary)
-                                        if let l = lesson {
-                                            Label("\(l.index). óra • \(l.room)", systemImage: "book.fill")
-                                                .font(.caption2.weight(.medium)).foregroundStyle(.secondary).lineLimit(1)
-                                        }
-                                    }
-                                }
-                                Spacer()
-                            }
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": h.subject, "deadline": h.deadline.timeIntervalSince1970])
-                            }
-                            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
-                            .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] + 16 }
-                            .listRowBackground(
-                                done
-                                ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07)
-                                : colors.surface
                             )
                         }
                         if sorted.count > 3 {
@@ -424,7 +425,7 @@ private struct PadExamRow: View {
             }.buttonStyle(.plain)
             VStack(alignment: .leading, spacing: 2) {
                 Text(exam.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
-                Text(exam.description.isEmpty ? exam.mode : "\(exam.mode) • \(exam.description)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(exam.plainDescription.isEmpty ? exam.mode : "\(exam.mode) • \(exam.plainDescription)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 Text(examLessonLine(exam)).font(.caption2).foregroundStyle(.tertiary)
             }
             Spacer()
@@ -477,6 +478,57 @@ private struct PadHomeworkRow: View {
         RoundedRectangle(cornerRadius: 12)
             .fill(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface)
             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
+    }
+}
+
+// MARK: - Közös dolgozat/feladat sor (iPhone) — a két főoldali Section
+// ugyanazt a tipót, ikont és meta-sort kapja, hogy a kiírás egységes legyen.
+private struct HomeAssignmentRow: View {
+    var subject: String
+    var detail: String
+    var date: Date
+    var lesson: LessonItem?
+    var lessonIndexFallback: Int?
+    var done: Bool
+    var colors: AppColors
+    var scheme: ColorScheme
+    var onToggle: () -> Void
+    var onTap: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button(action: onToggle) {
+                Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 21, weight: .regular))
+                    .foregroundStyle(done ? Color.green : .secondary)
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1)
+                Text(detail).font(.callout).foregroundStyle(.secondary).lineLimit(2)
+                HStack(spacing: 6) {
+                    Text(date.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.secondary)
+                    if let l = lesson {
+                        Label("\(l.index). óra • \(l.room)", systemImage: "clock.fill")
+                            .font(.caption2.weight(.medium)).foregroundStyle(.secondary).lineLimit(1)
+                    } else if let n = lessonIndexFallback {
+                        Text("(\(n). óra)").font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            Spacer()
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onTap)
+        .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+        .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] + 16 }
+        .listRowBackground(
+            done
+            ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07)
+            : colors.surface
+        )
     }
 }
 
@@ -671,11 +723,12 @@ private struct HomeLiveCard: View {
         if exam != nil || hw != nil {
             VStack(alignment: .leading, spacing: 3) {
                 if let e = exam {
-                    Label(e.description.isEmpty ? "\(e.mode)" : "\(e.mode): \(e.description)", systemImage: "exclamationmark.triangle.fill")
+                    let desc = e.plainDescription
+                    Label(desc.isEmpty ? "\(e.mode)" : "\(e.mode): \(desc)", systemImage: "exclamationmark.triangle.fill")
                         .font(.caption2.weight(.semibold)).foregroundStyle(.orange).lineLimit(1)
                 }
                 if let h = hw {
-                    Label(h.title.isEmpty ? "Házi feladat" : h.title, systemImage: "checklist")
+                    Label(h.plainTitle.isEmpty ? "Házi feladat" : h.plainTitle, systemImage: "checklist")
                         .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
             }

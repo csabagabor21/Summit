@@ -252,8 +252,8 @@ struct NotesView: View {
                     Text(exam.mode)
                         .font(.callout.weight(.semibold))
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    if !exam.description.isEmpty {
-                        Text(exam.description)
+                    if !exam.plainDescription.isEmpty {
+                        Text(exam.plainDescription)
                             .font(.callout).foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -281,7 +281,7 @@ struct NotesView: View {
                     }
                     .tint(colors.accent)
                 } else {
-                    Text(exam.description.isEmpty ? exam.mode : "\(exam.mode) • \(exam.description)")
+                    Text(exam.plainDescription.isEmpty ? exam.mode : "\(exam.mode) • \(exam.plainDescription)")
                         .font(.callout).foregroundStyle(.secondary).lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
@@ -312,10 +312,19 @@ struct NotesView: View {
     func load() async {
         guard let user = session.selectedUser, !user.isDemo else { homeworks=DemoData.homeworks(); exams=DemoData.exams(); isLoading=false; return }
         isLoading=true; let iss=user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
+        let hadData = !(homeworks.isEmpty && exams.isEmpty)
+        let prevHW = homeworks, prevEx = exams
         async let hw = kreta.fetchHomework(iss: iss)
         async let ex = kreta.fetchExams(iss: iss)
         let (hwR, exR) = await (hw, ex)
-        homeworks = hwR; exams = exR; isLoading=false
+        // Totális fetch-hiba (lejárt token, offline): a legutóbbi lista marad,
+        // nem ürül ki a Feladatok tab egy sikertelen refresh-től.
+        if hwR.isEmpty && exR.isEmpty && hadData {
+            homeworks = prevHW; exams = prevEx
+        } else {
+            homeworks = hwR; exams = exR
+        }
+        isLoading=false
     }
 }
 

@@ -48,6 +48,15 @@ final class SessionStore: ObservableObject {
         selectedId = users.first?.id
         persist()
     }
+    /// Kézi iskola-kód felülírás (Beállítások → Fiók): ha a tokenből fejlett
+    /// kód nem host (pl. OM-azonosító), a user beírja a böngészős
+    /// e-KRÉTA cím elejét (https://EZ.e-kreta.hu) és minden életre kel.
+    func updateInstitute(_ code: String) {
+        guard let id = selectedId, let idx = users.firstIndex(where: { $0.id == id }) else { return }
+        users[idx].instituteCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        persist()
+        objectWillChange.send()
+    }
     /// Token refresh után frissíti a kiválasztott user tokenjeit és perzisztálja
     func updateTokens(accessToken: String, refreshToken: String?, expiresIn: Int?) {
         guard let id = selectedId, let idx = users.firstIndex(where: { $0.id == id }) else { return }

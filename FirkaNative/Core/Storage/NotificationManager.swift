@@ -244,7 +244,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                 self.schedule(
                     id: "summit.grade.\(g.id)",
                     title: "Új jegy: \(g.valueText) (\(g.subject))",
-                    body: [g.type, g.topic, g.teacher].filter { !$0.isEmpty }.joined(separator: " • "),
+                    body: [g.type, g.plainTopic, g.teacher].filter { !$0.isEmpty }.joined(separator: " • "),
                     userId: userId, bumpBy: 1,
                     imageURL: self.gradeImageURL(value: g.value),
                     userInfo: Self.gradeUserInfo(g)
@@ -290,7 +290,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             if fresh.count == 1, let e = byId[fresh[0]] {
                 self.schedule(
                     id: "summit.exam.\(e.id)", title: "Új dolgozat: \(e.subject)",
-                    body: "\(e.mode) • \(df.string(from: e.date))\(e.description.isEmpty ? "" : " • \(e.description)")",
+                    body: "\(e.mode) • \(df.string(from: e.date))\(e.plainDescription.isEmpty ? "" : " • \(e.plainDescription)")",
                     userId: userId, bumpBy: 1,
                     userInfo: ["kind": "exams"]
                 )

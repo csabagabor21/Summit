@@ -7,9 +7,10 @@ struct ProfileImageView: View {
     var badge: Bool = false
     @Environment(\.colorScheme) var scheme
     @EnvironmentObject var profileStore: ProfileImageStore
+    @EnvironmentObject var theme: ThemeStore
 
     var body: some View {
-        let colors = AppColors.current(for: scheme)
+        let colors = theme.colors(for: scheme)
         ZStack(alignment: .topTrailing) {
             Group {
                 if let uid = userId, let ui = profileStore.image(for: uid) {
@@ -19,7 +20,7 @@ struct ProfileImageView: View {
                         .clipShape(Circle())
                 } else {
                     Circle()
-                        .fill(Color(hex: 0x2B4C7E))
+                        .fill(colors.accent)
                         .frame(width: size, height: size)
                         .overlay {
                             Text(initials)

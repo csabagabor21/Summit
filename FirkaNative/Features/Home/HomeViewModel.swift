@@ -59,12 +59,30 @@ final class HomeViewModel: ObservableObject {
         async let ex = kreta.fetchExams(iss: iss)
         async let msg = kreta.fetchMessages()
 
+        let hadData = !(grades.isEmpty && homeworks.isEmpty && absences.isEmpty && exams.isEmpty && messages.isEmpty && lessonsToday.isEmpty)
         let start = Calendar.current.startOfDay(for: Date())
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start)!
         async let tt = kreta.fetchTimetable(iss: iss, from: start, to: end)
         let (gradesR, hwR, abR, exR, msgR, ttR) = await (g, hw, ab, ex, msg, tt)
+        if gradesR.isEmpty && hwR.isEmpty && abR.isEmpty && exR.isEmpty && msgR.isEmpty && ttR.isEmpty {
+            if hadData {
+                // Totális fetch-hiba (lejárt token, offline): a legutóbbi adat
+                // marad a képernyőn, nem ürül ki a főoldal — csak hibaüzenet jön.
+                error = kreta.sessionExpired
+                    ? "A KRÉTA-munkamenet lejárt — jelentkezz be újra."
+                    : "Nem sikerült frissíteni — a legutóbbi adatokat mutatjuk."
+                updateLiveState()
+                return
+            }
+            error = "Nem érkezett adat a KRÉTÁ-tól — ellenőrizd a kapcsolatot vagy jelentkezz be újra."
+            updateLiveState()
+            return
+        }
         self.grades = gradesR
-        self.homeworks = hwR
+        // Lejárt határidejű házi nem kerül a főoldalra (a Feladatok tabon
+        // és az értesítési diffben megmarad) — demo módban nincs szűrés,
+        // hogy a showcase-adat hétvégén se ürüljön ki.
+        self.homeworks = hwR.filter { !HomeworkExpiry.isExpired($0) }
         self.absences = abR
         self.exams = exR
         self.messages = msgR
@@ -75,11 +93,7 @@ final class HomeViewModel: ObservableObject {
                 grades: gradesR, homeworks: hwR, exams: exR, absences: abR, userId: uid
             )
         }
-        if gradesR.isEmpty && hwR.isEmpty && abR.isEmpty && exR.isEmpty && msgR.isEmpty && ttR.isEmpty {
-            error = "Nem érkezett adat a KRÉTÁ-tól — ellenőrizd a kapcsolatot vagy jelentkezz be újra."
-        } else {
-            error = nil
-        }
+        error = nil
         updateLiveState()
         return
     }

@@ -315,6 +315,12 @@ struct GradesView: View {
         async let gradesTask = kreta.fetchGrades(iss: iss)
         async let subjectsTask = kreta.fetchAllSubjectNames(iss: iss)
         let (g, s) = await (gradesTask, subjectsTask)
+        // Totális fetch-hiba (lejárt token, offline): a legutóbbi jegyek
+        // maradnak, nem ürül ki a Jegyek tab egy sikertelen refresh-től.
+        if g.isEmpty && s.isEmpty && !grades.isEmpty {
+            isLoading=false
+            return
+        }
         grades = g
         // Lehúzáskor új jegy → ünneplő kártya (elsőre csak magot vet, duplán nem jelez)
         NotificationManager.shared.checkGrades(g, userId: user.id)

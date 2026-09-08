@@ -103,7 +103,7 @@ final class SummitLiveActivityManager: ObservableObject {
     /// Órarendből vagy Home-ból hívd — minden éles frissítési pont itt fut át.
     /// Ha nincs aktuális óra, next óra info-val "szünet" phase-et indítunk; ha nincs óra egyáltalán, nem indítunk.
     @discardableResult
-    func startOrUpdate(current: LessonItem?, next: LessonItem?, now: Date = Date(), accentHex: Int = 0x2B4C7E) async -> Bool {
+    func startOrUpdate(current: LessonItem?, next: LessonItem?, now: Date = Date(), accentHex: Int = 0x4A90E2) async -> Bool {
         await runSerialized { await self.startOrUpdateImpl(current: current, next: next, now: now, accentHex: accentHex) }
     }
 
@@ -265,7 +265,7 @@ final class SummitLiveActivityManager: ObservableObject {
 
     /// Demo teszt: órarendtől független, valós időre horgonyzott activity.
     /// Este is működik — a widget renderelés önmagában tesztelhető vele.
-    func startDemoTestNow(label: String = "Matek (teszt)", accentHex: Int = 0x2B4C7E) async -> Bool {
+    func startDemoTestNow(label: String = "Matek (teszt)", accentHex: Int = 0x4A90E2) async -> Bool {
         guard #available(iOS 16.1, *) else { return false }
         let now = Date()
         let demo = LessonItem(

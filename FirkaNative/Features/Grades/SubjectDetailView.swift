@@ -140,7 +140,7 @@ struct SubjectDetailView: View {
                             .opacity(g.id.hasPrefix("phantom") ? 0.6 : 1)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(g.date.formatted(date: .abbreviated, time: .omitted) + " • \(g.weight)%").font(.caption.weight(.medium))
-                                if g.topic.isEmpty {
+                                if g.plainTopic.isEmpty {
                                     Text(g.type).font(.caption2).foregroundStyle(.secondary)
                                 }
                             }
@@ -150,8 +150,8 @@ struct SubjectDetailView: View {
                                 Button(role: .destructive) { phantom.removeAll { $0.id == g.id } } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
                             }
                         }
-                        if !g.topic.isEmpty {
-                            Text(g.topic).font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                        if !g.plainTopic.isEmpty {
+                            Text(g.plainTopic).font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.top, 2)
                         }
                     }

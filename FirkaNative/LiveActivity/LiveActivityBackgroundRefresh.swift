@@ -56,6 +56,42 @@ enum LiveActivityBackgroundRefresh {
         BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: taskIdentifier)
     }
 
+    /// Biztonsági háló háttérbe vonuláskor (SummitApp scenePhase-ból hívja):
+    /// ha nincs függő ébresztés, kérünk egyet ~20 perc múlva. Amikor lefut,
+    /// a refreshNow → startOrUpdate úgyis a pontos órarendi határra ütemez
+    /// át, így a lánc akkor is él, ha az appot közben kilövi a rendszer.
+    /// Meglévő függő kérést nem bántunk (a pontos határ fontosabb).
+    static func scheduleKeepaliveIfNeeded() {
+        BGTaskScheduler.shared.getPendingTaskRequests { requests in
+            guard !requests.contains(where: { $0.identifier == taskIdentifier }) else { return }
+            let req = BGAppRefreshTaskRequest(identifier: taskIdentifier)
+            req.earliestBeginDate = Date(timeIntervalSinceNow: 20 * 60)
+            do {
+                try BGTaskScheduler.shared.submit(req)
+            } catch {
+                debugPrint("[LiveActivity] keepalive submit failed: \(error)")
+            }
+        }
+    }
+
+    /// Másnapi ébresztő: ha ma már nincs több óra, holnap reggel 7:05-re
+    /// kérünk ébresztést, hogy az activity app-megnyitás nélkül is
+    /// elinduljon a következő tanítási napon. (Enélkül a lánc az utolsó
+    /// óra végén megszakadna, és másnap semmi nem keltené fel az appot.)
+    static func scheduleMorningFallback(now: Date = Date()) {
+        let cal = Calendar.current
+        let tomorrow = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: now)) ?? now.addingTimeInterval(86400)
+        let morning = cal.date(bySettingHour: 7, minute: 5, second: 0, of: tomorrow) ?? tomorrow
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: taskIdentifier)
+        let req = BGAppRefreshTaskRequest(identifier: taskIdentifier)
+        req.earliestBeginDate = morning
+        do {
+            try BGTaskScheduler.shared.submit(req)
+        } catch {
+            debugPrint("[LiveActivity] morning fallback submit failed: \(error)")
+        }
+    }
+
     // MARK: - Háttér-végrehajtás
 
     private static func runRefresh(task: BGAppRefreshTask) async {
@@ -107,7 +143,17 @@ enum LiveActivityBackgroundRefresh {
         let now = Date()
         let cur = lessons.first { $0.start <= now && $0.end >= now }
         let nxt = lessons.first { $0.start > now }
-        let accent = UserDefaults.standard.object(forKey: "theme.accentHex") as? Int ?? 0x2B4C7E
-        return await SummitLiveActivityManager.shared.startOrUpdate(current: cur, next: nxt, now: now, accentHex: accent)
+        let accent = UserDefaults.standard.object(forKey: "theme.accentHex") as? Int ?? 0x4A90E2
+        let updated = await SummitLiveActivityManager.shared.startOrUpdate(current: cur, next: nxt, now: now, accentHex: accent)
+        if !updated && cur == nil && nxt == nil && SummitLiveActivityManager.shared.canStart {
+            // Mai órák vége (a futó activity lezárva, nincs új határ) —
+            // holnap reggelre ébresztőt kérünk, hogy a következő tanítási
+            // napon app-megnyitás nélkül is elinduljon az activity.
+            // (Kikapcsolt toggle / rendszer-tiltás esetén a startOrUpdate
+            // hamisat ad, de akkor cur/nxt tipikusan nem nil — oda nem kell ébresztő.)
+            scheduleMorningFallback(now: now)
+            return true
+        }
+        return updated
     }
 }

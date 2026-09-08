@@ -17,7 +17,7 @@ struct GradeCelebrationView: View {
     var colors: AppColors { theme.colors(for: scheme) }
     private var gradeColor: Color { colors.gradeColor(for: grade.value) }
     private var percent: Int { grade.value * 20 }
-    private var topicLine: String { grade.topic.isEmpty ? grade.type : grade.topic }
+    private var topicLine: String { grade.plainTopic.isEmpty ? grade.type : grade.plainTopic }
     private var dateText: String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "hu_HU")

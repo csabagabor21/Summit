@@ -38,9 +38,12 @@ struct SummitLiveActivityWidget: Widget {
                     // ÉLŐ timer: a rendszer másodpercenként frissíti, app-ébresztés nélkül.
                     // (A statikus Date()-alapú szöveg beragadt, mert a Widgetet csak
                     // app-update rajzolja újra — ez okozta a "lagging behind"-ot.)
+                    // Center: a trailing régióban a jobbra tolás optikailag
+                    // félrecsúszik a leading címhez képest.
                     Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true)
                         .font(.callout.monospacedDigit().weight(.semibold))
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity, alignment: .center)
                         .monospacedDigit()
                 }
                 DynamicIslandExpandedRegion(.center) {
@@ -83,7 +86,7 @@ struct SummitLiveActivityWidget: Widget {
     /// Az appban választott accent (Beállítások) — indításkor kapja az activity.
     private func accentColor(_ context: ActivityViewContext<SummitLiveActivityAttributes>) -> Color {
         let hex = context.attributes.accentHex
-        return Color(hex: UInt(hex == 0 ? 0x2B4C7E : hex))
+        return Color(hex: UInt(hex == 0 ? 0x4A90E2 : hex))
     }
 
     /// Elmarad/Helyettesítés esetén a progress és a pill is átveszi a státuszszínt.
@@ -107,7 +110,7 @@ private struct LockScreenView: View {
     let context: ActivityViewContext<SummitLiveActivityAttributes>
     private var accent: Color {
         let hex = context.attributes.accentHex
-        return Color(hex: UInt(hex == 0 ? 0x2B4C7E : hex))
+        return Color(hex: UInt(hex == 0 ? 0x4A90E2 : hex))
     }
 
     private var isBreak: Bool { context.state.phase == "break" }

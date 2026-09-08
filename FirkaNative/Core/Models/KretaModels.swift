@@ -11,6 +11,8 @@ struct GradeItem: Identifiable, Hashable {
     let type: String
     let weight: Int
     var topic: String = "" // Tema — mire kapta a jegyet (API: Tema)
+    /// A Tema is hordozhat nyers HTML-t — kijelzéshez a tisztított változat.
+    var plainTopic: String { HomeworkPlain.text(from: topic) }
 }
 struct LessonItem: Identifiable, Hashable {
     let id: String
@@ -60,6 +62,14 @@ enum HomeworkMatcher {
     }
 }
 
+/// Lejárt határidő: a határidő napja már elmúlt (ma éjfélnél korábbi).
+/// Az ilyen házi lekerül a főoldalról — a Feladatok tabon megmarad.
+enum HomeworkExpiry {
+    static func isExpired(_ h: HomeworkItem, now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        h.deadline < calendar.startOfDay(for: now)
+    }
+}
+
 /// Dolgozat–óra csatolás:
 /// ha a KRÉTA tudja, hányadik órára szól (OrarendiOraOraszama), CSAK az az
 /// óra kapja meg — különben minden aznapi, azonos tárgyú órára ráíródna.
@@ -73,7 +83,18 @@ enum ExamMatcher {
         if let pinned = sameDay.first(where: { $0.lessonIndex != nil && Int(lesson.index) == $0.lessonIndex }) {
             return pinned
         }
-        return sameDay.first(where: { $0.lessonIndex == nil })
+        if let unpinned = sameDay.first(where: { $0.lessonIndex == nil }) {
+            return unpinned
+        }
+        // Fallback, hogy a dolgozat sose tűnjön el némán az órarendről:
+        // - ha aznapra egyetlen dolgozat van ebből a tárgyból, az biztosan ide tartozik;
+        // - ha az óra sorszáma nem számozott ("-"), az óraszámos tűzés nem dönthető el,
+        //   ilyenkor az aznapi elsőt mutatjuk a semmi helyett.
+        // Több aznapi, eltérő óraszámú dolgozatnál marad a szigorú tűzés
+        // (félrecsatolás helyett inkább ne színezzünk).
+        if sameDay.count == 1 { return sameDay[0] }
+        if Int(lesson.index) == nil { return sameDay.first }
+        return nil
     }
 }
 
@@ -294,6 +315,8 @@ struct ExamItem: Identifiable, Hashable {
     var announcedDate: Date? = nil
     /// Melyik osztály/csoportnak szól (KRÉTA: OsztalyCsoport.Nev, pl. "12.HBS - Technikum")
     var groupName: String = ""
+    /// A Temaja-leírás gyakran nyers HTML — kijelzéshez a tisztított változat.
+    var plainDescription: String { HomeworkPlain.text(from: description) }
 }
 
 /// KRÉTA nyers számonkérés-mód (pl. "szobeli_felelet") → szép magyar név.

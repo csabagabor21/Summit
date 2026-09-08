@@ -32,8 +32,8 @@ struct SummitLiveActivityWidget: Widget {
         ActivityConfiguration(for: SummitLiveActivityAttributes.self) { context in
             // MARK: Lock Screen / Banner
             LockScreenView(context: context)
-                .activityBackgroundTint(Color(hex: 0x2B4C7E).opacity(0.12))
-                .activitySystemActionForegroundColor(Color(hex: 0x2B4C7E))
+                .activityBackgroundTint(Color(hex: UInt(context.attributes.accentHex)).opacity(0.12))
+                .activitySystemActionForegroundColor(Color(hex: UInt(context.attributes.accentHex)))
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
@@ -55,20 +55,20 @@ struct SummitLiveActivityWidget: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     ProgressView(value: progress(start: context.state.lessonStart, end: context.state.lessonEnd))
-                        .tint(Color(hex: 0x2B4C7E))
+                        .tint(Color(hex: UInt(context.attributes.accentHex)))
                 }
             } compactLeading: {
                 Image(systemName: context.attributes.isCancelled ? "xmark.circle.fill" : "\(context.attributes.index).circle.fill")
-                    .foregroundStyle(Color(hex: 0x2B4C7E))
+                    .foregroundStyle(Color(hex: UInt(context.attributes.accentHex)))
             } compactTrailing: {
                 Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true)
                     .font(.caption2.monospacedDigit())
                     .frame(width: 46)
             } minimal: {
                 Image(systemName: "\(context.attributes.index).circle.fill")
-                    .foregroundStyle(Color(hex: 0x2B4C7E))
+                    .foregroundStyle(Color(hex: UInt(context.attributes.accentHex)))
             }
-            .keylineTint(Color(hex: 0x2B4C7E))
+            .keylineTint(Color(hex: UInt(context.attributes.accentHex)))
         }
     }
 
@@ -87,11 +87,11 @@ private struct LockScreenView: View {
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
-                Circle().fill(Color(hex: 0x2B4C7E).opacity(0.16))
+                Circle().fill(Color(hex: UInt(context.attributes.accentHex)).opacity(0.16))
                     .frame(width: 42, height: 42)
                 Text(context.attributes.index)
                     .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color(hex: 0x2B4C7E))
+                    .foregroundStyle(Color(hex: UInt(context.attributes.accentHex)))
             }
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
@@ -118,7 +118,7 @@ private struct LockScreenView: View {
                 Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true)
                     .font(.system(size: 14, weight: .semibold, design: .rounded).monospacedDigit())
                 ProgressView(value: progress(start: context.state.lessonStart, end: context.state.lessonEnd))
-                    .tint(Color(hex: 0x2B4C7E))
+                    .tint(Color(hex: UInt(context.attributes.accentHex)))
                     .frame(width: 72)
             }
         }

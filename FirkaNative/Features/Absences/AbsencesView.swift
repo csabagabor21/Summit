@@ -370,7 +370,11 @@ struct AbsencesView: View {
         guard let user = session.selectedUser, !user.isDemo else { absences = DemoData.absences(); isLoading = false; return }
         isLoading = true
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
-        absences = await kreta.fetchAbsences(iss: iss)
+        let hadData = !absences.isEmpty
+        let fetched = await kreta.fetchAbsences(iss: iss)
+        // Totális fetch-hiba (lejárt token, offline): a legutóbbi lista marad,
+        // nem ürül ki a Hiányzások tab egy sikertelen refresh-től.
+        if !(fetched.isEmpty && hadData) { absences = fetched }
         isLoading = false
     }
 }

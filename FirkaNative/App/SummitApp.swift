@@ -7,6 +7,7 @@ struct SummitApp: App {
     @StateObject private var theme = ThemeStore()
     @StateObject private var completed = CompletedStore()
     @StateObject private var profileImages = ProfileImageStore()
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         // Live Activity háttér-ébresztés: óra/szünet végén az app
@@ -32,9 +33,12 @@ struct SummitApp: App {
                     kreta.accessToken = session.selectedUser?.accessToken
                     kreta.refreshToken = session.selectedUser?.refreshToken
                     kreta.instituteCode = session.selectedUser?.instituteCode
-                    // Token refresh perzisztálás
+                    kreta.accessTokenExpire = session.selectedUser?.accessTokenExpire
+                    // Token refresh perzisztálás (+ kliens-oldali lejárat szinkron,
+                    // hogy a proaktív megújítás ne egy elavult dátummal számoljon)
                     kreta.onTokensRefreshed = { newAccess, newRefresh, expiresIn in
                         session.updateTokens(accessToken: newAccess, refreshToken: newRefresh, expiresIn: expiresIn)
+                        kreta.accessTokenExpire = session.selectedUser?.accessTokenExpire
                     }
                     // takarítás: régi hardcoded flag már nem használt
                     UserDefaults.standard.removeObject(forKey: "timetable.useHardcoded")
@@ -43,6 +47,9 @@ struct SummitApp: App {
                     kreta.accessToken = session.selectedUser?.accessToken
                     kreta.refreshToken = session.selectedUser?.refreshToken
                     kreta.instituteCode = session.selectedUser?.instituteCode
+                    kreta.accessTokenExpire = session.selectedUser?.accessTokenExpire
+                    kreta.sessionExpired = false
+                    kreta.showExpiredAlert = false
                 }
                 .onChange(of: session.selectedUser?.accessToken) { _, new in
                     kreta.accessToken = new
@@ -52,6 +59,36 @@ struct SummitApp: App {
                 }
                 .onChange(of: session.selectedUser?.instituteCode) { _, new in
                     kreta.instituteCode = new
+                }
+                .onChange(of: scenePhase) { _, new in
+                    if new == .background {
+                        // Háttérbe vonuláskor legyen függő BG-ébresztés —
+                        // enélkül a rendszer nem kelti fel az appot óra-/
+                        // szünetváltáskor, és az activity csak megnyitásra frissülne.
+                        LiveActivityBackgroundRefresh.scheduleKeepaliveIfNeeded()
+                    } else if new == .active {
+                        // Előtérben először a tárolóból szinkronizálunk: a háttér-
+                        // refresh (Live Activity ébresztés) rotálhatta a tokeneket
+                        // és perzisztálta az újakat — a memóriában lévő régi
+                        // refresh tokennel próbálkozva az IDP eldobná a kérést,
+                        // és egy élő munkamenetre kapnánk hamis "lejárt" popupot.
+                        session.load()
+                        let oldRT = kreta.refreshToken
+                        kreta.accessToken = session.selectedUser?.accessToken
+                        kreta.refreshToken = session.selectedUser?.refreshToken
+                        kreta.instituteCode = session.selectedUser?.instituteCode
+                        kreta.accessTokenExpire = session.selectedUser?.accessTokenExpire
+                        if kreta.refreshToken != oldRT {
+                            // Alattunk cserélődtek a tokenek — a korábbi
+                            // "lejárt" ítélet elavult, töröljük.
+                            kreta.sessionExpired = false
+                            kreta.showExpiredAlert = false
+                        }
+                        // Proaktív token-megújítás: ha háttérben járt le a
+                        // KRÉTA-token, az első lehúzás már friss tokennel
+                        // menjen, ne 401 + üres nézetekkel.
+                        Task { await kreta.ensureValidToken() }
+                    }
                 }
         }
     }

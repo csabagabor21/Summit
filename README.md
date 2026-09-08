@@ -53,3 +53,9 @@ FirkaNative/
 ## Jegyzetek
 - e-KRÉTA API: `KretaAPI` + `KretaClient` (Bearer access_token, JWT institute_code)
 - Demo mód: 10x tap a login ikonon, offline adatok `DemoData`-ból
+
+## AI-munka szabály (kötelező, minden AI-ra vonatkozik)
+Minden módosítás / prompt után KÖTELEZŐ commitolni és pusholni GitHubra,
+részletes magyar nyelvű leírással. Nincs kivétel: kisebb javítás, UI-matrica,
+egysoros fix után is. A commit message sorolja fel a változott fájlokat és a
+miértet. Lásd még: `AGENTS.md`.

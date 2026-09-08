@@ -20,6 +20,7 @@ import SwiftUI
 struct MainTabView: View {
     @EnvironmentObject var theme: ThemeStore
     @EnvironmentObject var session: SessionStore
+    @EnvironmentObject var kreta: KretaClient
     @Environment(\.colorScheme) var scheme
     @State private var selected: Int = ProcessInfo.processInfo.arguments.contains("-FIRKA_ABSENCES") ? 4 : 0
     @ObservedObject private var notif = NotificationManager.shared
@@ -52,6 +53,17 @@ struct MainTabView: View {
         // Új jegy ünneplő kártya (diff, értesítés-koppintás vagy demo szimulálás után)
         .fullScreenCover(item: $notif.celebrationGrade) { grade in
             GradeCelebrationView(grade: grade)
+        }
+        // Halott KRÉTA-munkamenet: a KRÉTA a refresh tokent is elutasította —
+        // ilyenkor az adatok már nem frissülnek maguktól, újra be kell lépni.
+        // A "Később" csak a popupot nyugtatja: a pillanatnyi adatok a
+        // képernyőn maradnak, és a MOST-kártya felett piros sáv jelzi,
+        // hogy a KRÉTA-munkamenet már nem létezik.
+        .alert("Munkamenet lejárt", isPresented: $kreta.showExpiredAlert) {
+            Button("Bejelentkezés", role: .destructive) { session.logout() }
+            Button("Később", role: .cancel) {}
+        } message: {
+            Text("A KRÉTA visszadobta a belépést, ezért az adatok nem frissülnek. Jelentkezz be újra a folytatáshoz.")
         }
     }
 

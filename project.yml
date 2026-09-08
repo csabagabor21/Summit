@@ -48,6 +48,10 @@ targets:
         IPHONEOS_DEPLOYMENT_TARGET: "26.0"
         INFOPLIST_KEY_CFBundleDisplayName: "Summit"
         INFOPLIST_KEY_CFBundleName: "Summit"
+        # Export compliance (TestFlight): az app nem használ nem-mentesített
+        # titkosítást (csak rendszer-HTTPS) — ezzel nem kell buildenként
+        # kitölteni az "App Encryption Documentation" kérdőívet.
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
         INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace: YES
         INFOPLIST_KEY_UISupportsDocumentBrowser: NO
