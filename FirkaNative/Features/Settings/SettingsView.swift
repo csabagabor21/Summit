@@ -422,11 +422,20 @@ struct SettingsView: View {
         isLoadingSubjects = subjects.isEmpty
         guard let user = session.selectedUser else { isLoadingSubjects = false; return }
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
-        var collected = Set(await kreta.fetchAllSubjectNames(iss: iss))
-        collected.formUnion(GradingLogic.loadThresholds().keys.filter { collected.contains($0) })
+        let net = Set(await kreta.fetchAllSubjectNames(iss: iss))
+        // Halott hálózatnál (átlag 500/403, órarend 400, 0 jegy) a helyben
+        // tudott tárgyak tartják meg a számlálót — lásd TeacherRoundingView.
+        var collected = net
+        if !isDemo {
+            collected.formUnion(UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1") ?? [])
+        }
+        collected.formUnion(GradingLogic.loadThresholds().keys)
+        collected.formUnion(ExemptedStore.load())
         // filter out empty / unknown
         let filtered = collected.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != "Ismeretlen" }.sorted()
-        subjects = filtered
+        if !filtered.isEmpty || subjects.isEmpty {
+            subjects = filtered
+        }
         isLoadingSubjects = false
         if !filtered.isEmpty, !isDemo { UserDefaults.standard.set(filtered, forKey: "firka.cachedSubjects.v1") }
     }

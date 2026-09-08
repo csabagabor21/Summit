@@ -69,10 +69,22 @@ struct TeacherRoundingView: View {
         isLoading = subjects.isEmpty
         guard let user = session.selectedUser else { isLoading = false; return }
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
-        var collected = Set(await kreta.fetchAllSubjectNames(iss: iss))
-        collected.formUnion(GradingLogic.loadThresholds().keys.filter { collected.contains($0) })
+        let net = Set(await kreta.fetchAllSubjectNames(iss: iss))
+        // A hálózat most halott lehet (átlag-végpontok 500/403, órarend
+        // időnként 400, új tanévben 0 jegy) — ilyenkor a helyben tudott
+        // tárgyak (cache, kerekítési küszöbök, felmentések) tartják meg a
+        // listát, hogy a felmentés mindig beállítható maradjon.
+        var collected = net
+        if !isDemo {
+            collected.formUnion(UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1") ?? [])
+        }
+        collected.formUnion(GradingLogic.loadThresholds().keys)
+        collected.formUnion(ExemptedStore.load())
         let filtered = collected.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != "Ismeretlen" }.sorted()
-        subjects = filtered
+        // Üres hálózati kör nem törölheti a már mutatott listát (GradesView-minta).
+        if !filtered.isEmpty || subjects.isEmpty {
+            subjects = filtered
+        }
         isLoading = false
         if !filtered.isEmpty, !isDemo { UserDefaults.standard.set(filtered, forKey: "firka.cachedSubjects.v1") }
     }
