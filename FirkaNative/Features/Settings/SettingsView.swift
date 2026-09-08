@@ -268,12 +268,6 @@ struct SettingsView: View {
                 }
             }
 
-            island {
-                row {
-                    Link("Adatkezelés", destination: URL(string: "https://summit.app/privacy")!)
-                }
-            }
-
             island(header: "Diagnosztika") {
                 row {
                     NavigationLink { DiagnosticsView() } label: {
