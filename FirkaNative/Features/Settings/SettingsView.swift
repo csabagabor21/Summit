@@ -414,48 +414,24 @@ struct SettingsView: View {
     }
 
     private func loadSubjects(force: Bool = false) async {
+        // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből
+        // (fetchAllSubjectNames) — a közös cache-be demo módban SOHA nem
+        // írunk, különben a demo-tárgyak leakelnek valós módba.
         let isDemo = session.selectedUser?.isDemo == true
         if !force, let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1"), !cached.isEmpty, !isDemo {
             // still fetch in background, but show cached first
             subjects = cached; isLoadingSubjects = false
-        } else if !force, isDemo {
-            let s = Set(DemoData.gradesExpanded().map(\.subject))
-            subjects = s.sorted(); isLoadingSubjects = false
-            return
         }
         isLoadingSubjects = subjects.isEmpty
-        // Demo / kijelentkezett: demo-tárgyak, de a közös cache-be SOHA nem írunk —
-        // különben a hardcodolt demo-tárgyak leakelnek valós módba.
-        if isDemo || session.selectedUser == nil {
-            var collected = Set<String>()
-            collected.formUnion(GradingLogic.loadThresholds().keys)
-            collected.formUnion(DemoData.gradesExpanded().map(\.subject))
-            collected.formUnion(DemoData.lessonsToday().map(\.subject))
-            let filtered = collected.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != "Ismeretlen" }.sorted()
-            subjects = filtered
-            isLoadingSubjects = false
-            return
-        }
-        // Valós mód: csak hálózati tárgyak + a hozzájuk tartozó mentett thresholdök.
-        // A cache csak instant placeholder (fent), a mentés felülírja a szennyezést.
         guard let user = session.selectedUser else { isLoadingSubjects = false; return }
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
-        var real = Set<String>()
-        if !iss.isEmpty {
-            let grades = await kreta.fetchGrades(iss: iss)
-            real.formUnion(grades.map(\.subject))
-            // also timetable last 14 days for subjects without grades yet
-            let start = Calendar.current.date(byAdding: .day, value: -14, to: Date())!
-            let end = Calendar.current.date(byAdding: .day, value: 14, to: Date())!
-            let lessons = await kreta.fetchTimetable(iss: iss, from: start, to: end)
-            real.formUnion(lessons.map(\.subject))
-        }
-        real.formUnion(GradingLogic.loadThresholds().keys.filter { real.contains($0) })
+        var collected = Set(await kreta.fetchAllSubjectNames(iss: iss))
+        collected.formUnion(GradingLogic.loadThresholds().keys.filter { collected.contains($0) })
         // filter out empty / unknown
-        let filtered = real.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != "Ismeretlen" }.sorted()
+        let filtered = collected.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != "Ismeretlen" }.sorted()
         subjects = filtered
         isLoadingSubjects = false
-        if !filtered.isEmpty { UserDefaults.standard.set(filtered, forKey: "firka.cachedSubjects.v1") }
+        if !filtered.isEmpty, !isDemo { UserDefaults.standard.set(filtered, forKey: "firka.cachedSubjects.v1") }
     }
 }
 

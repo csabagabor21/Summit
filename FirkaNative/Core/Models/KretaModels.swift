@@ -733,8 +733,51 @@ enum SubjectMatcher {
     }
 }
 
-// Keep DemoData only for true demo user or preview — enriched
+// Helyi demo-backend adatkészlete (hálózat nélkül, az appba csomagolva).
+// A KretaClient ebből szolgál ki, ha a user instituteCode-ja "demo" —
+// a nézetek ugyanazt a fetchX-kaput hívják, mint éles módban.
 enum DemoData {
+    /// A 6 órás demo-sablon (tárgy, terem, tanár, óraszám, kezdő óra, perc).
+    private static let lessonDefs: [(String, String, String, String, Int, Int)] = [
+        ("Matek", "A1", "Kovács J.", "1", 8, 0),
+        ("Angol", "B2", "Smith", "2", 9, 0),
+        ("Fizika", "C4", "Varga", "3", 10, 0),
+        ("Töri", "A3", "Nagy A.", "4", 11, 0),
+        ("Kémia", "B1", "Kiss", "5", 12, 0),
+        ("Irodalom", "C2", "Szabó K.", "6", 13, 0),
+    ]
+
+    /// A demo-sablon csempézése egy tetszőleges [from, to) tartomány
+    /// minden hétköznapjára. Hétfőnként a 3. óra elmarad, a 4.
+    /// helyettesítés — mint eddig. Ezzel a heti lapozás is a normál
+    /// fetchTimetable-úton megy, nézet-oldali demo-ág nélkül.
+    static func lessons(from: Date, to: Date) -> [LessonItem] {
+        let cal = Calendar.current
+        let keyFmt = DateFormatter()
+        keyFmt.locale = Locale(identifier: "en_US_POSIX")
+        keyFmt.dateFormat = "yyyyMMdd"
+        var all: [LessonItem] = []
+        var day = cal.startOfDay(for: from)
+        while day < to {
+            let wd = cal.component(.weekday, from: day)
+            if wd >= 2 && wd <= 6 {
+                let isMonday = wd == 2
+                let key = keyFmt.string(from: day)
+                for (idx, d) in lessonDefs.enumerated() {
+                    let s = cal.date(byAdding: .hour, value: d.4, to: day)!.addingTimeInterval(Double(d.5 * 60))
+                    let e = s.addingTimeInterval(45 * 60)
+                    let isCancelled = isMonday && idx == 2
+                    let isSubstituted = isMonday && idx == 3
+                    let teacher = isSubstituted ? "Helyettes Tanár" : d.2
+                    let original: String? = isSubstituted ? d.2 : (isCancelled ? d.2 : nil)
+                    all.append(LessonItem(id: "lt\(idx)-\(key)", subject: d.0, room: d.1, start: s, end: e, teacher: teacher, index: d.3, isSubstituted: isSubstituted, isCancelled: isCancelled, originalTeacher: original))
+                }
+            }
+            guard let nxt = cal.date(byAdding: .day, value: 1, to: day) else { break }
+            day = nxt
+        }
+        return all.sorted { $0.start < $1.start }
+    }
     static func grades() -> [GradeItem] { gradesExpanded().prefix(3).map { $0 } }
     static func gradesExpanded() -> [GradeItem] {
         let now = Date()
@@ -799,15 +842,7 @@ enum DemoData {
     /// Today's demo timetable — 6 lessons covering 8:00–13:45, subjects aligned with DemoData homeworks/exams
     static func lessonsToday() -> [LessonItem] {
         let cal = Calendar.current; let base = cal.startOfDay(for: Date())
-        let defs: [(String,String,String,String,Int,Int)] = [
-            ("Matek","A1","Kovács J.","1",8,0),
-            ("Angol","B2","Smith","2",9,0),
-            ("Fizika","C4","Varga","3",10,0),
-            ("Töri","A3","Nagy A.","4",11,0),
-            ("Kémia","B1","Kiss","5",12,0),
-            ("Irodalom","C2","Szabó K.","6",13,0),
-        ]
-        var items = defs.enumerated().map { idx, d in
+        var items = lessonDefs.enumerated().map { idx, d in
             let s = cal.date(byAdding: .hour, value: d.4, to: base)!.addingTimeInterval(Double(d.5*60))
             let e = s.addingTimeInterval(45*60)
             return LessonItem(id: "lt\(idx)", subject: d.0, room: d.1, start: s, end: e, teacher: d.2, index: d.3)
@@ -826,19 +861,11 @@ enum DemoData {
         let weekday = cal.component(.weekday, from: today)
         let mondayOffset = (weekday == 1 ? -6 : 2 - weekday) // hétfőig hátralévő napok
         let monday = cal.date(byAdding: .day, value: mondayOffset, to: today)!
-        let defs: [(String,String,String,String,Int,Int)] = [
-            ("Matek","A1","Kovács J.","1",8,0),
-            ("Angol","B2","Smith","2",9,0),
-            ("Fizika","C4","Varga","3",10,0),
-            ("Töri","A3","Nagy A.","4",11,0),
-            ("Kémia","B1","Kiss","5",12,0),
-            ("Irodalom","C2","Szabó K.","6",13,0),
-        ]
         var all: [LessonItem] = []
         for dayOffset in 0..<5 {
             let dayBase = cal.date(byAdding: .day, value: dayOffset, to: monday)!
             let isMonday = dayOffset == 0
-            for (idx, d) in defs.enumerated() {
+            for (idx, d) in lessonDefs.enumerated() {
                 let s = cal.date(byAdding: .hour, value: d.4, to: dayBase)!.addingTimeInterval(Double(d.5*60))
                 let e = s.addingTimeInterval(45*60)
                 let isCancelled = isMonday && idx == 2

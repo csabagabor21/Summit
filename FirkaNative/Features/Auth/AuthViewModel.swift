@@ -51,6 +51,9 @@ final class AuthViewModel: ObservableObject {
         isLoading = false
     }
 
+    /// Demo belépés ugyanazon a kapun, mint az éles: rendes AppUser kerül
+    /// a SessionStore-ba (instituteCode "demo"). Innentől minden nézet a
+    /// normál fetchX-hívásokkal dolgozik — a KretaClient helyből szolgál ki.
     func loginDemo(session: SessionStore) {
         session.add(.demo)
     }

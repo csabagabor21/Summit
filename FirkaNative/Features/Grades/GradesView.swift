@@ -297,18 +297,8 @@ struct GradesView: View {
     var trendColor: Color { trendColorEvkozi }
 
     func load() async {
-        guard let user = session.selectedUser, !user.isDemo else {
-            grades = DemoData.gradesExpanded()
-            // Demo: tantárgyak a demó órarendből + jegyekből is, hogy legyen "Nincs jegy" példa
-            let demoSubjects = Set(DemoData.lessonsExpanded().map(\.subject)).union(DemoData.gradesExpanded().map(\.subject))
-            // adjunk hozzá egy üres tárgyat demonstrációnak
-            var s = demoSubjects.sorted()
-            if !s.contains("Etika") { s.append("Etika"); s.sort() }
-            allSubjects = s
-            // Lehúzáskor új demo jegy → ünneplő kártya (elsőre csak magot vet)
-            NotificationManager.shared.checkGrades(grades, userId: session.selectedUser?.id ?? "demo-user")
-            isLoading=false; return
-        }
+        // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből.
+        guard let user = session.selectedUser else { isLoading = false; return }
         isLoading=true
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         if iss.isEmpty || iss == "unknown" { isLoading=false; return }

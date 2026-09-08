@@ -21,6 +21,17 @@ final class KretaClient: ObservableObject {
     /// SessionStore callback token frissítés után — SummitApp köti be
     var onTokensRefreshed: ((String, String?, Int?) -> Void)?
 
+    // MARK: - Demo-backend (helyi adatszolgáltatás, hálózat nélkül)
+    /// A demo user (instituteCode "demo") ugyanazon a kapun (fetchX) át kap
+    /// adatot, mint egy KRÉTA-user — csak a szerver helyett a helyi
+    /// DemoData-készletből. Ezért a nézetekben NINCS isDemo-ág: egy adatsáv
+    /// van, a demo nem "külön app". A Demo gombbal belépett user rendes
+    /// AppUser, kijelentkezésig/új belépésig megmarad.
+    static let demoInstitute = "demo"
+    private func isDemoBackend(iss: String) -> Bool {
+        iss == Self.demoInstitute || instituteCode == Self.demoInstitute
+    }
+
     private let session: URLSession = {
         let c = URLSessionConfiguration.default
         c.timeoutIntervalForRequest = 20
@@ -61,6 +72,8 @@ final class KretaClient: ObservableObject {
     /// egy frissítési körre kiürültek ("pár perc után eldobja az adatokat").
     /// Ismeretlen lejáratnál nem találgatunk, marad a 401-es védőháló.
     func ensureValidToken() async -> Bool {
+        // Demo-backend: nincs hálózat, nincs lejárat — mindig érvényes.
+        if isDemoBackend(iss: instituteCode ?? "") { return true }
         guard accessToken != nil else { return false }
         guard let exp = accessTokenExpire else { return true }
         if exp.timeIntervalSinceNow > 60 { return true }
@@ -83,6 +96,8 @@ final class KretaClient: ObservableObject {
 
     // MARK: - Token refresh (2 lépcsős: újrapróbálja a kérést refresh után)
     func refreshTokens() async -> Bool {
+        // Demo-backend: nincs mit újítani, de nem is jár le soha.
+        if isDemoBackend(iss: instituteCode ?? "") { return true }
         guard let rt = refreshToken, !rt.isEmpty else {
             // Nincs mivel újítani, de token lenne: halott munkamenet → újra belépés kell
             if accessToken != nil { markExpired() }
@@ -274,6 +289,10 @@ final class KretaClient: ObservableObject {
 
     // MARK: - Real data fetchers (used by HomeViewModel)
     func fetchGrades(iss: String) async -> [GradeItem] {
+        if isDemoBackend(iss: iss) {
+            let r = DemoData.gradesExpanded().sorted { $0.date > $1.date }
+            diag("jegyek: \(r.count) db (demo)"); return r
+        }
         guard let url = KretaAPI.grades(iss) else { diag("jegyek: rossz URL"); return [] }
         do {
             let dtos: [KretaGradeDTO] = try await get(url)
@@ -282,6 +301,12 @@ final class KretaClient: ObservableObject {
         } catch { diagErr("jegyek", error); return [] }
     }
     func fetchTimetable(iss: String, from: Date, to: Date) async -> [LessonItem] {
+        if isDemoBackend(iss: iss) {
+            // A 6 órás demo-sablon csempézve a kért tartományra — a heti
+            // lapozás is ezen át megy, külön demo-ág nélkül a nézetekben.
+            let r = DemoData.lessons(from: from, to: to)
+            diag("órarend: \(r.count) db (demo)"); return r
+        }
         guard let url = KretaAPI.timetable(iss, start: from, end: to) else { diag("órarend: rossz URL"); return [] }
         do {
             let dtos: [KretaLessonDTO] = try await get(url)
@@ -290,6 +315,10 @@ final class KretaClient: ObservableObject {
         } catch { diagErr("órarend", error); return [] }
     }
     func fetchHomework(iss: String) async -> [HomeworkItem] {
+        if isDemoBackend(iss: iss) {
+            let r = DemoData.homeworks()
+            diag("házi: \(r.count) db (demo)"); return r
+        }
         do {
             // refilc mintára, két lépcsőben:
             // 1) lista ?datumTol-lal (utolsó 30 nap) — elemei csak hivatkozások
@@ -332,6 +361,10 @@ final class KretaClient: ObservableObject {
         } catch { diagErr("házi", error); return [] }
     }
     func fetchAbsences(iss: String) async -> [AbsenceItem] {
+        if isDemoBackend(iss: iss) {
+            let r = DemoData.absences()
+            diag("hiányzás: \(r.count) db (demo)"); return r
+        }
         guard let url = KretaAPI.absences(iss) else { diag("hiányzás: rossz URL"); return [] }
         do {
             let dtos: [KretaAbsenceDTO] = try await get(url)
@@ -340,6 +373,10 @@ final class KretaClient: ObservableObject {
         } catch { diagErr("hiányzás", error); return [] }
     }
     func fetchExams(iss: String) async -> [ExamItem] {
+        if isDemoBackend(iss: iss) {
+            let r = DemoData.exams().sorted { $0.date < $1.date }
+            diag("dolgozat: \(r.count) db (demo)"); return r
+        }
         guard let url = KretaAPI.exams(iss) else { return [] }
         do {
             // Lenient: egy hibás elem nem nullázhatja a teljes dolgozatlistát
@@ -349,6 +386,10 @@ final class KretaClient: ObservableObject {
         } catch { diagErr("dolgozat", error); return [] }
     }
     func fetchMessages() async -> [MessageItem] {
+        if isDemoBackend(iss: instituteCode ?? "") {
+            let r = DemoData.messages()
+            diag("üzenet: \(r.count) db (demo)"); return r
+        }
         // eugyintezes - try bejovo, then kimenő
         for endpoint in ["bejovo", "kimenő", "piszkozat"] {
             guard let url = KretaAPI.messages(endpoint) else { continue }
@@ -365,6 +406,14 @@ final class KretaClient: ObservableObject {
 
     // MARK: - Tantárgyak — KRÉTA tudja akkor is ha nincs jegy (Atlagok + órarend fallback + cached)
     func fetchAllSubjectNames(iss: String) async -> [String] {
+        if isDemoBackend(iss: iss) {
+            // Demo-tárgyak jegyekből + órarendből, plusz egy üres "Etika" —
+            // showcase a "Nincs jegy" állapotra (eddig a GradesView rakta hozzá).
+            var demo = Set(DemoData.gradesExpanded().map(\.subject))
+            demo.formUnion(DemoData.lessonsToday().map(\.subject))
+            demo.insert("Etika")
+            return demo.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != "Ismeretlen" }.sorted()
+        }
         var names = Set<String>()
         // 1) Tantárgyi átlagok — minden felvett tárgy, jegy nélkül is
         for url in [KretaAPI.subjectAverages(iss), KretaAPI.subjectAveragesAlt(iss)].compactMap({ $0 }) {

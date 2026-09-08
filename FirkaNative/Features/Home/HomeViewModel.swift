@@ -25,27 +25,17 @@ final class HomeViewModel: ObservableObject {
     }
 
     func refresh(kreta: KretaClient, user: AppUser?) async {
-        let useDemo = user == nil || user!.isDemo
-        if useDemo {
-            grades = DemoData.grades()
-            homeworks = DemoData.homeworks()
-            absences = DemoData.absences()
-            messages = DemoData.messages()
-            exams = DemoData.exams()
-            lessonsToday = DemoData.lessonsToday()
-            error = nil
-            // Helyi értesítés-diff (elsőre csak magot vet, nem spamel)
-            NotificationManager.shared.checkAll(
-                grades: DemoData.gradesExpanded(), homeworks: homeworks,
-                exams: exams, absences: absences, userId: user?.id ?? "demo-user"
-            )
+        // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből
+        // (instituteCode "demo") — nincs külön demo-ág.
+        guard let user else {
+            error = "Nincs bejelentkezett felhasználó."
             updateLiveState()
             return
         }
         isRefreshing = true
         defer { isRefreshing = false }
 
-        let iss = user!.instituteCode.isEmpty ? (JWT.instituteCode(from: user!.accessToken) ?? "") : user!.instituteCode
+        let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         if iss.isEmpty || iss == "unknown" {
             error = "Hiányzó intézményi kód — jelentkezz be újra."
             lessonsToday = []
@@ -80,8 +70,8 @@ final class HomeViewModel: ObservableObject {
         }
         self.grades = gradesR
         // Lejárt határidejű házi nem kerül a főoldalra (a Feladatok tabon
-        // és az értesítési diffben megmarad) — demo módban nincs szűrés,
-        // hogy a showcase-adat hétvégén se ürüljön ki.
+        // és az értesítési diffben megmarad) — demóra is ugyanez vonatkozik,
+        // mint egy valós userre.
         self.homeworks = hwR.filter { !HomeworkExpiry.isExpired($0) }
         self.absences = abR
         self.exams = exR

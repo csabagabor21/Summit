@@ -310,7 +310,8 @@ struct NotesView: View {
     }
 
     func load() async {
-        guard let user = session.selectedUser, !user.isDemo else { homeworks=DemoData.homeworks(); exams=DemoData.exams(); isLoading=false; return }
+        // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből.
+        guard let user = session.selectedUser else { isLoading = false; return }
         isLoading=true; let iss=user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         let hadData = !(homeworks.isEmpty && exams.isEmpty)
         let prevHW = homeworks, prevEx = exams

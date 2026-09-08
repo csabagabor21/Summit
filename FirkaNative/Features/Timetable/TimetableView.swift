@@ -536,29 +536,11 @@ struct TimetableView: View {
 
     func load() async {
         let entryOffset = weekOffset
-        // Demo: a kiválasztott hét hétfő–péntek lessonjei, hétfő 3. elmarad, 4. helyettesítés
-        guard let user = session.selectedUser, !user.isDemo else {
-            let base = DemoData.lessonsExpanded()
-            let baseHW = DemoData.homeworks()
-            let baseEx = DemoData.exams()
-            // Okos nap csak a 0. hétről indulva ÉS csak ha a user nem lapozott
-            // kézzel máshova (különben a visszalapozást visszadobná)
-            lessons = deduped(base)
-            homeworks = baseHW
-            exams = baseEx
-            if entryOffset == 0, !userHasNavigated { applySmartDay() }
-            // A végleges héthez toljuk a demó órarendet + a csatolt házikat/vizsgákat,
-            // különben lapozáskor a pillek eltűnnének a nap-pontos csatolás miatt
-            if weekOffset != 0 {
-                let shift = TimeInterval(weekOffset * 7 * 86400)
-                lessons = deduped(base.map { l in LessonItem(id: l.id, subject: l.subject, room: l.room, start: l.start.addingTimeInterval(shift), end: l.end.addingTimeInterval(shift), teacher: l.teacher, index: l.index, isSubstituted: l.isSubstituted, isCancelled: l.isCancelled, originalTeacher: l.originalTeacher) })
-                homeworks = baseHW.map { h in HomeworkItem(id: h.id, subject: h.subject, title: h.title, deadline: h.deadline.addingTimeInterval(shift), teacher: h.teacher, isDone: h.isDone) }
-                exams = baseEx.map { e in ExamItem(id: e.id, subject: e.subject, date: e.date.addingTimeInterval(shift), mode: e.mode, description: e.description, teacher: e.teacher) }
-            }
-            loadError = nil
-            isLoading = false
-            return
-        }
+        // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből
+        // (a kért hétre csempézett órarenddel) — nincs külön demo-ág.
+        // A házik/dolgozatok abszolút dátumosak, mint élesben: másik hétre
+        // lapozva csak az órarend látszik (ahogy egy valós usernél is).
+        guard let user = session.selectedUser else { isLoading = false; return }
         isLoading = true
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         if iss.isEmpty || iss == "unknown" {

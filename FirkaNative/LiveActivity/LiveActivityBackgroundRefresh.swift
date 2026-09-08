@@ -113,33 +113,32 @@ enum LiveActivityBackgroundRefresh {
     /// kérjük le (jegyek/házik nélkül), hogy beleférjünk a ~30 mp-be.
     @MainActor
     static func refreshNow() async -> Bool {
+        // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből
+        // (instituteCode "demo" → hálózat nélkül) — nincs külön demo-ág.
         let store = SessionStore()
-        let user = store.selectedUser
-        let lessons: [LessonItem]
-        if user == nil || user!.isDemo {
-            // Demo: determinisztikus mai órarend, hálózat nélkül is megy.
-            lessons = DemoData.lessonsToday()
-        } else {
-            let kreta = KretaClient()
-            kreta.accessToken = user!.accessToken
-            kreta.refreshToken = user!.refreshToken
-            let iss = user!.instituteCode.isEmpty
-                ? (JWT.instituteCode(from: user!.accessToken) ?? "")
-                : user!.instituteCode
-            guard !iss.isEmpty, iss != "unknown" else { return false }
-            kreta.onTokensRefreshed = { newAccess, newRefresh, expiresIn in
-                store.updateTokens(accessToken: newAccess, refreshToken: newRefresh, expiresIn: expiresIn)
-            }
-            let cal = Calendar.current
-            let start = cal.startOfDay(for: Date())
-            guard let end = cal.date(byAdding: .day, value: 1, to: start) else { return false }
-            lessons = await kreta.fetchTimetable(iss: iss, from: start, to: end)
-            if lessons.isEmpty { return false }
-            // Polling-alapú jegy-értesítés háttérből is: ha a rendszer
-            // felébreszt az élő órához, az új jegyeket is észrevesszük.
-            let bgGrades = await kreta.fetchGrades(iss: iss)
-            await NotificationManager.shared.checkGrades(bgGrades, userId: user!.id)
+        guard let user = store.selectedUser else { return false }
+        let kreta = KretaClient()
+        kreta.accessToken = user.accessToken
+        kreta.refreshToken = user.refreshToken
+        kreta.instituteCode = user.instituteCode
+        let iss = user.instituteCode.isEmpty
+            ? (JWT.instituteCode(from: user.accessToken) ?? "")
+            : user.instituteCode
+        guard !iss.isEmpty, iss != "unknown" else { return false }
+        kreta.onTokensRefreshed = { newAccess, newRefresh, expiresIn in
+            store.updateTokens(accessToken: newAccess, refreshToken: newRefresh, expiresIn: expiresIn)
         }
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: Date())
+        guard let end = cal.date(byAdding: .day, value: 1, to: start) else { return false }
+        let lessons = await kreta.fetchTimetable(iss: iss, from: start, to: end)
+        // Üres órarend élesben = fetch-hiba → 15 perc múlva újra (lásd lejjebb).
+        // Demóban az üres (pl. hétvége) valós állapot → syncDay zár + reggeli ébresztő.
+        if lessons.isEmpty, iss != KretaClient.demoInstitute { return false }
+        // Polling-alapú jegy-értesítés háttérből is: ha a rendszer
+        // felébreszt az élő órához, az új jegyeket is észrevesszük.
+        let bgGrades = await kreta.fetchGrades(iss: iss)
+        await NotificationManager.shared.checkGrades(bgGrades, userId: user.id)
         let now = Date()
         let accent = UserDefaults.standard.object(forKey: "theme.accentHex") as? Int ?? 0x4A90E2
         // Napi-egy-activity: ez háttérből is csak UPDATE (engedélyezett),
