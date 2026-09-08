@@ -11,9 +11,13 @@ Ne várj a userre, ne gyűjtögess több promptot egy commitba — egy feladat =
 A commit előtt `xcodebuild ... build` sikerrel kell futhasson (Simulator, Debug).
 
 ## Release notes formátum (kötelező, minden AI-asszisztensre vonatkozik)
-Ha a user release note-ot kér, a válasz MINDIG ezzel a sorral kezdődjön:
-`To Summit up:`
-utána csak bulletpointok (`- `), egy commitot vagy többet is egyben, egyetlen listába sűrítve. A release note nyelve MINDIG angol. Felhasználóbarát, tömör megfogalmazás — belső fájlnevek, API-részletek és commit-technikalitások nélkül, csak az, amit a user észrevesz.
+Ha a user release note-ot kér, a válasz MINDIG egy angol Summit-szójáték
+címsorral kezdődjön — a `To Summit up:` csak egy minta, mindig új, a
+tartalomhoz illő szójáték kell (pl. `Summit's fresh peak:`, `Reaching new Summits:`).
+Utána csak bulletpointok (`- `), egy commitot vagy többet is egyben, egyetlen
+listába sűrítve. A release note nyelve MINDIG angol. Felhasználóbarát, tömör
+megfogalmazás — belső fájlnevek, API-részletek és commit-technikalitások
+nélkül, csak az, amit a user észrevesz.
 
 ## Projekt-gyorstalpaló
 - SwiftUI, iOS 26+, Liquid Glass. `Summit.xcodeproj` a mérvadó (XcodeGen-regen
