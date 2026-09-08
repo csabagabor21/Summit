@@ -132,7 +132,7 @@ struct SummitBackdrop: View {
         // sötétnek látszott a Beállításokban, miközben a Bejelentkezés gomb tiszta volt.
         let boost: Double = contrast == .increased ? 0.08 : 0
         if scheme == .dark {
-            return [.black.opacity(0.60 + boost), .black.opacity(0.35 + boost), .black.opacity(0.72 + boost)]
+            return [.black.opacity(0.55 + boost), .black.opacity(0.22 + boost), .black.opacity(0.68 + boost)]
         }
         return [.white.opacity(0.88 + boost), .white.opacity(0.76 + boost), .white.opacity(0.92 + boost)]
     }
