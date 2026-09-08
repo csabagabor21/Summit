@@ -10,6 +10,11 @@ Nincs kivétel: egy soros fix, UI-csiszolás, komment-átírás után is commit 
 Ne várj a userre, ne gyűjtögess több promptot egy commitba — egy feladat = egy commit.
 A commit előtt `xcodebuild ... build` sikerrel kell futhasson (Simulator, Debug).
 
+## Release notes formátum (kötelező, minden AI-asszisztensre vonatkozik)
+Ha a user release note-ot kér, a válasz MINDIG ezzel a sorral kezdődjön:
+`To Summit up:`
+utána csak bulletpointok (`- `), egy commitot vagy többet is egyben, egyetlen listába sűrítve. Felhasználóbarát, tömör nyelv — belső fájlnevek, API-részletek és commit-technikalitások nélkül, csak az, amit a user észrevesz.
+
 ## Projekt-gyorstalpaló
 - SwiftUI, iOS 26+, Liquid Glass. `Summit.xcodeproj` a mérvadó (XcodeGen-regen
   kidobja az `AppIcon.icon`-t a pbxproj-ból — regen után kézzel vissza kell tenni).
