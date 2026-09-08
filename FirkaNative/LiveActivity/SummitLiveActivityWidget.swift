@@ -37,7 +37,7 @@ struct SummitLiveActivityWidget: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(context.attributes.subject, systemImage: context.attributes.isCancelled ? "xmark.circle.fill" : "graduationcap.fill")
+                    Label(context.state.subject, systemImage: context.state.isCancelled ? "xmark.circle.fill" : "graduationcap.fill")
                         .font(.caption.weight(.semibold))
                         .lineLimit(1)
                 }
@@ -58,14 +58,14 @@ struct SummitLiveActivityWidget: Widget {
                         .tint(Color(hex: UInt(context.attributes.accentHex)))
                 }
             } compactLeading: {
-                Image(systemName: context.attributes.isCancelled ? "xmark.circle.fill" : "\(context.attributes.index).circle.fill")
+                Image(systemName: context.state.isCancelled ? "xmark.circle.fill" : "\(context.state.index).circle.fill")
                     .foregroundStyle(Color(hex: UInt(context.attributes.accentHex)))
             } compactTrailing: {
                 Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true)
                     .font(.caption2.monospacedDigit())
                     .frame(width: 46)
             } minimal: {
-                Image(systemName: "\(context.attributes.index).circle.fill")
+                Image(systemName: "\(context.state.index).circle.fill")
                     .foregroundStyle(Color(hex: UInt(context.attributes.accentHex)))
             }
             .keylineTint(Color(hex: UInt(context.attributes.accentHex)))
@@ -89,23 +89,23 @@ private struct LockScreenView: View {
             ZStack {
                 Circle().fill(Color(hex: UInt(context.attributes.accentHex)).opacity(0.16))
                     .frame(width: 42, height: 42)
-                Text(context.attributes.index)
+                Text(context.state.index)
                     .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundStyle(Color(hex: UInt(context.attributes.accentHex)))
             }
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(context.attributes.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
-                    if context.attributes.isCancelled {
+                    Text(context.state.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
+                    if context.state.isCancelled {
                         Text("Elmarad").font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 6).padding(.vertical, 2).background(Capsule().fill(Color.red))
-                    } else if context.attributes.isSubstituted {
+                    } else if context.state.isSubstituted {
                         Text("Helyettesítés").font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 6).padding(.vertical, 2).background(Capsule().fill(Color.orange))
                     }
                 }
                 HStack(spacing: 6) {
-                    Text(context.attributes.room).font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+                    Text(context.state.room).font(.caption2.weight(.bold)).foregroundStyle(.secondary)
                     Text("•").foregroundStyle(.tertiary)
-                    Text(context.attributes.teacher).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    Text(context.state.teacher).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
                 if let nxt = context.state.nextSubject {
                     Text("Köv: \(nxt) • \(context.state.nextRoom ?? "")")
@@ -142,14 +142,14 @@ struct SummitLiveActivityWidgetLegacy: Widget {
             LockScreenView(context: context)
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) { Text(context.attributes.subject).font(.caption2) }
+                DynamicIslandExpandedRegion(.leading) { Text(context.state.subject).font(.caption2) }
                 DynamicIslandExpandedRegion(.trailing) { Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true).font(.caption2.monospacedDigit()) }
             } compactLeading: {
-                Text(context.attributes.index).font(.caption2.weight(.bold))
+                Text(context.state.index).font(.caption2.weight(.bold))
             } compactTrailing: {
                 Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true).font(.caption2.monospacedDigit())
             } minimal: {
-                Text(context.attributes.index).font(.caption2.weight(.bold))
+                Text(context.state.index).font(.caption2.weight(.bold))
             }
         }
     }

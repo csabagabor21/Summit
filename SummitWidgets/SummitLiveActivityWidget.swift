@@ -5,6 +5,12 @@ import SwiftUI
 // MARK: - Shared Live Activity UI — Widget Extension target
 // Ez a fájl CSAK a Widget Extensionben forduljon — fő appban nem kell.
 // A SummitLiveActivityAttributes.swift-et mindkét target fordítja (shared).
+//
+// "Napi egy activity" modell: az attributes napfix (dayKey + accent),
+// az AKTUÁLIS óra minden adata a state-ben él — innen olvasunk.
+// A state a hátralévő napi tervet (plan) is hordozza, így a widget már
+// előre mutatja a következő órákat; az élő timerInterval visszaszámlálók
+// app-ébresztés nélkül tickelnek a nap végéig (staleDate = dayEnd).
 
 @available(iOS 16.2, *)
 struct SummitLiveActivityWidget: Widget {
@@ -26,11 +32,11 @@ struct SummitLiveActivityWidget: Widget {
                             .lineLimit(1)
                     } else {
                         Label {
-                            Text("\(context.attributes.subject) • \(context.attributes.index). óra")
+                            Text("\(context.state.subject) • \(context.state.index). óra")
                                 .font(.callout.weight(.semibold))
                                 .lineLimit(1)
                         } icon: {
-                            Image(systemName: context.attributes.isCancelled ? "xmark.circle.fill" : "graduationcap.fill")
+                            Image(systemName: context.state.isCancelled ? "xmark.circle.fill" : "graduationcap.fill")
                         }
                     }
                 }
@@ -60,7 +66,7 @@ struct SummitLiveActivityWidget: Widget {
                         .tint(statusTint(context))
                 }
             } compactLeading: {
-                Image(systemName: pillSymbol(index: context.attributes.index, cancelled: context.attributes.isCancelled))
+                Image(systemName: pillSymbol(index: context.state.index, cancelled: context.state.isCancelled))
                     .foregroundStyle(statusTint(context))
             } compactTrailing: {
                 // ÉLŐ timer a pillben is — mm:ss-hez szélesebb fix keret kell, hogy ne ugráljon
@@ -69,7 +75,7 @@ struct SummitLiveActivityWidget: Widget {
                     .frame(width: 58)
                     .monospacedDigit()
             } minimal: {
-                Image(systemName: pillSymbol(index: context.attributes.index, cancelled: false))
+                Image(systemName: pillSymbol(index: context.state.index, cancelled: false))
                     .foregroundStyle(accentColor(context))
             }
             .keylineTint(accentColor(context))
@@ -91,8 +97,8 @@ struct SummitLiveActivityWidget: Widget {
 
     /// Elmarad/Helyettesítés esetén a progress és a pill is átveszi a státuszszínt.
     private func statusTint(_ context: ActivityViewContext<SummitLiveActivityAttributes>) -> Color {
-        if context.attributes.isCancelled { return Color.red }
-        if context.attributes.isSubstituted { return Color.orange }
+        if context.state.isCancelled { return Color.red }
+        if context.state.isSubstituted { return Color.orange }
         return accentColor(context)
     }
 
@@ -116,18 +122,18 @@ private struct LockScreenView: View {
     private var isBreak: Bool { context.state.phase == "break" }
     private var title: String {
         if isBreak { return context.state.nextSubject ?? "Szünet" }
-        return context.attributes.subject
+        return context.state.subject
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Státusz — mint a MOST-kártya capsule-je
-            if context.attributes.isCancelled {
+            if context.state.isCancelled {
                 Text("Elmarad")
                     .font(.caption2.weight(.bold)).foregroundStyle(.white)
                     .padding(.horizontal, 8).padding(.vertical, 4)
                     .background(Capsule().fill(Color.red))
-            } else if context.attributes.isSubstituted {
+            } else if context.state.isSubstituted {
                 Text("Helyettesítés")
                     .font(.caption2.weight(.bold)).foregroundStyle(.white)
                     .padding(.horizontal, 8).padding(.vertical, 4)
@@ -147,17 +153,17 @@ private struct LockScreenView: View {
                 .truncationMode(.tail)
             // Meta sor: room badge + "N. óra • tanár"
             HStack(spacing: 6) {
-                Text(context.attributes.room)
+                Text(context.state.room)
                     .font(.caption2.weight(.bold).monospacedDigit())
                     .foregroundStyle(.white)
                     .padding(.horizontal, 7).padding(.vertical, 4)
                     .background(RoundedRectangle(cornerRadius: 6).fill(accent))
                     .lineLimit(1)
-                Text("\(context.attributes.index). óra")
+                Text("\(context.state.index). óra")
                     .font(.caption.weight(.semibold).monospacedDigit())
                     .foregroundStyle(.secondary)
                 Text("•").foregroundStyle(.tertiary)
-                Text(context.attributes.teacher)
+                Text(context.state.teacher)
                     .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
             }
             // Full szélességű progress — mint a MOST-kártya
@@ -188,8 +194,8 @@ private struct LockScreenView: View {
     }
 
     private var statusTint: Color {
-        if context.attributes.isCancelled { return Color.red }
-        if context.attributes.isSubstituted { return Color.orange }
+        if context.state.isCancelled { return Color.red }
+        if context.state.isSubstituted { return Color.orange }
         return accent
     }
 

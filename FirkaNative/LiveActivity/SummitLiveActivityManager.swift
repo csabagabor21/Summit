@@ -3,14 +3,22 @@ import Combine
 import Foundation
 import UIKit
 
-// MARK: - Live Activity Manager
+// MARK: - Live Activity Manager — "napi egy activity" modell
 // Minden Live Activity indítás/update/leállítás itt megy át — egy helyen.
+//
+// A régi modell óránként ÚJ activityt indított (request) és a régit lezárta.
+// iOS a háttérben indított új kérést eldobja → a régi már zárva, az új el sem
+// indul → az activity az órahatáron meghalt. Ezért most:
+//   - NAPONTA EGY activity él (attributes = nap-azonosító, immutable).
+//   - Órahatárokon csak UPDATE megy ugyanarra az activityre — ez háttérből
+//     (BGAppRefreshTask-ból) is engedélyezett, így a háttérlánc végre működik.
+//   - staleDate = az utolsó óra vége → nincs köztes "stale" hervadás.
 // Kezeli a "szokásos hibákat":
 //   1) Rendszer tiltja → areActivitiesEnabled == false → nem hívunk request-et, hanem jelezzük.
 //   2) Max 5 concurrent → ActivityKit dobja → elkapjuk, logoljuk.
 //   3) App toggle OFF → minden futó activityt lezárunk.
 //   4) 8 óra auto-lejárat → a rendszer zárja, mi csak dismissed-re figyelünk.
-//   5) Háttérben nem indítunk újat — csak updateelünk (Apple limit).
+//      (Ezért indul az activity az első órához, nem éjfélkor.)
 //
 @MainActor
 final class SummitLiveActivityManager: ObservableObject {
@@ -27,8 +35,8 @@ final class SummitLiveActivityManager: ObservableObject {
     // MARK: - Single-flight lánc (duplikátum-védelem)
     // A @MainActor a szinkron szakaszokat sorosítja, de az await-eknél
     // két párhuzamos sync összeakadhatott: mindkettő endAll-t + request-et
-    // indított → néha 2 activity jelent meg. Minden start/update/end
-    // ezen a láncon fut át, így sosem fedik egymást.
+    // indított → néha 2 activity jelent meg. Minden sync/end ezen a láncon
+    // fut át, így sosem fedik egymást.
     private var serial: Task<Void, Never>?
 
     private func runSerialized<T>(_ op: @escaping () async -> T) async -> T {
@@ -98,16 +106,24 @@ final class SummitLiveActivityManager: ObservableObject {
         isAppEnabled && isSystemEnabled
     }
 
-    // MARK: - Start / Update / End
+    // MARK: - Napi sync (egyetlen belépési pont)
 
-    /// Órarendből vagy Home-ból hívd — minden éles frissítési pont itt fut át.
-    /// Ha nincs aktuális óra, next óra info-val "szünet" phase-et indítunk; ha nincs óra egyáltalán, nem indítunk.
-    @discardableResult
-    func startOrUpdate(current: LessonItem?, next: LessonItem?, now: Date = Date(), accentHex: Int = 0x4A90E2) async -> Bool {
-        await runSerialized { await self.startOrUpdateImpl(current: current, next: next, now: now, accentHex: accentHex) }
+    static func dayKey(for date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: date)
     }
 
-    private func startOrUpdateImpl(current: LessonItem?, next: LessonItem?, now: Date, accentHex: Int) async -> Bool {
+    /// A HomeView és a háttér-refresh is EZT hívja a teljes mai órarenddel.
+    /// Napi egy activity: határokon csak update (háttérből is megy),
+    /// új request csak akkor, ha még nincs mai activity (tipikusan előtérben).
+    @discardableResult
+    func syncDay(lessons: [LessonItem], now: Date = Date(), accentHex: Int = 0x4A90E2) async -> Bool {
+        await runSerialized { await self.syncDayImpl(lessons: lessons, now: now, accentHex: accentHex) }
+    }
+
+    private func syncDayImpl(lessons: [LessonItem], now: Date, accentHex: Int) async -> Bool {
         guard #available(iOS 16.1, *) else { lastError = "iOS 16.1 alatt nem támogatott"; return false }
         guard canStart else {
             // Ha az app kikapcsolta, biztosan zárunk — ne maradjon beragadt activity
@@ -119,130 +135,107 @@ final class SummitLiveActivityManager: ObservableObject {
             }
             return false
         }
-        // Nincs aktuális óra → ha a következő óra MA van, a szünet-activity
-        // végig élőben visszaszámol a következő óráig (élő timerInterval miatt
-        // ez már nem igényel app-ébresztést, és nem öljük meg lyukasórában sem).
-        // Csak akkor zárunk, ha ma már nincs több óra (holnapi órára nincs countdown).
-        guard let cur = current else {
-            if let nxt = next {
-                let cal = Calendar.current
-                guard cal.isDate(nxt.start, inSameDayAs: now) else {
-                    lastAction = "Mai órák vége → lezárva"
-                    await endAllImpl(dismissalPolicy: .default)
-                    return false
-                }
-                return await startBreakImpl(next: nxt, now: now, accentHex: accentHex)
+        let cal = Calendar.current
+        let today = lessons
+            .filter { cal.isDate($0.start, inSameDayAs: now) }
+            .sorted { $0.start < $1.start }
+        let cur = today.first { $0.start <= now && $0.end >= now }
+        let nxt = today.first { $0.start > now }
+        // Ma már nincs több óra (vagy ma nincs iskola): a futót zárjuk,
+        // a holnap reggeli ébresztőt a háttér-refresh teszi fel.
+        guard cur != nil || nxt != nil else {
+            lastAction = today.isEmpty ? "Ma nincs óra → lezárva" : "Mai órák vége → lezárva"
+            await endAllImpl(dismissalPolicy: .default)
+            return false
+        }
+        let state = Self.makeState(today: today, current: cur, next: nxt, now: now)
+        let key = Self.dayKey(for: now)
+
+        // Van futó activity → update (háttérből is engedélyezett).
+        // Másik napról maradt activityt előbb zárjuk, csak 1 lehet.
+        if let existing = Activity<SummitLiveActivityAttributes>.activities.first {
+            if existing.attributes.dayKey != key {
+                await endAllImpl(dismissalPolicy: .immediate)
             } else {
-                lastAction = "Nincs óra → lezárva"
-                await endAllImpl(dismissalPolicy: .default)
-                return false
+                await existing.update(ActivityContent(state: state, staleDate: state.staleDate))
+                lastError = nil
+                lastAction = Self.actionLabel(current: cur, next: nxt)
+                refreshActiveCount()
+                LiveActivityBackgroundRefresh.scheduleBoundary(lessonEnd: state.lessonEnd, nextStart: nxt?.start)
+                return true
             }
         }
-        // Timer-szanitálás: a widget Text(timerInterval:) csak start<end-re rajzol.
-        // Előfordulhat fordított intervallum (demo shift kerekítés, hibás KRÉTA adat).
-        var lessonEnd = cur.end
-        if lessonEnd <= cur.start { lessonEnd = cur.start.addingTimeInterval(45 * 60) }
-        let attrs = SummitLiveActivityAttributes(
-            subject: cur.subject,
-            room: cur.room,
-            teacher: cur.teacher,
-            index: cur.index,
-            isCancelled: cur.isCancelled,
-            isSubstituted: cur.isSubstituted,
-            accentHex: accentHex
-        )
-        // staleDate = óra vége: az élő timerInterval magától tickel, így óra közben
-        // nincs "stale / lagging behind" halványítás. (A régi now+30p itt járatta le.)
-        let state = SummitLiveActivityAttributes.ContentState(
-            lessonStart: cur.start,
-            lessonEnd: lessonEnd,
-            nextSubject: next?.subject,
-            nextRoom: next?.room,
-            nextStart: next?.start,
-            phase: "lesson",
-            staleDate: lessonEnd
-        )
-        // Ha már fut ugyanerre az órára, csak update.
-        // FONTOS: az attributes immutable — másik órára NEM szabad update-elni,
-        // különben beragadt rossz subject/index marad az Islanden.
-        if let existing = Activity<SummitLiveActivityAttributes>.activities.first(where: { $0.attributes.subject == cur.subject && $0.attributes.index == cur.index }) {
-            await existing.update(ActivityContent(state: state, staleDate: state.staleDate))
-            lastError = nil
-            lastAction = "Update: \(cur.subject) \(cur.index). óra"
-            refreshActiveCount()
-            LiveActivityBackgroundRefresh.scheduleBoundary(lessonEnd: lessonEnd, nextStart: next?.start)
-            return true
-        }
-        // Másik óra/szünet fut → előbb zárjuk, csak 1 activity legyen (különben az Island összeakad).
-        // (Sorosítva futunk, így két request sosem indulhat párhuzamosan → nincs duplikátum.)
-        if !Activity<SummitLiveActivityAttributes>.activities.isEmpty {
-            await endAllImpl(dismissalPolicy: .immediate)
-        }
+        // Nincs futó mai activity → request. Előtérben megbízható; háttérből
+        // a rendszer eldobhatja — ilyenkor a BG-lánc (keepalive) újrapróbálja.
         do {
-            let content = ActivityContent(state: state, staleDate: state.staleDate)
-            _ = try Activity.request(attributes: attrs, content: content, pushType: nil)
+            let attrs = SummitLiveActivityAttributes(dayKey: key, accentHex: accentHex)
+            _ = try Activity.request(attributes: attrs, content: ActivityContent(state: state, staleDate: state.staleDate), pushType: nil)
             lastError = nil
-            lastAction = "Indítva: \(cur.subject) \(cur.index). óra"
+            lastAction = "Napi activity indítva (\(today.count) óra)"
             refreshActiveCount()
-            LiveActivityBackgroundRefresh.scheduleBoundary(lessonEnd: lessonEnd, nextStart: next?.start)
+            LiveActivityBackgroundRefresh.scheduleBoundary(lessonEnd: state.lessonEnd, nextStart: nxt?.start)
             return true
         } catch {
-            // Gyakori hiba: "maximum 5", "not enabled", "background" — ne crash-eljünk
+            // Gyakori hiba: "maximum 5", "not enabled", háttérből indítás — ne crash-eljünk
             lastError = "Indítás sikertelen: \(error.localizedDescription)"
             debugPrint("[LiveActivity] request failed: \(error.localizedDescription)")
             return false
         }
     }
 
-    private func startBreakImpl(next: LessonItem, now: Date, accentHex: Int) async -> Bool {
-        guard #available(iOS 16.1, *) else { return false }
-        // Szünet Live Activity — statikus a "Szünet", dinamikus a következő óra.
-        // Az attributes itt is immutable: csak egyező Szünet+index activity update-elhető.
-        var breakEnd = next.start
-        if breakEnd <= now { breakEnd = now.addingTimeInterval(60) }
-        let attrs = SummitLiveActivityAttributes(
-            subject: "Szünet",
-            room: next.room,
-            teacher: next.teacher,
-            index: next.index,
-            isCancelled: false,
-            isSubstituted: false,
-            accentHex: accentHex
-        )
-        // staleDate = szünet vége (következő óra kezdete): a countdown végig élő,
-        // a rendszer nem halványítja "stale"-re szünet közben sem.
-        let state = SummitLiveActivityAttributes.ContentState(
-            lessonStart: now,
-            lessonEnd: breakEnd,
-            nextSubject: next.subject,
-            nextRoom: next.room,
-            nextStart: next.start,
-            phase: "break",
-            staleDate: breakEnd
-        )
-        if let existing = Activity<SummitLiveActivityAttributes>.activities.first(where: { $0.attributes.subject == "Szünet" && $0.attributes.index == next.index }) {
-            await existing.update(ActivityContent(state: state, staleDate: state.staleDate))
-            lastError = nil
-            lastAction = "Update: Szünet → \(next.subject)"
-            refreshActiveCount()
-            LiveActivityBackgroundRefresh.scheduleBoundary(lessonEnd: breakEnd, nextStart: next.start)
-            return true
+    @available(iOS 16.1, *)
+    private static func makeState(today: [LessonItem], current: LessonItem?, next: LessonItem?, now: Date) -> SummitLiveActivityAttributes.ContentState {
+        // Hátralévő terv: múltbeli órák nélkül (méret-takarékosság, < 4 KB).
+        let plan = today
+            .filter { $0.end > now }
+            .map {
+                PlanLesson(subject: $0.subject, room: $0.room, teacher: $0.teacher,
+                           index: $0.index, start: $0.start, end: $0.end,
+                           isCancelled: $0.isCancelled, isSubstituted: $0.isSubstituted)
+            }
+        let dayEnd = plan.last?.end ?? now.addingTimeInterval(60)
+        if let cur = current {
+            var lessonEnd = cur.end
+            if lessonEnd <= cur.start { lessonEnd = cur.start.addingTimeInterval(45 * 60) }
+            return SummitLiveActivityAttributes.ContentState(
+                subject: cur.subject, room: cur.room, teacher: cur.teacher, index: cur.index,
+                isCancelled: cur.isCancelled, isSubstituted: cur.isSubstituted,
+                lessonStart: cur.start, lessonEnd: lessonEnd,
+                nextSubject: next?.subject, nextRoom: next?.room, nextStart: next?.start,
+                phase: "lesson",
+                // Nap végéig élő: óra közben nincs "stale" hervadás.
+                staleDate: dayEnd,
+                plan: plan, dayEnd: dayEnd
+            )
+        } else if let nxt = next {
+            var breakEnd = nxt.start
+            if breakEnd <= now { breakEnd = now.addingTimeInterval(60) }
+            return SummitLiveActivityAttributes.ContentState(
+                subject: "Szünet", room: nxt.room, teacher: nxt.teacher, index: nxt.index,
+                isCancelled: false, isSubstituted: false,
+                lessonStart: now, lessonEnd: breakEnd,
+                nextSubject: nxt.subject, nextRoom: nxt.room, nextStart: nxt.start,
+                phase: "break",
+                staleDate: dayEnd,
+                plan: plan, dayEnd: dayEnd
+            )
+        } else {
+            // Ide a guard miatt nem jutunk (nincs cur és nincs nxt), de a
+            // típus teljessége miatt lefedjük: üres záró állapot.
+            return SummitLiveActivityAttributes.ContentState(
+                subject: "–", room: "", teacher: "", index: "",
+                isCancelled: false, isSubstituted: false,
+                lessonStart: now, lessonEnd: now.addingTimeInterval(60),
+                nextSubject: nil, nextRoom: nil, nextStart: nil,
+                phase: "empty", staleDate: dayEnd, plan: plan, dayEnd: dayEnd
+            )
         }
-        if !Activity<SummitLiveActivityAttributes>.activities.isEmpty {
-            await endAllImpl(dismissalPolicy: .immediate)
-        }
-        do {
-            _ = try Activity.request(attributes: attrs, content: ActivityContent(state: state, staleDate: state.staleDate), pushType: nil)
-            lastError = nil
-            lastAction = "Indítva: Szünet → \(next.subject)"
-            refreshActiveCount()
-            LiveActivityBackgroundRefresh.scheduleBoundary(lessonEnd: breakEnd, nextStart: next.start)
-            return true
-        } catch {
-            lastError = "Szünet indítás sikertelen: \(error.localizedDescription)"
-            debugPrint("[LiveActivity] break request failed: \(error)")
-            return false
-        }
+    }
+
+    private static func actionLabel(current: LessonItem?, next: LessonItem?) -> String {
+        if let cur = current { return "Update: \(cur.subject) \(cur.index). óra" }
+        if let nxt = next { return "Update: Szünet → \(nxt.subject)" }
+        return "Update"
     }
 
     func endAll(dismissalPolicy: ActivityUIDismissalPolicy = .default) async {
@@ -252,7 +245,7 @@ final class SummitLiveActivityManager: ObservableObject {
     private func endAllImpl(dismissalPolicy: ActivityUIDismissalPolicy) async {
         guard #available(iOS 16.1, *) else { return }
         // Záráskor a függő háttér-ébresztést is töröljük; sikeres új
-        // start/update úgyis újraütemezi a következő határra.
+        // sync úgyis újraütemezi a következő határra.
         LiveActivityBackgroundRefresh.cancel()
         let had = !Activity<SummitLiveActivityAttributes>.activities.isEmpty
         for act in Activity<SummitLiveActivityAttributes>.activities {
@@ -266,7 +259,6 @@ final class SummitLiveActivityManager: ObservableObject {
     /// Demo teszt: órarendtől független, valós időre horgonyzott activity.
     /// Este is működik — a widget renderelés önmagában tesztelhető vele.
     func startDemoTestNow(label: String = "Matek (teszt)", accentHex: Int = 0x4A90E2) async -> Bool {
-        guard #available(iOS 16.1, *) else { return false }
         let now = Date()
         let demo = LessonItem(
             id: "demo-test", subject: label, room: "A1",
@@ -280,7 +272,7 @@ final class SummitLiveActivityManager: ObservableObject {
             end: now.addingTimeInterval(95 * 60),
             teacher: "Smith", index: "2"
         )
-        return await startOrUpdate(current: demo, next: next, now: now, accentHex: accentHex)
+        return await syncDay(lessons: [demo, next], now: now, accentHex: accentHex)
     }
 
     func openSystemSettings() {

@@ -384,9 +384,6 @@ struct HomeView: View {
             let previewNow = previewDate
             let realNow = Date()
             let delta = previewNow.timeIntervalSince(realNow)
-            // Logikai óra a preview idő szerint (eredeti, nem shiftelt órarend alapján)
-            let logicalCurrent = vm.lessonsToday.first { $0.start <= previewNow && $0.end >= previewNow }
-            let logicalNext = vm.lessonsToday.first { $0.start > previewNow }
             func shifted(_ l: LessonItem) -> LessonItem {
                 LessonItem(
                     id: l.id, subject: l.subject, room: l.room,
@@ -397,15 +394,14 @@ struct HomeView: View {
                     originalTeacher: l.originalTeacher
                 )
             }
-            let cur = logicalCurrent.map(shifted)
-            let nxt = logicalNext.map(shifted)
-            // `now` = valós idő, `cur/nxt` shiftelve — így a rendszer
+            // `now` = valós idő, az órák shiftelve — így a rendszer
             // Text(timerInterval:) visszaszámlálója a valós órához igazodik,
             // de a preview időnek megfelelő állapotot mutatja.
-            await SummitLiveActivityManager.shared.startOrUpdate(current: cur, next: nxt, now: realNow, accentHex: theme.accentHex)
+            let shiftedAll = vm.lessonsToday.map(shifted)
+            await SummitLiveActivityManager.shared.syncDay(lessons: shiftedAll, now: realNow, accentHex: theme.accentHex)
             return
         }
-        await SummitLiveActivityManager.shared.startOrUpdate(current: vm.currentLesson, next: vm.nextLesson, accentHex: theme.accentHex)
+        await SummitLiveActivityManager.shared.syncDay(lessons: vm.lessonsToday, accentHex: theme.accentHex)
     }
 }
 

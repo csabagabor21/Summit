@@ -58,7 +58,7 @@ enum LiveActivityBackgroundRefresh {
 
     /// Biztonsági háló háttérbe vonuláskor (SummitApp scenePhase-ból hívja):
     /// ha nincs függő ébresztés, kérünk egyet ~20 perc múlva. Amikor lefut,
-    /// a refreshNow → startOrUpdate úgyis a pontos órarendi határra ütemez
+    /// a refreshNow → syncDay úgyis a pontos órarendi határra ütemez
     /// át, így a lánc akkor is él, ha az appot közben kilövi a rendszer.
     /// Meglévő függő kérést nem bántunk (a pontos határ fontosabb).
     static func scheduleKeepaliveIfNeeded() {
@@ -141,16 +141,16 @@ enum LiveActivityBackgroundRefresh {
             await NotificationManager.shared.checkGrades(bgGrades, userId: user!.id)
         }
         let now = Date()
-        let cur = lessons.first { $0.start <= now && $0.end >= now }
-        let nxt = lessons.first { $0.start > now }
         let accent = UserDefaults.standard.object(forKey: "theme.accentHex") as? Int ?? 0x4A90E2
-        let updated = await SummitLiveActivityManager.shared.startOrUpdate(current: cur, next: nxt, now: now, accentHex: accent)
-        if !updated && cur == nil && nxt == nil && SummitLiveActivityManager.shared.canStart {
+        // Napi-egy-activity: ez háttérből is csak UPDATE (engedélyezett),
+        // új request csak akkor, ha még nincs mai activity.
+        let updated = await SummitLiveActivityManager.shared.syncDay(lessons: lessons, now: now, accentHex: accent)
+        if !updated && SummitLiveActivityManager.shared.canStart {
             // Mai órák vége (a futó activity lezárva, nincs új határ) —
             // holnap reggelre ébresztőt kérünk, hogy a következő tanítási
             // napon app-megnyitás nélkül is elinduljon az activity.
-            // (Kikapcsolt toggle / rendszer-tiltás esetén a startOrUpdate
-            // hamisat ad, de akkor cur/nxt tipikusan nem nil — oda nem kell ébresztő.)
+            // (Kikapcsolt toggle / rendszer-tiltás esetén a syncDay
+            // hamisat ad, de akkor a canStart hamis — oda nem kell ébresztő.)
             scheduleMorningFallback(now: now)
             return true
         }
