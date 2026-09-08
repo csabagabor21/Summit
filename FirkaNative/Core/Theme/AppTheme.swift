@@ -91,6 +91,8 @@ extension View {
 /// scrollOffset <= 0 görgetéskor: a kép a tartalomnál lassabban (≈25%)
 /// kúszik felfelé a teljes scroll-range-en — parallax, nem fix háttér.
 struct SummitBackdrop: View {
+    /// Melyik asset a háttérkép (pl. "Glacier", "DevPeak").
+    var imageName: String = "Glacier"
     @Environment(\.colorScheme) var scheme
     // iOS 27 Liquid Glass-csúszka (ultra clear ↔ fully tinted) a VALÓDI
     // .glassEffect-rétegeket magától követi — de a saját háttér/fátyol
@@ -109,7 +111,7 @@ struct SummitBackdrop: View {
                 let extra = h * 0.4 // ennyi tartalék kép lóg túl — eddig tart a lassú kúszás
                 let shift = min(0, max(-extra, scrollOffset * 0.25))
                 ZStack {
-                    Image("Glacier")
+                    Image(imageName)
                         .resizable()
                         .scaledToFill()
                         .frame(width: proxy.size.width, height: h + extra, alignment: .top)

@@ -33,7 +33,7 @@ struct TimetableView: View {
     private let dayTags = Array(2...6)
     @AppStorage("home.demoPreviewActive") private var isPreviewActive = false
     @AppStorage("home.demoPreviewMinutes") private var previewMinutes: Double = 540
-    private var isDemoEffective: Bool { session.selectedUser?.isDemo == true }
+    @AppStorage("developer.enabled") private var devMode = false
     private func mondayOfWeek(offset: Int) -> Date {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
@@ -126,7 +126,7 @@ struct TimetableView: View {
         let dayBase = cal.date(byAdding: .day, value: dayOffset, to: monday)!
         return dayBase.addingTimeInterval(previewMinutes * 60)
     }
-    private var overrideNow: Date? { isPreviewActive && isDemoEffective ? previewDate : nil }
+    private var overrideNow: Date? { isPreviewActive && devMode ? previewDate : nil }
 
     var body: some View {
         NavigationStack {
@@ -219,42 +219,8 @@ struct TimetableView: View {
                     .animation(.spring(response: 0.34, dampingFraction: 0.82), value: selectedDay)
                 }
 
-                // Demo csúszka — ugyanaz mint Home, hogy a folyamatjelző pörgetése látszódjon az órarendben is
-                if isDemoEffective {
-                    Section {
-                        Toggle(isOn: $isPreviewActive) {
-                            Label("Idő előnézet", systemImage: "slider.horizontal.3")
-                                .font(.subheadline.weight(.medium))
-                        }
-                        .tint(colors.accent)
-                        if isPreviewActive {
-                            VStack(spacing: 8) {
-                                Slider(value: $previewMinutes, in: 420...960, step: 5)
-                                    .tint(colors.accent)
-                                HStack {
-                                    Text("07:00").font(.caption2).foregroundStyle(.tertiary)
-                                    Spacer()
-                                    Text(previewDate.formatted(date: .omitted, time: .shortened)).font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(colors.accent)
-                                    Spacer()
-                                    Text("16:00").font(.caption2).foregroundStyle(.tertiary)
-                                }
-                                if let l = filtered.first(where: { $0.start <= previewDate && $0.end >= previewDate }) {
-                                    Label("\(l.index). óra • \(l.subject) • \(l.room)", systemImage: "clock.fill")
-                                        .font(.caption.weight(.medium)).foregroundStyle(.secondary)
-                                } else if let nxt = filtered.first(where: { $0.start > previewDate }) {
-                                    Text("Következő: \(nxt.subject) \(nxt.start.formatted(date: .omitted, time: .shortened))").font(.caption).foregroundStyle(.secondary)
-                                } else {
-                                    Text("Nincs több óra ezen a napon").font(.caption).foregroundStyle(.secondary)
-                                }
-                                Button("Vissza élő időre") { withAnimation { isPreviewActive = false } }
-                                    .font(.caption.weight(.semibold)).tint(colors.accent)
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    } header: { Text("Előnézet").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
-                    .listRowBackground(colors.surface)
-                }
-
+                // Az idő-eltolás csúszka a Fejlesztői módban él — itt csak az
+                // eltolt idő szerint rajzolunk, ha aktív (overrideNow).
                 if isLoading {
                     Section {
                         ForEach(0..<5, id: \.self) { _ in

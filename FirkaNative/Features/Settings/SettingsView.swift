@@ -18,9 +18,11 @@ struct SettingsView: View {
     @AppStorage("notify.grades") private var notifyGrades = true
     @AppStorage("notify.tasks") private var notifyTasks = true
     @AppStorage("notify.absences") private var notifyAbsences = true
-    @State private var notifStatus = "Ismeretlen"
-    @State private var simMessage: String?
-    @State private var showSimAlert = false
+    @AppStorage("developer.enabled") private var devEnabled = false
+    @AppStorage("home.demoPreviewActive") private var isPreviewOn = false
+    @State private var devTaps = 0
+    @State private var devTapReset: Task<Void, Never>?
+    @State private var showDevAlert = false
     @State private var draftIss = ""
     @State private var repairMsg = ""
     @State private var repairRunning = false
@@ -125,48 +127,8 @@ struct SettingsView: View {
                         if new { Task { await NotificationManager.shared.requestPermission() } }
                     }
                 }
-                if session.selectedUser?.isDemo == true {
-                    settingsDivider
-                    row {
-                        HStack {
-                            Text("Rendszerengedély").font(.subheadline)
-                            Spacer()
-                            Text(notifStatus).font(.caption.weight(.medium)).foregroundStyle(.secondary)
-                            Button("Kérés") { Task {
-                                await NotificationManager.shared.requestPermission()
-                                notifStatus = NotificationManager.shared.permissionStatus
-                            } }
-                            .font(.caption.weight(.semibold)).tint(colors.accent)
-                        }
-                    }
-                    settingsDivider
-                    row {
-                        Button("Teszt értesítés küldése") { Task {
-                            await NotificationManager.shared.sendTest(userId: session.selectedUser?.id ?? "demo-user")
-                            notifStatus = NotificationManager.shared.permissionStatus
-                        } }
-                        .tint(colors.accent)
-                    }
-                }
-                if session.selectedUser?.isDemo == true {
-                    settingsDivider
-                    row {
-                        Button("Új demo jegy szimulálása (5-ös Matek + kártya)") { Task {
-                            _ = await NotificationManager.shared.simulateDemoGrade()
-                            // A fullscreen ünneplő kártya magától felpattan — ez a tesztje.
-                        } }
-                        .tint(colors.accent)
-                    }
-                    settingsDivider
-                    row {
-                        Button("Értesítési előzmény törlése (újrateszteléshez)") {
-                            NotificationManager.shared.resetDemoSeen()
-                            simMessage = "Előzmény törölve — a következő frissítés csendben magot vet."
-                            showSimAlert = true
-                        }
-                        .tint(.red)
-                    }
-                }
+                // A tesztelőeszközök (értesítés-tesztek, szimulált jegy) a
+                // Fejlesztői módban élnek — Beállítások alján feloldható.
             }
 
             island(header: "Megjelenés") {
@@ -285,7 +247,26 @@ struct SettingsView: View {
                 }
             }
 
+            if devEnabled {
+                island(header: "Fejlesztő") {
+                    row {
+                        NavigationLink { DeveloperView() } label: {
+                            HStack {
+                                Label("Fejlesztő", systemImage: "hammer.fill")
+                                    .font(.subheadline.weight(.medium))
+                                Spacer()
+                                if isPreviewOn {
+                                    Text("idő-eltolás")
+                                        .font(.caption2.weight(.bold)).foregroundStyle(colors.accent)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             Text("Summit • Gábor Csaba").font(.caption2).foregroundStyle(.tertiary).frame(maxWidth: .infinity)
+                .onTapGesture { registerDevTap() }
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
@@ -309,20 +290,36 @@ struct SettingsView: View {
         .onAppear {
             thresholds = GradingLogic.loadThresholds()
             if draftIss.isEmpty { draftIss = session.selectedUser?.instituteCode ?? "" }
-            Task {
-                await NotificationManager.shared.refreshPermission()
-                notifStatus = NotificationManager.shared.permissionStatus
-            }
         }
-        .alert("Demo értesítés", isPresented: $showSimAlert) {
+        .alert("Fejlesztői mód bekapcsolva", isPresented: $showDevAlert) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text(simMessage ?? "")
+            Text("A Beállításokban megjelent a Fejlesztő menü az összes tesztelőeszközzel.")
         }
         .fullScreenCover(
             isPresented: Binding(get: { cropImage != nil }, set: { if !$0 { cropImage = nil } })
         ) { cropSheet }
         .onChange(of: session.selectedId) { _, _ in Task { await loadSubjects(force: true) } }
+    }
+
+    /// Fejlesztői mód feloldása: 10 tap a "Summit • Gábor Csaba" láblécre
+    /// (2 mp-es ablakban — lassú pötyögés nem számít). Kikapcsolni a
+    /// Fejlesztő képernyő tetején lehet.
+    private func registerDevTap() {
+        guard !devEnabled else { return }
+        devTaps += 1
+        devTapReset?.cancel()
+        if devTaps >= 10 {
+            devTaps = 0
+            devEnabled = true
+            showDevAlert = true
+            return
+        }
+        devTapReset = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled else { return }
+            devTaps = 0
+        }
     }
 
     /// Üveg sziget-szekció: fejléc + egybefüggő liquid glass kártya + lábléc —

@@ -6,7 +6,6 @@ struct HomeView: View {
     @EnvironmentObject var kreta: KretaClient
     @EnvironmentObject var completed: CompletedStore
     @StateObject private var vm = HomeViewModel()
-    @ObservedObject private var liveManager = SummitLiveActivityManager.shared
     @Environment(\.colorScheme) var scheme
     @Environment(\.horizontalSizeClass) private var hSize
     private var isPad: Bool { hSize == .regular }
@@ -14,9 +13,9 @@ struct HomeView: View {
     @AppStorage("home.demoPreviewActive") private var isPreviewActive = false
     @AppStorage("home.demoPreviewMinutes") private var previewMinutes: Double = 540
     @AppStorage("liveActivity.enabled") private var liveActivityEnabled = true
+    @AppStorage("developer.enabled") private var devMode = false
     @State private var exemptedTick = 0
     @State private var liveSyncTask: Task<Void, Never>?
-    private var isDemoEffective: Bool { session.selectedUser?.isDemo == true }
 
     var body: some View {
         let user = session.selectedUser ?? .demo
@@ -73,75 +72,10 @@ struct HomeView: View {
                 }
 
                 // LIVE TOP CARD — continuously shows current lesson + progress + next + rögzítve
-                HomeLiveCard(lessons: vm.lessonsToday, exams: vm.exams, homeworks: vm.homeworks, overrideNow: isPreviewActive && isDemoEffective ? previewDate : nil)
-                    .animation(.spring(response: 0.42, dampingFraction: 0.86), value: isDemoEffective)
-
-                // Csúszka: csak demo módban
-                if isDemoEffective {
-                    Section {
-                        Toggle(isOn: $isPreviewActive) {
-                            Label("Idő előnézet", systemImage: "slider.horizontal.3")
-                                .font(.subheadline.weight(.medium))
-                        }
-                        .tint(colors.accent)
-                        if isPreviewActive {
-                            VStack(spacing: 8) {
-                                Slider(value: $previewMinutes, in: 420...960, step: 5)
-                                    .tint(colors.accent)
-                                HStack {
-                                    Text("07:00").font(.caption2).foregroundStyle(.tertiary)
-                                    Spacer()
-                                    Text(previewTimeText).font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(colors.accent)
-                                    Spacer()
-                                    Text("16:00").font(.caption2).foregroundStyle(.tertiary)
-                                }
-                                if let l = previewLesson {
-                                    Label("\(l.index). óra • \(l.subject) • \(l.room)", systemImage: "clock.fill")
-                                        .font(.caption.weight(.medium)).foregroundStyle(.secondary)
-                                } else {
-                                    Text(previewStateText).font(.caption).foregroundStyle(.secondary)
-                                }
-                                Button("Vissza élő időre") { withAnimation { isPreviewActive = false } }
-                                    .font(.caption.weight(.semibold)).tint(colors.accent)
-                                Label("A csúszka a Live Activity-t is mozgatja", systemImage: "livephoto")
-                                    .font(.caption2).foregroundStyle(.tertiary)
-                                // Demo diagnosztika + órarend-független teszt (este is működik)
-                                HStack(spacing: 6) {
-                                    Circle().fill(liveManager.isSystemEnabled ? Color.green : Color.red).frame(width: 7, height: 7)
-                                    Text(liveManager.isSystemEnabled ? "Rendszer OK" : "Rendszer tiltva")
-                                        .font(.caption2.weight(.medium))
-                                        .foregroundStyle(liveManager.isSystemEnabled ? Color.secondary : Color.red)
-                                    Spacer()
-                                    Text("\(liveManager.activeCount) aktív • \(liveManager.lastAction)")
-                                        .font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
-                                }
-                                if let err = liveManager.lastError {
-                                    Text(err).font(.caption2).foregroundStyle(.orange).lineLimit(2)
-                                }
-                                HStack(spacing: 12) {
-                                    Button("Teszt indítása most") {
-                                        Task { await liveManager.startDemoTestNow(accentHex: theme.accentHex) }
-                                    }
-                                    .font(.caption.weight(.semibold)).tint(colors.accent)
-                                    Button("Leállítás") {
-                                        Task { await liveManager.endAll(dismissalPolicy: .immediate) }
-                                    }
-                                    .font(.caption.weight(.semibold)).tint(.red)
-                                }
-                                // Widget extension telepítve? Enélkül a pill felmegy, de az expanded fekete.
-                                if isWidgetExtensionInstalled {
-                                    Label("Widget extension telepítve", systemImage: "checkmark.circle.fill")
-                                        .font(.caption2).foregroundStyle(.secondary)
-                                } else {
-                                    Label("Widget extension HIÁNYZIK — töröld az appot és telepítsd újra Xcode-ból, ez okozza a fekete Islandet", systemImage: "exclamationmark.triangle.fill")
-                                        .font(.caption2).foregroundStyle(.red)
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    } header: { Text("Előnézet").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
-                    .listRowBackground(colors.surface)
-                }
+                // Az idő-eltolás csúszka a Fejlesztői módban él (Beállítások alján
+                // feloldható) — itt csak az eltolt idő szerint rajzolunk, ha aktív.
+                HomeLiveCard(lessons: vm.lessonsToday, exams: vm.exams, homeworks: vm.homeworks, overrideNow: isPreviewActive && devMode ? previewDate : nil)
+                    .animation(.spring(response: 0.42, dampingFraction: 0.86), value: devMode)
 
                 // Legújabb jegyek — koppintva a tantárgyba visz
                 Section {
@@ -316,7 +250,7 @@ struct HomeView: View {
             .onChange(of: vm.lessonsToday) { _, _ in Task { await syncLiveActivity() } }
             .onChange(of: session.selectedId) { _, _ in Task { await vm.refresh(kreta: kreta, user: session.selectedUser); await syncLiveActivity() } }
             .onChange(of: previewMinutes) { _, _ in
-                if isDemoEffective && isPreviewActive { enqueueLiveSync() }
+                if devMode && isPreviewActive { enqueueLiveSync() }
             }
             .onChange(of: isPreviewActive) { _, _ in
                 enqueueLiveSync()
@@ -340,29 +274,10 @@ struct HomeView: View {
         .tint(colors.accent)
     }
 
-    // MARK: - Preview helpers
-    /// A widget appex tényleg az app része? Régi telepítésnél hiányozhat → fekete expanded Island.
-    private var isWidgetExtensionInstalled: Bool {
-        let url = Bundle.main.bundleURL.appendingPathComponent("PlugIns/SummitWidgets.appex", isDirectory: true)
-        return FileManager.default.fileExists(atPath: url.path)
-    }
+    // MARK: - Preview helpers (a csúszka a Fejlesztői módban él)
     private var previewDate: Date {
         let base = Calendar.current.startOfDay(for: Date())
         return base.addingTimeInterval(previewMinutes * 60)
-    }
-    private var previewTimeText: String { previewDate.formatted(date: .omitted, time: .shortened) }
-    private var previewLesson: LessonItem? {
-        vm.lessonsToday.first { $0.start <= previewDate && $0.end >= previewDate }
-    }
-    private var previewStateText: String {
-        let calc = LiveCalc(lessons: vm.lessonsToday, now: previewDate)
-        switch calc.state {
-        case .morning: return "Reggel — első óra előtt"
-        case .duringBreak: return "Szünet"
-        case .empty: return "Nincs több óra ma"
-        case .duringLesson: return "Óra közben"
-        case .summary: return "Vége"
-        }
     }
 
     /// Debounce-olt single-flight sync: csúszkahúzáskor tickenként csak az utolsó fut le,
@@ -378,9 +293,9 @@ struct HomeView: View {
 
     @MainActor
     private func syncLiveActivity() async {
-        // Demo módban az idő-csúszka mozgatja a Live Activity-t is,
+        // Fejlesztői módban az idő-csúszka mozgatja a Live Activity-t is,
         // hogy a Lock Screen / Dynamic Island tesztelhető legyen készüléken.
-        if isPreviewActive && isDemoEffective {
+        if isPreviewActive && devMode {
             let previewNow = previewDate
             let realNow = Date()
             let delta = previewNow.timeIntervalSince(realNow)

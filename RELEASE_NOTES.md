@@ -3,6 +3,7 @@
 ## Build 9
 - Live Activity túléli az órahatárokat: naponta már egyetlen activity él, az óra- és szünetváltások csak frissítések (update) — ezek háttérből is engedélyezettek, szemben a korábbi óránkénti újraindítással, amit az iOS háttérben eldobott. A visszaszámlálók maguktól tickelnek, a halványodás csak a nap végén jön.
 - Demo mód rendes felhasználóként: a Demo gombbal belépve ugyanaz az adatsáv szolgál ki, mint élesben — csak a háttérben helyi adatokból, KRÉTA-szerver nélkül. Nincs több párhuzamos demo-logika, a demo pont úgy viselkedik, mint egy valós fiók.
+- Fejlesztői mód: a Beállítások alján a „Summit • Gábor Csaba" sor 10x megnyomására feloldható, kikapcsolható tesztelőfelület (idő-eltolás csúszka, értesítés-tesztek, Live Activity teszt) saját hegycsúcs-háttérképpel. A tesztelőeszközök kikerültek a demo nézetekből.
 - MOST-kártya: a dolgozat- és házi-feliratokban már nem látszanak nyers HTML-tagek — ugyanaz a takarítás fut mindenhol (főoldal, órarend, feladatok, jegyek, értesítések).
 - Live Activity app-megnyitás nélkül is: háttérbe vonuláskor biztonsági ébresztés kérése, a mai órák végén pedig holnap reggeli ébresztő — a következő tanítási napon magától elindul.
 - Dynamic Island: a kinyitott nézetben az időzítő középre igazítva.
