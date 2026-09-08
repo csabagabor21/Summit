@@ -126,9 +126,13 @@ struct SummitBackdrop: View {
     }
     private var veil: [Color] {
         // Emelt kontrasztnál +0.08 fátyol — az ultra-clear glass alatt is olvasható szöveg.
+        // Sötét fátyol szándékosan a bejelentkező képernyő görbéjén (0.55/0.2/0.7):
+        // az iOS 27 csúszka az üveget viszi átlátszóba, de a szigetek mögött
+        // MINTAVÉTELEZETT tartalom marad — sötét fátyollal a "clear" üveg is
+        // sötétnek látszott a Beállításokban, miközben a Bejelentkezés gomb tiszta volt.
         let boost: Double = contrast == .increased ? 0.08 : 0
         if scheme == .dark {
-            return [.black.opacity(0.76 + boost), .black.opacity(0.60 + boost), .black.opacity(0.84 + boost)]
+            return [.black.opacity(0.60 + boost), .black.opacity(0.35 + boost), .black.opacity(0.72 + boost)]
         }
         return [.white.opacity(0.88 + boost), .white.opacity(0.76 + boost), .white.opacity(0.92 + boost)]
     }
