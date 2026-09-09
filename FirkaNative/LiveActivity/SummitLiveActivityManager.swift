@@ -115,15 +115,63 @@ final class SummitLiveActivityManager: ObservableObject {
         return f.string(from: date)
     }
 
+    // MARK: - Napi terv-cache (háttér-ébresztés hálózat nélkül)
+    //
+    // A háttér-refresh ~30 mp-es ablaka 2-3 szekvenciális hálózati kört
+    // (token → órarend → jegyek) nem bír el megbízhatóan: lassú hálózaton
+    // lejárt, és az óraátmenet elmaradt — a kártyán lejárt 0:00-s timer
+    // maradt a régi órával. Ezért minden sikeres előtéri sync elmenti a
+    // mai tervet; a háttér-ébresztés ELŐSZÖR ebből kapcsol (azonnal,
+    // offline is), és csak utána pontosít hálózatból.
+
+    struct CachedDayPlan: Codable {
+        var dayKey: String
+        var accentHex: Int
+        var lessons: [PlanLesson]
+    }
+
+    private static let dayCacheKey = "liveActivity.dayPlan.v1"
+
+    private static func saveDayCache(dayKey: String, lessons: [PlanLesson], accentHex: Int) {
+        let cache = CachedDayPlan(dayKey: dayKey, accentHex: accentHex, lessons: lessons)
+        if let data = try? JSONEncoder().encode(cache) {
+            UserDefaults.standard.set(data, forKey: dayCacheKey)
+        }
+    }
+
+    func loadDayCache() -> CachedDayPlan? {
+        guard let data = UserDefaults.standard.data(forKey: Self.dayCacheKey),
+              let cache = try? JSONDecoder().decode(CachedDayPlan.self, from: data) else { return nil }
+        return cache
+    }
+
+    /// A cache-elt mai terv LessonItem-ként, ha az a mai napra szól.
+    /// Idegen nap cache-e (pl. tegnapi) sosem jön vissza — abból rossz
+    /// határra ütemeznénk és rossz órát mutatnánk.
+    func cachedLessons(now: Date = Date()) -> (lessons: [LessonItem], accentHex: Int)? {
+        guard let cache = loadDayCache(), cache.dayKey == Self.dayKey(for: now), !cache.lessons.isEmpty else { return nil }
+        let items = cache.lessons.map { p in
+            LessonItem(id: "cache-\(p.index)-\(p.start.timeIntervalSince1970)",
+                       subject: p.subject, room: p.room, start: p.start, end: p.end,
+                       teacher: p.teacher, index: p.index,
+                       isSubstituted: p.isSubstituted, isCancelled: p.isCancelled,
+                       originalTeacher: nil)
+        }
+        return (items, cache.accentHex)
+    }
+
     /// A HomeView és a háttér-refresh is EZT hívja a teljes mai órarenddel.
     /// Napi egy activity: határokon csak update (háttérből is megy),
     /// új request csak akkor, ha még nincs mai activity (tipikusan előtérben).
+    /// - Parameter cacheable: hamis a fejlesztői idő-csúszkás preview-nál és
+    ///   a demo-tesztnél — azok eltolt/mű órarendje sosem kerülhet a napi
+    ///   terv-cache-be, mert a háttér-ébresztés valós kapcsoláshoz használná.
     @discardableResult
-    func syncDay(lessons: [LessonItem], now: Date = Date(), accentHex: Int = 0x4A90E2) async -> Bool {
-        await runSerialized { await self.syncDayImpl(lessons: lessons, now: now, accentHex: accentHex) }
+    func syncDay(lessons: [LessonItem], now: Date = Date(), accentHex: Int = 0x4A90E2, cacheable: Bool = true) async -> Bool {
+        await runSerialized { await self.syncDayImpl(lessons: lessons, now: now, accentHex: accentHex, cacheable: cacheable) }
     }
 
-    private func syncDayImpl(lessons: [LessonItem], now: Date, accentHex: Int) async -> Bool {
+    private func syncDayImpl(lessons: [LessonItem], now: Date, accentHex: Int, cacheable: Bool) async -> Bool {
         guard #available(iOS 16.1, *) else { lastError = "iOS 16.1 alatt nem támogatott"; return false }
         guard canStart else {
             // Ha az app kikapcsolta, biztosan zárunk — ne maradjon beragadt activity
@@ -150,6 +198,17 @@ final class SummitLiveActivityManager: ObservableObject {
         }
         let state = Self.makeState(today: today, current: cur, next: nxt, now: now)
         let key = Self.dayKey(for: now)
+        // Napi terv-cache: a háttér-ébresztés ebből kapcsol azonnal,
+        // hálózat nélkül is. Üres `today`-jel sosem írjuk felül a cache-t
+        // (az fetch-hiba is lehetne), és a mű/eltolt adatok sem kerülnek bele.
+        if cacheable, !today.isEmpty {
+            let snap = today.map {
+                PlanLesson(subject: $0.subject, room: $0.room, teacher: $0.teacher,
+                           index: $0.index, start: $0.start, end: $0.end,
+                           isCancelled: $0.isCancelled, isSubstituted: $0.isSubstituted)
+            }
+            Self.saveDayCache(dayKey: key, lessons: snap, accentHex: accentHex)
+        }
 
         // Van futó activity → update (háttérből is engedélyezett).
         // Másik napról maradt activityt előbb zárjuk, csak 1 lehet.
@@ -272,7 +331,9 @@ final class SummitLiveActivityManager: ObservableObject {
             end: now.addingTimeInterval(95 * 60),
             teacher: "Smith", index: "2"
         )
-        return await syncDay(lessons: [demo, next], now: now, accentHex: accentHex)
+        // Mű órarend: nem kerülhet a napi terv-cache-be (cacheable: false),
+        // különben a háttér-ébresztés valós határoknál ezt mutatná.
+        return await syncDay(lessons: [demo, next], now: now, accentHex: accentHex, cacheable: false)
     }
 
     func openSystemSettings() {

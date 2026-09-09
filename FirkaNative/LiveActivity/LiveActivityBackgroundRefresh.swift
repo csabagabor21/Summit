@@ -36,23 +36,40 @@ enum LiveActivityBackgroundRefresh {
 
     // MARK: - Ütemezés (a Manager hívja minden sikeres start/update után)
 
+    /// Utoljára melyik határra ütemeztünk — az előtéri percenkénti sync
+    /// minden alkalommal hív, felesleges cancel+submit churn nélkül csak
+    /// akkor ütemezünk újra, ha a határ tényleg odébb ment (>30 mp).
+    private static var lastScheduledBoundary: Date?
+
     /// A következő határra (óra vége / köv. óra kezdete) időzítünk.
     /// Ha ma már nincs több határ, a függő kérést töröljük.
     static func scheduleBoundary(lessonEnd: Date?, nextStart: Date?, now: Date = Date()) {
         let next = [lessonEnd, nextStart].compactMap { $0 }.filter { $0 > now }.min()
+        // Nincs több mai határ: a függő kérést töröljük (mint eddig),
+        // hogy elavult határra ne ébredjen fel az app.
+        guard let next else {
+            lastScheduledBoundary = nil
+            BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: taskIdentifier)
+            return
+        }
+        if let last = lastScheduledBoundary, abs(last.timeIntervalSince(next)) < 30 { return }
         BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: taskIdentifier)
-        guard let next else { return }
         let req = BGAppRefreshTaskRequest(identifier: taskIdentifier)
-        // A határ után ~1 perccel: az új állapot (pl. szünet) ekkor már érvényes.
-        req.earliestBeginDate = next.addingTimeInterval(60)
+        // A határ után ~10 mp-cel: az új állapot (pl. szünet→óra) a
+        // `start <= now` számolás miatt ekkor már érvényes, de a kártya
+        // nem ül egy percig lejárt 0:00-s timeren. (A BG-ébresztés úgysem
+        // percre pontos — a régi +60 mp csak garantált avultságot adott.)
+        req.earliestBeginDate = next.addingTimeInterval(10)
         do {
             try BGTaskScheduler.shared.submit(req)
+            lastScheduledBoundary = next
         } catch {
             debugPrint("[LiveActivity] BG submit failed: \(error)")
         }
     }
 
     static func cancel() {
+        lastScheduledBoundary = nil
         BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: taskIdentifier)
     }
 
@@ -109,14 +126,30 @@ enum LiveActivityBackgroundRefresh {
         }
     }
 
-    /// Órarend-frissítés + activity sync a háttérből. Csak az órarendet
-    /// kérjük le (jegyek/házik nélkül), hogy beleférjünk a ~30 mp-be.
+    /// Órarend-frissítés + activity sync a háttérből. Sorrend:
+    /// 1) AZONNALI átkapcsolás a mentett mai tervből (hálózat nélkül) —
+    ///    ez a ~30 mp-es ablak legbiztosabb része;
+    /// 2) pontosítás hálózatból (órarend + jegyek párhuzamosan).
+    /// A régi kód 2-3 szekvenciális hálózati kört várt végig, mielőtt
+    /// bármit mutatott volna — lassú hálózaton lejárt az ablak, és az
+    /// óraátmenet elmaradt (lejárt 0:00-s timer a régi órával).
     @MainActor
     static func refreshNow() async -> Bool {
+        let mgr = SummitLiveActivityManager.shared
+        let now = Date()
+        // 1) Kapcsolás cache-ből: offline is, <1 mp alatt. A következő
+        //    határ ütemezése is helyreáll — a lánc akkor is él, ha a
+        //    hálózat halott. (Cache csak valós előtéri syncből létezik:
+        //    preview/demo-teszt sosem ír bele.)
+        var cacheHit = false
+        if let cached = mgr.cachedLessons(now: now) {
+            cacheHit = true
+            await mgr.syncDay(lessons: cached.lessons, now: now, accentHex: cached.accentHex, cacheable: false)
+        }
         // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből
         // (instituteCode "demo" → hálózat nélkül) — nincs külön demo-ág.
         let store = SessionStore()
-        guard let user = store.selectedUser else { return false }
+        guard let user = store.selectedUser else { return cacheHit }
         let kreta = KretaClient()
         kreta.accessToken = user.accessToken
         kreta.refreshToken = user.refreshToken
@@ -124,26 +157,32 @@ enum LiveActivityBackgroundRefresh {
         let iss = user.instituteCode.isEmpty
             ? (JWT.instituteCode(from: user.accessToken) ?? "")
             : user.instituteCode
-        guard !iss.isEmpty, iss != "unknown" else { return false }
+        guard !iss.isEmpty, iss != "unknown" else { return cacheHit }
         kreta.onTokensRefreshed = { newAccess, newRefresh, expiresIn in
             store.updateTokens(accessToken: newAccess, refreshToken: newRefresh, expiresIn: expiresIn)
         }
         let cal = Calendar.current
         let start = cal.startOfDay(for: Date())
-        guard let end = cal.date(byAdding: .day, value: 1, to: start) else { return false }
-        let lessons = await kreta.fetchTimetable(iss: iss, from: start, to: end)
-        // Üres órarend élesben = fetch-hiba → 15 perc múlva újra (lásd lejjebb).
+        guard let end = cal.date(byAdding: .day, value: 1, to: start) else { return cacheHit }
+        // Párhuzamosan: az órarend a kapcsoláshoz kell, a jegyek csak
+        // értesítéshez — a jegylekérés már nem tarthatja fel az átkapcsolást.
+        async let timetable = kreta.fetchTimetable(iss: iss, from: start, to: end)
+        async let gradesFetch = kreta.fetchGrades(iss: iss)
+        let lessons = await timetable
+        let bgGrades = await gradesFetch
+        // Üres órarend élesben = fetch-hiba → a cache-sync fent már
+        // átkapcsolt (ha volt cache) és a következő határ be van ütemezve,
+        // így a lánc él: nincs szükség 15 perces pót-ébresztésre.
+        // Jegy-diffet üres listával nem futtatunk (törlési zajt okozna).
         // Demóban az üres (pl. hétvége) valós állapot → syncDay zár + reggeli ébresztő.
-        if lessons.isEmpty, iss != KretaClient.demoInstitute { return false }
+        if lessons.isEmpty, iss != KretaClient.demoInstitute { return cacheHit }
         // Polling-alapú jegy-értesítés háttérből is: ha a rendszer
         // felébreszt az élő órához, az új jegyeket is észrevesszük.
-        let bgGrades = await kreta.fetchGrades(iss: iss)
         await NotificationManager.shared.checkGrades(bgGrades, userId: user.id)
-        let now = Date()
         let accent = UserDefaults.standard.object(forKey: "theme.accentHex") as? Int ?? 0x4A90E2
         // Napi-egy-activity: ez háttérből is csak UPDATE (engedélyezett),
         // új request csak akkor, ha még nincs mai activity.
-        let updated = await SummitLiveActivityManager.shared.syncDay(lessons: lessons, now: now, accentHex: accent)
+        let updated = await mgr.syncDay(lessons: lessons, now: now, accentHex: accent)
         if !updated && SummitLiveActivityManager.shared.canStart {
             // Mai órák vége (a futó activity lezárva, nincs új határ) —
             // holnap reggelre ébresztőt kérünk, hogy a következő tanítási

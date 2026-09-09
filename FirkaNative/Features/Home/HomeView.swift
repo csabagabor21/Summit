@@ -313,7 +313,9 @@ struct HomeView: View {
             // Text(timerInterval:) visszaszámlálója a valós órához igazodik,
             // de a preview időnek megfelelő állapotot mutatja.
             let shiftedAll = vm.lessonsToday.map(shifted)
-            await SummitLiveActivityManager.shared.syncDay(lessons: shiftedAll, now: realNow, accentHex: theme.accentHex)
+            // Eltolt mű-idő: a cache-be nem írhat (cacheable: false),
+            // különben a háttér-ébresztés valós határoknál ezt mutatná.
+            await SummitLiveActivityManager.shared.syncDay(lessons: shiftedAll, now: realNow, accentHex: theme.accentHex, cacheable: false)
             return
         }
         await SummitLiveActivityManager.shared.syncDay(lessons: vm.lessonsToday, accentHex: theme.accentHex)
