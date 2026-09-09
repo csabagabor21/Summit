@@ -171,6 +171,23 @@ struct DeveloperView: View {
                                 .font(.caption2).foregroundStyle(.red)
                         }
                     }
+                    settingsDivider
+                    row {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Eseménynapló")
+                                .font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+                            if liveManager.recentEvents.isEmpty {
+                                Text("Még nincs esemény — nyisd meg a Főoldalt tanítási időben.")
+                                    .font(.caption2).foregroundStyle(.tertiary)
+                            } else {
+                                ForEach(Array(liveManager.recentEvents.suffix(8).enumerated()), id: \.offset) { _, line in
+                                    Text(line)
+                                        .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                                        .lineLimit(2)
+                                }
+                            }
+                        }
+                    }
                 } footer: {
                     "Órarend-független teszt — este is működik."
                 }

@@ -64,7 +64,9 @@ enum LiveActivityBackgroundRefresh {
             try BGTaskScheduler.shared.submit(req)
             lastScheduledBoundary = next
         } catch {
+            let msg = error.localizedDescription
             debugPrint("[LiveActivity] BG submit failed: \(error)")
+            Task { await SummitLiveActivityManager.shared.logEvent("BG-ütemezés SIKERTELEN: \(msg)") }
         }
     }
 
@@ -85,8 +87,11 @@ enum LiveActivityBackgroundRefresh {
             req.earliestBeginDate = Date(timeIntervalSinceNow: 20 * 60)
             do {
                 try BGTaskScheduler.shared.submit(req)
+                Task { await SummitLiveActivityManager.shared.logEvent("BG keepalive kérve (+20p)") }
             } catch {
+                let msg = error.localizedDescription
                 debugPrint("[LiveActivity] keepalive submit failed: \(error)")
+                Task { await SummitLiveActivityManager.shared.logEvent("BG keepalive SIKERTELEN: \(msg)") }
             }
         }
     }
@@ -104,8 +109,11 @@ enum LiveActivityBackgroundRefresh {
         req.earliestBeginDate = morning
         do {
             try BGTaskScheduler.shared.submit(req)
+            Task { await SummitLiveActivityManager.shared.logEvent("BG reggeli ébresztő kérve (7:05)") }
         } catch {
+            let msg = error.localizedDescription
             debugPrint("[LiveActivity] morning fallback submit failed: \(error)")
+            Task { await SummitLiveActivityManager.shared.logEvent("BG reggeli ébresztő SIKERTELEN: \(msg)") }
         }
     }
 
@@ -113,8 +121,10 @@ enum LiveActivityBackgroundRefresh {
 
     private static func runRefresh(task: BGAppRefreshTask) async {
         task.expirationHandler = {
+            Task { await SummitLiveActivityManager.shared.logEvent("BG-ébresztés LEJÁRT (30mp ablak)") }
             task.setTaskCompleted(success: false)
         }
+        await SummitLiveActivityManager.shared.logEvent("BG-ébresztés: fut")
         let ok = await refreshNow()
         task.setTaskCompleted(success: ok)
         // Sikertelen frissítésnél (pl. nincs hálózat) 15 perc múlva újra —
@@ -145,6 +155,8 @@ enum LiveActivityBackgroundRefresh {
         if let cached = mgr.cachedLessons(now: now) {
             cacheHit = true
             await mgr.syncDay(lessons: cached.lessons, now: now, accentHex: cached.accentHex, cacheable: false)
+        } else {
+            await mgr.logEvent("BG-ébresztés: nincs mai terv-cache")
         }
         // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből
         // (instituteCode "demo" → hálózat nélkül) — nincs külön demo-ág.
@@ -175,7 +187,12 @@ enum LiveActivityBackgroundRefresh {
         // így a lánc él: nincs szükség 15 perces pót-ébresztésre.
         // Jegy-diffet üres listával nem futtatunk (törlési zajt okozna).
         // Demóban az üres (pl. hétvége) valós állapot → syncDay zár + reggeli ébresztő.
-        if lessons.isEmpty, iss != KretaClient.demoInstitute { return cacheHit }
+        if lessons.isEmpty, iss != KretaClient.demoInstitute {
+            await mgr.logEvent(cacheHit
+                ? "BG: hálózat hiba, cache tartja a láncot"
+                : "BG: hálózat hiba, nincs cache → 15p múlva újra")
+            return cacheHit
+        }
         // Polling-alapú jegy-értesítés háttérből is: ha a rendszer
         // felébreszt az élő órához, az új jegyeket is észrevesszük.
         await NotificationManager.shared.checkGrades(bgGrades, userId: user.id)

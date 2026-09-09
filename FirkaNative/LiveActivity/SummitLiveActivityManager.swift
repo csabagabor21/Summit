@@ -50,6 +50,7 @@ final class SummitLiveActivityManager: ObservableObject {
         refreshSystemState()
         observeAuthorization()
         refreshActiveCount()
+        loadEvents()
     }
 
     // MARK: - System state
@@ -145,6 +146,53 @@ final class SummitLiveActivityManager: ObservableObject {
         return cache
     }
 
+    // MARK: - Eseménynapló (perzisztens diagnosztika)
+    //
+    // Az óraátmenet-hibák háttérben történnek, a debugPrint elveszik —
+    // ezért az érdemi események (indítás/update/lezárás/BG-ébresztés/hiba)
+    // UserDefaults-gyűrűbe (utolsó 15) kerülnek, és a Fejlesztő képernyő
+    // Live Activity szigete mutatja őket. Így készüléken is látszik,
+    // HOL akad el a lánc: fel sem ébred, cache/hálózat hibázik, vagy az
+    // update nem megy ki.
+
+    struct LiveEvent: Codable {
+        var at: Date
+        var msg: String
+    }
+
+    private static let eventLogKey = "liveActivity.eventLog.v1"
+    private static let eventLogMax = 15
+
+    /// Formázott sorok a UI-nak ("09:44:58 BG-ébresztés: ..."), időrendben.
+    @Published var recentEvents: [String] = []
+
+    private static let eventTime: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "hu_HU")
+        f.dateFormat = "HH:mm:ss"
+        return f
+    }()
+
+    private func loadEvents() {
+        guard let data = UserDefaults.standard.data(forKey: Self.eventLogKey),
+              let events = try? JSONDecoder().decode([LiveEvent].self, from: data) else {
+            recentEvents = []
+            return
+        }
+        recentEvents = events.map { "\(Self.eventTime.string(from: $0.at)) \($0.msg)" }
+    }
+
+    func logEvent(_ msg: String) {
+        var events = (try? JSONDecoder().decode([LiveEvent].self,
+            from: UserDefaults.standard.data(forKey: Self.eventLogKey) ?? Data())) ?? []
+        events.append(LiveEvent(at: Date(), msg: msg))
+        if events.count > Self.eventLogMax { events.removeFirst(events.count - Self.eventLogMax) }
+        if let data = try? JSONEncoder().encode(events) {
+            UserDefaults.standard.set(data, forKey: Self.eventLogKey)
+        }
+        recentEvents = events.map { "\(Self.eventTime.string(from: $0.at)) \($0.msg)" }
+    }
+
     /// A cache-elt mai terv LessonItem-ként, ha az a mai napra szól.
     /// Idegen nap cache-e (pl. tegnapi) sosem jön vissza — abból rossz
     /// határra ütemeznénk és rossz órát mutatnánk.
@@ -216,9 +264,23 @@ final class SummitLiveActivityManager: ObservableObject {
             if existing.attributes.dayKey != key {
                 await endAllImpl(dismissalPolicy: .immediate)
             } else {
+                // Csak VALÓDI változásra update-elünk: az előtéri percenkénti
+                // sync több száz azonos tartalmú update-et küldene naponta, és
+                // a rendszer az ilyen spammelést throttlinggal bünteti — a
+                // fontos (óraátmeneti) update is eldobódhat. Így napi ~10-15
+                // update megy ki, csak határokon.
+                if existing.content.state == state {
+                    lastError = nil
+                    lastAction = Self.actionLabel(current: cur, next: nxt) + " (változatlan)"
+                    logEvent("sync: változatlan — " + Self.actionLabel(current: cur, next: nxt))
+                    refreshActiveCount()
+                    LiveActivityBackgroundRefresh.scheduleBoundary(lessonEnd: state.lessonEnd, nextStart: nxt?.start)
+                    return true
+                }
                 await existing.update(ActivityContent(state: state, staleDate: state.staleDate))
                 lastError = nil
                 lastAction = Self.actionLabel(current: cur, next: nxt)
+                logEvent("update: " + Self.actionLabel(current: cur, next: nxt))
                 refreshActiveCount()
                 LiveActivityBackgroundRefresh.scheduleBoundary(lessonEnd: state.lessonEnd, nextStart: nxt?.start)
                 return true
@@ -231,12 +293,14 @@ final class SummitLiveActivityManager: ObservableObject {
             _ = try Activity.request(attributes: attrs, content: ActivityContent(state: state, staleDate: state.staleDate), pushType: nil)
             lastError = nil
             lastAction = "Napi activity indítva (\(today.count) óra)"
+            logEvent("indítás: \(today.count) óra, " + Self.actionLabel(current: cur, next: nxt))
             refreshActiveCount()
             LiveActivityBackgroundRefresh.scheduleBoundary(lessonEnd: state.lessonEnd, nextStart: nxt?.start)
             return true
         } catch {
             // Gyakori hiba: "maximum 5", "not enabled", háttérből indítás — ne crash-eljünk
             lastError = "Indítás sikertelen: \(error.localizedDescription)"
+            logEvent("indítás SIKERTELEN: \(error.localizedDescription)")
             debugPrint("[LiveActivity] request failed: \(error.localizedDescription)")
             return false
         }
@@ -269,10 +333,16 @@ final class SummitLiveActivityManager: ObservableObject {
         } else if let nxt = next {
             var breakEnd = nxt.start
             if breakEnd <= now { breakEnd = now.addingTimeInterval(60) }
+            // A szünet kezdete az előző óra vége (nem a sync pillanata!):
+            // így a break-állapot syncről syncre azonos, amíg a határok nem
+            // változnak — enélkül a változás-figyelés sosem találna egyezést,
+            // és minden percben kimenne egy felesleges update. A progress
+            // csík is így értelmes (szünet eleje → következő óra kezdete).
+            let breakStart = today.last(where: { $0.end <= now })?.end ?? now
             return SummitLiveActivityAttributes.ContentState(
                 subject: "Szünet", room: nxt.room, teacher: nxt.teacher, index: nxt.index,
                 isCancelled: false, isSubstituted: false,
-                lessonStart: now, lessonEnd: breakEnd,
+                lessonStart: min(breakStart, breakEnd), lessonEnd: breakEnd,
                 nextSubject: nxt.subject, nextRoom: nxt.room, nextStart: nxt.start,
                 phase: "break",
                 staleDate: dayEnd,
@@ -311,7 +381,10 @@ final class SummitLiveActivityManager: ObservableObject {
             let final = act.content.state
             await act.end(ActivityContent(state: final, staleDate: nil), dismissalPolicy: dismissalPolicy)
         }
-        if had { lastAction = "Lezárva" }
+        if had {
+            lastAction = "Lezárva"
+            logEvent("lezárva")
+        }
         refreshActiveCount()
     }
 
