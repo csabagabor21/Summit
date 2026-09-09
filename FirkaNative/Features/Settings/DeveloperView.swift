@@ -20,6 +20,8 @@ struct DeveloperView: View {
     @State private var notifStatus = NotificationManager.shared.permissionStatus
     @State private var simMessage: String?
     @State private var showSimAlert = false
+    @State private var jumpMinutes = 2
+    @State private var jumpInfo: String?
 
     var body: some View {
         ScrollView {
@@ -64,6 +66,26 @@ struct DeveloperView: View {
                             }
                             .padding(.vertical, 4)
                         }
+                    }
+                    settingsDivider
+                    row {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Label("Ugrás az óra végére", systemImage: "forward.fill")
+                                    .font(.subheadline.weight(.medium))
+                                Spacer()
+                                Stepper("\(jumpMinutes) perc", value: $jumpMinutes, in: 1...15)
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            Button("Előrepörgetés most") { Task { await jumpToLessonEnd() } }
+                                .font(.caption.weight(.semibold)).tint(colors.accent)
+                            if let jumpInfo {
+                                Text(jumpInfo).font(.caption2).foregroundStyle(.tertiary)
+                            }
+                            Text("A csúszkát az aktuális óra vége elé állítja — az óraátmenetet az app nyitva tartva várd meg (percenkénti sync kapcsolja át).")
+                                .font(.caption2).foregroundStyle(.tertiary)
+                        }
+                        .padding(.vertical, 4)
                     }
                 } footer: {
                     "A Főoldal és az Órarend az eltolt idő szerint rajzol — valós és demo fiókkal is."
@@ -183,6 +205,57 @@ struct DeveloperView: View {
     private var previewDate: Date {
         let base = Calendar.current.startOfDay(for: Date())
         return base.addingTimeInterval(previewMinutes * 60)
+    }
+
+    /// Előrepörgetés az aktuális óra végére: a csúszkát az óra vége elé
+    /// (választhatóan X perccel) állítja és bekapcsolja az idő-előnézetet —
+    /// így a Live Activity óraátmenet pár perc alatt, élőben tesztelhető.
+    /// Valós és demo fiókkal is megy (a demo helyből szolgál ki).
+    @MainActor
+    private func jumpToLessonEnd() async {
+        jumpInfo = nil
+        let now = Date()
+        guard let user = session.selectedUser else {
+            jumpInfo = "Nincs belépett felhasználó."
+            return
+        }
+        let kreta = KretaClient()
+        kreta.accessToken = user.accessToken
+        kreta.refreshToken = user.refreshToken
+        kreta.instituteCode = user.instituteCode
+        let iss = user.instituteCode.isEmpty
+            ? (JWT.instituteCode(from: user.accessToken) ?? "")
+            : user.instituteCode
+        guard !iss.isEmpty, iss != "unknown" else {
+            jumpInfo = "Ismeretlen iskola-kód."
+            return
+        }
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: now)
+        guard let end = cal.date(byAdding: .day, value: 1, to: start) else { return }
+        let today = await kreta.fetchTimetable(iss: iss, from: start, to: end)
+            .filter { cal.isDate($0.start, inSameDayAs: now) }
+            .sorted { $0.start < $1.start }
+        guard let cur = today.first(where: { $0.start <= now && $0.end >= now }) else {
+            jumpInfo = "Most nincs tanóra — szünetben vagy tanításmentes napon nincs mire ugrani."
+            return
+        }
+        // Cél: az óra vége előtt X perccel. Ha ennél közelebb a vége,
+        // a végére ugrunk (min. ~20 mp maradjon a visszaszámlálóból).
+        var target = cur.end.addingTimeInterval(-Double(jumpMinutes * 60))
+        var jumpedToEnd = false
+        if target <= now.addingTimeInterval(20) {
+            target = cur.end.addingTimeInterval(-20)
+            if target <= now { target = now.addingTimeInterval(15) }
+            jumpedToEnd = true
+        }
+        previewMinutes = target.timeIntervalSince(start) / 60
+        isPreviewActive = true
+        let t = target.formatted(date: .omitted, time: .shortened)
+        let label = "„\(cur.subject) \(cur.index). óra”"
+        jumpInfo = jumpedToEnd
+            ? "\(label) már a végén jár — a végére ugrottam (\(t))."
+            : "\(label) vége elé ugrottam \(jumpMinutes) perccel (\(t))."
     }
 
     /// A widget appex tényleg az app része? Régi telepítésnél hiányozhat → fekete expanded Island.
