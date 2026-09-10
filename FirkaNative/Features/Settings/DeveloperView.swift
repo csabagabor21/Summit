@@ -151,7 +151,7 @@ struct DeveloperView: View {
                     row {
                         HStack(spacing: 12) {
                             Button("Teszt indítása most") {
-                                Task { await liveManager.startDemoTestNow(accentHex: theme.accentHex) }
+                                Task { await liveManager.startDemoTestNow(userId: session.selectedUser?.id ?? "", accentHex: theme.accentHex) }
                             }
                             .font(.caption.weight(.semibold)).tint(colors.accent)
                             Button("Leállítás") {
@@ -189,7 +189,7 @@ struct DeveloperView: View {
                         }
                     }
                 } footer: {
-                    "Órarend-független teszt — este is működik."
+                    "Órarend-független teszt — este is működik. A határok a workerbe is felmennek: zárd le a telefont, az átkapcsolás push-ban jön (40. és 50. percnél)."
                 }
             }
             .padding(.horizontal, 16)

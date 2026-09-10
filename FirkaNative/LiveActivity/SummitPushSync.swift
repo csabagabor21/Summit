@@ -61,7 +61,7 @@ final class SummitPushSync {
     /// Csak valós (cacheable) syncből hívható — preview/demo sosem.
     /// Preview-feltöltés nyoma: a valós sync elsőként törli a preview-kulcsot,
     /// hogy kikapcsolt csúszkánál ne jöhessen szellem-push az eltolt tervből.
-    private static let previewUsedKey = "liveActivity.pushPreviewUsed.v1"
+    static let previewUsedKey = "liveActivity.pushPreviewUsed.v1"
 
     func kick(today: [LessonItem], now: Date, dayKey: String, userId: String, pushToken: String?, preview: Bool = false) async {
         guard Self.isConfigured else { return }

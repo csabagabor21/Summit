@@ -456,6 +456,11 @@ final class SummitLiveActivityManager: ObservableObject {
         pushTokens = [:]
         if let uid = SessionStore().selectedUser?.id {
             await SummitPushSync.shared.clear(userId: uid, dayKey: Self.dayKey(for: Date()))
+            // Demo/push-teszt nyoma: a preview-kulcsot is takarítjuk.
+            if UserDefaults.standard.bool(forKey: SummitPushSync.previewUsedKey) {
+                await SummitPushSync.shared.clear(userId: uid, dayKey: Self.dayKey(for: Date()), preview: true)
+                UserDefaults.standard.set(false, forKey: SummitPushSync.previewUsedKey)
+            }
         }
         let had = !Activity<SummitLiveActivityAttributes>.activities.isEmpty
         for act in Activity<SummitLiveActivityAttributes>.activities {
@@ -471,7 +476,11 @@ final class SummitLiveActivityManager: ObservableObject {
 
     /// Demo teszt: órarendtől független, valós időre horgonyzott activity.
     /// Este is működik — a widget renderelés önmagában tesztelhető vele.
-    func startDemoTestNow(label: String = "Matek (teszt)", accentHex: Int = 0x4A90E2) async -> Bool {
+    /// A határok (:preview kulcs) ilyenkor a workerbe is felmennek, így
+    /// LEZÁRT telefonnal is tesztelhető a push-átkapcsolás, este is.
+    /// (Az idő-csúszkás preview erre nem jó: a shift-matek csak aznapi,
+    /// előrefelé eltolt időre értelmes — este szétesne.)
+    func startDemoTestNow(userId: String = "", label: String = "Matek (teszt)", accentHex: Int = 0x4A90E2) async -> Bool {
         let now = Date()
         let demo = LessonItem(
             id: "demo-test", subject: label, room: "A1",
@@ -487,7 +496,9 @@ final class SummitLiveActivityManager: ObservableObject {
         )
         // Mű órarend: nem kerülhet a napi terv-cache-be (cacheable: false),
         // különben a háttér-ébresztés valós határoknál ezt mutatná.
-        return await syncDay(lessons: [demo, next], now: now, accentHex: accentHex, cacheable: false)
+        let ok = await syncDay(lessons: [demo, next], now: now, accentHex: accentHex, cacheable: false)
+        await pushPreviewPlan(lessons: [demo, next], now: now, userId: userId)
+        return ok
     }
 
     func openSystemSettings() {
