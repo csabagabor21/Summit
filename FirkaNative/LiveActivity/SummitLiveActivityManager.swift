@@ -264,6 +264,16 @@ final class SummitLiveActivityManager: ObservableObject {
             if existing.attributes.dayKey != key {
                 await endAllImpl(dismissalPolicy: .immediate)
             } else {
+                // Zombi-duplikátumok lezárása: a régi stackelős bugból
+                // maradhatott több aznapi activity — ilyenkor a sync csak az
+                // elsőt frissítette, a többi fagyottan, lejárt 0:00-s
+                // timerrel ott maradt (pont a "nem vált" tünete). Csak az
+                // elsőt tartjuk meg, a többit azonnal zárjuk.
+                let zombies = Array(Activity<SummitLiveActivityAttributes>.activities.dropFirst())
+                for dup in zombies {
+                    await dup.end(ActivityContent(state: dup.content.state, staleDate: nil), dismissalPolicy: .immediate)
+                }
+                if !zombies.isEmpty { logEvent("zombi-duplikátum lezárva (\(zombies.count) db)") }
                 // Csak VALÓDI változásra update-elünk: az előtéri percenkénti
                 // sync több száz azonos tartalmú update-et küldene naponta, és
                 // a rendszer az ilyen spammelést throttlinggal bünteti — a
