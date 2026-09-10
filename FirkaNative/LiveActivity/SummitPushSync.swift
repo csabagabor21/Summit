@@ -34,6 +34,8 @@ final class SummitPushSync {
         var pushToken: String
         var sandbox: Bool
         var entries: [PushEntry]
+        /// "preview" → a worker külön kulcsra teszi (valós tervet nem bánt).
+        var tag: String?
     }
 
     /// Határ-entryk a mai tervből: minden jövőbeli határra (órakezdet/vég)
@@ -55,20 +57,29 @@ final class SummitPushSync {
     /// Feltöltés, de csak ha változott valami (hash-összehasonlítás) —
     /// a percenkénti előtéri sync ne írja a KV-t folyamatosan.
     /// Csak valós (cacheable) syncből hívható — preview/demo sosem.
-    func kick(today: [LessonItem], now: Date, dayKey: String, userId: String, pushToken: String?) async {
+    /// Preview-feltöltés nyoma: a valós sync elsőként törli a preview-kulcsot,
+    /// hogy kikapcsolt csúszkánál ne jöhessen szellem-push az eltolt tervből.
+    private static let previewUsedKey = "liveActivity.pushPreviewUsed.v1"
+
+    func kick(today: [LessonItem], now: Date, dayKey: String, userId: String, pushToken: String?, preview: Bool = false) async {
         guard Self.isConfigured else { return }
         guard !userId.isEmpty else { return }
         guard let pushToken, pushToken.count == 64 else { return }
+        // Valós sync preview-nyom után: a preview-kulcs törlése először.
+        if !preview, UserDefaults.standard.bool(forKey: Self.previewUsedKey) {
+            await clear(userId: userId, dayKey: dayKey, preview: true)
+            UserDefaults.standard.set(false, forKey: Self.previewUsedKey)
+        }
         let entries = Self.buildEntries(today: today, now: now)
         #if DEBUG
         let sandbox = true
         #else
         let sandbox = false
         #endif
-        let upload = PlanUpload(userId: userId, dayKey: dayKey, pushToken: pushToken, sandbox: sandbox, entries: entries)
+        let upload = PlanUpload(userId: userId, dayKey: dayKey, pushToken: pushToken, sandbox: sandbox, entries: entries, tag: preview ? "preview" : nil)
         guard let body = try? JSONEncoder().encode(upload),
               let bodyString = String(data: body, encoding: .utf8) else { return }
-        let hashKey = Self.lastUploadKey + "." + dayKey
+        let hashKey = Self.lastUploadKey + "." + dayKey + (preview ? ".preview" : "")
         if UserDefaults.standard.string(forKey: hashKey) == bodyString { return }
         guard let url = URL(string: Self.baseURL + "/plan") else { return }
         var req = URLRequest(url: url)
@@ -79,6 +90,7 @@ final class SummitPushSync {
             let (_, resp) = try await URLSession.shared.data(for: req)
             if let http = resp as? HTTPURLResponse, 200..<300 ~= http.statusCode {
                 UserDefaults.standard.set(bodyString, forKey: hashKey)
+                if preview { UserDefaults.standard.set(true, forKey: Self.previewUsedKey) }
             }
         } catch {
             // Hálózat-hiba: a következő sync úgyis újrapróbálja.
@@ -86,16 +98,17 @@ final class SummitPushSync {
         }
     }
 
-    /// Terv törlése a workerből (toggle KI, nap vége, kijelentkezés):
-    /// üres entries-sel felülírjuk, így nem jön szellem-push.
-    func clear(userId: String, dayKey: String) async {
+    /// Terv törlése a workerből (toggle KI, nap vége, kijelentkezés,
+    /// illetve preview-nyom eltakarítása): üres entries-sel felülírjuk,
+    /// így nem jön szellem-push.
+    func clear(userId: String, dayKey: String, preview: Bool = false) async {
         guard Self.isConfigured else { return }
         #if DEBUG
         let sandbox = true
         #else
         let sandbox = false
         #endif
-        let upload = PlanUpload(userId: userId, dayKey: dayKey, pushToken: "", sandbox: sandbox, entries: [])
+        let upload = PlanUpload(userId: userId, dayKey: dayKey, pushToken: "", sandbox: sandbox, entries: [], tag: preview ? "preview" : nil)
         guard let body = try? JSONEncoder().encode(upload),
               let url = URL(string: Self.baseURL + "/plan") else { return }
         var req = URLRequest(url: url)

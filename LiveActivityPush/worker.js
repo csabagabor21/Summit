@@ -135,7 +135,12 @@ async function handlePlan(request, env) {
       return Response.json({ ok: false, error: "bad-entry" }, { status: 400 });
     }
   }
-  await env.PLANS.put(`plan:${body.dayKey}:${body.userId}`, JSON.stringify({
+  // Preview-tag: a fejlesztői idő-eltolás külön kulcsra tölt (a valós
+  // tervet nem szennyezi), a worker ugyanúgy kézbesíti — így a push-út
+  // este, tanítási időn kívül is tesztelhető.
+  const tag = typeof body.tag === "string" && /^[a-z-]{1,16}$/.test(body.tag) ? body.tag : "";
+  const key = tag ? `plan:${body.dayKey}:${body.userId}:${tag}` : `plan:${body.dayKey}:${body.userId}`;
+  await env.PLANS.put(key, JSON.stringify({
     pushToken: body.pushToken || "",
     sandbox: body.sandbox === true,
     entries: entries.map((e) => ({ fireAt: e.fireAt, contentState: e.contentState, staleDate: e.staleDate || null })),

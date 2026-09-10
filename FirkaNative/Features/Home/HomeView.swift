@@ -316,6 +316,9 @@ struct HomeView: View {
             // Eltolt mű-idő: a cache-be nem írhat (cacheable: false),
             // különben a háttér-ébresztés valós határoknál ezt mutatná.
             await SummitLiveActivityManager.shared.syncDay(lessons: shiftedAll, now: realNow, accentHex: theme.accentHex, cacheable: false)
+            // Push-teszt preview-ban is: külön `:preview` kulcsra megy,
+            // a valós tervet nem szennyezi (SummitPushSync).
+            await SummitLiveActivityManager.shared.pushPreviewPlan(lessons: shiftedAll, now: realNow, userId: session.selectedUser?.id ?? "")
             return
         }
         await SummitLiveActivityManager.shared.syncDay(lessons: vm.lessonsToday, accentHex: theme.accentHex)

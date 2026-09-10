@@ -64,6 +64,15 @@ final class SummitLiveActivityManager: ObservableObject {
     private var pushTokenTasks: [String: Task<Void, Never>] = [:]
     private(set) var pushTokens: [String: String] = [:]
 
+    /// Preview-terv feltöltése a worker külön `:preview` kulcsára (Fejlesztői
+    /// idő-eltolás, esti push-teszt). A valós tervet nem bántja; az első
+    /// valós sync takarítja a nyomot.
+    func pushPreviewPlan(lessons: [LessonItem], now: Date, userId: String) async {
+        await SummitPushSync.shared.kick(
+            today: lessons, now: now, dayKey: Self.dayKey(for: now),
+            userId: userId, pushToken: pushTokens.values.first, preview: true)
+    }
+
     private func observePushTokens(for activity: Activity<SummitLiveActivityAttributes>) {
         guard pushTokenTasks[activity.id] == nil else { return }
         pushTokenTasks[activity.id] = Task { @MainActor [weak self] in
