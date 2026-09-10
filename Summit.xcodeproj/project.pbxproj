@@ -27,6 +27,7 @@
 		4EB18D0CFA45C5421E6C64EF /* SummitLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B5C9EC44D39D87241B550D5 /* SummitLiveActivityAttributes.swift */; };
 		5969DACA1CC73099A7AE3ACD /* AbsencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 112CF35802F49E7BC4E6FA39 /* AbsencesView.swift */; };
 		62D5A9DA0D7F15825847108D /* SummitLiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 888F7384D4773D1C3BCE5570 /* SummitLiveActivityManager.swift */; };
+		C7D2E4F18A3B5C6D9E0F1A2B /* SummitPushSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8E3F5A29B4C6D7E1F2A3B4C /* SummitPushSync.swift */; };
 		6CC72D51E3A5DD8E4C547A50 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9CA9ED6D07518801F3F89E9 /* KeychainHelper.swift */; };
 		74842E2110FDAB09903940C3 /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B26BDB2D3FAFE6B7F461831 /* AuthViewModel.swift */; };
 		76752C875CB743BE18894408 /* LiveCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F08AAC09AED35E586880C3 /* LiveCardView.swift */; };
@@ -124,6 +125,7 @@
 		82A1969A19D465070B5D9D16 /* ic_splash.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_splash.png; sourceTree = "<group>"; };
 		85D39B9212DD03C8DC8D44A9 /* SubjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectDetailView.swift; sourceTree = "<group>"; };
 		888F7384D4773D1C3BCE5570 /* SummitLiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityManager.swift; sourceTree = "<group>"; };
+		D8E3F5A29B4C6D7E1F2A3B4C /* SummitPushSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitPushSync.swift; sourceTree = "<group>"; };
 		8AF82F0EE85913650A024661 /* ExemptedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExemptedStore.swift; sourceTree = "<group>"; };
 		8B34D700082CBC9796AA731F /* TeacherRoundingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeacherRoundingView.swift; sourceTree = "<group>"; };
 		8DB6FAC1C01D1EDE74EFCB61 /* RootViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootViewModel.swift; sourceTree = "<group>"; };
@@ -329,6 +331,7 @@
 				2B5C9EC44D39D87241B550D5 /* SummitLiveActivityAttributes.swift */,
 				888F7384D4773D1C3BCE5570 /* SummitLiveActivityManager.swift */,
 				4BD24134911466149B1A0C22 /* LiveActivityBackgroundRefresh.swift */,
+				D8E3F5A29B4C6D7E1F2A3B4C /* SummitPushSync.swift */,
 			);
 			path = LiveActivity;
 			sourceTree = "<group>";
@@ -516,6 +519,7 @@
 				D2FD83AA4ED9E13CB151AEC9 /* SummitApp.swift in Sources */,
 				4EB18D0CFA45C5421E6C64EF /* SummitLiveActivityAttributes.swift in Sources */,
 				62D5A9DA0D7F15825847108D /* SummitLiveActivityManager.swift in Sources */,
+				C7D2E4F18A3B5C6D9E0F1A2B /* SummitPushSync.swift in Sources */,
 				138A5FE91FAA46F7BD543BF2 /* GradeCelebrationView.swift in Sources */,
 				C3CD383D33EAE4841C7753CB /* GradeChartView.swift in Sources */,
 				8936464F8564BD002832C02C /* GradeCircle.swift in Sources */,

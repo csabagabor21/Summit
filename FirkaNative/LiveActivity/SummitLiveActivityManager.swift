@@ -51,6 +51,28 @@ final class SummitLiveActivityManager: ObservableObject {
         observeAuthorization()
         refreshActiveCount()
         loadEvents()
+        // Már futó activityk push-token figyelése (pl. app-újraindulás után).
+        if #available(iOS 16.1, *) {
+            for a in Activity<SummitLiveActivityAttributes>.activities { observePushTokens(for: a) }
+        }
+    }
+
+    // MARK: - Push tokenek (szerver-oldali átkapcsoláshoz)
+    // Activitynként egy figyelő Task: amíg az activity él, jönnek a tokenek.
+    // Ha az App ID-n nincs Push capability, token sosem jön — ilyenkor az app
+    // csendben tisztán helyi módban marad (a feltöltés token nélkül kimarad).
+    private var pushTokenTasks: [String: Task<Void, Never>] = [:]
+    private(set) var pushTokens: [String: String] = [:]
+
+    private func observePushTokens(for activity: Activity<SummitLiveActivityAttributes>) {
+        guard pushTokenTasks[activity.id] == nil else { return }
+        pushTokenTasks[activity.id] = Task { @MainActor [weak self] in
+            for await data in activity.pushTokenUpdates {
+                let hex = data.map { String(format: "%02.2hhx", $0) }.joined()
+                self?.pushTokens[activity.id] = hex
+            }
+            self?.pushTokenTasks[activity.id] = nil
+        }
     }
 
     // MARK: - System state
@@ -256,6 +278,12 @@ final class SummitLiveActivityManager: ObservableObject {
                            isCancelled: $0.isCancelled, isSubstituted: $0.isSubstituted)
             }
             Self.saveDayCache(dayKey: key, lessons: snap, accentHex: accentHex)
+            // Szerver-oldali push-terv feltöltése (csak valós syncből —
+            // preview/demo a cache-hez hasonlóan itt sem írhat).
+            await SummitPushSync.shared.kick(
+                today: today, now: now, dayKey: key,
+                userId: SessionStore().selectedUser?.id ?? "",
+                pushToken: pushTokens.values.first)
         }
 
         // Van futó activity → update (háttérből is engedélyezett).
@@ -302,7 +330,17 @@ final class SummitLiveActivityManager: ObservableObject {
         // a rendszer eldobhatja — ilyenkor a BG-lánc (keepalive) újrapróbálja.
         do {
             let attrs = SummitLiveActivityAttributes(dayKey: key, accentHex: accentHex)
-            _ = try Activity.request(attributes: attrs, content: ActivityContent(state: state, staleDate: state.staleDate), pushType: nil)
+            let content = ActivityContent(state: state, staleDate: state.staleDate)
+            let activity: Activity<SummitLiveActivityAttributes>
+            do {
+                // Push-tokenes indítás a szerver-oldali átkapcsoláshoz. Ha az
+                // App ID-n nincs Push capability, ez dob — ilyenkor helyi
+                // módban (pushType nil) indulunk, minden más ugyanúgy megy.
+                activity = try Activity.request(attributes: attrs, content: content, pushType: .token)
+            } catch {
+                activity = try Activity.request(attributes: attrs, content: content, pushType: nil)
+            }
+            observePushTokens(for: activity)
             lastError = nil
             lastAction = "Napi activity indítva (\(today.count) óra)"
             logEvent("indítás: \(today.count) óra, " + Self.actionLabel(current: cur, next: nxt))
@@ -319,7 +357,7 @@ final class SummitLiveActivityManager: ObservableObject {
     }
 
     @available(iOS 16.1, *)
-    private static func makeState(today: [LessonItem], current: LessonItem?, next: LessonItem?, now: Date) -> SummitLiveActivityAttributes.ContentState {
+    static func makeState(today: [LessonItem], current: LessonItem?, next: LessonItem?, now: Date) -> SummitLiveActivityAttributes.ContentState {
         // Hátralévő terv: múltbeli órák nélkül (méret-takarékosság, < 4 KB).
         let plan = today
             .filter { $0.end > now }
@@ -388,6 +426,14 @@ final class SummitLiveActivityManager: ObservableObject {
         // Záráskor a függő háttér-ébresztést is töröljük; sikeres új
         // sync úgyis újraütemezi a következő határra.
         LiveActivityBackgroundRefresh.cancel()
+        // Push-token figyelők leállítása + szerver-oldali terv törlése
+        // (különben a worker szellem-pushokat küldene a lezárt napra).
+        for (_, t) in pushTokenTasks { t.cancel() }
+        pushTokenTasks = [:]
+        pushTokens = [:]
+        if let uid = SessionStore().selectedUser?.id {
+            await SummitPushSync.shared.clear(userId: uid, dayKey: Self.dayKey(for: Date()))
+        }
         let had = !Activity<SummitLiveActivityAttributes>.activities.isEmpty
         for act in Activity<SummitLiveActivityAttributes>.activities {
             let final = act.content.state
