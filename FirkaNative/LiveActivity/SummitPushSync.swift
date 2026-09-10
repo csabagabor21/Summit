@@ -23,7 +23,34 @@ final class SummitPushSync {
     private static let lastUploadKey = "liveActivity.pushUpload.v1"
     /// Utolsó sikeres feltöltés összefoglalója (újraindítás után is látszik).
     static let lastUploadSummaryKey = "liveActivity.pushLastUpload.v1"
+    /// Utolsó kimaradt feltöltés oka — a Diagnosztika mutatja. Csak változáskor
+    /// írjuk (a percenkénti sync spammelne a push-naplóba).
+    static let lastSkipReasonKey = "liveActivity.pushLastSkip.v1"
     private init() {}
+
+    /// APNs unix timestampot vár a content-state dátumaiban — a sima
+    /// JSONEncoder 2001-es referencia-dátum óta számolna (~31 év eltérés),
+    /// és a pusholt kártyán minden timer befagyna.
+    private static func makeEncoder() -> JSONEncoder {
+        let e = JSONEncoder()
+        e.dateEncodingStrategy = .secondsSince1970
+        return e
+    }
+
+    /// Kimaradás rögzítése: csak az első (változáskor), hogy a percenkénti
+    /// sync ne árassza el a push-naplót — de a Diagnosztika mindig mutassa.
+    private static func noteSkipped(_ reason: String) {
+        let prev = UserDefaults.standard.string(forKey: Self.lastSkipReasonKey)
+        UserDefaults.standard.set("\(SummitLiveActivityManager.eventTimeString()) • \(reason)", forKey: Self.lastSkipReasonKey)
+        // Az időbélyeg mindig frissül, de a naplóba csak az ok váltásakor írunk.
+        guard prev?.hasSuffix(reason) != true else { return }
+        SummitLiveActivityManager.shared.pushLogEvent("feltöltés kimaradt: \(reason)")
+    }
+
+    /// Sikeres feltöltéskor a kimaradás-okát töröljük (újra aktuális az állapot).
+    private static func clearSkipped() {
+        UserDefaults.standard.removeObject(forKey: Self.lastSkipReasonKey)
+    }
 
     /// Eszköz-szintű kulcs: ugyanaz a user iPhone-on és iPaden KÜLÖN tervet
     /// kap (különben felülírnák egymást, és a push csak az egyikre menne).
@@ -73,10 +100,13 @@ final class SummitPushSync {
     static let previewUsedKey = "liveActivity.pushPreviewUsed.v1"
 
     func kick(today: [LessonItem], now: Date, dayKey: String, userId: String, pushToken: String?, preview: Bool = false) async {
-        guard Self.isConfigured else { return }
-        guard !userId.isEmpty else { return }
+        guard Self.isConfigured else { Self.noteSkipped("worker nincs beállítva"); return }
+        guard !userId.isEmpty else { Self.noteSkipped("nincs belépett user"); return }
         let userId = Self.scopedUserId(userId)
-        guard let pushToken, pushToken.count == 64 else { return }
+        guard let pushToken, pushToken.count == 64 else {
+            Self.noteSkipped("nincs push-token (App ID-n nincs Push capability?)")
+            return
+        }
         // Valós sync preview-nyom után: a preview-kulcs törlése először.
         if !preview, UserDefaults.standard.bool(forKey: Self.previewUsedKey) {
             await clear(userId: userId, dayKey: dayKey, preview: true)
@@ -89,7 +119,7 @@ final class SummitPushSync {
         let sandbox = false
         #endif
         let upload = PlanUpload(userId: userId, dayKey: dayKey, pushToken: pushToken, sandbox: sandbox, entries: entries, tag: preview ? "preview" : nil)
-        guard let body = try? JSONEncoder().encode(upload),
+        guard let body = try? Self.makeEncoder().encode(upload),
               let bodyString = String(data: body, encoding: .utf8) else { return }
         let hashKey = Self.lastUploadKey + "." + dayKey + (preview ? ".preview" : "")
         if UserDefaults.standard.string(forKey: hashKey) == bodyString { return }
@@ -102,6 +132,7 @@ final class SummitPushSync {
             let (_, resp) = try await URLSession.shared.data(for: req)
             if let http = resp as? HTTPURLResponse, 200..<300 ~= http.statusCode {
                 UserDefaults.standard.set(bodyString, forKey: hashKey)
+                Self.clearSkipped()
                 if preview { UserDefaults.standard.set(true, forKey: Self.previewUsedKey) }
                 let scope = preview ? "preview" : "napi terv"
                 // Az összefoglaló csak a valós tervé (a preview ne írja felül).
