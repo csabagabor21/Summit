@@ -1,5 +1,6 @@
 import ActivityKit
 import Foundation
+import UIKit
 
 // MARK: - Szerver-oldali push szinkron (Cloudflare Worker)
 // Az app a mai határokhoz tartozó KÉSZ állapotokat tölti fel a workerbe
@@ -23,6 +24,14 @@ final class SummitPushSync {
     /// Utolsó sikeres feltöltés összefoglalója (újraindítás után is látszik).
     static let lastUploadSummaryKey = "liveActivity.pushLastUpload.v1"
     private init() {}
+
+    /// Eszköz-szintű kulcs: ugyanaz a user iPhone-on és iPaden KÜLÖN tervet
+    /// kap (különben felülírnák egymást, és a push csak az egyikre menne).
+    /// Különböző userek eleve külön kulcson vannak (`plan:nap:userId`).
+    static func scopedUserId(_ raw: String) -> String {
+        let dev = UIDevice.current.identifierForVendor?.uuidString.prefix(8) ?? "nodev"
+        return "\(raw).\(dev)"
+    }
 
     struct PushEntry: Encodable {
         var fireAt: Int
@@ -66,6 +75,7 @@ final class SummitPushSync {
     func kick(today: [LessonItem], now: Date, dayKey: String, userId: String, pushToken: String?, preview: Bool = false) async {
         guard Self.isConfigured else { return }
         guard !userId.isEmpty else { return }
+        let userId = Self.scopedUserId(userId)
         guard let pushToken, pushToken.count == 64 else { return }
         // Valós sync preview-nyom után: a preview-kulcs törlése először.
         if !preview, UserDefaults.standard.bool(forKey: Self.previewUsedKey) {
@@ -114,6 +124,7 @@ final class SummitPushSync {
     /// így nem jön szellem-push.
     func clear(userId: String, dayKey: String, preview: Bool = false) async {
         guard Self.isConfigured else { return }
+        let userId = Self.scopedUserId(userId)
         #if DEBUG
         let sandbox = true
         #else

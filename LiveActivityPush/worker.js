@@ -13,6 +13,8 @@
 //    (fireAt <= most, még nem küldött), azt POST-olja az Apple APNs-nek.
 //
 // KV binding neve: PLANS (KV namespace, key: "plan:<dayKey>:<userId>").
+// Több user külön kulcson van; ugyanaz a user iPhone-on és iPaden is
+// külön kulcsot kap (az app eszköz-azonosítót fűz a userId-hez).
 // Secrets (dashboard: Settings → Variables → Secrets):
 //   APNS_KEY    — a .p8 kulcs TARTALMA (-----BEGIN PRIVATE KEY----- ...)
 //   APNS_KEY_ID — a kulcs 10 jegyű azonosítója (Key ID)
