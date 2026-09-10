@@ -1,5 +1,9 @@
 # Summit release notes
 
+## Build 12
+- New Push section in Diagnostics: worker status, push token, last upload, and a live log of everything heading to Cloudflare.
+- The Developer test button now uploads its boundaries too, so the locked-phone handoff can be verified in the evening.
+
 ## Build 11
 - Live Activity flips lessons via server push now: even if the phone stays locked and the system never wakes the app, the next lesson arrives on time.
 - The progress bar animates live on its own, like Maps navigation — no more frozen bar between updates.
