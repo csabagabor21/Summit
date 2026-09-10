@@ -21,6 +21,7 @@ Ha a user release note-ot kér, a válasz MINDIG egy angol Summit-szójáték
 címsorral kezdődjön — a `To Summit up:` csak egy minta, mindig új, a
 tartalomhoz illő szójáték kell
 A címsor KÖTELEZŐEN tartalmazza a `Summit` szót — enélkül a release note érvénytelen.
+A címsor RÖVID legyen: pár szavas szójáték, nem méteres vers — pl. `Summit on bell time`, nem egy egész mondat.
 Utána csak bulletpointok (`- `), egy commitot vagy többet is egyben, egyetlen
 listába sűrítve. A release note nyelve MINDIG angol. Felhasználóbarát, tömör
 megfogalmazás — belső fájlnevek, API-részletek és commit-technikalitások
