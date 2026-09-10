@@ -1,5 +1,11 @@
 # Summit release notes
 
+## Build 11
+- Live Activity flips lessons via server push now: even if the phone stays locked and the system never wakes the app, the next lesson arrives on time.
+- The progress bar animates live on its own, like Maps navigation — no more frozen bar between updates.
+- A stuck duplicate card left behind by earlier versions closes itself automatically.
+- Developer time-shift now drives the push path too (on a separate channel that never touches the real plan), so handoffs can be verified in the evening; the event log shows recent switches and errors with timestamps.
+
 ## Build 10
 - Live Activity now switches to the next lesson with the phone locked and even without signal: it flips instantly from the saved day plan and only refines from the network afterwards.
 - No more stuck 0:00 countdown between lessons: the wake-up comes right after the bell, and the card only refreshes when something actually changes.
