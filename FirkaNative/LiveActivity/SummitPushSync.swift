@@ -20,6 +20,8 @@ final class SummitPushSync {
     static var isConfigured: Bool { !baseURL.contains("FILL-IN") && baseURL.hasPrefix("https://") }
 
     private static let lastUploadKey = "liveActivity.pushUpload.v1"
+    /// Utolsó sikeres feltöltés összefoglalója (újraindítás után is látszik).
+    static let lastUploadSummaryKey = "liveActivity.pushLastUpload.v1"
     private init() {}
 
     struct PushEntry: Encodable {
@@ -91,9 +93,18 @@ final class SummitPushSync {
             if let http = resp as? HTTPURLResponse, 200..<300 ~= http.statusCode {
                 UserDefaults.standard.set(bodyString, forKey: hashKey)
                 if preview { UserDefaults.standard.set(true, forKey: Self.previewUsedKey) }
+                let scope = preview ? "preview" : "napi terv"
+                // Az összefoglaló csak a valós tervé (a preview ne írja felül).
+                if !preview {
+                    UserDefaults.standard.set("\(SummitLiveActivityManager.eventTimeString()) • \(entries.count) határ • \(dayKey)", forKey: Self.lastUploadSummaryKey)
+                }
+                SummitLiveActivityManager.shared.pushLogEvent("feltöltve (\(scope)): \(entries.count) határ")
+            } else if let http = resp as? HTTPURLResponse {
+                SummitLiveActivityManager.shared.pushLogEvent("feltöltés HTTP \(http.statusCode)")
             }
         } catch {
             // Hálózat-hiba: a következő sync úgyis újrapróbálja.
+            SummitLiveActivityManager.shared.pushLogEvent("feltöltés hiba: \(error.localizedDescription)")
             debugPrint("[LiveActivity] push upload failed: \(error.localizedDescription)")
         }
     }
@@ -115,7 +126,11 @@ final class SummitPushSync {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "content-type")
         req.httpBody = body
-        try? await URLSession.shared.data(for: req)
+        if let (_, resp) = try? await URLSession.shared.data(for: req),
+           let http = resp as? HTTPURLResponse, 200..<300 ~= http.statusCode {
+            SummitLiveActivityManager.shared.pushLogEvent(preview ? "preview-terv törölve" : "napi terv törölve a workerből")
+        }
         UserDefaults.standard.removeObject(forKey: Self.lastUploadKey + "." + dayKey)
+        if !preview { UserDefaults.standard.removeObject(forKey: Self.lastUploadSummaryKey) }
     }
 }

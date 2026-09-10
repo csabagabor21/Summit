@@ -197,12 +197,26 @@ final class SummitLiveActivityManager: ObservableObject {
     /// Formázott sorok a UI-nak ("09:44:58 BG-ébresztés: ..."), időrendben.
     @Published var recentEvents: [String] = []
 
+    /// Cloudflare-push forgalom a Diagnosztika-tabnak (csak érdemi
+    /// események: feltöltés, hiba, törlés — a percenkénti rutin-skipek
+    /// nem kerülnek bele, lásd a gyűrű-kommentet feljebb).
+    @Published var pushLog: [String] = []
+
+    func pushLogEvent(_ msg: String) {
+        pushLog.append("\(Self.eventTime.string(from: Date())) \(msg)")
+        if pushLog.count > 30 { pushLog.removeFirst(pushLog.count - 30) }
+    }
+
     private static let eventTime: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "hu_HU")
         f.dateFormat = "HH:mm:ss"
         return f
     }()
+
+    static func eventTimeString(_ date: Date = Date()) -> String {
+        eventTime.string(from: date)
+    }
 
     private func loadEvents() {
         guard let data = UserDefaults.standard.data(forKey: Self.eventLogKey),

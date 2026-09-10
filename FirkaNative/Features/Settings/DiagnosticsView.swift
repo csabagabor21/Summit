@@ -6,6 +6,7 @@ import UIKit
 struct DiagnosticsView: View {
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var kreta: KretaClient
+    @ObservedObject private var liveManager = SummitLiveActivityManager.shared
 
     var body: some View {
         List {
@@ -13,6 +14,25 @@ struct DiagnosticsView: View {
                 diagRow("Iskola", session.selectedUser?.instituteCode ?? "–")
                 diagRow("Token", tokenDiag)
                 diagRow("Munkamenet", kreta.sessionExpired ? "HALOTT (újra belépés kell)" : "él")
+            }
+            Section {
+                diagRow("Worker", SummitPushSync.isConfigured ? (URL(string: SummitPushSync.baseURL)?.host ?? SummitPushSync.baseURL) : "nincs beállítva")
+                diagRow("Push token", liveManager.pushTokens.isEmpty ? "nincs" : "van (\(liveManager.pushTokens.count))")
+                diagRow("Utolsó feltöltés", UserDefaults.standard.string(forKey: SummitPushSync.lastUploadSummaryKey) ?? "–")
+            } header: {
+                Text("Push (Cloudflare)")
+            } footer: {
+                Text("A napi terv és a határ-entryk feltöltése a workerbe — ha a token vagy a feltöltés hiányzik, a szerver nem tud átkapcsolni.")
+            }
+            Section {
+                if liveManager.pushLog.isEmpty {
+                    Text("Még nincs push-forgalom — tanítási időben nyisd meg a Főoldalt.")
+                        .font(.caption).foregroundStyle(.tertiary)
+                } else {
+                    ForEach(Array(liveManager.pushLog.enumerated()), id: \.offset) { _, line in
+                        Text(line).font(.caption2.monospaced()).foregroundStyle(.secondary)
+                    }
+                }
             }
             Section {
                 Button("Napló másolása") {
@@ -57,5 +77,7 @@ struct DiagnosticsView: View {
     private var diagExport: String {
         "iskola=\(session.selectedUser?.instituteCode ?? "-") token=\(tokenDiag) sessionExpired=\(kreta.sessionExpired)\n"
             + kreta.diagLog.joined(separator: "\n")
+            + "\n--- push ---\n"
+            + liveManager.pushLog.joined(separator: "\n")
     }
 }
