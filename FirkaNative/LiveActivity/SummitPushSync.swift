@@ -16,7 +16,7 @@ final class SummitPushSync {
 
     /// A worker címe. Amíg a FILL-IN benne van, a feltöltés csendben kimarad
     /// és az app tisztán helyi módban dolgozik (lásd LiveActivityPush/README).
-    static var baseURL: String = "https://FILL-IN.workers.dev"
+    static var baseURL: String = "https://calm-leaf-ff15.gaborcsabusz.workers.dev"
     static var isConfigured: Bool { !baseURL.contains("FILL-IN") && baseURL.hasPrefix("https://") }
 
     private static let lastUploadKey = "liveActivity.pushUpload.v1"
