@@ -282,7 +282,9 @@ final class SummitLiveActivityManager: ObservableObject {
                 if existing.content.state == state {
                     lastError = nil
                     lastAction = Self.actionLabel(current: cur, next: nxt) + " (változatlan)"
-                    logEvent("sync: változatlan — " + Self.actionLabel(current: cur, next: nxt))
+                    // Szándékosan nincs logEvent: a percenkénti "változatlan"
+                    // sorok 15 percen belül kiszorítanák a ritka, érdemi
+                    // bejegyzéseket (indítás, átkapcsolás, hibák) a gyűrűből.
                     refreshActiveCount()
                     LiveActivityBackgroundRefresh.scheduleBoundary(lessonEnd: state.lessonEnd, nextStart: nxt?.start)
                     return true
