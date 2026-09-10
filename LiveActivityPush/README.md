@@ -40,8 +40,9 @@ Live Activity ettől még működik.)
 - Bejövő terv ellenőrzése: a worker logban (Observability → Logs) látszik
   minden küldés; `400/410` = halott token (a worker leveszi a listáról),
   más hiba = következő percben újrapróbálja (max ~10x).
+- Health: https://calm-leaf-ff15.gaborcsabusz.workers.dev/ → `{"ok":true,"service":"summit-liveactivity-push"}`
 - Kézi próba curl-lel:
-  `curl -X POST https://valami.workers.dev/plan -H 'content-type: application/json' -d '{"userId":"teszt","dayKey":"2026-09-10","pushToken":"...","sandbox":true,"entries":[]}'`
+  `curl -X POST https://calm-leaf-ff15.gaborcsabusz.workers.dev/plan -H 'content-type: application/json' -d '{"userId":"teszt","dayKey":"2026-09-10","pushToken":"...","sandbox":true,"entries":[]}'`
   → `{"ok":true,"entries":0}`.
 
 ## Költség
