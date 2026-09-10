@@ -62,7 +62,10 @@ struct SummitLiveActivityWidget: Widget {
                     }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    ProgressView(value: progress(start: context.state.lessonStart, end: context.state.lessonEnd))
+                    // ÉLŐ progress: a rendszer animálja, app-update nélkül —
+                    // mint a Maps navigációs sávja. (A Date()-alapú fix érték
+                    // két update között beragadt volna.)
+                    ProgressView(timerInterval: context.state.lessonStart...context.state.lessonEnd)
                         .tint(statusTint(context))
                 }
             } compactLeading: {
@@ -80,13 +83,6 @@ struct SummitLiveActivityWidget: Widget {
             }
             .keylineTint(accentColor(context))
         }
-    }
-
-    private func progress(start: Date, end: Date) -> Double {
-        let total = end.timeIntervalSince(start)
-        guard total > 0 else { return 0 }
-        let elapsed = Date().timeIntervalSince(start)
-        return min(1, max(0, elapsed / total))
     }
 
     /// Az appban választott accent (Beállítások) — indításkor kapja az activity.
@@ -166,8 +162,9 @@ private struct LockScreenView: View {
                 Text(context.state.teacher)
                     .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
             }
-            // Full szélességű progress — mint a MOST-kártya
-            ProgressView(value: progress(start: context.state.lessonStart, end: context.state.lessonEnd))
+            // Full szélességű ÉLŐ progress — a rendszer animálja,
+            // app-update nélkül (mint a Maps navigációs sávja).
+            ProgressView(timerInterval: context.state.lessonStart...context.state.lessonEnd)
                 .tint(isBreak ? accent : statusTint)
             // Alsó sor: következő óra nyíllal + fennmaradó percek
             HStack(spacing: 6) {
@@ -197,15 +194,6 @@ private struct LockScreenView: View {
         if context.state.isCancelled { return Color.red }
         if context.state.isSubstituted { return Color.orange }
         return accent
-    }
-
-    // A progress csík renderkori érték (óra-átmenetkor frissül),
-    // a percre pontos élő visszaszámlálást a fenti timerInterval adja.
-    private func progress(start: Date, end: Date) -> Double {
-        let total = end.timeIntervalSince(start)
-        guard total > 0 else { return 0 }
-        let elapsed = Date().timeIntervalSince(start)
-        return min(1, max(0, elapsed / total))
     }
 }
 
