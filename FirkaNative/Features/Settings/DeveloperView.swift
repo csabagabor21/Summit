@@ -189,7 +189,7 @@ struct DeveloperView: View {
                         }
                     }
                 } footer: {
-                    "Órarend-független teszt — este is működik. A határok a workerbe is felmennek: zárd le a telefont, az átkapcsolás push-ban jön (40. és 50. percnél)."
+                    "Órarend-független gyorsteszt — este is működik. A határok a workerbe is felmennek: zárd le a telefont, az átkapcsolás push-ban jön (2. percnél szünet, 4.-nél következő óra)."
                 }
             }
             .padding(.horizontal, 16)

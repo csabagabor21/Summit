@@ -481,17 +481,19 @@ final class SummitLiveActivityManager: ObservableObject {
     /// (Az idő-csúszkás preview erre nem jó: a shift-matek csak aznapi,
     /// előrefelé eltolt időre értelmes — este szétesne.)
     func startDemoTestNow(userId: String = "", label: String = "Matek (teszt)", accentHex: Int = 0x4A90E2) async -> Bool {
+        // Gyorsteszt-órarend: 1. óra 2 perc múlva véget ér, 2 perc szünet,
+        // aztán 2. óra — a teljes átmenet ~5 perc alatt végignézhető.
         let now = Date()
         let demo = LessonItem(
             id: "demo-test", subject: label, room: "A1",
             start: now.addingTimeInterval(-5 * 60),
-            end: now.addingTimeInterval(40 * 60),
+            end: now.addingTimeInterval(2 * 60),
             teacher: "Teszt Tanár", index: "1"
         )
         let next = LessonItem(
             id: "demo-test-next", subject: "Angol", room: "B2",
-            start: now.addingTimeInterval(50 * 60),
-            end: now.addingTimeInterval(95 * 60),
+            start: now.addingTimeInterval(4 * 60),
+            end: now.addingTimeInterval(10 * 60),
             teacher: "Smith", index: "2"
         )
         // Mű órarend: nem kerülhet a napi terv-cache-be (cacheable: false),
