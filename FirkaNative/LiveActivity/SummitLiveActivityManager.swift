@@ -543,6 +543,13 @@ final class SummitLiveActivityManager: ObservableObject {
         // Mű órarend: nem kerülhet a napi terv-cache-be (cacheable: false),
         // különben a háttér-ébresztés valós határoknál ezt mutatná.
         let ok = await syncDay(lessons: [demo, next], now: now, accentHex: accentHex, cacheable: false)
+        // A token tipikusan másodpercek alatt megérkezik — várjuk meg,
+        // különben a preview-feltöltés még token nélkül futna és kimaradna
+        // (az esti tesztgomb pont ezért tűnt halottnak).
+        for _ in 0..<15 {
+            if !pushTokens.isEmpty { break }
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
         await pushPreviewPlan(lessons: [demo, next], now: now, userId: userId)
         return ok
     }
