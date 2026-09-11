@@ -21,6 +21,13 @@ push-tokent, és feltölti a workerbe a mai határokhoz tartozó kész
 5. **App-oldal:** `SummitPushSync.swift`-ben a `baseURL`-t átírni a worker
    címére (`https://valami.workers.dev`). Amíg ez nincs kitöltve, az app
    csendben helyi módban marad (a push-feltöltés kimarad).
+6. **TestFlight-profile:** az App ID-n a Push Notifications capability
+   bekapcsolása után ÚJ profilt kell generálni (a régi, push nélküli
+   profillal aláírt build sosem kap tokent — az app ezt azóta ki is
+   írja). A repo a `csabav3` profilt és a két entitlements-fájlt
+   használja: Debug → `Summit.entitlements` (`development`), Release →
+   `SummitRelease.entitlements` (`production`); mindkettő a `project.yml`
+   `configs`-jában is rögzítve van, hogy az xcodegen-regen se dobja el.
 
 ## Amit mástól kell kérni (egyszer)
 

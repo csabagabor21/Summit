@@ -104,7 +104,11 @@ final class SummitPushSync {
         guard !userId.isEmpty else { Self.noteSkipped("nincs belépett user"); return }
         let userId = Self.scopedUserId(userId)
         guard let pushToken, pushToken.count == 64 else {
-            Self.noteSkipped("nincs push-token (App ID-n nincs Push capability?)")
+            if UserDefaults.standard.bool(forKey: SummitLiveActivityManager.pushTypeNilKey) {
+                Self.noteSkipped("nincs push-token (ez a build push nélkül fut — újratelepítés kell)")
+            } else {
+                Self.noteSkipped("nincs push-token (a token még nem jött meg)")
+            }
             return
         }
         // Valós sync preview-nyom után: a preview-kulcs törlése először.

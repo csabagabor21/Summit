@@ -17,7 +17,9 @@ struct DiagnosticsView: View {
             }
             Section {
                 diagRow("Worker", SummitPushSync.isConfigured ? (URL(string: SummitPushSync.baseURL)?.host ?? SummitPushSync.baseURL) : "nincs beállítva")
-                diagRow("Push token", liveManager.pushTokens.isEmpty ? "nincs" : "van (\(liveManager.pushTokens.count))")
+                diagRow("Push token", liveManager.pushTokens.isEmpty
+                    ? (liveManager.startedWithoutPush ? "nincs (push nélküli build)" : "nincs")
+                    : "van (\(liveManager.pushTokens.count))")
                 diagRow("Utolsó feltöltés", UserDefaults.standard.string(forKey: SummitPushSync.lastUploadSummaryKey) ?? "–")
                 diagRow("Kimaradás oka", UserDefaults.standard.string(forKey: SummitPushSync.lastSkipReasonKey) ?? "–")
             } header: {

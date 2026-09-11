@@ -64,6 +64,15 @@ final class SummitLiveActivityManager: ObservableObject {
     private var pushTokenTasks: [String: Task<Void, Never>] = [:]
     private(set) var pushTokens: [String: String] = [:]
 
+    /// Push-képesség nyoma: az activity pushType-tal (.token) indult, vagy
+    /// a token-kérés dobott és nil-lel (tisztán helyi módban). Utóbbi azt
+    /// jelenti, hogy a build profiljában nincs Push — token sosem jön,
+    /// a feltöltés tartósan kimarad (javított profillal újratelepítés kell).
+    /// Perzisztens, mert az ok a buildhez kötődik, nem az activityhez
+    /// (az app törlése viszi, így a javított build tiszta lappal indul).
+    static let pushTypeNilKey = "liveActivity.pushTypeNil.v1"
+    var startedWithoutPush: Bool { UserDefaults.standard.bool(forKey: Self.pushTypeNilKey) }
+
     /// Preview-terv feltöltése a worker külön `:preview` kulcsára (Fejlesztői
     /// idő-eltolás, esti push-teszt). A valós tervet nem bántja; az első
     /// valós sync takarítja a nyomot.
@@ -79,6 +88,8 @@ final class SummitLiveActivityManager: ObservableObject {
             for await data in activity.pushTokenUpdates {
                 let hex = data.map { String(format: "%02.2hhx", $0) }.joined()
                 self?.pushTokens[activity.id] = hex
+                // Token megérkezett: a build tud push-t (a nil-nyom elavult).
+                UserDefaults.standard.set(false, forKey: SummitLiveActivityManager.pushTypeNilKey)
             }
             self?.pushTokenTasks[activity.id] = nil
         }
@@ -355,13 +366,19 @@ final class SummitLiveActivityManager: ObservableObject {
             let attrs = SummitLiveActivityAttributes(dayKey: key, accentHex: accentHex)
             let content = ActivityContent(state: state, staleDate: state.staleDate)
             let activity: Activity<SummitLiveActivityAttributes>
+            // Push-tokenes indítás a szerver-oldali átkapcsoláshoz. Ha a
+            // build profiljában nincs Push, ez dob — ilyenkor helyi
+            // módban (pushType nil) indulunk, minden más ugyanúgy megy.
+            // A diagnosztikához naplózzuk, melyik ág nyert (a sima
+            // "indítás" sor ezt nem árulja el).
             do {
-                // Push-tokenes indítás a szerver-oldali átkapcsoláshoz. Ha az
-                // App ID-n nincs Push capability, ez dob — ilyenkor helyi
-                // módban (pushType nil) indulunk, minden más ugyanúgy megy.
                 activity = try Activity.request(attributes: attrs, content: content, pushType: .token)
+                UserDefaults.standard.set(false, forKey: Self.pushTypeNilKey)
+                logEvent("pushType: token OK")
             } catch {
                 activity = try Activity.request(attributes: attrs, content: content, pushType: nil)
+                UserDefaults.standard.set(true, forKey: Self.pushTypeNilKey)
+                logEvent("pushType NIL (token-kérés dobott: \(error.localizedDescription))")
             }
             observePushTokens(for: activity)
             lastError = nil

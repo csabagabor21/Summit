@@ -22,6 +22,7 @@ struct DeveloperView: View {
     @State private var showSimAlert = false
     @State private var jumpMinutes = 2
     @State private var jumpInfo: String?
+    @State private var pushUploadInfo: String?
 
     var body: some View {
         ScrollView {
@@ -162,6 +163,22 @@ struct DeveloperView: View {
                     }
                     settingsDivider
                     row {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Button("Push-terv feltöltése most (Cloudflare)") {
+                                Task { await uploadPushPlanNow() }
+                            }
+                            .font(.caption.weight(.semibold)).tint(colors.accent)
+                            if let pushUploadInfo {
+                                Text(pushUploadInfo).font(.caption2).foregroundStyle(.secondary)
+                            } else {
+                                Text("A mentett mai terv (vagy friss órarend) ad hoc feltöltése a workerbe — az eredmény a Diagnosztikában is látszik.")
+                                    .font(.caption2).foregroundStyle(.tertiary)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    settingsDivider
+                    row {
                         // Widget extension telepítve? Enélkül a pill felmegy, de az expanded fekete.
                         if isWidgetExtensionInstalled {
                             Label("Widget extension telepítve", systemImage: "checkmark.circle.fill")
@@ -273,6 +290,71 @@ struct DeveloperView: View {
         jumpInfo = jumpedToEnd
             ? "\(label) már a végén jár — a végére ugrottam (\(t))."
             : "\(label) vége elé ugrottam \(jumpMinutes) perccel (\(t))."
+    }
+
+    /// Ad hoc push-terv feltöltés a Cloudflare workerbe (valós kulcsra,
+    /// nem preview-ra). Forrás: előbb a mentett mai terv-cache (offline is
+    /// megy), ha az nincs, friss órarend-lekérés a KRÉTÁ-ból. Az eredményt
+    /// a kick a Diagnosztikában is naplózza (Utolsó feltöltés / Kimaradás).
+    @MainActor
+    private func uploadPushPlanNow() async {
+        pushUploadInfo = nil
+        let now = Date()
+        guard let user = session.selectedUser else {
+            pushUploadInfo = "Nincs belépett felhasználó."
+            return
+        }
+        var lessons = liveManager.cachedLessons(now: now)?.lessons
+        if lessons == nil {
+            let kreta = KretaClient()
+            kreta.accessToken = user.accessToken
+            kreta.refreshToken = user.refreshToken
+            kreta.instituteCode = user.instituteCode
+            let iss = user.instituteCode.isEmpty
+                ? (JWT.instituteCode(from: user.accessToken) ?? "")
+                : user.instituteCode
+            guard !iss.isEmpty, iss != "unknown" else {
+                pushUploadInfo = "Ismeretlen iskola-kód."
+                return
+            }
+            let cal = Calendar.current
+            let start = cal.startOfDay(for: now)
+            guard let end = cal.date(byAdding: .day, value: 1, to: start) else { return }
+            lessons = await kreta.fetchTimetable(iss: iss, from: start, to: end)
+                .filter { cal.isDate($0.start, inSameDayAs: now) }
+                .sorted { $0.start < $1.start }
+        }
+        guard let lessons, !lessons.isEmpty else {
+            pushUploadInfo = "Nincs mai órarend (cache üres, hálózat üres)."
+            return
+        }
+        // Token csak élő activityhez jár: ha üres, megmondjuk, activity
+        // sincs (Főoldal kell előbb), vagy az activity él, de a token még
+        // nem érkezett meg / ez a build pushType nélkül fut (régi profil).
+        guard let token = liveManager.pushTokens.values.first else {
+            if liveManager.activeCount == 0 {
+                pushUploadInfo = "Nincs élő Live Activity — token csak élő activityhez jár. Előbb nyisd meg a Főoldalt tanítási időben."
+            } else if liveManager.startedWithoutPush {
+                pushUploadInfo = "Ez a build push nélkül fut (a profilban nincs Push) — ebből a buildből a feltöltés nem fog menni. Megoldás: app törlése + újratelepítés a javított TestFlight builddel."
+            } else {
+                pushUploadInfo = "Nincs token, pedig \(liveManager.activeCount) activity él — várj pár mp-et, majd nyomd újra."
+            }
+            return
+        }
+        let before = UserDefaults.standard.string(forKey: SummitPushSync.lastUploadSummaryKey)
+        await SummitPushSync.shared.kick(
+            today: lessons, now: now,
+            dayKey: SummitLiveActivityManager.dayKey(for: now),
+            userId: user.id,
+            pushToken: token)
+        let after = UserDefaults.standard.string(forKey: SummitPushSync.lastUploadSummaryKey)
+        if after != before, let after {
+            pushUploadInfo = "Feltöltve: \(after)"
+        } else if let skip = UserDefaults.standard.string(forKey: SummitPushSync.lastSkipReasonKey) {
+            pushUploadInfo = "Kimaradt: \(skip)"
+        } else {
+            pushUploadInfo = "Változatlan — ez a terv már fent van a workerben."
+        }
     }
 
     /// A widget appex tényleg az app része? Régi telepítésnél hiányozhat → fekete expanded Island.
