@@ -72,6 +72,11 @@ final class SummitLiveActivityManager: ObservableObject {
     /// (az app törlése viszi, így a javított build tiszta lappal indul).
     static let pushTypeNilKey = "liveActivity.pushTypeNil.v1"
     var startedWithoutPush: Bool { UserDefaults.standard.bool(forKey: Self.pushTypeNilKey) }
+    /// Utolsó activity-kérés időbélyege. A régi (push nélküli) build sosem
+    /// írta — hiánya = örökölt, biztosan nil-push activity.
+    private static let lastPushRequestAtKey = "liveActivity.pushRequestAt.v1"
+    /// Melyik napon volt már kényszer-újraindítás (napi 1-nél több sosem).
+    private static let pushRestartDayKey = "liveActivity.pushRestartDay.v1"
 
     /// Preview-terv feltöltése a worker külön `:preview` kulcsára (Fejlesztői
     /// idő-eltolás, esti push-teszt). A valós tervet nem bántja; az első
@@ -275,6 +280,19 @@ final class SummitLiveActivityManager: ObservableObject {
         await runSerialized { await self.syncDayImpl(lessons: lessons, now: now, accentHex: accentHex, cacheable: cacheable) }
     }
 
+    /// Kényszer-újraindítás kell? Csak ha fut aznapi activity, tokenünk
+    /// még sincs, és EZ a build nem vallotta magát push-képtelennek
+    /// (különben az újraindítás is nil-lel végződne — végtelen kör).
+    /// A friss (< 10 perces) activityt békén hagyjuk: a token tipikusan
+    /// másodpercek alatt megérkezik, ne zúzzuk szét a kártyát miatta.
+    /// Időbélyeg nélküli (régi buildtől örökölt) activity = 0 → azonnal.
+    private func shouldRestartForPush(now: Date, dayKey: String) -> Bool {
+        guard pushTokens.isEmpty, !startedWithoutPush else { return false }
+        guard UserDefaults.standard.string(forKey: Self.pushRestartDayKey) != dayKey else { return false }
+        let lastReq = UserDefaults.standard.double(forKey: Self.lastPushRequestAtKey)
+        return now.timeIntervalSince1970 - lastReq > 600
+    }
+
     private func syncDayImpl(lessons: [LessonItem], now: Date, accentHex: Int, cacheable: Bool) async -> Bool {
         guard #available(iOS 16.1, *) else { lastError = "iOS 16.1 alatt nem támogatott"; return false }
         guard canStart else {
@@ -325,6 +343,14 @@ final class SummitLiveActivityManager: ObservableObject {
         if let existing = Activity<SummitLiveActivityAttributes>.activities.first {
             if existing.attributes.dayKey != key {
                 await endAllImpl(dismissalPolicy: .immediate)
+            } else if shouldRestartForPush(now: now, dayKey: key) {
+                // Örökölt, push nélküli activity (régi build nil-lel
+                // indította, frissítéskor megmaradt): az update-ág sosem
+                // kérne újat, token sosem jönne. Zárjuk, és essünk át az
+                // új request-ágra — naponta legfeljebb egyszer.
+                await endAllImpl(dismissalPolicy: .immediate)
+                logEvent("push-restart: örökölt activity újraindítva")
+                UserDefaults.standard.set(key, forKey: Self.pushRestartDayKey)
             } else {
                 // Zombi-duplikátumok lezárása: a régi stackelős bugból
                 // maradhatott több aznapi activity — ilyenkor a sync csak az
@@ -380,6 +406,7 @@ final class SummitLiveActivityManager: ObservableObject {
                 UserDefaults.standard.set(true, forKey: Self.pushTypeNilKey)
                 logEvent("pushType NIL (token-kérés dobott: \(error.localizedDescription))")
             }
+            UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastPushRequestAtKey)
             observePushTokens(for: activity)
             lastError = nil
             lastAction = "Napi activity indítva (\(today.count) óra)"
@@ -518,6 +545,18 @@ final class SummitLiveActivityManager: ObservableObject {
         let ok = await syncDay(lessons: [demo, next], now: now, accentHex: accentHex, cacheable: false)
         await pushPreviewPlan(lessons: [demo, next], now: now, userId: userId)
         return ok
+    }
+
+    /// Kézi helyreállítás (Fejlesztő-gomb): a futó activity lezárása és
+    /// friss kérése .token-nel — a régi buildtől örökölt push nélküli
+    /// activityt is lecseréli. A mentett mai tervből dolgozik (offline is
+    /// megy); ha az nincs, false (este: Demo teszt kell helyette).
+    @discardableResult
+    func restartForPush(now: Date = Date()) async -> Bool {
+        await endAll(dismissalPolicy: .immediate)
+        guard let cache = cachedLessons(now: now) else { return false }
+        UserDefaults.standard.set(Self.dayKey(for: now), forKey: Self.pushRestartDayKey)
+        return await syncDay(lessons: cache.lessons, now: now, accentHex: cache.accentHex)
     }
 
     func openSystemSettings() {

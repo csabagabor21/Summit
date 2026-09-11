@@ -23,6 +23,7 @@ struct DeveloperView: View {
     @State private var jumpMinutes = 2
     @State private var jumpInfo: String?
     @State private var pushUploadInfo: String?
+    @State private var pushRestartInfo: String?
 
     var body: some View {
         ScrollView {
@@ -164,6 +165,22 @@ struct DeveloperView: View {
                     settingsDivider
                     row {
                         VStack(alignment: .leading, spacing: 6) {
+                            Button("Push-újraindítás (beragadt activity cseréje)") {
+                                Task { await restartPushNow() }
+                            }
+                            .font(.caption.weight(.semibold)).tint(colors.accent)
+                            if let pushRestartInfo {
+                                Text(pushRestartInfo).font(.caption2).foregroundStyle(.secondary)
+                            } else {
+                                Text("Régi buildtől örökölt, push nélküli activityt cserél újra — tokenre vár, majd feltölt. Ha nincs mentett mai terv (este), előbb a Demo teszt kell.")
+                                    .font(.caption2).foregroundStyle(.tertiary)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    settingsDivider
+                    row {
+                        VStack(alignment: .leading, spacing: 6) {
                             Button("Push-terv feltöltése most (Cloudflare)") {
                                 Task { await uploadPushPlanNow() }
                             }
@@ -290,6 +307,30 @@ struct DeveloperView: View {
         jumpInfo = jumpedToEnd
             ? "\(label) már a végén jár — a végére ugrottam (\(t))."
             : "\(label) vége elé ugrottam \(jumpMinutes) perccel (\(t))."
+    }
+
+    /// Push-újraindítás: beragadt (örökölt, push nélküli) activity cseréje
+    /// újra, tokenre várás, majd azonnali feltöltés. Este, mentett terv
+    /// nélkül nem megy (akkor előbb a Demo teszt gomb kell).
+    @MainActor
+    private func restartPushNow() async {
+        pushRestartInfo = nil
+        guard await liveManager.restartForPush() else {
+            pushRestartInfo = "Nincs mentett mai terv — este a Demo teszt gombbal indul activity."
+            return
+        }
+        for _ in 0..<15 {
+            if liveManager.pushTokens.values.first != nil { break }
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
+        guard liveManager.pushTokens.values.first != nil else {
+            pushRestartInfo = liveManager.startedWithoutPush
+                ? "Újraindult, de ez a build továbbra is push nélkül kér — profilhiba, reinstall kell."
+                : "Újraindult, token még nem jött meg — várj fél percet, majd nyomd meg a feltöltést."
+            return
+        }
+        await uploadPushPlanNow()
+        pushRestartInfo = pushUploadInfo
     }
 
     /// Ad hoc push-terv feltöltés a Cloudflare workerbe (valós kulcsra,
