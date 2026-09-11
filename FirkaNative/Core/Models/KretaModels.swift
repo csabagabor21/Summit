@@ -39,9 +39,128 @@ struct HomeworkItem: Identifiable, Hashable {
     let deadline: Date
     let teacher: String
     let isDone: Bool
+    /// KRÉTA-csatolmányok (PDF, kép, stb.) — a részlet-végpontból jön.
+    var attachments: [AttachmentItem] = []
     /// A KRÉTA Szoveg mezője gyakran nyers HTML — ez a tagektől tisztított,
     /// egy soros előnézetekhez való változat.
     var plainTitle: String { HomeworkPlain.text(from: title) }
+    func withAttachments(_ a: [AttachmentItem]) -> HomeworkItem {
+        var c = self; c.attachments = a; return c
+    }
+}
+
+/// KRÉTA-csatolmány (házi, dolgozat, üzenet): megjeleníthető/letölthető fájl.
+struct AttachmentItem: Identifiable, Hashable {
+    let id: String
+    let name: String
+    let size: Int?
+    let mime: String?
+    var ext: String {
+        let e = (name as NSString).pathExtension.lowercased()
+        return e.isEmpty ? (mime?.contains("pdf") == true ? "pdf" : "") : e
+    }
+    var isPDF: Bool { ext == "pdf" }
+    var symbol: String {
+        switch ext {
+        case "pdf": return "doc.richtext.fill"
+        case "jpg", "jpeg", "png", "heic", "webp", "gif": return "photo.fill"
+        case "doc", "docx", "odt": return "doc.text.fill"
+        case "xls", "xlsx", "ods": return "tablecells.fill"
+        case "ppt", "pptx": return "rectangle.on.rectangle.fill"
+        case "zip", "rar", "7z": return "archivebox.fill"
+        case "mp4", "mov": return "film.fill"
+        default: return "paperclip"
+        }
+    }
+    var sizeText: String? {
+        guard let size, size > 0 else { return nil }
+        if size < 1024 { return "\(size) B" }
+        if size < 1024 * 1024 { return "\(size / 1024) KB" }
+        return String(format: "%.1f MB", Double(size) / 1024 / 1024)
+    }
+}
+
+/// Türelmes csatolmány-kinyerés nyers KRÉTA-JSON-ből (lista-elem vagy
+/// részlet-payload). A kulcsnevek végpontonként eltérnek (Csatolmanyok,
+/// CsatoltFajlok, Mellekletek, Attachments…), ezért heurisztikával keres.
+enum KretaAttachmentParser {
+    static func attachments(from data: Data) -> [AttachmentItem] {
+        guard let json = try? JSONSerialization.jsonObject(with: data) else { return [] }
+        if let dict = json as? [String: Any] { return fromDict(dict) }
+        if let arr = json as? [Any] { return arr.flatMap { ($0 as? [String: Any]).map(fromDict) ?? [] } }
+        return []
+    }
+
+    /// Lista-payloadból Uid → csatolmány térkép (a lista-elemek maguk is
+    /// hordozhatnak csatolmánylistát).
+    static func attachmentsByUid(from data: Data) -> [String: [AttachmentItem]] {
+        guard let arr = try? JSONSerialization.jsonObject(with: data) as? [Any] else { return [:] }
+        var out: [String: [AttachmentItem]] = [:]
+        for el in arr {
+            guard let d = el as? [String: Any] else { continue }
+            let uid = string(d, keys: ["Uid", "ID", "Id", "azon", "Azonosito"])
+            let atts = fromDict(d)
+            if let uid, !atts.isEmpty { out[uid] = atts }
+        }
+        return out
+    }
+
+    private static func fromDict(_ d: [String: Any]) -> [AttachmentItem] {
+        for (k, v) in d {
+            let lk = k.lowercased()
+            let hit = lk.contains("csatol") || lk.contains("mellek") || lk.contains("attach")
+                || lk.contains("fajl") || lk == "files" || lk.contains("dokument")
+            guard hit, let arr = v as? [Any] else { continue }
+            let items = arr.compactMap { ($0 as? [String: Any]).flatMap(item(from:)) }
+            if !items.isEmpty { return items }
+        }
+        return []
+    }
+
+    private static func item(from d: [String: Any]) -> AttachmentItem? {
+        guard let name = string(d, keys: ["Nev", "Name", "FileName", "FajlNev", "Cim", "Targy", "OriginalName"]) else { return nil }
+        return AttachmentItem(
+            id: string(d, keys: ["Uid", "ID", "Id", "azon", "Azonosito", "FileId"]) ?? UUID().uuidString,
+            name: name,
+            size: int(d, keys: ["Meret", "Size", "MeretByte", "FileSize", "Hossz"]),
+            mime: string(d, keys: ["Tipus", "MimeType", "ContentType", "FileType", "Kiterjesztes"])
+        )
+    }
+
+    /// Üzenet-törzs kinyerése részlet-payloadból (több kulcsvariáns).
+    static func messageBody(from data: Data) -> String? {
+        guard let d = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        // Beágyazott uzenet-objektum is lehet.
+        let scopes: [[String: Any]] = [d] + ((d["uzenet"] as? [String: Any]).map { [$0] } ?? [])
+        for scope in scopes {
+            if let s = string(scope, keys: ["Szoveg", "Tartalom", "Body", "Text", "Leiras", "Message", "content"]) {
+                return s
+            }
+        }
+        return nil
+    }
+
+    private static func string(_ d: [String: Any], keys: [String]) -> String? {
+        for k in keys {
+            if let s = d[k] as? String, !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return s }
+            if let n = d[k] as? Int { return String(n) }
+        }
+        // Kisbetűsített kulcs-tolerancia.
+        let lower = Dictionary(uniqueKeysWithValues: d.map { ($0.key.lowercased(), $0.value) })
+        for k in keys {
+            if let s = lower[k.lowercased()] as? String, !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return s }
+        }
+        return nil
+    }
+
+    private static func int(_ d: [String: Any], keys: [String]) -> Int? {
+        for k in keys {
+            if let n = d[k] as? Int { return n }
+            if let n = d[k] as? Int64 { return Int(n) }
+            if let s = d[k] as? String, let n = Int(s) { return n }
+        }
+        return nil
+    }
 }
 
 /// Házi–óra csatolás egyetlen szabálya, mindkét irányba:
@@ -302,6 +421,13 @@ struct MessageItem: Identifiable, Hashable {
     let subject: String
     let date: Date
     let isRead: Bool
+    /// Részlet-törzs (listában üres, a detail-hívás tölti).
+    var body: String = ""
+    var attachments: [AttachmentItem] = []
+    var plainBody: String { HomeworkPlain.text(from: body) }
+    func withDetail(body: String, attachments: [AttachmentItem]) -> MessageItem {
+        var c = self; c.body = body; c.attachments = attachments; return c
+    }
 }
 struct ExamItem: Identifiable, Hashable {
     let id: String
@@ -315,6 +441,10 @@ struct ExamItem: Identifiable, Hashable {
     var announcedDate: Date? = nil
     /// Melyik osztály/csoportnak szól (KRÉTA: OsztalyCsoport.Nev, pl. "12.HBS - Technikum")
     var groupName: String = ""
+    var attachments: [AttachmentItem] = []
+    func withAttachments(_ a: [AttachmentItem]) -> ExamItem {
+        var c = self; c.attachments = a; return c
+    }
     /// A Temaja-leírás gyakran nyers HTML — kijelzéshez a tisztított változat.
     var plainDescription: String { HomeworkPlain.text(from: description) }
 }
@@ -805,7 +935,8 @@ enum DemoData {
         let monday = cal.date(byAdding: .day, value: (weekday == 1 ? -6 : 2 - weekday), to: today)!
         func at(_ weekDay: Int, hour: Int = 16) -> Date { cal.date(byAdding: .day, value: weekDay, to: monday)!.addingTimeInterval(Double(hour*3600)) }
         return [
-            HomeworkItem(id: "h1", subject: "Matek", title: "Gyakorló 12-15 (HF)", deadline: at(0), teacher: "Kovács", isDone: false),
+            HomeworkItem(id: "h1", subject: "Matek", title: "Gyakorló 12-15 (HF)", deadline: at(0), teacher: "Kovács", isDone: false,
+                         attachments: [AttachmentItem(id: "demo-pdf-hazi", name: "Gyakorló feladatsor.pdf", size: 24576, mime: "application/pdf")]),
             HomeworkItem(id: "h2", subject: "Angol", title: "Unit 5 vocab + essay 300 szó", deadline: at(0), teacher: "Smith", isDone: false),
             HomeworkItem(id: "h3", subject: "Fizika", title: "Munkafüzet 42.o / 5 feladat", deadline: at(1), teacher: "Varga", isDone: false),
             HomeworkItem(id: "h4", subject: "Töri", title: "Esszé vázlat", deadline: at(1), teacher: "Nagy", isDone: false),
@@ -819,9 +950,13 @@ enum DemoData {
         AbsenceItem(id: "a3", subject: "Angol", date: Date().addingTimeInterval(-86400*8), type: "Késés", delay: 12),
     ]}
     static func messages() -> [MessageItem] { [
-        MessageItem(id: "m1", sender: "Osztályfőnök", subject: "Szülői értekezlet pénteken 17h", date: Date().addingTimeInterval(-3600*5), isRead: false),
-        MessageItem(id: "m2", sender: "Igazgatóság", subject: "Tájékoztató — őszi szünet", date: Date().addingTimeInterval(-86400), isRead: true),
-        MessageItem(id: "m3", sender: "Kovács J.", subject: "Pót ZH időpont", date: Date().addingTimeInterval(-86400*2), isRead: false),
+        MessageItem(id: "m1", sender: "Osztályfőnök", subject: "Szülői értekezlet pénteken 17h", date: Date().addingTimeInterval(-3600*5), isRead: false,
+                    body: "Kedves Szülők és Diákok! Pénteken 17 órakor szülői értekezletet tartunk az osztályteremben. Megjelenésükre számítunk!",
+                    attachments: [AttachmentItem(id: "demo-pdf-uzenet", name: "Szülői értekezlet meghívó.pdf", size: 18432, mime: "application/pdf")]),
+        MessageItem(id: "m2", sender: "Igazgatóság", subject: "Tájékoztató — őszi szünet", date: Date().addingTimeInterval(-86400), isRead: true,
+                    body: "Tájékoztatjuk a tanulókat, hogy az őszi szünet a kiírt rend szerint alakul. Jó pihenést kívánunk!"),
+        MessageItem(id: "m3", sender: "Kovács J.", subject: "Pót ZH időpont", date: Date().addingTimeInterval(-86400*2), isRead: false,
+                    body: "A pót ZH időpontja jövő hét szerda, 3. óra. A feladatsor a csatolmányban!"),
     ]}
     static func exams() -> [ExamItem] {
         // Tanítási napokra horgonyozva (ehhez a héthez, hétfő–péntek),

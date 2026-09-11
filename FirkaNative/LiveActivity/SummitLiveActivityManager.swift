@@ -64,6 +64,13 @@ final class SummitLiveActivityManager: ObservableObject {
     private var pushTokenTasks: [String: Task<Void, Never>] = [:]
     private(set) var pushTokens: [String: String] = [:]
 
+    /// Demo-teszt védelmi ablak: a `startDemoTestNow` állítja be (~15 perc).
+    /// Amíg él, a valós órarenddel érkező sync NEM zárhatja le az activityt —
+    /// különben a Főoldal percenkénti sync-je (esti, múltbeli órákkal) egy
+    /// percen belül megölné a tesztkártyát, és a push-átkapcsolás
+    /// tesztelhetetlen lenne ("a tesztgombbal se működik").
+    private var demoTestActiveUntil: Date?
+
     /// Push-képesség nyoma: az activity pushType-tal (.token) indult, vagy
     /// a token-kérés dobott és nil-lel (tisztán helyi módban). Utóbbi azt
     /// jelenti, hogy a build profiljában nincs Push — token sosem jön,
@@ -84,7 +91,7 @@ final class SummitLiveActivityManager: ObservableObject {
     func pushPreviewPlan(lessons: [LessonItem], now: Date, userId: String) async {
         await SummitPushSync.shared.kick(
             today: lessons, now: now, dayKey: Self.dayKey(for: now),
-            userId: userId, pushToken: pushTokens.values.first, preview: true)
+            userId: userId.isEmpty ? "demo" : userId, pushToken: pushTokens.values.first, preview: true)
     }
 
     private func observePushTokens(for activity: Activity<SummitLiveActivityAttributes>) {
@@ -313,7 +320,15 @@ final class SummitLiveActivityManager: ObservableObject {
         let nxt = today.first { $0.start > now }
         // Ma már nincs több óra (vagy ma nincs iskola): a futót zárjuk,
         // a holnap reggeli ébresztőt a háttér-refresh teszi fel.
+        // KIVÉTEL: élő demo-teszt — a valós (esti, múltbeli) órarend nem
+        // ölheti meg a tesztkártyát a védelmi ablakon belül.
         guard cur != nil || nxt != nil else {
+            if let until = demoTestActiveUntil, now < until,
+               !Activity<SummitLiveActivityAttributes>.activities.isEmpty {
+                lastAction = "Demo teszt fut (valós órarend üres)"
+                return true
+            }
+            demoTestActiveUntil = nil
             lastAction = today.isEmpty ? "Ma nincs óra → lezárva" : "Mai órák vége → lezárva"
             await endAllImpl(dismissalPolicy: .default)
             return false
@@ -490,6 +505,9 @@ final class SummitLiveActivityManager: ObservableObject {
 
     private func endAllImpl(dismissalPolicy: ActivityUIDismissalPolicy) async {
         guard #available(iOS 16.1, *) else { return }
+        // Kézi/teljes zárás oldja a demo-teszt védelmet is (a
+        // startDemoTestNow az endAll UTÁN állítja be, így őt nem bántja).
+        demoTestActiveUntil = nil
         // Záráskor a függő háttér-ébresztést is töröljük; sikeres új
         // sync úgyis újraütemezi a következő határra.
         LiveActivityBackgroundRefresh.cancel()
@@ -528,6 +546,13 @@ final class SummitLiveActivityManager: ObservableObject {
         // Gyorsteszt-órarend: 1. óra 2 perc múlva véget ér, 2 perc szünet,
         // aztán 2. óra — a teljes átmenet ~5 perc alatt végignézhető.
         let now = Date()
+        // Determinisztikus token-út: a régi (akár push nélküli) activityt
+        // előbb zárjuk, így a teszt MINDIG friss .token-kéréssel indul —
+        // különben egy örökölt nil-push activity update-ágán ragadnánk,
+        // token sosem jönne, és a preview-feltöltés néma maradna.
+        await endAll(dismissalPolicy: .immediate)
+        demoTestActiveUntil = now.addingTimeInterval(15 * 60)
+        let uid = userId.isEmpty ? "demo" : userId
         let demo = LessonItem(
             id: "demo-test", subject: label, room: "A1",
             start: now.addingTimeInterval(-5 * 60),
@@ -550,7 +575,7 @@ final class SummitLiveActivityManager: ObservableObject {
             if !pushTokens.isEmpty { break }
             try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
-        await pushPreviewPlan(lessons: [demo, next], now: now, userId: userId)
+        await pushPreviewPlan(lessons: [demo, next], now: now, userId: uid)
         return ok
     }
 

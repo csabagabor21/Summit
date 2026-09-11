@@ -91,6 +91,9 @@ struct MainTabView: View {
             Tab("Hiányzások", systemImage: "person.crop.rectangle.stack", value: 4) {
                 AbsencesView()
             }
+            Tab("Üzenetek", systemImage: "envelope.fill", value: 5) {
+                MessagesView()
+            }
         }
         .tabViewStyle(.sidebarAdaptable)
         // Ne tegyél ide .toolbarBackground vagy .glassEffect-et:
@@ -106,6 +109,7 @@ struct MainTabView: View {
             TimetableView().tabItem { Label("Órarend", systemImage: "calendar") }.tag(2)
             NotesView().tabItem { Label("Feladatok", systemImage: "checklist") }.tag(3)
             AbsencesView().tabItem { Label("Hiányzások", systemImage: "person.crop.rectangle.stack") }.tag(4)
+            MessagesView().tabItem { Label("Üzenetek", systemImage: "envelope.fill") }.tag(5)
         }
     }
 }

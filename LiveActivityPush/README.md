@@ -13,10 +13,10 @@ push-tokent, és feltölti a workerbe a mai határokhoz tartozó kész
 2. **KV:** Workers & Pages → KV → Create namespace (pl. `summit-plans`) →
    vissza a workerre: Settings → Bindings → Add → KV namespace, neve
    pontosan `PLANS`.
-3. **Cron:** a worker Settings → Triggers → Add Cron Trigger: `*/5 * * * *`
-   (5 percenként — NEM percenként: a free KV-kvóta napi 1k list, a perces
-   cron 1440-et égetne és elfogyna; 5 perccel 288/nap, a push legfeljebb
-   ~5 percet késik a határhoz képest).
+3. **Cron:** a worker Settings → Triggers → Add Cron Trigger: `* * * * *`
+    (percenként — a worker index-alapú, NEM listáz, így a KV LIST-kvótát
+    nem égeti: körönként 1 index-GET + terven 1 GET. A push legfeljebb
+    ~1 percet késik a határhoz képest, a demo-teszt 2 perces átmenete is belefér).
 4. **Változók:** Settings → Variables:
    - Text: `BUNDLE_ID` = `hu.flint`
    - Secrets → Add: `APNS_KEY` (a `.p8` fájl TARTALMA egyben),
@@ -62,5 +62,6 @@ Live Activity ettől még működik.)
 
 ## Költség
 
-Free tier: napi 100 ezer kérés, percenkénti cron, KV-olvasás bőven elég
-(egy felhasználó napi ~15 push + pár tucat KV-művelet). Bankkártya nem kell.
+Free tier: napi 100 ezer kérés és KV-olvasás, a perces cron napi ~1440
+index-GET + terven 1-1 GET — bőven elég (egy felhasználó napi ~15 push +
+pár tucat KV-művelet). Írás napi pár tucat (hash-őr). Bankkártya nem kell.

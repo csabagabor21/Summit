@@ -21,14 +21,15 @@
 //   TEAM_ID     — 10 jegyű csapat-azonosító (Team ID)
 // Vars (Text variables):
 //   BUNDLE_ID   — pl. hu.flint (topic: <BUNDLE_ID>.push-type.liveactivity)
-// Cron trigger: "*/5 * * * *" (5 percenként).
-// Miért nem percenként: a free tier KV-kvótája napi 1k LIST — a perces
-// cron 1440 listát égetne naponta, és elfogyna (a feltöltések hash-őr
-// miatt amúgy sem sűrűk: napi pár tucat write az 1k-s keretben bőven
-// elfér). 5 perccel 288 lista/nap (~29% kvóta), a kézbesítés legfeljebb
-// ~5 percet csúszik a határhoz képest — a záróképernyős kártya
-// átkapcsolására ez bőven elég (az élő visszaszámlálót a widget magától
-// tickeli, a push csak az állapotot fordítja).
+// Cron trigger: "* * * * *" (percenként).
+// Miért fér bele a free tierbe: a cron NEM listáz (a KV LIST napi 1k-s
+// kvótáját a perces lista 1440-nel túllépné). Helyette a /plan minden
+// feltöltéskor karbantart egy `index` kulcsot (a tervkulcsok tömbje),
+// a cron pedig csak azt az 1 kulcsot olvassa (napi 1440 GET) + terven
+// egy GET-et — ez a 100k-s napi olvasási keret töredéke. A kézbesítés
+// így legfeljebb ~1 percet csúszik a határhoz képest (a demo-teszt
+// 2 perces átmenete is belefér), az élő visszaszámlálót a widget
+// magától tickeli, a push csak az állapotot fordítja.
 //
 // Megjegyzés: a .p8-at EGYSZER kell elkérni annak, aki Admin a fejlesztői
 // csapatban (az app bundle-jának gazdája). Ugyanaz a kulcs jó sandboxra
@@ -94,31 +95,55 @@ async function sendUpdate(env, host, pushToken, contentState, staleDate) {
   return "retry";
 }
 
+const INDEX_KEY = "index";
+
+async function readIndex(env) {
+  const idx = await env.PLANS.get(INDEX_KEY, "json");
+  return Array.isArray(idx) ? idx.filter((k) => typeof k === "string") : null;
+}
+
+async function writeIndex(env, keys) {
+  await env.PLANS.put(INDEX_KEY, JSON.stringify([...new Set(keys)].slice(0, 500)));
+}
+
 async function handleCron(env) {
   const now = Math.floor(Date.now() / 1000);
   const todayUTC = new Date().toISOString().slice(0, 10); // csak takarításhoz
-  let cursor = undefined;
-  for (;;) {
-    const page = await env.PLANS.list({ prefix: "plan:", cursor });
-    for (const k of page.keys) {
-      const dayKey = k.name.split(":")[1] || "";
-      if (dayKey && dayKey < todayUTC) { await env.PLANS.delete(k.name); continue; }
-      const rec = await env.PLANS.get(k.name, "json");
-      if (!rec || !rec.pushToken || !Array.isArray(rec.entries)) continue;
-      const host = rec.sandbox ? APNS_SANDBOX : APNS_PROD;
-      let dirty = false;
-      for (const e of rec.entries) {
-        if (e.sent || typeof e.fireAt !== "number" || e.fireAt > now || !e.contentState) continue;
-        const r = await sendUpdate(env, host, rec.pushToken, e.contentState, e.staleDate);
-        e.attempts = (e.attempts || 0) + 1;
-        if (r === "sent" || e.attempts > 10) { e.sent = true; dirty = true; }
-        else dirty = true; // attempts mentése
-      }
-      if (dirty) await env.PLANS.put(k.name, JSON.stringify(rec));
+  // Index-alapú végigjárás (LIST nélkül): 1 GET + terven 1 GET.
+  let keys = await readIndex(env);
+  if (!keys) {
+    // Migráció: régi, index nélküli telep egyszer listáz, és felépíti
+    // az indexet — utána már a fenti ág él.
+    keys = [];
+    let cursor = undefined;
+    for (;;) {
+      const page = await env.PLANS.list({ prefix: "plan:", cursor });
+      for (const k of page.keys) keys.push(k.name);
+      if (page.list_complete) break;
+      cursor = page.cursor;
     }
-    if (page.list_complete) break;
-    cursor = page.cursor;
+    await writeIndex(env, keys);
   }
+  const live = [];
+  for (const name of keys) {
+    const dayKey = name.split(":")[1] || "";
+    if (dayKey && dayKey < todayUTC) { await env.PLANS.delete(name); continue; }
+    live.push(name);
+    const rec = await env.PLANS.get(name, "json");
+    if (!rec || !rec.pushToken || !Array.isArray(rec.entries)) continue;
+    const host = rec.sandbox ? APNS_SANDBOX : APNS_PROD;
+    let dirty = false;
+    for (const e of rec.entries) {
+      if (e.sent || typeof e.fireAt !== "number" || e.fireAt > now || !e.contentState) continue;
+      const r = await sendUpdate(env, host, rec.pushToken, e.contentState, e.staleDate);
+      e.attempts = (e.attempts || 0) + 1;
+      if (r === "sent" || e.attempts > 10) { e.sent = true; dirty = true; }
+      else dirty = true; // attempts mentése
+    }
+    if (dirty) await env.PLANS.put(name, JSON.stringify(rec));
+  }
+  // Takarítás után az indexet is szűkítjük (olcsó, napi pár write).
+  if (live.length !== keys.length) await writeIndex(env, live);
 }
 
 function isHex64(s) {
@@ -155,6 +180,17 @@ async function handlePlan(request, env) {
     entries: entries.map((e) => ({ fireAt: e.fireAt, contentState: e.contentState, staleDate: e.staleDate || null })),
     updatedAt: Math.floor(Date.now() / 1000),
   }));
+  // Index-karbantartás a LIST-mentes perces cronhoz (1 PUT feltöltésenként —
+  // a feltöltések hash-őr miatt napi pár tucat, bőven a keretben).
+  // Üres (törlő) feltöltéskor a kulcs kikerül az indexből.
+  const prev = (await readIndex(env)) || [];
+  if (entries.length === 0) {
+    const next = prev.filter((k) => k !== key);
+    if (next.length !== prev.length) await writeIndex(env, next);
+  } else if (!prev.includes(key)) {
+    prev.push(key);
+    await writeIndex(env, prev);
+  }
   return Response.json({ ok: true, entries: entries.length });
 }
 

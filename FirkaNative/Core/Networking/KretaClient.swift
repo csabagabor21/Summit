@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import UIKit
 
 @MainActor
 final class KretaClient: ObservableObject {
@@ -328,9 +329,14 @@ final class KretaClient: ObservableObject {
             guard let listURL = KretaAPI.homework(iss, from: from) else { return [] }
             let listData: Data = try await getRaw(listURL)
             let dtos = KretaHomeworkDTO.lenientDTOs(from: listData)
+            // A lista-elemek maguk is hordozhatnak csatolmányt — Uid alapján.
+            let listAtts = KretaAttachmentParser.attachmentsByUid(from: listData)
             // A tartalmas lista-elemeket azonnal elfogadjuk; a csupasz
             // hivatkozásokhoz (csak Uid) lekérjük a HaziFeladatok/{uid} részletet.
-            var items = dtos.filter { $0.hasContent }.map { $0.toItem() }
+            var items = dtos.filter { $0.hasContent }.map { item in
+                let it = item.toItem()
+                return it.withAttachments(listAtts[it.id] ?? [])
+            }
             let have = Set(items.map { $0.id })
             let missing = KretaHomeworkDTO.uids(from: listData).filter { !have.contains($0) }
             if (!missing.isEmpty) {
@@ -341,7 +347,7 @@ final class KretaClient: ObservableObject {
                             do {
                                 let d: Data = try await self.getRaw(detailURL)
                                 guard let dto = try? JSONDecoder().decode(KretaHomeworkDTO.self, from: d) else { return nil }
-                                return dto.toItem()
+                                return dto.toItem().withAttachments(KretaAttachmentParser.attachments(from: d))
                             } catch { return nil }
                         }
                     }
@@ -381,7 +387,10 @@ final class KretaClient: ObservableObject {
         do {
             // Lenient: egy hibás elem nem nullázhatja a teljes dolgozatlistát
             let data: Data = try await getRaw(url)
-            let r = KretaExamDTO.lenientItems(from: data).sorted { $0.date < $1.date }
+            let atts = KretaAttachmentParser.attachmentsByUid(from: data)
+            let r = KretaExamDTO.lenientItems(from: data).map { item in
+                item.withAttachments(atts[item.id] ?? [])
+            }.sorted { $0.date < $1.date }
             diag("dolgozat: \(r.count) db"); return r
         } catch { diagErr("dolgozat", error); return [] }
     }
@@ -402,6 +411,58 @@ final class KretaClient: ObservableObject {
             } catch { diagErr("üzenet/\(endpoint)", error); continue }
         }
         return []
+    }
+
+    // MARK: - Üzenet-részlet + csatolmány-letöltés (PDF-megnyitáshoz)
+
+    /// Egy üzenet törzse + csatolmányai. Demo-backend: helyből, hálózat nélkül.
+    func fetchMessageDetail(_ message: MessageItem) async -> MessageItem {
+        if isDemoBackend(iss: instituteCode ?? "") { return message }
+        for endpoint in ["bejovo", "kimenő", "piszkozat"] {
+            guard let url = KretaAPI.messageDetails(endpoint, id: message.id) else { continue }
+            do {
+                let data: Data = try await getRaw(url)
+                let body = KretaAttachmentParser.messageBody(from: data) ?? ""
+                let atts = KretaAttachmentParser.attachments(from: data)
+                if !body.isEmpty || !atts.isEmpty { return message.withDetail(body: body, attachments: atts) }
+            } catch { continue }
+        }
+        return message
+    }
+
+    /// Csatolmány-letöltés: (fájl-név, tartalom). Több útvonalat próbál,
+    /// az első működőt adja vissza. Demo-backend: helyben generált minta-PDF.
+    func downloadAttachment(_ att: AttachmentItem, ownerId: String? = nil) async -> (fileName: String, data: Data)? {
+        if isDemoBackend(iss: instituteCode ?? "") {
+            return (att.name, Self.demoPDF(title: att.name))
+        }
+        let iss = JWT.validInstituteCode(instituteCode)
+            ?? JWT.validInstituteCode(JWT.instituteCode(from: accessToken ?? "")) ?? ""
+        var urls: [URL] = []
+        if let ownerId, !iss.isEmpty, let u = KretaAPI.homeworkAttachment(iss, homeworkId: ownerId, attachmentId: att.id) { urls.append(u) }
+        if !iss.isEmpty, let u = KretaAPI.genericAttachment(iss, attachmentId: att.id) { urls.append(u) }
+        for url in urls {
+            do {
+                let data: Data = try await getRaw(url)
+                if !data.isEmpty { return (att.name, data) }
+            } catch { continue }
+        }
+        diag("csatolmány: letöltés sikertelen (\(att.name))")
+        return nil
+    }
+
+    /// Helyben generált egyoldalas minta-PDF (demo-mód + offline teszt).
+    static func demoPDF(title: String) -> Data {
+        let fmt = UIGraphicsPDFRendererFormat()
+        let renderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: 595, height: 842), format: fmt)
+        return renderer.pdfData { ctx in
+            ctx.beginPage()
+            let titleAttrs: [NSAttributedString.Key: Any] = [.font: UIFont.boldSystemFont(ofSize: 22)]
+            let bodyAttrs: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 13)]
+            (title as NSString).draw(at: CGPoint(x: 48, y: 64), withAttributes: titleAttrs)
+            let body = "Ez egy demo csatolmány a Summit appból.\n\nÉles KRÉTA-fiókkal itt a valódi fájl (PDF, kép, dokumentum) nyílik meg." as NSString
+            body.draw(in: CGRect(x: 48, y: 110, width: 500, height: 600), withAttributes: bodyAttrs)
+        }
     }
 
     // MARK: - Tantárgyak — KRÉTA tudja akkor is ha nincs jegy (Atlagok + órarend fallback + cached)

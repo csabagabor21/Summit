@@ -58,6 +58,19 @@ enum KretaAPI {
     static func notes(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Feljegyzesek") }
     static func events(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/FaliujsagElemek") }
     static func messages(_ endpoint: String) -> URL? { URL(string: adminBase + "/api/v1/kommunikacio/postaladaelemek/\(endpoint)") }
+    /// Egy üzenet részlete (törzs + csatolmánylista) — több végpont-variánst
+    /// próbál a kliens, mert az e-ügyintézés API-verziónként eltérhet.
+    static func messageDetails(_ endpoint: String, id: String) -> URL? {
+        URL(string: adminBase + "/api/v1/kommunikacio/postaladaelemek/\(endpoint)/\(id)")
+    }
+    /// Csatolmány-letöltés (házi / dolgozat / üzenet): a kliens több
+    /// útvonalat végigpróbál, az első működőt tartja meg.
+    static func homeworkAttachment(_ iss: String, homeworkId: String, attachmentId: String) -> URL? {
+        URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/HaziFeladatok/\(homeworkId)/Csatolmanyok/\(attachmentId)")
+    }
+    static func genericAttachment(_ iss: String, attachmentId: String) -> URL? {
+        URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Csatolmanyok/\(attachmentId)")
+    }
     // Tantárgyi átlagok — minden felvett tárgyat visszaad, akkor is ha még nincs benne jegy (KRÉTA tudja)
     static func subjectAverages(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Ertekelesek/Atlagok/TantargyiAtlagok") }
     static func subjectAveragesAlt(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/TantargyiAtlagok") }

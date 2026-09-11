@@ -181,7 +181,10 @@ struct TimetableView: View {
                         .buttonStyle(.plain)
                         .disabled(weekOffset >= 8)
 
-                        if weekOffset != 0 {
+                        // "Ma" gomb: nem csak hetet lapozva, hanem napot
+                        // ellapozva is előjön (a nap-picker és a swipe is
+                        // userHasNavigated-et állít; a gomb azt nullázza).
+                        if weekOffset != 0 || userHasNavigated {
                             Button("Ma") { goToSmartToday() }
                             .font(.caption.weight(.semibold))
                             .tint(colors.accent)

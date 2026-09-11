@@ -195,6 +195,8 @@ struct NotesView: View {
                         Label(hw.teacher, systemImage: "person.fill")
                             .font(.caption).foregroundStyle(.secondary)
                     }
+                    // Csatolt fájlok (PDF, kép…) — koppintásra QuickLook.
+                    AttachmentsBlock(attachments: hw.attachments, ownerId: hw.id)
                     Button {
                         NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": hw.subject, "deadline": hw.deadline.timeIntervalSince1970])
                     } label: {
@@ -273,6 +275,7 @@ struct NotesView: View {
                         Label(exam.groupName, systemImage: "person.2.fill")
                             .font(.caption).foregroundStyle(.secondary)
                     }
+                    AttachmentsBlock(attachments: exam.attachments, ownerId: exam.id)
                     Button {
                         NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": exam.subject, "deadline": exam.date.timeIntervalSince1970])
                     } label: {

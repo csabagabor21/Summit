@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		035CCDDD8008E434E80735BC /* NotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D93941AC0EF9492E8E8FC87C /* NotesView.swift */; };
+		A77AC4B1001A2B3C4D5E6005 /* AttachmentViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A77AC4B1001A2B3C4D5E6003 /* AttachmentViewer.swift */; };
+		A77AC4B1001A2B3C4D5E6006 /* MessagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A77AC4B1001A2B3C4D5E6004 /* MessagesView.swift */; };
 		070BED0806B24776C9CA0378 /* TeacherRoundingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B34D700082CBC9796AA731F /* TeacherRoundingView.swift */; };
 		07425EA432B29AF616973EFD /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2796FFD5EF18E9AD20A660A2 /* SessionStore.swift */; };
 		08B20D4184B2C1194D0A0884 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30EFB3459DEFF383F8DF8668 /* ThemeStore.swift */; };
@@ -155,6 +157,8 @@
 		F2EFD6BB47BB4BDCB2B70305 /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
 		F71E956AC45085B50004306D /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
 		FF7CCF5CF8EB6B3291CA48C5 /* TimetableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableView.swift; sourceTree = "<group>"; };
+		A77AC4B1001A2B3C4D5E6003 /* AttachmentViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentViewer.swift; sourceTree = "<group>"; };
+		A77AC4B1001A2B3C4D5E6004 /* MessagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -175,6 +179,22 @@
 				D93941AC0EF9492E8E8FC87C /* NotesView.swift */,
 			);
 			path = Notes;
+			sourceTree = "<group>";
+		};
+		A77AC4B1001A2B3C4D5E6001 /* Attachments */ = {
+			isa = PBXGroup;
+			children = (
+				A77AC4B1001A2B3C4D5E6003 /* AttachmentViewer.swift */,
+			);
+			path = Attachments;
+			sourceTree = "<group>";
+		};
+		A77AC4B1001A2B3C4D5E6002 /* Messages */ = {
+			isa = PBXGroup;
+			children = (
+				A77AC4B1001A2B3C4D5E6004 /* MessagesView.swift */,
+			);
+			path = Messages;
 			sourceTree = "<group>";
 		};
 		21F08CACFC301081E046297D /* Resources */ = {
@@ -344,10 +364,12 @@
 			isa = PBXGroup;
 			children = (
 				49D67383939B0B640CFB50FA /* Absences */,
+				A77AC4B1001A2B3C4D5E6001 /* Attachments */,
 				8A8B7BAE68DD8C4F2A3361D2 /* Auth */,
 				A0BDE3FCE3AC5F4909455973 /* Grades */,
 				7EF67D9956BA73446E01B83D /* Home */,
 				4B6FAC4C37201DEC100F469F /* MainTab */,
+				A77AC4B1001A2B3C4D5E6002 /* Messages */,
 				14890CC5436FAB1F4F8B1B4D /* Notes */,
 				B14C1C29E2CCFB9F2D16B5F7 /* Settings */,
 				319D2B6DEF1C6D384B981554 /* Timetable */,
@@ -541,6 +563,8 @@
 				A9768A46A796C7C7A8666DAA /* LoginView.swift in Sources */,
 				1DE67DADB887915E2F7D2944 /* MainTabView.swift in Sources */,
 				035CCDDD8008E434E80735BC /* NotesView.swift in Sources */,
+				A77AC4B1001A2B3C4D5E6005 /* AttachmentViewer.swift in Sources */,
+				A77AC4B1001A2B3C4D5E6006 /* MessagesView.swift in Sources */,
 				488FA74DB8C609136814EA37 /* NotificationManager.swift in Sources */,
 				8E10EB72340D58DBA05AC570 /* ProfileImageStore.swift in Sources */,
 				34D3F85661D7CEEF7CFE3AB0 /* ProfileImageView.swift in Sources */,
@@ -579,7 +603,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -616,7 +640,7 @@
 			buildSettings = {
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -763,7 +787,7 @@
 			buildSettings = {
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -794,7 +818,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
