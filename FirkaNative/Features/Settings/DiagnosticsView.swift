@@ -21,7 +21,7 @@ struct DiagnosticsView: View {
                     ? (liveManager.startedWithoutPush ? "nincs (push nélküli build)" : "nincs")
                     : "van (\(liveManager.pushTokens.count))")
                 diagRow("Utolsó feltöltés", UserDefaults.standard.string(forKey: SummitPushSync.lastUploadSummaryKey) ?? "–")
-                diagRow("Kimaradás oka", UserDefaults.standard.string(forKey: SummitPushSync.lastSkipReasonKey) ?? "–")
+                diagRow("Kimaradás oka", skipDiag)
             } header: {
                 Text("Push (Cloudflare)")
             } footer: {
@@ -67,6 +67,15 @@ struct DiagnosticsView: View {
             Spacer(minLength: 8)
             Text(v).font(.caption.monospaced()).foregroundStyle(.primary).multilineTextAlignment(.trailing)
         }
+    }
+    /// A kimaradás-oka csak sikeres feltöltéskor törlődik — közben viszont
+    /// megérkezhet a token, és a sor beragadt, ellentmondó állapotot mutatna
+    /// („van token" + „nincs push-token"). Ilyenkor jelezzük, hogy az ok
+    /// már elavult, és a következő sync feltölt.
+    private var skipDiag: String {
+        let s = UserDefaults.standard.string(forKey: SummitPushSync.lastSkipReasonKey) ?? "–"
+        if s == "–" || liveManager.pushTokens.isEmpty { return s }
+        return "\(s) → már van token, a következő sync feltölt"
     }
     private var tokenDiag: String {
         guard session.selectedUser != nil else { return "nincs user" }
