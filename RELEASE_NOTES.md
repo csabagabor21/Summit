@@ -1,5 +1,11 @@
 # Summit release notes
 
+## Build 13
+- If the Lock Screen card ever gets stuck without server updates after an app update, Summit now restarts it by itself (at most once a day) — no reinstall needed.
+- New restart button in Developer settings: it revives a stuck card, waits for the push channel, and sends the day plan up right away.
+- Diagnostics now says plainly whether this build can't do push at all (then reinstall) or the push channel is just on its way.
+- Server-side lesson flips stay dependable all term: the server checks the timetable every few minutes instead of every minute, so updates never run dry (flips may land a few minutes later; the live countdown is unaffected).
+
 ## Build 12
 - New Push section in Diagnostics: worker status, push token, last upload, and a live log of everything heading to Cloudflare.
 - The Developer test button now uploads its boundaries too, so the locked-phone handoff can be verified in the evening.
