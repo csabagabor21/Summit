@@ -16,6 +16,21 @@ a Command Line Tools-ra mutat, ezért az `xcodebuild` hívások elé MINDIG
 `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer` kell
 (vagy `sudo xcode-select -s` egyszer — de azt csak a user állítsa át).
 
+## Release-flow (TestFlight) — "mehet" szóra, kérdés nélkül
+Ha a user kiadja a `mehet` (vagy `mehet tovább`, `told ki`) parancsot, az
+alábbi teljes flow-t végig kell vinni, köztes kérdések nélkül:
+1. `DEVELOPER_DIR=...xcodebuild archive` (Release, `generic/platform=iOS`).
+2. Organizer (Xcode-beta) → legfrissebb Summit archive → Distribute App →
+   Custom → App Store Connect → Upload (Manage version and build number:
+   BE, symbols: BE, internal-only: KI) → Next.
+3. Provisionok: fent (Summit.app) `csabav3`, lent (SummitWidgets.appex)
+   `wideget` (az egyetlen) → Next, végig.
+4. Safari (App Store Connect már nyitva): frissítgetés, amíg az 1.0 alatt
+   meg nem jelenik az új build → `+` → External testing → release note
+   a lenti formátum-szabály szerint → kitenni.
+A Next-gombokra nem kell rákérdezni, csak kattintani; a Manage-verziót a
+user kérésére mindig visszakapcsoljuk (BE).
+
 ## Release notes formátum (kötelező, minden AI-asszisztensre vonatkozik)
 Ha a user release note-ot kér, a válasz MINDIG egy angol Summit-szójáték
 címsorral kezdődjön — a `To Summit up:` csak egy minta, mindig új, a
