@@ -21,7 +21,14 @@
 //   TEAM_ID     — 10 jegyű csapat-azonosító (Team ID)
 // Vars (Text variables):
 //   BUNDLE_ID   — pl. hu.flint (topic: <BUNDLE_ID>.push-type.liveactivity)
-// Cron trigger: "* * * * *" (percenként).
+// Cron trigger: "*/5 * * * *" (5 percenként).
+// Miért nem percenként: a free tier KV-kvótája napi 1k LIST — a perces
+// cron 1440 listát égetne naponta, és elfogyna (a feltöltések hash-őr
+// miatt amúgy sem sűrűk: napi pár tucat write az 1k-s keretben bőven
+// elfér). 5 perccel 288 lista/nap (~29% kvóta), a kézbesítés legfeljebb
+// ~5 percet csúszik a határhoz képest — a záróképernyős kártya
+// átkapcsolására ez bőven elég (az élő visszaszámlálót a widget magától
+// tickeli, a push csak az állapotot fordítja).
 //
 // Megjegyzés: a .p8-at EGYSZER kell elkérni annak, aki Admin a fejlesztői
 // csapatban (az app bundle-jának gazdája). Ugyanaz a kulcs jó sandboxra

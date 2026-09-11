@@ -13,7 +13,10 @@ push-tokent, és feltölti a workerbe a mai határokhoz tartozó kész
 2. **KV:** Workers & Pages → KV → Create namespace (pl. `summit-plans`) →
    vissza a workerre: Settings → Bindings → Add → KV namespace, neve
    pontosan `PLANS`.
-3. **Cron:** a worker Settings → Triggers → Add Cron Trigger: `* * * * *`.
+3. **Cron:** a worker Settings → Triggers → Add Cron Trigger: `*/5 * * * *`
+   (5 percenként — NEM percenként: a free KV-kvóta napi 1k list, a perces
+   cron 1440-et égetne és elfogyna; 5 perccel 288/nap, a push legfeljebb
+   ~5 percet késik a határhoz képest).
 4. **Változók:** Settings → Variables:
    - Text: `BUNDLE_ID` = `hu.flint`
    - Secrets → Add: `APNS_KEY` (a `.p8` fájl TARTALMA egyben),
