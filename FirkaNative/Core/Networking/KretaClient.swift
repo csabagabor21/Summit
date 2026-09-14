@@ -453,8 +453,10 @@ final class KretaClient: ObservableObject {
         } catch { return message }
     }
 
-    /// Csatolmány-letöltés: (fájl-név, tartalom). Több útvonalat próbál,
-    /// az első működőt adja vissza. Demo-backend: helyben generált minta-PDF.
+    /// Csatolmány-letöltés: (fájl-név, tartalom). Refilc-sorrendben próbál,
+    /// az első VALÓDI fájlválaszt adja vissza. Demo-backend: helyben generált minta-PDF.
+    /// - `ownerId` (házi-uid) megmaradt a hívóhelyek kompatibilitásáért, de a
+    ///   Refilc-útvonalhoz nem kell: a `Csatolmany/{uid}` önmagában címez.
     func downloadAttachment(_ att: AttachmentItem, ownerId: String? = nil) async -> (fileName: String, data: Data)? {
         if isDemoBackend(iss: instituteCode ?? "") {
             return (att.name, Self.demoPDF(title: att.name))
@@ -462,12 +464,18 @@ final class KretaClient: ObservableObject {
         let iss = JWT.validInstituteCode(instituteCode)
             ?? JWT.validInstituteCode(JWT.instituteCode(from: accessToken ?? "")) ?? ""
         var urls: [URL] = []
-        if let ownerId, !iss.isEmpty, let u = KretaAPI.homeworkAttachment(iss, homeworkId: ownerId, attachmentId: att.id) { urls.append(u) }
-        if !iss.isEmpty, let u = KretaAPI.genericAttachment(iss, attachmentId: att.id) { urls.append(u) }
+        // 1) Házi/dolgozat: intézeti Ellenőrző, egyes számú Csatolmany/{uid}.
+        if !iss.isEmpty, let u = KretaAPI.homeworkAttachment(iss, attachmentId: att.id) { urls.append(u) }
+        // 2) Üzenet: e-Ügyintézés fileservice (a részlet `azonosito`-jával).
+        if let u = KretaAPI.messageAttachment(att.id) { urls.append(u) }
         for url in urls {
             do {
                 let data: Data = try await getRaw(url)
-                if !data.isEmpty { return (att.name, data) }
+                // Hibaoldal (JSON/HTML) nem fájl: a QuickLook egy .pdf néven
+                // mentett hibaoldaltól csak üres nézetet adna — dobjuk, és
+                // próbáljuk a következő útvonalat / jelezzük a hibát.
+                if KretaDownloadSniff.looksLikeFileData(data, fileName: att.name) { return (att.name, data) }
+                diag("csatolmány: nem fájl-válasz (\(att.name), \(data.count) byte)")
             } catch { continue }
         }
         diag("csatolmány: letöltés sikertelen (\(att.name))")

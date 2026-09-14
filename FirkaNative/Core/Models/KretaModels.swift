@@ -114,6 +114,14 @@ enum KretaAttachmentParser {
             let items = arr.compactMap { ($0 as? [String: Any]).flatMap(item(from:)) }
             if !items.isEmpty { return items }
         }
+        // Üzenet-részlet (ekreta-docs-v3): a `csatolmanyok` nem a gyökérben,
+        // hanem a beágyazott `uzenet` objektumban lakik — oda is benézünk.
+        for (_, v) in d {
+            if let sub = v as? [String: Any] {
+                let items = fromDict(sub)
+                if !items.isEmpty { return items }
+            }
+        }
         return []
     }
 
@@ -145,10 +153,14 @@ enum KretaAttachmentParser {
             if let s = d[k] as? String, !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return s }
             if let n = d[k] as? Int { return String(n) }
         }
-        // Kisbetűsített kulcs-tolerancia.
+        // Kisbetűsített kulcs-tolerancia (az üzenet-végpont `azonosito`/
+        // `fajlNev` kulcsai csupa kisbetűsek, az érték számmal is jöhet).
         let lower = Dictionary(uniqueKeysWithValues: d.map { ($0.key.lowercased(), $0.value) })
         for k in keys {
-            if let s = lower[k.lowercased()] as? String, !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return s }
+            let v = lower[k.lowercased()]
+            if let s = v as? String, !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return s }
+            if let n = v as? Int { return String(n) }
+            if let n = v as? Int64 { return String(n) }
         }
         return nil
     }
@@ -159,7 +171,57 @@ enum KretaAttachmentParser {
             if let n = d[k] as? Int64 { return Int(n) }
             if let s = d[k] as? String, let n = Int(s) { return n }
         }
+        // Kisbetűsített kulcs-tolerancia (a stringgel szimmetrikusan).
+        let lower = Dictionary(uniqueKeysWithValues: d.map { ($0.key.lowercased(), $0.value) })
+        for k in keys {
+            let v = lower[k.lowercased()]
+            if let n = v as? Int { return n }
+            if let n = v as? Int64 { return Int(n) }
+            if let s = v as? String, let n = Int(s) { return n }
+        }
         return nil
+    }
+}
+
+/// Letöltött bájtok őrsége: a KRÉTA hibaoldala (JSON/HTML) nem fájl.
+/// A QuickLook egy `.pdf` néven mentett hibaoldaltól csak üres nézetet adna
+/// ("nem nyílik meg a PDF") — ezért az ilyen választ a kliens elutasítja,
+/// és a következő útvonallal próbálkozik / hibát jelez.
+enum KretaDownloadSniff {
+    static func looksLikeFileData(_ data: Data, fileName: String) -> Bool {
+        guard !data.isEmpty else { return false }
+        // Vezető whitespace átugrása (a JSON-hiba gyakran tördelt).
+        var i = data.startIndex
+        while i < data.endIndex {
+            let b = data[i]
+            if b == 0x20 || b == 0x09 || b == 0x0A || b == 0x0D { i = data.index(after: i) } else { break }
+        }
+        guard i < data.endIndex else { return false }
+        switch data[i] {
+        case 0x7B /* { */, 0x5B /* [ */, 0x3C /* < */:
+            return false // JSON-hiba / HTML-hibaoldal — biztosan nem fájl
+        default:
+            break
+        }
+        // Ismert bináris mágiák: PDF (%PDF), ZIP (PK: docx/xlsx/pptx),
+        // JPEG, PNG, GIF, RAR, 7z, OLE (doc/xls), BMP, RIFF (WebP), ftyp (MP4/MOV).
+        func at(_ k: Int) -> UInt8? {
+            let idx = data.index(i, offsetBy: k, limitedBy: data.endIndex)
+            return idx.flatMap { $0 < data.endIndex ? data[$0] : nil }
+        }
+        if at(0) == 0x25 && at(1) == 0x50 && at(2) == 0x44 && at(3) == 0x46 { return true } // %PDF
+        if at(0) == 0x50 && at(1) == 0x4B { return true } // PK
+        if at(0) == 0xFF && at(1) == 0xD8 { return true } // JPEG
+        if at(0) == 0x89 && at(1) == 0x50 && at(2) == 0x4E && at(3) == 0x47 { return true } // PNG
+        if at(0) == 0x47 && at(1) == 0x49 && at(2) == 0x46 { return true } // GIF
+        if at(0) == 0x52 && at(1) == 0x61 && at(2) == 0x72 { return true } // RAR
+        if at(0) == 0x37 && at(1) == 0x7A { return true } // 7z
+        if at(0) == 0xD0 && at(1) == 0xCF && at(2) == 0x11 && at(3) == 0xE0 { return true } // OLE
+        if at(0) == 0x42 && at(1) == 0x4D { return true } // BMP
+        if at(0) == 0x52 && at(1) == 0x49 && at(2) == 0x46 && at(3) == 0x46 { return true } // RIFF
+        if at(4) == 0x66 && at(5) == 0x74 && at(6) == 0x79 && at(7) == 0x70 { return true } // ftyp
+        // Ritka formátumokat nem dobunk el: ami nem JSON/HTML-hibaoldal, mehet.
+        return true
     }
 }
 

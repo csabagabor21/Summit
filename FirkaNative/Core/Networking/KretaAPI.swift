@@ -74,13 +74,22 @@ enum KretaAPI {
     static func messageDetail(id: String) -> URL? {
         URL(string: adminBase + "/api/v1/kommunikacio/postaladaelemek/\(id)")
     }
-    /// Csatolmány-letöltés (házi / dolgozat / üzenet): a kliens több
-    /// útvonalat végigpróbál, az első működőt tartja meg.
-    static func homeworkAttachment(_ iss: String, homeworkId: String, attachmentId: String) -> URL? {
-        URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/HaziFeladatok/\(homeworkId)/Csatolmanyok/\(attachmentId)")
+    /// Házi/dolgozat csatolmány-letöltés Refilc-mintára
+    /// (refilc_kreta_api `KretaApiEndpoints.downloadHomeworkAttachments`):
+    /// EGYES számú `Csatolmany/{uid}` az intézeti Ellenőrző hoston.
+    /// A Refilc a `type`-ot átveszi, de az URL-be nem építi be — egyetlen
+    /// uid-útvonal van, házi-azonosító NÉLKÜL. A régi beágyazott
+    /// `HaziFeladatok/{hw}/Csatolmanyok/{att}` és a többes számú
+    /// `Csatolmanyok/{att}` útvonal nem létezik (404 → nem nyílt meg a PDF).
+    static func homeworkAttachment(_ iss: String, attachmentId: String) -> URL? {
+        URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Csatolmany/\(attachmentId)")
     }
-    static func genericAttachment(_ iss: String, attachmentId: String) -> URL? {
-        URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Csatolmanyok/\(attachmentId)")
+    /// Üzenet-csatolmány (e-Ügyintézés fileservice, ekreta-docs-v3 +
+    /// Refilc `KretaAdminEndpoints.downloadAttachment`): a részlet
+    /// `uzenet.csatolmanyok` listájának `azonosito`-ja ide megy,
+    /// NEM az intézeti (`{iss}.e-kreta.hu`) hostra.
+    static func messageAttachment(_ attachmentId: String) -> URL? {
+        URL(string: adminBase + "/api/v1/dokumentumok/uzenetek/\(attachmentId)")
     }
     // Tantárgyi átlagok — minden felvett tárgyat visszaad, akkor is ha még nincs benne jegy (KRÉTA tudja)
     static func subjectAverages(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Ertekelesek/Atlagok/TantargyiAtlagok") }
