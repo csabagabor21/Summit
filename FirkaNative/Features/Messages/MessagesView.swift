@@ -156,15 +156,13 @@ struct MessagesView: View {
             .contentShape(Rectangle())
             .onTapGesture { toggleNote(n.id, expanded: expanded) }
             HStack(spacing: 6) {
-                if !n.typeName.isEmpty {
-                    Text(n.typeName).font(.caption2.weight(.semibold))
-                        .padding(.horizontal, 8).padding(.vertical, 3)
-                        .background(Capsule().fill(colors.accent.opacity(0.14)))
-                }
+                Text(n.displayType).font(.caption2.weight(.semibold))
+                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .background(Capsule().fill(colors.accent.opacity(0.14)))
                 if !n.teacher.isEmpty {
                     Text(n.teacher).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
-                Text(n.date.formatted(date: .abbreviated, time: .omitted))
+                Text(huDate(n.date))
                     .font(.caption2).foregroundStyle(.tertiary)
             }
             if expanded {
@@ -183,6 +181,14 @@ struct MessagesView: View {
         }
         .padding(.vertical, 4)
         .listRowBackground(colors.surface)
+    }
+
+    // Magyar dátum — az eszköz nyelve angol is lehet (a szimulátoron is),
+    // a feljegyzés-dátum ezért fix hu_HU formátumú ("2026. szept. 2."),
+    // nem a rendszer "2026. Sep 2."-ja.
+    private func huDate(_ d: Date) -> String {
+        let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "yyyy. MMM d."
+        return f.string(from: d)
     }
 
     private func toggleNote(_ id: String, expanded: Bool) {

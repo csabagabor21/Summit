@@ -484,6 +484,39 @@ func friendlyExamMode(_ raw: String) -> String {
     return words.prefix(1).uppercased() + words.dropFirst().lowercased()
 }
 
+/// KRÉTA nyers feljegyzés-típus (pl. "ElektronikusUzenet") → szép magyar név.
+/// A KRÉTA a típust kód-szerűen, egybeírva adja — ezt tilos nyersen
+/// kipillezni ("ElektronikusUzenet"). Ismeretlen kódra camelCase/snake_case
+/// széttördeléssel csinálunk olvashatót, üresre fallback.
+func friendlyNoteType(_ raw: String) -> String {
+    let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    if t.isEmpty { return "Feljegyzés" }
+    let map: [String: String] = [
+        "elektronikusuzenet": "Elektronikus üzenet",
+        "elektronikus uzenet": "Elektronikus üzenet",
+        "dicseret": "Dicséret",
+        "felmentes": "Felmentés",
+        "tajekoztatas": "Tájékoztatás",
+        "figyelmeztetes": "Figyelmeztetés",
+        "figyelmeztetés": "Figyelmeztetés",
+        "megrovás": "Megrovás",
+        "megrovas": "Megrovás",
+    ]
+    let folded = t.lowercased().folding(options: .diacriticInsensitive, locale: .current)
+    if let m = map[folded] ?? map[t.lowercased()] { return m }
+    // camelCase/PascalCase széttördelés: "ValamiUzenet" → "Valami Uzenet"
+    var out = ""
+    for (i, ch) in t.enumerated() {
+        if i > 0 && ch.isUppercase {
+            let prev = t[t.index(t.startIndex, offsetBy: i - 1)]
+            if prev.isLowercase { out += " " }
+        }
+        out.append(ch)
+    }
+    out = out.replacingOccurrences(of: "_", with: " ").replacingOccurrences(of: "-", with: " ")
+    return out.prefix(1).uppercased() + out.dropFirst()
+}
+
 // MARK: - Kreta date helper — handles KRÉTA's mixed formats (with/without TZ, with/without fractional)
 enum KretaDateParser {
     static func parse(_ s: String?) -> Date? {
@@ -787,6 +820,9 @@ struct NoteItem: Identifiable, Hashable {
     let teacher: String
     let typeName: String
     var plainBody: String { HomeworkPlain.text(from: body) }
+    /// A pillben mindig a szép magyar típusnév jelenik meg,
+    /// sosem a nyers KRÉTA-kód ("ElektronikusUzenet").
+    var displayType: String { friendlyNoteType(typeName) }
 }
 
 /// Feljegyzés-DTO: a V3-as kulcsnevek verziónként szórnak (Targy/Cim,
@@ -849,7 +885,7 @@ struct KretaNoteDTO: Decodable {
         let body = (Szoveg ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return NoteItem(
             id: Uid ?? UUID().uuidString,
-            title: title.isEmpty ? (Tipus?.Nev ?? "Feljegyzés") : title,
+            title: title.isEmpty ? friendlyNoteType(Tipus?.Nev ?? "") : title,
             body: body,
             date: p(Datum),
             teacher: (TanarNeve ?? "").trimmingCharacters(in: .whitespaces),
