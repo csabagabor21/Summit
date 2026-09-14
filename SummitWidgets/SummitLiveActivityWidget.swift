@@ -65,7 +65,10 @@ struct SummitLiveActivityWidget: Widget {
                     // ÉLŐ progress: a rendszer animálja, app-update nélkül —
                     // mint a Maps navigációs sávja. (A Date()-alapú fix érték
                     // két update között beragadt volna.)
-                    ProgressView(timerInterval: context.state.lessonStart...context.state.lessonEnd)
+                    // countsDown: false KÖTELEZŐ — az alapértelmezett true
+                    // LEFELÉ üríti a csíkot (visszafele megy), nekünk pedig
+                    // az eltelt idővel TÖLTŐDŐ sáv kell.
+                    ProgressView(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: false)
                         .tint(statusTint(context))
                 }
             } compactLeading: {
@@ -164,7 +167,8 @@ private struct LockScreenView: View {
             }
             // Full szélességű ÉLŐ progress — a rendszer animálja,
             // app-update nélkül (mint a Maps navigációs sávja).
-            ProgressView(timerInterval: context.state.lessonStart...context.state.lessonEnd)
+            // countsDown: false — különben a csík visszafele (leürülés) menne.
+            ProgressView(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: false)
                 .tint(isBreak ? accent : statusTint)
             // Alsó sor: következő óra nyíllal + fennmaradó percek
             HStack(spacing: 6) {

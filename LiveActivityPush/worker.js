@@ -9,7 +9,7 @@
 //    { userId, dayKey, pushToken, sandbox, entries: [{ fireAt, contentState }] }
 //    A contentState-t az app számolja (ő az egyetlen igazságforrás),
 //    a worker csak időzítve kézbesíti.
-//  - Percenkénti cron végigmegy a mára szóló terveken, és ami lejárt
+//  - 5 percenkénti cron végigmegy a mára szóló terveken, és ami lejárt
 //    (fireAt <= most, még nem küldött), azt POST-olja az Apple APNs-nek.
 //
 // KV binding neve: PLANS (KV namespace, key: "plan:<dayKey>:<userId>").
@@ -21,15 +21,16 @@
 //   TEAM_ID     — 10 jegyű csapat-azonosító (Team ID)
 // Vars (Text variables):
 //   BUNDLE_ID   — pl. hu.flint (topic: <BUNDLE_ID>.push-type.liveactivity)
-// Cron trigger: "* * * * *" (percenként).
+// Cron trigger: "*/5 * * * *" (5 percenként).
 // Miért fér bele a free tierbe: a cron NEM listáz (a KV LIST napi 1k-s
 // kvótáját a perces lista 1440-nel túllépné). Helyette a /plan minden
 // feltöltéskor karbantart egy `index` kulcsot (a tervkulcsok tömbje),
-// a cron pedig csak azt az 1 kulcsot olvassa (napi 1440 GET) + terven
+// a cron pedig csak azt az 1 kulcsot olvassa (napi ~288 GET) + terven
 // egy GET-et — ez a 100k-s napi olvasási keret töredéke. A kézbesítés
-// így legfeljebb ~1 percet csúszik a határhoz képest (a demo-teszt
-// 2 perces átmenete is belefér), az élő visszaszámlálót a widget
-// magától tickeli, a push csak az állapotot fordítja.
+// így legfeljebb ~5 percet csúszik a határhoz képest (a demo-teszt
+// 2 perces átmenetei összevonódva, késve érkezhetnek), az élő
+// visszaszámlálót a widget magától tickeli, a push csak az állapotot
+// fordítja.
 //
 // Megjegyzés: a .p8-at EGYSZER kell elkérni annak, aki Admin a fejlesztői
 // csapatban (az app bundle-jának gazdája). Ugyanaz a kulcs jó sandboxra
@@ -48,6 +49,55 @@ function b64url(bytes) {
   return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+// ECDSA DER -> JWS nyers (R||S) konverzió.
+//
+// A WebCrypto `subtle.sign` ECDSA-val a futtatókörnyezettől függően vagy
+// ASN.1 DER-kódolt (böngészők, Cloudflare workerd — a spec szerinti), vagy
+// nyers R||S (pl. újabb Node) aláírást ad vissza. A JWS (ES256) viszont
+// MINDIG a fix 64 bájtos nyers R||S formát követeli meg: a DER-rel aláírt
+// JWT-t az Apple 403 InvalidProviderToken-nel dobja, és SEMMELYIK push
+// nem érkezik meg (a worker ilyenkor 10x újrapróbálja, majd csendben
+// elengedi — kívülről "totál halottnak" látszik).
+// Ezért: DER-t (0x30 ...) átalakítunk, a már nyers 64 bájtot változatlanul
+// hagyjuk — így mindkét futtatókörnyezetben helyes tokent kapunk.
+// Valodi DER? (0x30 SEQ + a teljes hosszra raillo hossz-mezo.)
+// A puszta elso bajt nem donthet: egy nyers R||S alairas 1/256 esellyel
+// szinten 0x30-cal kezdodik — de akkor a "hossz-mezo" szinte biztosan nem
+// adja ki a tenyleges hosszt, igy azt nyerskent tartjuk meg.
+function isDerSequence(sig) {
+  if (sig.length < 8 || sig[0] !== 0x30) return -1;
+  let total = sig[1], hdr = 2;
+  if ((total & 0x80) !== 0) {
+    const n = total & 0x7f;
+    if (n === 0 || n > 2 || sig.length < 2 + n) return -1;
+    total = 0; for (let i = 0; i < n; i++) total = (total << 8) | sig[2 + i];
+    hdr = 2 + n;
+  }
+  return hdr + total === sig.length ? hdr : -1;
+}
+
+function ecdsaSigToRaw(sig) {
+  const hdr = isDerSequence(sig);
+  if (hdr < 0) {
+    if (sig.length === 64) return sig; // mar nyers R||S
+    throw new Error("Ismeretlen ECDSA alairas-formatum");
+  }
+  let o = hdr;
+  const takeInt = () => {
+    if (sig[o++] !== 0x02) throw new Error("Hibas DER INTEGER");
+    let len = sig[o++];
+    if ((len & 0x80) !== 0) { const n = len & 0x7f; len = 0; for (let i = 0; i < n; i++) len = (len << 8) | sig[o++]; }
+    let v = sig.slice(o, o + len); o += len;
+    while (v.length > 1 && v[0] === 0x00) v = v.slice(1); // vezeto nulla-padding le
+    if (v.length > 32) throw new Error("Tul hosszu DER INTEGER");
+    const out = new Uint8Array(32); out.set(v, 32 - v.length); // balrol nullazva
+    return out;
+  };
+  const r = takeInt(), s = takeInt();
+  const raw = new Uint8Array(64); raw.set(r, 0); raw.set(s, 32);
+  return raw;
+}
+
 async function apnsJwt(env) {
   const now = Math.floor(Date.now() / 1000);
   if (jwtCache.token && now - jwtCache.at < 50 * 60) return jwtCache.token;
@@ -58,7 +108,7 @@ async function apnsJwt(env) {
   const raw = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
   const key = await crypto.subtle.importKey("pkcs8", raw.buffer, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
   const sig = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(unsigned)));
-  jwtCache = { token: `${unsigned}.${b64url(sig)}`, at: now };
+  jwtCache = { token: `${unsigned}.${b64url(ecdsaSigToRaw(sig))}`, at: now };
   return jwtCache.token;
 }
 
@@ -180,7 +230,7 @@ async function handlePlan(request, env) {
     entries: entries.map((e) => ({ fireAt: e.fireAt, contentState: e.contentState, staleDate: e.staleDate || null })),
     updatedAt: Math.floor(Date.now() / 1000),
   }));
-  // Index-karbantartás a LIST-mentes perces cronhoz (1 PUT feltöltésenként —
+  // Index-karbantartás a LIST-mentes 5 perces cronhoz (1 PUT feltöltésenként —
   // a feltöltések hash-őr miatt napi pár tucat, bőven a keretben).
   // Üres (törlő) feltöltéskor a kulcs kikerül az indexből.
   const prev = (await readIndex(env)) || [];
@@ -193,6 +243,9 @@ async function handlePlan(request, env) {
   }
   return Response.json({ ok: true, entries: entries.length });
 }
+
+// Tesztelhetoseg kedveert (a Cloudflare csak a default exportot nezi).
+export { ecdsaSigToRaw };
 
 export default {
   async fetch(request, env) {
