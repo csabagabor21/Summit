@@ -1,5 +1,13 @@
 # Summit release notes
 
+## Build 14
+- The Lock Screen card now flips lessons even with the phone locked in your pocket — the long fight with the server is over, handoffs just arrive.
+- The progress bar fills up during lessons and drains during breaks, so you can see at a glance which one is running out.
+- New Messages tab: KRÉTA messages open right in the app, attachments included.
+- Homework and exams can carry attachments too — PDFs open in a built-in viewer.
+- The Today button in the timetable now appears whenever you've swiped away from today, not just when switching weeks.
+- The Developer test button waits for the push channel before uploading, so evening lock-screen tests work on the first tap — and Diagnostics no longer shows stale warnings next to a freshly arrived channel.
+
 ## Build 13
 - If the Lock Screen card ever gets stuck without server updates after an app update, Summit now restarts it by itself (at most once a day) — no reinstall needed.
 - New restart button in Developer settings: it revives a stuck card, waits for the push channel, and sends the day plan up right away.
