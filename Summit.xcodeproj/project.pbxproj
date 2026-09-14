@@ -32,6 +32,7 @@
 		76752C875CB743BE18894408 /* LiveCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F08AAC09AED35E586880C3 /* LiveCardView.swift */; };
 		77DDD734CA756ED5F9079FFE /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B583B6C153A6667EF44FA31 /* FeedView.swift */; };
 		7C0F28E3F337A7A37682A693 /* SubjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85D39B9212DD03C8DC8D44A9 /* SubjectDetailView.swift */; };
+		B7B1C2D3E4F5061728394A5B /* SummitMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B1C2D3E4F5061728394A5B /* SummitMotion.swift */; };
 		7E1A0ED474A7A629DBFC5888 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 994B88B24DE91E2B0F59CAEB /* ContentView.swift */; };
 		7E985966C1A47C81DC29F551 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E954ADB490013B5DCE52078 /* HomeViewModel.swift */; };
 		806A49F9C7B875C5E0124D34 /* showcase1.png in Resources */ = {isa = PBXBuildFile; fileRef = 8080F293104888E9B66544B3 /* showcase1.png */; };
@@ -123,6 +124,7 @@
 		8080F293104888E9B66544B3 /* showcase1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase1.png; sourceTree = "<group>"; };
 		82A1969A19D465070B5D9D16 /* ic_splash.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_splash.png; sourceTree = "<group>"; };
 		85D39B9212DD03C8DC8D44A9 /* SubjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectDetailView.swift; sourceTree = "<group>"; };
+		A7B1C2D3E4F5061728394A5B /* SummitMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitMotion.swift; sourceTree = "<group>"; };
 		888F7384D4773D1C3BCE5570 /* SummitLiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityManager.swift; sourceTree = "<group>"; };
 		8AF82F0EE85913650A024661 /* ExemptedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExemptedStore.swift; sourceTree = "<group>"; };
 		8B34D700082CBC9796AA731F /* TeacherRoundingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeacherRoundingView.swift; sourceTree = "<group>"; };
@@ -226,6 +228,7 @@
 				E6699562344F56B767C796F7 /* AppTheme.swift */,
 				630D3F7140DAD8A14041B2F9 /* GradeChartView.swift */,
 				D71686153B4EAB1990577975 /* GradeCircle.swift */,
+				A7B1C2D3E4F5061728394A5B /* SummitMotion.swift */,
 				30EFB3459DEFF383F8DF8668 /* ThemeStore.swift */,
 			);
 			path = Theme;
@@ -577,6 +580,7 @@
 				C9E1519A1D0042F8B08CE8A0 /* DeveloperView.swift in Sources */,
 				891A56B341C2C628B38291F8 /* Student.swift in Sources */,
 				7C0F28E3F337A7A37682A693 /* SubjectDetailView.swift in Sources */,
+				B7B1C2D3E4F5061728394A5B /* SummitMotion.swift in Sources */,
 				070BED0806B24776C9CA0378 /* TeacherRoundingView.swift in Sources */,
 				08B20D4184B2C1194D0A0884 /* ThemeStore.swift in Sources */,
 				A46197861CEB176F0BEED984 /* TimetableView.swift in Sources */,

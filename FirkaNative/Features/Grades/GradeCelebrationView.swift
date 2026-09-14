@@ -72,8 +72,8 @@ struct GradeCelebrationView: View {
                         .fill(gradeColor.opacity(0.25))
                         .blur(radius: 34)
                         .frame(width: 190, height: 190)
-                        .scaleEffect(pulse ? 1.14 : 1.0)
-                        .opacity(pulse ? 1 : 0.75)
+                        .scaleEffect(pulse ? 1.08 : 1.0)
+                        .opacity(pulse ? 1 : 0.8)
                     ZStack {
                         Circle().fill(Color.clear)
                             .glassEffect(.clear, in: .circle)
@@ -115,7 +115,7 @@ struct GradeCelebrationView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 28)
                 .opacity(appeared ? 1 : 0)
-                .animation(.spring(response: 0.55, dampingFraction: 0.8).delay(0.15), value: appeared)
+                .animation(SummitMotion.entrance(delay: 0.15), value: appeared)
 
                 Spacer(minLength: 20)
 
@@ -141,12 +141,12 @@ struct GradeCelebrationView: View {
                 .padding(.horizontal, 28)
                 .padding(.bottom, 8)
                 .opacity(appeared ? 1 : 0)
-                .animation(.spring(response: 0.55, dampingFraction: 0.8).delay(0.3), value: appeared)
+                .animation(SummitMotion.entrance(delay: 0.3), value: appeared)
             }
         }
         .onAppear {
             UINotificationFeedbackGenerator().notificationOccurred(.success)
-            withAnimation(.spring(response: 0.55, dampingFraction: 0.72)) { appeared = true }
+            withAnimation(SummitMotion.gentle) { appeared = true }
             withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { pulse = true }
         }
         .task {
@@ -177,17 +177,18 @@ private struct ConfettiView: View {
         let colorIdx: Int
         let round: Bool
     }
+    // Visszafogott mennyiség (48): ünnepi, de nem zúdul az arcodba.
     private var pieces: [Piece] {
-        (0..<90).map { i in
+        (0..<48).map { i in
             let r1 = Double((i * 37 + 11) % 100) / 100.0
             let r2 = Double((i * 53 + 29) % 100) / 100.0
             let r3 = Double((i * 71 + 47) % 100) / 100.0
             return Piece(
                 x: r1,
-                delay: 0.15 + r2 * 1.3,
-                duration: 2.6 + r3 * 1.6,
-                w: 7 + r2 * 8,
-                h: 10 + r3 * 10,
+                delay: 0.15 + r2 * 1.1,
+                duration: 2.2 + r3 * 1.2,
+                w: 5 + r2 * 6,
+                h: 8 + r3 * 8,
                 colorIdx: i % 5,
                 round: i % 3 == 0
             )
@@ -219,7 +220,7 @@ private struct ConfettiView: View {
                         x: p.x * geo.size.width,
                         y: fall ? geo.size.height + 40 : -40
                     )
-                    .rotationEffect(.degrees(fall ? 540 : 0))
+                    .rotationEffect(.degrees(fall ? 360 : 0))
                     .animation(
                         .linear(duration: p.duration).delay(p.delay),
                         value: fall

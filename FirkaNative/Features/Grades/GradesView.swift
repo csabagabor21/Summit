@@ -40,7 +40,7 @@ struct GradesView: View {
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
                         .listRowSeparator(.hidden)
-                        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedTab)
+                        .animation(SummitMotion.snappy, value: selectedTab)
                     }
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
@@ -224,7 +224,7 @@ struct GradesView: View {
                     .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
                 }
             }
-            .animation(.spring(response: 0.38, dampingFraction: 0.82), value: selectedTab)
+            .animation(SummitMotion.gentle, value: selectedTab)
             .listStyle(.insetGrouped)
             .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
             .frame(maxWidth: .infinity)

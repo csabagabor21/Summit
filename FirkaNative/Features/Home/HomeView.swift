@@ -23,12 +23,13 @@ struct HomeView: View {
 
         NavigationStack {
             List {
-                // Greeting
+                // Greeting — egyetlen finom belépés képernyőnként, nem soronként
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("\(vm.greeting), \(firstName)!").font(.title2.weight(.bold)).foregroundStyle(.primary)
                         Text(Date.now.formatted(date: .complete, time: .omitted).capitalized).font(.subheadline).foregroundStyle(.secondary)
                     }
+                    .summitEntrance()
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 4, trailing: 16))
                     .listRowSeparator(.hidden)
@@ -75,7 +76,7 @@ struct HomeView: View {
                 // Az idő-eltolás csúszka a Fejlesztői módban él (Beállítások alján
                 // feloldható) — itt csak az eltolt idő szerint rajzolunk, ha aktív.
                 HomeLiveCard(lessons: vm.lessonsToday, exams: vm.exams, homeworks: vm.homeworks, overrideNow: isPreviewActive && devMode ? previewDate : nil)
-                    .animation(.spring(response: 0.42, dampingFraction: 0.86), value: devMode)
+                    .animation(SummitMotion.gentle, value: devMode)
 
                 // Legújabb jegyek — koppintva a tantárgyba visz
                 Section {
@@ -118,7 +119,7 @@ struct HomeView: View {
                                 } else {
                                     ForEach(Array(examsSorted), id: \.id) { e in
                                         PadExamRow(exam: e, done: completed.isExamDone(e.id), colors: colors, scheme: scheme) {
-                                            withAnimation(.spring(response: 0.3)) { completed.toggleExam(e.id) }
+                                            withAnimation(SummitMotion.snappy) { completed.toggleExam(e.id) }
                                         }
                                     }
                                     if vm.exams.count > 3 { NavigationLink("Összes dolgozat (\(vm.exams.count))") { NotesView() }.font(.caption.weight(.semibold)).tint(colors.accent) }
@@ -132,7 +133,7 @@ struct HomeView: View {
                                 } else {
                                     ForEach(Array(hwSorted), id: \.id) { h in
                                         PadHomeworkRow(homework: h, done: completed.isHomeworkDone(h.id), colors: colors, scheme: scheme) {
-                                            withAnimation(.spring(response: 0.3)) { completed.toggleHomework(h.id) }
+                                            withAnimation(SummitMotion.snappy) { completed.toggleHomework(h.id) }
                                         }
                                     }
                                     if vm.homeworks.count > 3 { NavigationLink("Összes feladat (\(vm.homeworks.count))") { NotesView() }.font(.caption.weight(.semibold)).tint(colors.accent) }
@@ -166,7 +167,7 @@ struct HomeView: View {
                                 done: completed.isExamDone(e.id),
                                 colors: colors,
                                 scheme: scheme,
-                                onToggle: { withAnimation(.spring(response: 0.3)) { completed.toggleExam(e.id) } },
+                                onToggle: { withAnimation(SummitMotion.snappy) { completed.toggleExam(e.id) } },
                                 onTap: {
                                     NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": e.subject, "deadline": e.date.timeIntervalSince1970])
                                 }
@@ -198,7 +199,7 @@ struct HomeView: View {
                                 done: completed.isHomeworkDone(h.id),
                                 colors: colors,
                                 scheme: scheme,
-                                onToggle: { withAnimation(.spring(response: 0.3)) { completed.toggleHomework(h.id) } },
+                                onToggle: { withAnimation(SummitMotion.snappy) { completed.toggleHomework(h.id) } },
                                 onTap: {
                                     NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": h.subject, "deadline": h.deadline.timeIntervalSince1970])
                                 }
@@ -733,7 +734,8 @@ private struct LiveCalc {
     }
 }
 
-// MARK: - Home sima progress — régi, animáció nélkül
+// MARK: - Home progress — a 15 mp-es Timeline-lépések közti ugrást
+// lineárisan simítja, így az óra-csík folyamatosan kúszik, nem pattog.
 private struct HomeLiquidProgress: View {
     let progress: Double
     let tint: Color
@@ -743,6 +745,7 @@ private struct HomeLiquidProgress: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             ProgressView(value: progress).tint(tint)
+                .animation(SummitMotion.progress, value: progress)
             Text(remainingText).font(.caption2.weight(.medium)).foregroundStyle(.secondary).monospacedDigit().contentTransition(.numericText())
         }
     }

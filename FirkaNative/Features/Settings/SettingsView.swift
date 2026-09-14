@@ -151,7 +151,7 @@ struct SettingsView: View {
                                 Circle().fill(c).frame(width: 30, height: 30)
                                     .overlay(Circle().strokeBorder(Color.primary.opacity(theme.accentHex == hex ? 0.9 : 0.18), lineWidth: theme.accentHex == hex ? 2 : 1))
                                     .scaleEffect(theme.accentHex == hex ? 1.12 : 1)
-                                    .onTapGesture { withAnimation(.spring(response: 0.3)) { theme.accentHex = hex } }
+                                    .onTapGesture { withAnimation(SummitMotion.snappy) { theme.accentHex = hex } }
                                     .accessibilityLabel(Text(String(format: "#%06X", hex)))
                             }
                             Spacer()

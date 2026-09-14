@@ -8,15 +8,20 @@ struct LoginView: View {
     @State private var showWeb = false
     @Environment(\.colorScheme) var scheme
     @Environment(\.horizontalSizeClass) private var hSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var bgZoom = false
     private var isPad: Bool { hSize == .regular }
     var colors: AppColors { theme.colors(for: scheme) }
 
     var body: some View {
         ZStack {
-            // Gleccser háttérkép (asset katalógus) — sötét átmenettel az olvashatóságért
+            // Gleccser háttérkép (asset katalógus) — sötét átmenettel az olvashatóságért.
+            // Alig észrevehető, lassú közelítés (ken-burns): életet ad a belépésnek,
+            // de nem mozog "önmagáért". Reduce Motion mellett áll.
             Image("Glacier")
                 .resizable()
                 .scaledToFill()
+                .scaleEffect(bgZoom ? 1.07 : 1.0)
                 .ignoresSafeArea()
             LinearGradient(
                 colors: [.black.opacity(0.55), .black.opacity(0.2), .black.opacity(0.7)],
@@ -31,6 +36,7 @@ struct LoginView: View {
                     .tracking(-1.5)
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.4), radius: 8, y: 2)
+                    .summitEntrance(delay: 0.05)
                 Spacer()
                 if vm.isLoading { ProgressView().tint(.white).padding(.bottom, 12) }
                 if let e = vm.error { Text(e).font(.footnote).foregroundStyle(.white).multilineTextAlignment(.center).padding(.bottom, 12).shadow(color: .black.opacity(0.5), radius: 4) }
@@ -52,6 +58,11 @@ struct LoginView: View {
             .frame(maxWidth: isPad ? 320 : .infinity)
             .padding(.horizontal, 32)
             .padding(.bottom, 24)
+            .summitEntrance(delay: 0.2)
+        }
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeOut(duration: 14)) { bgZoom = true }
         }
         .sheet(isPresented: $showWeb) {
             NavigationStack {

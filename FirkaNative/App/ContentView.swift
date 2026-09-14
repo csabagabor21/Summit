@@ -12,7 +12,7 @@ struct ContentView: View {
                 content
             }
         }
-        .animation(.spring(response: 0.42, dampingFraction: 0.86), value: session.isLoggedIn)
+        .animation(SummitMotion.gentle, value: session.isLoggedIn)
     }
 
     private var content: some View {

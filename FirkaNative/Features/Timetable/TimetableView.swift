@@ -101,7 +101,7 @@ struct TimetableView: View {
     /// számolunk, mert az még a régi hetet mutathatná.
     private func goToSmartToday() {
         suppressAutoJumpUntil = .distantPast
-        withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) { weekOffset = 0 }
+        withAnimation(SummitMotion.page) { weekOffset = 0 }
         userHasNavigated = false
         Task { await load() }
     }
@@ -136,7 +136,7 @@ struct TimetableView: View {
                     HStack(spacing: 0) {
                         Button {
                             userHasNavigated = true
-                            withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) { weekOffset -= 1 }
+                            withAnimation(SummitMotion.page) { weekOffset -= 1 }
                             Task { await load() }
                         } label: {
                             Image(systemName: "chevron.left")
@@ -159,7 +159,7 @@ struct TimetableView: View {
                                 .font(.caption2.weight(.medium).monospacedDigit())
                                 .foregroundStyle(.secondary)
                         }
-                        .animation(.spring(response: 0.34, dampingFraction: 0.84), value: weekOffset)
+                        .animation(SummitMotion.page, value: weekOffset)
                         .onTapGesture {
                             guard weekOffset != 0 else { return }
                             goToSmartToday()
@@ -169,7 +169,7 @@ struct TimetableView: View {
 
                         Button {
                             userHasNavigated = true
-                            withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) { weekOffset += 1 }
+                            withAnimation(SummitMotion.page) { weekOffset += 1 }
                             Task { await load() }
                         } label: {
                             Image(systemName: "chevron.right")
@@ -219,7 +219,7 @@ struct TimetableView: View {
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 6, trailing: 16))
                     .listRowSeparator(.hidden)
-                    .animation(.spring(response: 0.34, dampingFraction: 0.82), value: selectedDay)
+                    .animation(SummitMotion.page, value: selectedDay)
                 }
 
                 // Az idő-eltolás csúszka a Fejlesztői módban él — itt csak az
@@ -312,7 +312,7 @@ struct TimetableView: View {
                         let dy = value.translation.height
                         guard abs(dx) > abs(dy), abs(dx) > 52 else { return }
                         userHasNavigated = true
-                        withAnimation(.spring(response: 0.36, dampingFraction: 0.84)) {
+                        withAnimation(SummitMotion.page) {
                             if dx < 0 {
                                 if let idx = dayTags.firstIndex(of: selectedDay), idx < dayTags.count - 1 {
                                     selectedDay = dayTags[idx + 1]
@@ -333,8 +333,8 @@ struct TimetableView: View {
                         }
                     }
             )
-            .animation(.spring(response: 0.36, dampingFraction: 0.84), value: selectedDay)
-            .animation(.spring(response: 0.36, dampingFraction: 0.84), value: weekOffset)
+            .animation(SummitMotion.page, value: selectedDay)
+            .animation(SummitMotion.page, value: weekOffset)
             .refreshable { await load() }
             .navigationTitle("Órarend")
             .navigationBarTitleDisplayMode(.large)
@@ -374,7 +374,7 @@ struct TimetableView: View {
                 if match == nil { match = lessons.first(where: { SubjectMatcher.same($0.subject, subject) }) }
                 guard let m = match else { return }
                 suppressAutoJumpUntil = Date().addingTimeInterval(3) // deeplink célja marad, nincs okos ugrás
-                withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                withAnimation(SummitMotion.page) {
                     selectedDay = cal.component(.weekday, from: m.start)
                     flashedLessonID = m.id
                     flashPulse = false
@@ -815,7 +815,8 @@ private struct TimetableRow: View {
     }
 }
 
-// MARK: - Folyamatjelző — régi sima bar, animáció nélkül
+// MARK: - Folyamatjelző — a 15 mp-es Timeline-lépések közti ugrást
+// lineárisan simítja, így az aktuális óra csíkja folyamatosan kúszik.
 private struct TimetableLiquidProgress: View {
     let progress: Double
     let tint: Color
@@ -825,6 +826,7 @@ private struct TimetableLiquidProgress: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             ProgressView(value: progress).tint(tint)
+                .animation(SummitMotion.progress, value: progress)
             Text(remainingText).font(.caption2.weight(.medium)).foregroundStyle(.secondary).monospacedDigit()
                 .contentTransition(.numericText())
         }

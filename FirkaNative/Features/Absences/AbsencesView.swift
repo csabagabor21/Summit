@@ -244,7 +244,7 @@ struct AbsencesView: View {
                             }
                             if unjustifiedItems.count > 3 {
                                 Button {
-                                    withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) { unjustifiedExpanded.toggle() }
+                                    withAnimation(SummitMotion.gentle) { unjustifiedExpanded.toggle() }
                                 } label: {
                                     HStack {
                                         Text(unjustifiedExpanded ? "Kevesebb" : "További \(unjustifiedItems.count - 3)")
@@ -273,13 +273,13 @@ struct AbsencesView: View {
                                 Image(systemName: unjustifiedExpanded ? "chevron.up" : "chevron.down")
                                     .font(.caption2.weight(.bold))
                                     .foregroundStyle(.secondary)
-                                    .animation(.spring(response: 0.34, dampingFraction: 0.82), value: unjustifiedExpanded)
+                                    .animation(SummitMotion.gentle, value: unjustifiedExpanded)
                             }
                         }
                         .contentShape(Rectangle())
                         .onTapGesture {
                             guard unjustifiedItems.count > 3 else { return }
-                            withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) { unjustifiedExpanded.toggle() }
+                            withAnimation(SummitMotion.gentle) { unjustifiedExpanded.toggle() }
                         }
                     }
 
@@ -310,7 +310,7 @@ struct AbsencesView: View {
                             }
                             if justifiedItems.count > 3 {
                                 Button {
-                                    withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) { justifiedExpanded.toggle() }
+                                    withAnimation(SummitMotion.gentle) { justifiedExpanded.toggle() }
                                 } label: {
                                     HStack {
                                         Text(justifiedExpanded ? "Kevesebb" : "További \(justifiedItems.count - 3)")
@@ -339,13 +339,13 @@ struct AbsencesView: View {
                                 Image(systemName: justifiedExpanded ? "chevron.up" : "chevron.down")
                                     .font(.caption2.weight(.bold))
                                     .foregroundStyle(.secondary)
-                                    .animation(.spring(response: 0.34, dampingFraction: 0.82), value: justifiedExpanded)
+                                    .animation(SummitMotion.gentle, value: justifiedExpanded)
                             }
                         }
                         .contentShape(Rectangle())
                         .onTapGesture {
                             guard justifiedItems.count > 3 else { return }
-                            withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) { justifiedExpanded.toggle() }
+                            withAnimation(SummitMotion.gentle) { justifiedExpanded.toggle() }
                         }
                     }
                 }
@@ -360,8 +360,8 @@ struct AbsencesView: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .task { await load() }
             .refreshable { await load() }
-            .animation(.spring(response: 0.42, dampingFraction: 0.86), value: absences.count)
-            .animation(.spring(response: 0.5, dampingFraction: 0.82), value: totalDelay)
+            .animation(SummitMotion.gentle, value: absences.count)
+            .animation(SummitMotion.gentle, value: totalDelay)
         }
         .tint(colors.accent)
     }
@@ -436,7 +436,7 @@ private struct DelayRingWidget: View {
                     .monospacedDigit()
                     .foregroundStyle(isFull ? Color.red : .primary)
                     .contentTransition(.numericText())
-                    .animation(.spring(response: 0.5, dampingFraction: 0.85), value: displayed)
+                    .animation(SummitMotion.gentle, value: displayed)
             }
             .frame(width: 98, height: 98)
             Spacer().frame(height: 10)

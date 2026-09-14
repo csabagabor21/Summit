@@ -31,7 +31,7 @@ struct NotesView: View {
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
                     .listRowSeparator(.hidden)
-                    .animation(.spring(response: 0.34, dampingFraction: 0.82), value: filter)
+                    .animation(SummitMotion.gentle, value: filter)
                 }
 
                 if isLoading {
@@ -78,8 +78,8 @@ struct NotesView: View {
             .frame(maxWidth: .infinity)
             .scrollContentBackground(.hidden)
             .background(colors.background)
-            .animation(.spring(response: 0.36, dampingFraction: 0.84), value: currentIsEmpty)
-            .animation(.spring(response: 0.36, dampingFraction: 0.84), value: filter)
+            .animation(SummitMotion.gentle, value: currentIsEmpty)
+            .animation(SummitMotion.gentle, value: filter)
             .navigationTitle("Feladatok")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.visible, for: .navigationBar)
@@ -159,7 +159,7 @@ struct NotesView: View {
         return huDateTime(exam.date)
     }
     private func toggleExpanded(_ id: String, expanded: Bool) {
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+        withAnimation(SummitMotion.snappy) {
             if expanded { expandedIDs.remove(id) } else { expandedIDs.insert(id) }
         }
     }
@@ -169,7 +169,7 @@ struct NotesView: View {
         let done = completed.isHomeworkDone(hw.id) || hw.isDone
         let expanded = expandedIDs.contains(hw.id)
         HStack(alignment: .top, spacing: 10) {
-            Button { withAnimation(.spring(response: 0.3)) { completed.toggleHomework(hw.id) } } label: {
+            Button { withAnimation(SummitMotion.snappy) { completed.toggleHomework(hw.id) } } label: {
                 Image(systemName: done ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 22))
                     .foregroundStyle(done ? Color.green : .secondary)
@@ -239,7 +239,7 @@ struct NotesView: View {
         // Kipipálható (ready vagy-e), de a listában marad — nem tűnik el, mint a házi
         let ready = completed.isExamDone(exam.id)
         HStack(alignment: .top, spacing: 10) {
-            Button { withAnimation(.spring(response: 0.3)) { completed.toggleExam(exam.id) } } label: {
+            Button { withAnimation(SummitMotion.snappy) { completed.toggleExam(exam.id) } } label: {
                 Image(systemName: ready ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 22))
                     .foregroundStyle(ready ? Color.green : .secondary)

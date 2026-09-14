@@ -166,7 +166,7 @@ struct SubjectDetailView: View {
         .background(colors.background)
         .navigationTitle(subject)
         .navigationBarTitleDisplayMode(.large)
-        .animation(.spring(response: 0.42, dampingFraction: 0.86), value: graphRange)
+        .animation(SummitMotion.gentle, value: graphRange)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showAdd = true } label: { Image(systemName: "plus.circle.fill").font(.title3) }
@@ -187,7 +187,7 @@ struct SubjectDetailView: View {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Hozzáadás") {
                             let g = GradeItem(id: "phantom-\(UUID())", subject: subject, value: addValue, valueText: "\(addValue)", date: Date().addingTimeInterval(Double(phantom.count)*60), teacher: "Fantom", type: "Fantom", weight: addWeight, topic: "")
-                            withAnimation(.spring(response: 0.6, dampingFraction: 0.82)) { phantom.append(g) }
+                            withAnimation(SummitMotion.gentle) { phantom.append(g) }
                             showAdd = false
                         }.tint(colors.accent)
                     }
