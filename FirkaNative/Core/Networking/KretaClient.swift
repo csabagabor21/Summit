@@ -394,40 +394,63 @@ final class KretaClient: ObservableObject {
             diag("dolgozat: \(r.count) db"); return r
         } catch { diagErr("dolgozat", error); return [] }
     }
-    func fetchMessages() async -> [MessageItem] {
+    /// Postaláda-doboz (e-Ügyintézés): beérkezett / elküldött / törölt.
+    /// A doboznevek az ekreta-docs-v3 szerint (`beerkezett`, `elkuldott`,
+    /// `torolt`) — a régi `bejovo`/`kimenő`/`piszkozat` nevekre az API
+    /// nem válaszolt, ezért nem töltődött be semmi.
+    func fetchMessages(box: KretaAPI.Mailbox) async -> [MessageItem] {
         if isDemoBackend(iss: instituteCode ?? "") {
-            let r = DemoData.messages()
-            diag("üzenet: \(r.count) db (demo)"); return r
+            // Demo: csak a beérkezettben van tartalom, az elküldött/törölt üres.
+            if box == .incoming {
+                let r = DemoData.messages()
+                diag("üzenet/\(box.rawValue): \(r.count) db (demo)"); return r
+            }
+            diag("üzenet/\(box.rawValue): 0 db (demo)"); return []
         }
-        // eugyintezes - try bejovo, then kimenő
-        for endpoint in ["bejovo", "kimenő", "piszkozat"] {
-            guard let url = KretaAPI.messages(endpoint) else { continue }
-            do {
-                let dtos: [KretaMessageDTO] = try await get(url)
-                if !dtos.isEmpty {
-                    let r = dtos.map { $0.toItem() }.sorted { $0.date > $1.date }
-                    diag("üzenet: \(r.count) db"); return r
-                }
-            } catch { diagErr("üzenet/\(endpoint)", error); continue }
+        guard let url = KretaAPI.messages(box) else { diag("üzenet/\(box.rawValue): rossz URL"); return [] }
+        do {
+            let data: Data = try await getRaw(url)
+            let r = KretaMessageDTO.lenientItems(from: data).sorted { $0.date > $1.date }
+            diag("üzenet/\(box.rawValue): \(r.count) db"); return r
+        } catch { diagErr("üzenet/\(box.rawValue)", error); return [] }
+    }
+
+    /// Kompat: a főoldali csengő-jelvény a beérkezett dobozt figyeli.
+    func fetchMessages() async -> [MessageItem] { await fetchMessages(box: .incoming) }
+
+    /// Elektronikus feljegyzések (KRÉTA-wide broadcast mindenkinek):
+    /// intézeti Ellenőrző API `Sajat/Feljegyzesek` — nem a postaláda.
+    func fetchNotes(iss: String) async -> [NoteItem] {
+        if isDemoBackend(iss: iss) {
+            let r = DemoData.notes()
+            diag("feljegyzés: \(r.count) db (demo)"); return r
         }
-        return []
+        guard let url = KretaAPI.notes(iss) else { diag("feljegyzés: rossz URL"); return [] }
+        do {
+            let data: Data = try await getRaw(url)
+            let r = KretaNoteDTO.lenientItems(from: data).sorted { $0.date > $1.date }
+            diag("feljegyzés: \(r.count) db"); return r
+        } catch { diagErr("feljegyzés", error); return [] }
     }
 
     // MARK: - Üzenet-részlet + csatolmány-letöltés (PDF-megnyitáshoz)
 
-    /// Egy üzenet törzse + csatolmányai. Demo-backend: helyből, hálózat nélkül.
+    /// Egy üzenet törzse + csatolmányai (`postaladaelemek/{id}`).
+    /// Demo-backend: helyből, hálózat nélkül.
     func fetchMessageDetail(_ message: MessageItem) async -> MessageItem {
         if isDemoBackend(iss: instituteCode ?? "") { return message }
-        for endpoint in ["bejovo", "kimenő", "piszkozat"] {
-            guard let url = KretaAPI.messageDetails(endpoint, id: message.id) else { continue }
-            do {
-                let data: Data = try await getRaw(url)
-                let body = KretaAttachmentParser.messageBody(from: data) ?? ""
-                let atts = KretaAttachmentParser.attachments(from: data)
-                if !body.isEmpty || !atts.isEmpty { return message.withDetail(body: body, attachments: atts) }
-            } catch { continue }
-        }
-        return message
+        guard let url = KretaAPI.messageDetail(id: message.id) else { return message }
+        do {
+            let data: Data = try await getRaw(url)
+            guard let parsed = KretaMessageDetail.parse(from: data) else { return message }
+            var updated = message.withDetail(body: parsed.body, attachments: KretaAttachmentParser.attachments(from: data))
+            if let s = parsed.sender, !s.isEmpty, (message.sender == "Üzenet" || message.sender.isEmpty) {
+                updated = MessageItem(id: updated.id, sender: s, subject: parsed.subject ?? updated.subject,
+                                      date: parsed.date ?? updated.date, isRead: updated.isRead,
+                                      body: updated.body, attachments: updated.attachments)
+            }
+            return updated
+        } catch { return message }
     }
 
     /// Csatolmány-letöltés: (fájl-név, tartalom). Több útvonalat próbál,

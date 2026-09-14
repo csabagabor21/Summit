@@ -689,29 +689,172 @@ struct KretaAbsenceDTO: Decodable {
     }
 }
 
+/// KRÉTA-postaláda lista-elem (e-Ügyintézés, ekreta-docs-v3 "Get all messages"):
+/// `{ azonosito, uzenetAzonosito, uzenetKuldesDatum, uzenetFeladoNev,
+///    uzenetFeladoTitulus, uzenetTargy, hasCsatolmany, isElolvasva }`.
+/// A lista a törzset nem (vagy csak csonkítva) hozza — azt a
+/// `postaladaelemek/{id}` részlet adja (`uzenet.szoveg`).
 struct KretaMessageDTO: Decodable {
+    let azonosito: Int?
+    let uzenetAzonosito: Int?
+    let uzenetKuldesDatum: String?
+    let uzenetFeladoNev: String?
+    let uzenetTargy: String?
+    let hasCsatolmany: Bool?
+    let isElolvasva: Bool?
+
+    // Régi/eltérő kulcsvariánsok fallback-je (toleráns dekódolás).
     let azon: String?
-    let uzenet: UzenetDTO?
     let feladoNev: String?
     let targy: String?
     let elkuldve: String?
 
-    // eugyintezes uses different wrapper; be lenient
-    struct UzenetDTO: Decodable { let targy: String?; let feladoNev: String?; let elkuldve: String? }
+    enum CodingKeys: String, CodingKey {
+        case azonosito, uzenetAzonosito, uzenetKuldesDatum, uzenetFeladoNev,
+             uzenetTargy, hasCsatolmany, isElolvasva,
+             azon, feladoNev, targy, elkuldve
+    }
 
-    // fallback keys
-    let sender: String?
-    let subject: String?
-    let date: String?
+    /// Elemenkénti toleráns dekódolás: egy hibás elem nem nullázza a listát.
+    /// Mivel minden mező opcionális, a teljesen üres (azonosító nélküli)
+    /// elemeket itt dobjuk — különben minden szemétből "(nincs tárgy)" sor lenne.
+    static func lenientItems(from data: Data) -> [MessageItem] {
+        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [Any] else {
+            return (try? JSONDecoder().decode([KretaMessageDTO].self, from: data))?.filter { $0.hasIdentity }.map { $0.toItem() } ?? []
+        }
+        let decoder = JSONDecoder()
+        return raw.compactMap { element in
+            guard let ed = try? JSONSerialization.data(withJSONObject: element),
+                  let dto = try? decoder.decode(KretaMessageDTO.self, from: ed),
+                  dto.hasIdentity else { return nil }
+            return dto.toItem()
+        }
+    }
 
-    enum CodingKeys: String, CodingKey { case azon, uzenet, feladoNev, targy, elkuldve, sender, subject, date }
+    /// Valódi lista-elem-e (van azonosítója)? A KRÉTA mindig ad `azonosito`-t.
+    var hasIdentity: Bool { azonosito != nil || uzenetAzonosito != nil || azon != nil }
 
     func toItem() -> MessageItem {
         func p(_ s: String?) -> Date { KretaDateParser.parse(s) ?? Date() }
-        let s = feladoNev ?? uzenet?.feladoNev ?? sender ?? "Üzenet"
-        let t = targy ?? uzenet?.targy ?? subject ?? "(nincs tárgy)"
-        let d = elkuldve ?? uzenet?.elkuldve ?? date
-        return MessageItem(id: azon ?? UUID().uuidString, sender: s, subject: t, date: p(d), isRead: false)
+        let id: String
+        if let a = azonosito { id = String(a) }
+        else if let u = uzenetAzonosito { id = String(u) }
+        else { id = azon ?? UUID().uuidString }
+        let s = (uzenetFeladoNev ?? feladoNev ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let t = (uzenetTargy ?? targy ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return MessageItem(
+            id: id,
+            sender: s.isEmpty ? "Üzenet" : s,
+            subject: t.isEmpty ? "(nincs tárgy)" : t,
+            date: p(uzenetKuldesDatum ?? elkuldve),
+            isRead: isElolvasva ?? false
+        )
+    }
+}
+
+/// KRÉTA-postaláda részlet-payload (`postaladaelemek/{id}`, ekreta-docs-v3
+/// "Get information about a specific message"): a törzs az `uzenet.szoveg`
+/// kulcson jön, a feladó/tárgy/dátum az `uzenet.*` mezőkben ismétlődik.
+enum KretaMessageDetail {
+    static func parse(from data: Data) -> (body: String, sender: String?, subject: String?, date: Date?)? {
+        guard let d = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        let msg = d["uzenet"] as? [String: Any] ?? d
+        func s(_ keys: String...) -> String? {
+            for k in keys {
+                if let v = msg[k] as? String, !v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return v }
+                if let v = d[k] as? String, !v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return v }
+            }
+            return nil
+        }
+        let body = s("szoveg", "Szoveg", "Tartalom", "Body", "Text", "Leiras", "Message", "content") ?? ""
+        let atts = KretaAttachmentParser.attachments(from: data)
+        guard !body.isEmpty || !atts.isEmpty else { return nil }
+        let sender = s("feladoNev", "FeladoNev", "feladoNeve")
+        let subject = s("targy", "Targy")
+        let date = KretaDateParser.parse(s("kuldesDatum", "KuldesDatum", "elkuldve") ?? "")
+        return (body, sender, subject, date)
+    }
+}
+
+/// Elektronikus feljegyzés (KRÉTA-wide broadcast: az iskola küldi mindenkinek).
+/// Forrás: intézeti Ellenőrző API `Sajat/Feljegyzesek` — NEM az e-Ügyintézés
+/// postaládája, ezért külön modell és külön fetch-járata van.
+struct NoteItem: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let body: String
+    let date: Date
+    let teacher: String
+    let typeName: String
+    var plainBody: String { HomeworkPlain.text(from: body) }
+}
+
+/// Feljegyzés-DTO: a V3-as kulcsnevek verziónként szórnak (Targy/Cim,
+/// Szoveg/Tartalom/Leiras, Datum/KeszitesDatuma, TanarNeve/RogzitoNeve,
+/// Tipus.Nev), ezért az Exams-mintára kulcs-toleráns dekódolás.
+struct KretaNoteDTO: Decodable {
+    let Uid: String?
+    let Targy: String?
+    let Szoveg: String?
+    let Datum: String?
+    let TanarNeve: String?
+    let Tipus: TipusDTO?
+
+    private struct AnyKey: CodingKey {
+        var stringValue: String
+        init?(stringValue: String) { self.stringValue = stringValue }
+        var intValue: Int? { nil }
+        init?(intValue: Int) { nil }
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: AnyKey.self)
+        func s(_ keys: String...) -> String? {
+            for k in keys {
+                guard let key = AnyKey(stringValue: k) else { continue }
+                if let v = try? c.decodeIfPresent(String.self, forKey: key),
+                   !v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return v }
+            }
+            return nil
+        }
+        Uid = s("Uid")
+        Targy = s("Targy", "Cim", "Title", "Nev")
+        Szoveg = s("Szoveg", "Tartalom", "Leiras", "SzovegesLeiras", "Megjegyzes", "Text", "Body")
+        Datum = s("Datum", "Datuma", "KeszitesDatuma", "RogzitesDatuma", "LetrehozasDatuma", "Idopont")
+        TanarNeve = s("TanarNeve", "RogzitoNeve", "RogzitoTanarNeve", "FeladoNeve", "KeszitoNeve")
+        Tipus = try? c.decodeIfPresent(TipusDTO.self, forKey: AnyKey(stringValue: "Tipus")!)
+    }
+
+    static func lenientItems(from data: Data) -> [NoteItem] {
+        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [Any] else {
+            return (try? JSONDecoder().decode([KretaNoteDTO].self, from: data))?.filter { $0.hasContent }.map { $0.toItem() } ?? []
+        }
+        let decoder = JSONDecoder()
+        return raw.compactMap { element in
+            guard let ed = try? JSONSerialization.data(withJSONObject: element),
+                  let dto = try? decoder.decode(KretaNoteDTO.self, from: ed),
+                  dto.hasContent else { return nil }
+            return dto.toItem()
+        }
+    }
+
+    /// Valódi feljegyzés-e (van azonosítója vagy érdemi tartalma)?
+    var hasContent: Bool {
+        Uid != nil || !(Targy ?? "").isEmpty || !(Szoveg ?? "").isEmpty
+    }
+
+    func toItem() -> NoteItem {
+        func p(_ s: String?) -> Date { KretaDateParser.parse(s) ?? Date() }
+        let title = (Targy ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let body = (Szoveg ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return NoteItem(
+            id: Uid ?? UUID().uuidString,
+            title: title.isEmpty ? (Tipus?.Nev ?? "Feljegyzés") : title,
+            body: body,
+            date: p(Datum),
+            teacher: (TanarNeve ?? "").trimmingCharacters(in: .whitespaces),
+            typeName: (Tipus?.Nev ?? "").trimmingCharacters(in: .whitespaces)
+        )
     }
 }
 
@@ -957,6 +1100,12 @@ enum DemoData {
                     body: "Tájékoztatjuk a tanulókat, hogy az őszi szünet a kiírt rend szerint alakul. Jó pihenést kívánunk!"),
         MessageItem(id: "m3", sender: "Kovács J.", subject: "Pót ZH időpont", date: Date().addingTimeInterval(-86400*2), isRead: false,
                     body: "A pót ZH időpontja jövő hét szerda, 3. óra. A feladatsor a csatolmányban!"),
+    ]}
+    /// Elektronikus feljegyzések (KRÉTA-wide broadcast mindenkinek) — demo.
+    static func notes() -> [NoteItem] { [
+        NoteItem(id: "n1", title: "Dicséret — tanulmányi verseny", body: "Az iskola vezetése dicséretben részesíti az osztály tanulóit a megyei tanulmányi versenyen elért eredményükért.", date: Date().addingTimeInterval(-3600*8), teacher: "Igazgatóság", typeName: "Dicséret"),
+        NoteItem(id: "n2", title: "Tájékoztatás — ebédbefizetés", body: "A következő havi ebédbefizetés határideje a hónap 15. napja. Kérjük a határidő betartását!", date: Date().addingTimeInterval(-86400*2), teacher: "Gazdasági iroda", typeName: "Tájékoztatás"),
+        NoteItem(id: "n3", title: "Figyelmeztetés — házirend", body: "Felhívjuk a figyelmet a házirend pontos betartására az órák közötti szünetekben.", date: Date().addingTimeInterval(-86400*5), teacher: "Osztályfőnök", typeName: "Figyelmeztetés"),
     ]}
     static func exams() -> [ExamItem] {
         // Tanítási napokra horgonyozva (ehhez a héthez, hétfő–péntek),

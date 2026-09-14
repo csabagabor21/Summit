@@ -57,11 +57,22 @@ enum KretaAPI {
     static func absences(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Mulasztasok") }
     static func notes(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Feljegyzesek") }
     static func events(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/FaliujsagElemek") }
-    static func messages(_ endpoint: String) -> URL? { URL(string: adminBase + "/api/v1/kommunikacio/postaladaelemek/\(endpoint)") }
-    /// Egy üzenet részlete (törzs + csatolmánylista) — több végpont-variánst
-    /// próbál a kliens, mert az e-ügyintézés API-verziónként eltérhet.
-    static func messageDetails(_ endpoint: String, id: String) -> URL? {
-        URL(string: adminBase + "/api/v1/kommunikacio/postaladaelemek/\(endpoint)/\(id)")
+    /// Postaláda-lista (e-Ügyintézés): a KRÉTA csak ezt a három dobozt
+    /// ismeri — ekreta-docs-v3 ("Get all messages": az endpoint
+    /// `beerkezett`, `elkuldott` vagy `torolt` lehet).
+    /// A régi `bejovo`/`kimenő`/`piszkozat` nevekre az API nem válaszol,
+    /// ezért nem töltődött be semmi az Üzenetek képernyőn.
+    enum Mailbox: String, CaseIterable {
+        case incoming = "beerkezett"
+        case sent = "elkuldott"
+        case trash = "torolt"
+    }
+    static func messages(_ box: Mailbox) -> URL? { URL(string: adminBase + "/api/v1/kommunikacio/postaladaelemek/\(box.rawValue)") }
+    /// Egy üzenet részlete (törzs + csatolmánylista) a numerikus
+    /// azonosító alapján: `postaladaelemek/{id}` (ekreta-docs-v3:
+    /// "Get information about a specific message").
+    static func messageDetail(id: String) -> URL? {
+        URL(string: adminBase + "/api/v1/kommunikacio/postaladaelemek/\(id)")
     }
     /// Csatolmány-letöltés (házi / dolgozat / üzenet): a kliens több
     /// útvonalat végigpróbál, az első működőt tartja meg.
