@@ -474,7 +474,11 @@ struct AbsenceItem: Identifiable, Hashable {
     let id: String
     let subject: String
     let date: Date
-    let type: String // Igazolt / Igazolatlan
+    let type: String // megjelenítendő név (pl. "Orvosi igazolás", "Hiányzás")
+    /// Igazolt-e: csak akkor igaz, ha van rögzített igazolás, és az nem
+    /// "igazolatlan". Hiányzó igazolás (friss, feldolgozatlan tétel) = hamis,
+    /// mert a KRÉTA-ban is addig igazolatlannak számít, amíg nem igazolják.
+    let isJustified: Bool
     let delay: Int?
 }
 struct MessageItem: Identifiable, Hashable {
@@ -774,11 +778,16 @@ struct KretaAbsenceDTO: Decodable {
     let KesesPercben: Int?
     func toItem() -> AbsenceItem {
         func p(_ s: String?) -> Date { KretaDateParser.parse(s) ?? Date() }
+        let justification = IgazolasTipusa?.Nev?.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Nincs rögzített igazolás (friss tétel) → igazolatlan. A sima
+        // típusnév ("Hiányzás") ezután már csak címke, nem státusz.
+        let justified = justification != nil && !justification!.lowercased().contains("igazolatlan")
         return AbsenceItem(
             id: Uid ?? UUID().uuidString,
             subject: Tantargy?.Nev ?? "Hiányzás",
             date: p(Datum),
-            type: IgazolasTipusa?.Nev ?? Tipus?.Nev ?? "Ismeretlen",
+            type: justification ?? Tipus?.Nev ?? "Ismeretlen",
+            isJustified: justified,
             delay: KesesPercben
         )
     }
@@ -1186,9 +1195,9 @@ enum DemoData {
         ]
     }
     static func absences() -> [AbsenceItem] { [
-        AbsenceItem(id: "a1", subject: "Testnevelés", date: Date().addingTimeInterval(-86400*2), type: "Igazolt", delay: nil),
-        AbsenceItem(id: "a2", subject: "Matek", date: Date().addingTimeInterval(-86400*5), type: "Igazolatlan", delay: nil),
-        AbsenceItem(id: "a3", subject: "Angol", date: Date().addingTimeInterval(-86400*8), type: "Késés", delay: 12),
+        AbsenceItem(id: "a1", subject: "Testnevelés", date: Date().addingTimeInterval(-86400*2), type: "Igazolt", isJustified: true, delay: nil),
+        AbsenceItem(id: "a2", subject: "Matek", date: Date().addingTimeInterval(-86400*5), type: "Igazolatlan", isJustified: false, delay: nil),
+        AbsenceItem(id: "a3", subject: "Angol", date: Date().addingTimeInterval(-86400*8), type: "Késés", isJustified: true, delay: 12),
     ]}
     static func messages() -> [MessageItem] { [
         MessageItem(id: "m1", sender: "Osztályfőnök", subject: "Szülői értekezlet pénteken 17h", date: Date().addingTimeInterval(-3600*5), isRead: false,

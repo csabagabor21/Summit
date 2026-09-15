@@ -59,12 +59,12 @@ struct AbsencesView: View {
     private var ringTrim: Double { min(ringProgress, 0.999) }
 
     private var totalCount: Int { absences.count }
-    private var unjustifiedCount: Int { absences.filter { $0.type.lowercased().contains("igazolatlan") }.count }
-    private var justifiedCount: Int { absences.filter { !$0.type.lowercased().contains("igazolatlan") && ($0.type.lowercased().contains("igazolt") || friendlyAbsenceType($0.type) == "Igazolt") }.count }
+    private var unjustifiedCount: Int { absences.filter { !$0.isJustified }.count }
+    private var justifiedCount: Int { absences.filter { $0.isJustified }.count }
     private var delayCount: Int { absences.filter { ($0.type.lowercased().contains("késés") || $0.type.lowercased().contains("keses")) && $0.delay != nil }.count }
 
-    private var unjustifiedItems: [AbsenceItem] { absences.filter { $0.type.lowercased().contains("igazolatlan") }.sorted { $0.date > $1.date } }
-    private var justifiedItems: [AbsenceItem] { absences.filter { !$0.type.lowercased().contains("igazolatlan") }.sorted { $0.date > $1.date } }
+    private var unjustifiedItems: [AbsenceItem] { absences.filter { !$0.isJustified }.sorted { $0.date > $1.date } }
+    private var justifiedItems: [AbsenceItem] { absences.filter { $0.isJustified }.sorted { $0.date > $1.date } }
 
     var body: some View {
         NavigationStack {
