@@ -6,6 +6,7 @@ struct SettingsView: View {
     @EnvironmentObject var theme: ThemeStore
     @EnvironmentObject var kreta: KretaClient
     @EnvironmentObject var profileStore: ProfileImageStore
+    @EnvironmentObject var analytics: AnalyticsStore
     @Environment(\.colorScheme) var scheme
     @Environment(\.horizontalSizeClass) private var hSize
     private var isPad: Bool { hSize == .regular }
@@ -36,6 +37,31 @@ struct SettingsView: View {
             // (/blur) nem függ a sziget méretétől.
             SettingsGlassGroup {
             VStack(spacing: 20) {
+            // Adatvédelem — direkt a tetején: a hozzájárulás visszavonása
+            // egy koppintás (GDPR 7. cikk (3)). Nem az alján, nem eldugva.
+            island(header: "Adatvédelem", footer: "Csak az iskola nevét, egy véletlen telepítés-azonosítót, a verziót és a napot küldi — napi max egyszer. Név, jelszó, jegy, hely, eszköz-ID sosem.") {
+                row {
+                    Toggle(isOn: Binding(
+                        get: { analytics.isEnabled },
+                        set: { analytics.setEnabled($0) }
+                    )) {
+                        Label("Névtelen használati statisztika", systemImage: "chart.bar.fill")
+                            .font(.subheadline.weight(.medium))
+                    }
+                    .tint(colors.accent)
+                }
+                settingsDivider
+                row {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Telepítés-azonosító").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        Text(analytics.installId).font(.caption2.monospaced()).foregroundStyle(.tertiary)
+                            .textSelection(.enabled)
+                        Text("Törlési kérelemhez ezt küldd el e-mailben.")
+                            .font(.caption2).foregroundStyle(.tertiary)
+                    }
+                }
+            }
+
             // Profil-sziget (fejléc nélkül, mint eddig)
             HStack(spacing: 12) {
                 ZStack(alignment: .bottomTrailing) {

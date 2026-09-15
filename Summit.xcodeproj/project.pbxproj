@@ -12,6 +12,8 @@
 		A77AC4B1001A2B3C4D5E6006 /* MessagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A77AC4B1001A2B3C4D5E6004 /* MessagesView.swift */; };
 		070BED0806B24776C9CA0378 /* TeacherRoundingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B34D700082CBC9796AA731F /* TeacherRoundingView.swift */; };
 		07425EA432B29AF616973EFD /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2796FFD5EF18E9AD20A660A2 /* SessionStore.swift */; };
+		B1B2C3D4E5F60718293A4B5C7 /* AnalyticsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C6 /* AnalyticsStore.swift */; };
+		D1B2C3D4E5F60718293A4B5C9 /* AnalyticsConsentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1B2C3D4E5F60718293A4B5C8 /* AnalyticsConsentView.swift */; };
 		08B20D4184B2C1194D0A0884 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30EFB3459DEFF383F8DF8668 /* ThemeStore.swift */; };
 		0D7F31ED54AD916271BAD3F5 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 114F416793F8E8A5BBB69F07 /* HomeView.swift */; };
 		138A5FE91FAA46F7BD543BF2 /* GradeCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFB24E078D65400F947E6C37 /* GradeCelebrationView.swift */; };
@@ -103,6 +105,8 @@
 		182D1911F7DEAA25C5ABA212 /* KretaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaModels.swift; sourceTree = "<group>"; };
 		1F7FAC1C8C85C5123F473597 /* showcase2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase2.png; sourceTree = "<group>"; };
 		2796FFD5EF18E9AD20A660A2 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5C6 /* AnalyticsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsStore.swift; sourceTree = "<group>"; };
+		C1B2C3D4E5F60718293A4B5C8 /* AnalyticsConsentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsConsentView.swift; sourceTree = "<group>"; };
 		27A03FE61351781FF2B0E1ED /* Summit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Summit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2B5C9EC44D39D87241B550D5 /* SummitLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityAttributes.swift; sourceTree = "<group>"; };
 		3086D3040980CBE0BC5728BC /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -300,6 +304,7 @@
 				7B26BDB2D3FAFE6B7F461831 /* AuthViewModel.swift */,
 				A21FFABFBD79176A7FDD582C /* KretaWebView.swift */,
 				917F86853EF0EEB6D842FCF4 /* LoginView.swift */,
+				C1B2C3D4E5F60718293A4B5C8 /* AnalyticsConsentView.swift */,
 			);
 			path = Auth;
 			sourceTree = "<group>";
@@ -389,6 +394,7 @@
 				56AB3DC865533A530A9162C8 /* NotificationManager.swift */,
 				9DEF36C43E5FED1FF34023D9 /* ProfileImageStore.swift */,
 				2796FFD5EF18E9AD20A660A2 /* SessionStore.swift */,
+				A1B2C3D4E5F60718293A4B5C6 /* AnalyticsStore.swift */,
 			);
 			path = Storage;
 			sourceTree = "<group>";
@@ -575,6 +581,8 @@
 				F8896E923D655012621E68C7 /* RootViewModel.swift in Sources */,
 				E0623933380F0CCBEC687550 /* RoundingDetailView.swift in Sources */,
 				07425EA432B29AF616973EFD /* SessionStore.swift in Sources */,
+				B1B2C3D4E5F60718293A4B5C7 /* AnalyticsStore.swift in Sources */,
+				D1B2C3D4E5F60718293A4B5C9 /* AnalyticsConsentView.swift in Sources */,
 				3F9A6A266B4576E426D5B504 /* SettingsView.swift in Sources */,
 				A0FCEF0EED7B41D6BA47C2F7 /* DiagnosticsView.swift in Sources */,
 				C9E1519A1D0042F8B08CE8A0 /* DeveloperView.swift in Sources */,

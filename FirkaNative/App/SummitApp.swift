@@ -7,6 +7,7 @@ struct SummitApp: App {
     @StateObject private var theme = ThemeStore()
     @StateObject private var completed = CompletedStore()
     @StateObject private var profileImages = ProfileImageStore()
+    @StateObject private var analytics = AnalyticsStore()
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -23,6 +24,7 @@ struct SummitApp: App {
                 .environmentObject(theme)
                 .environmentObject(completed)
                 .environmentObject(profileImages)
+                .environmentObject(analytics)
                 .tint(theme.accent)
                 .preferredColorScheme(theme.mode.scheme)
                 .onAppear {
@@ -59,6 +61,14 @@ struct SummitApp: App {
                 }
                 .onChange(of: session.selectedUser?.instituteCode) { _, new in
                     kreta.instituteCode = new
+                    analytics.recordHeartbeat(schoolName: session.selectedUser?.schoolName)
+                }
+                // Beleegyezés pillanatában azonnal menjen ki az első jelzés —
+                // különben csak a következő előtérbe hozáskor küldene.
+                .onChange(of: analytics.hasChosen) { _, chosen in
+                    if chosen {
+                        analytics.recordHeartbeat(schoolName: session.selectedUser?.schoolName)
+                    }
                 }
                 .onChange(of: scenePhase) { _, new in
                     if new == .background {
@@ -88,6 +98,7 @@ struct SummitApp: App {
                         // KRÉTA-token, az első lehúzás már friss tokennel
                         // menjen, ne 401 + üres nézetekkel.
                         Task { await kreta.ensureValidToken() }
+                        analytics.recordHeartbeat(schoolName: session.selectedUser?.schoolName)
                     }
                 }
         }

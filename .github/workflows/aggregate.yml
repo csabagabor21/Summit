@@ -1,0 +1,24 @@
+name: Summit statisztika összesítés
+
+# Óránként fut a GitHub szerverein (nem a saját gépeden), kártya nélkül.
+# Kell hozzá a GCP_SA_KEY repo-secret (service-account kulcs JSON).
+on:
+  schedule:
+    - cron: "7 * * * *" # óránként, :07-kor
+  workflow_dispatch: {} # kézi indítás is lehetséges
+
+jobs:
+  aggregate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install google-auth
+      - env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa-key.json
+        run: |
+          echo '${{ secrets.GCP_SA_KEY }}' > "$GOOGLE_APPLICATION_CREDENTIALS"
+          python3 Firebase/aggregate.py
+          rm -f "$GOOGLE_APPLICATION_CREDENTIALS"

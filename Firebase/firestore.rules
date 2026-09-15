@@ -1,0 +1,82 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: heartbeats
+// Document ID: "{install_id}_{day}" alak (pl. "550e8400-..._2026-09-15")
+// Író: maga az app, közvetlen Firestore REST-hívássl (nincs backend).
+// Fields:
+//   - school_name: string (kötelező, 1-120 char; a KRÉTA-beli intézmény neve —
+//                  nyers kódot sosem küldünk, névből egyén nem beazonosítható)
+//   - install_id:  string (kötelező, 8-64 char, véletlen UUID)
+//   - day:         string (kötelező, yyyy-MM-dd formátum)
+//   - app_version: string (opcionális, max 32 char)
+//   - platform:    string (opcionális, max 32 char)
+//   - createdAt:   timestamp (kötelező, max 10 perccel lehet régebbi)
+//   - expiresAt:   timestamp (kötelező, = createdAt + 365 nap; TTL-mező)
+//
+// Collection: school_pins — név->koordináta térkép-pin szótár
+// ({name, lon, lat}); csak összesítő script írja/olvassa,
+// kliensnek sem írni, sem olvasni nem szabad.
+//
+// Collection: public — összesített, név nélküli térkép-adat ({demo, schools,
+// updated}); bárki olvashatja, senki nem írhatja (írást service account
+// végez konzolból/scriptből).
+//
+// ===============================================================
+
+// ===============================================================
+// Helper Functions
+// ===============================================================
+function hasOnlyAllowedFields(fields) {
+  return request.resource.data.keys().hasOnly(fields);
+}
+
+function isRecent(ts) {
+  return ts is timestamp &&
+    ts <= request.time &&
+    ts > request.time - duration.value(10, 'm');
+}
+
+function isValidHeartbeat() {
+  return hasOnlyAllowedFields(['school_name', 'install_id', 'day', 'app_version', 'platform', 'createdAt', 'expiresAt'])
+    && request.resource.data.school_name is string
+    && request.resource.data.school_name.size() >= 2
+    && request.resource.data.school_name.size() <= 120
+    && request.resource.data.install_id is string
+    && request.resource.data.install_id.size() >= 8
+    && request.resource.data.install_id.size() <= 64
+    && request.resource.data.day is string
+    && request.resource.data.day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+    && (!('app_version' in request.resource.data) || (request.resource.data.app_version is string && request.resource.data.app_version.size() <= 32))
+    && (!('platform' in request.resource.data) || (request.resource.data.platform is string && request.resource.data.platform.size() <= 32))
+    && isRecent(request.resource.data.createdAt)
+    && request.resource.data.expiresAt == request.resource.data.createdAt + duration.value(365, 'd');
+}
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /heartbeats/{doc} {
+      // Csak létrehozás, szigorú sémával; az ID-nek egyeznie kell a tartalommal.
+      allow create: if doc == request.resource.data.install_id + '_' + request.resource.data.day
+        && isValidHeartbeat();
+      allow read, update, delete: if false;
+    }
+
+    match /school_pins/{pin} {
+      allow read, write: if false;
+    }
+
+    match /public/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
