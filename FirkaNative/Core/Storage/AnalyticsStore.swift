@@ -59,8 +59,10 @@ final class AnalyticsStore: ObservableObject {
     }
 
     let installId: String
-    /// Folyamatban lévő küldés napja — párhuzamos duplázás ellen.
+    /// Folyamatban lévő napi küldés napja — párhuzamos duplázás ellen.
     private var inFlightDay: String?
+    /// Esemény-cooldown: ugyanaz az esemény 5 percen belül egyszer küld.
+    private var lastEventFire: [String: Date] = [:]
 
     init() {
         self.hasChosen = UserDefaults.standard.bool(forKey: Self.choiceKey)
@@ -97,21 +99,11 @@ final class AnalyticsStore: ObservableObject {
     /// Napi egy heartbeat, csak ha: be van kapcsolva + van értelmes sulinév.
     /// Kód-szerű, üres és demo neveket nem küldünk (azokból úgysem lenne térkép).
     /// - Parameter schoolName: az iskola KRÉTA-beli neve (`AppUser.schoolName`).
+    /// Napi heartbeat (előtérbe hozáskor): naponta max 1, `{install}_{nap}`
+    /// dokumentumba. Sikertelen próba után a következő trigger újrapróbál.
     func recordHeartbeat(schoolName: String?) {
         let now = Date()
-        guard isEnabled else {
-            note(result: "kihagyva: kikapcsolva", school: schoolName, at: now)
-            return
-        }
-        guard let raw = schoolName?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !raw.isEmpty else {
-            note(result: "kihagyva: nincs iskolanév", school: nil, at: now)
-            return
-        }
-        guard Self.isRealSchoolName(raw) else {
-            note(result: "kihagyva: szűrt név", school: raw, at: now)
-            return
-        }
+        guard let raw = validatedSchoolName(schoolName, at: now) else { return }
         let today = Self.dayBucket(Date())
         if UserDefaults.standard.string(forKey: Self.lastDayKey) == today {
             note(result: "kihagyva: ma már elküldve", school: raw, at: now)
@@ -123,7 +115,45 @@ final class AnalyticsStore: ObservableObject {
         if inFlightDay == today { return }
         inFlightDay = today
         note(result: "küldés…", school: raw, at: now)
-        deliver(schoolName: raw, day: today)
+        deliver(schoolName: raw, day: today, documentId: "\(installId)_\(today)", daily: true)
+    }
+
+    /// Esemény-heartbeat (belépés, statisztika bekapcsolása): azonnal megy,
+    /// naponta többször is, mindig új dokumentumba
+    /// (`{install}_{nap}_{esemény}_{epoch}`). Az összesítő install_id
+    /// alapján deduplikál, így a térkép-szám ettől nem nő meg.
+    /// Kikapcsoláskor direkt nincs hívás — visszavonáskor nem gyűjtünk.
+    func recordEvent(schoolName: String?, event: String) {
+        let now = Date()
+        guard let raw = validatedSchoolName(schoolName, at: now) else { return }
+        if let last = lastEventFire[event], now.timeIntervalSince(last) < 300 {
+            note(result: "kihagyva: \(event) nemrég ment", school: raw, at: now)
+            return
+        }
+        lastEventFire[event] = now
+        let today = Self.dayBucket(Date())
+        let epoch = Int(now.timeIntervalSince1970)
+        note(result: "küldés… (\(event))", school: raw, at: now)
+        deliver(schoolName: raw, day: today, documentId: "\(installId)_\(today)_\(event)_\(epoch)", daily: false)
+    }
+
+    /// Közös előszűrés mindkét küldési útra, diagnosztikai nyommal.
+    /// - Returns: a küldhető iskolanév, vagy nil kihagyáskor.
+    private func validatedSchoolName(_ schoolName: String?, at: Date) -> String? {
+        guard isEnabled else {
+            note(result: "kihagyva: kikapcsolva", school: schoolName, at: at)
+            return nil
+        }
+        guard let raw = schoolName?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty else {
+            note(result: "kihagyva: nincs iskolanév", school: nil, at: at)
+            return nil
+        }
+        guard Self.isRealSchoolName(raw) else {
+            note(result: "kihagyva: szűrt név", school: raw, at: at)
+            return nil
+        }
+        return raw
     }
 
     /// Valódi sulinév-e, vagy kód/demo/üres placeholder.
@@ -145,9 +175,10 @@ final class AnalyticsStore: ObservableObject {
     // MARK: - Private
 
     /// Közvetlen dokumentum-létrehozás a `heartbeats` collectionben.
-    /// Doc-ID: "{install_id}_{day}" — ugyanaz az app ugyanazon a napon
-    /// csak egyszer számít, és a rules ezt ellenőrzi is.
-    private func deliver(schoolName: String, day: String) {
+    /// Napi doc-ID: "{install_id}_{day}", esemény doc-ID:
+    /// "{install_id}_{day}_{esemény}_{epoch}" — a rules mindkettőt
+    /// ellenőrzi (lásd `Firebase/firestore.rules`).
+    private func deliver(schoolName: String, day: String, documentId: String, daily: Bool) {
         let now = Date()
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime]
@@ -169,7 +200,7 @@ final class AnalyticsStore: ObservableObject {
         ]]
         var comps = URLComponents(string: "https://firestore.googleapis.com/v1/projects/\(Self.projectId)/databases/(default)/documents/heartbeats")!
         comps.queryItems = [
-            URLQueryItem(name: "documentId", value: "\(installId)_\(day)"),
+            URLQueryItem(name: "documentId", value: documentId),
             URLQueryItem(name: "key", value: Self.apiKey)
         ]
         var req = URLRequest(url: comps.url!)
@@ -182,6 +213,10 @@ final class AnalyticsStore: ObservableObject {
             let ok: Bool
             if code == 200 {
                 result = "OK 200"; ok = true
+            } else if code == 409 {
+                // Már létezik (pl. ugyanazon másodpercen belüli dupla esemény
+                // vagy újratelepített napi jelölés) — az adat bent van.
+                result = "OK (dupla)"; ok = true
             } else if let code {
                 result = "HTTP \(code)"; ok = false
             } else {
@@ -190,7 +225,7 @@ final class AnalyticsStore: ObservableObject {
             #if DEBUG
             if !ok { print("[analytics] heartbeat \(result): \(err?.localizedDescription ?? "–")") }
             #endif
-            Task { await self?.applyDelivery(day: day, result: result, ok: ok) }
+            Task { await self?.applyDelivery(day: day, result: result, ok: ok, daily: daily) }
         }.resume()
     }
 
@@ -206,12 +241,15 @@ final class AnalyticsStore: ObservableObject {
         lastAttempt = iso.string(from: at)
     }
 
-    /// Küldés lezárása: a napi jelölés csak HTTP 200-ra áll be, különben
-    /// a következő trigger újrapróbálkozik.
-    private func applyDelivery(day: String, result: String, ok: Bool) {
-        if inFlightDay == day { inFlightDay = nil }
+    /// Küldés lezárása: a napi jelölés csak a NAPI doc sikerére áll be,
+    /// különben a következő trigger újrapróbálkozik. Az esemény-doc sikere
+    /// a napi jelölést nem érinti (a kettő független).
+    private func applyDelivery(day: String, result: String, ok: Bool, daily: Bool) {
+        if daily {
+            if inFlightDay == day { inFlightDay = nil }
+            if ok { UserDefaults.standard.set(day, forKey: Self.lastDayKey) }
+        }
         lastResult = result
-        if ok { UserDefaults.standard.set(day, forKey: Self.lastDayKey) }
     }
 
     private static func dayBucket(_ d: Date) -> String {

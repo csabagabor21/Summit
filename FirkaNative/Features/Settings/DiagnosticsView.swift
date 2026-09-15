@@ -20,7 +20,7 @@ struct DiagnosticsView: View {
             } header: {
                 Text("Statisztika (térkép)")
             } footer: {
-                Text("Napi max 1 heartbeat a Firestore heartbeats gyűjteménybe. Nem OK 200 esetén a következő előtérbe hozás vagy belépés újrapróbálja.")
+                Text("Előtérben naponta max 1, belépéskor és bekapcsoláskor azonnal — külön dokumentumban. A térkép install_id alapján számol, a dupla nem dupláz. Sikertelenségkor a következő trigger újrapróbálja.")
             }
             Section("Állapot") {
                 diagRow("Iskola", session.selectedUser?.instituteCode ?? "–")

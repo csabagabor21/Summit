@@ -5,8 +5,10 @@ rules_version = '2';
 // ===============================================================
 //
 // Collection: heartbeats
-// Document ID: "{install_id}_{day}" alak (pl. "550e8400-..._2026-09-15")
+// Document ID: napi "{install_id}_{day}" (pl. "550e8400-..._2026-09-15")
+// vagy esemény "{install_id}_{day}_{esemény}_{epoch}" (pl. "..._login_1757960000").
 // Író: maga az app, közvetlen Firestore REST-hívássl (nincs backend).
+// Az összesítő install_id alapján deduplikál, a több doc nem dupláz.
 // Fields:
 //   - school_name: string (kötelező, 1-120 char; a KRÉTA-beli intézmény neve —
 //                  nyers kódot sosem küldünk, névből egyén nem beazonosítható)
@@ -60,8 +62,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     match /heartbeats/{doc} {
-      // Csak létrehozás, szigorú sémával; az ID-nek egyeznie kell a tartalommal.
-      allow create: if doc == request.resource.data.install_id + '_' + request.resource.data.day
+      // Csak létrehozás, szigorú sémával; az ID-nek egyeznie kell a tartalommal:
+      // napi doc vagy esemény-doc ({install}_{nap}_{esemény}_{epoch}).
+      // Az alap UUID+hex+kötőjel, így regex-biztos a matches-ben (full-match).
+      allow create: if (doc == request.resource.data.install_id + '_' + request.resource.data.day
+          || doc.matches(request.resource.data.install_id + '_' + request.resource.data.day + '_[a-z]+_[0-9]+'))
         && isValidHeartbeat();
       allow read, update, delete: if false;
     }

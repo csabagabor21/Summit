@@ -18,9 +18,15 @@ struct SummitApp: App {
 
     /// Heartbeat egy helyről: ha az iskolanév üres vagy szűrt (pl. belépéskor
     /// nem jött meg az adatlap), a KRÉTA-adatlapból pótolja, csak utána küld.
-    private func sendHeartbeat() async {
+    /// - Parameter event: nil = napi (előtér), különben azonnali esemény
+    ///   ("login" belépéskor, "consent" bekapcsoláskor).
+    private func sendHeartbeat(event: String? = nil) async {
         await session.refreshSchoolName(kreta: kreta)
-        analytics.recordHeartbeat(schoolName: session.selectedUser?.schoolName)
+        if let event {
+            analytics.recordEvent(schoolName: session.selectedUser?.schoolName, event: event)
+        } else {
+            analytics.recordHeartbeat(schoolName: session.selectedUser?.schoolName)
+        }
     }
 
     var body: some Scene {
@@ -63,7 +69,7 @@ struct SummitApp: App {
                     // instituteCode nem változik, így enélkül újra-belépéskor
                     // semmi nem triggerelne heartbeatet.
                     if session.selectedUser != nil {
-                        Task { await sendHeartbeat() }
+                        Task { await sendHeartbeat(event: "login") }
                     }
                 }
                 .onChange(of: session.selectedUser?.accessToken) { _, new in
@@ -74,13 +80,20 @@ struct SummitApp: App {
                 }
                 .onChange(of: session.selectedUser?.instituteCode) { _, new in
                     kreta.instituteCode = new
-                    Task { await sendHeartbeat() }
+                    Task { await sendHeartbeat(event: "login") }
                 }
                 // Beleegyezés pillanatában azonnal menjen ki az első jelzés —
                 // különben csak a következő előtérbe hozáskor küldene.
                 .onChange(of: analytics.hasChosen) { _, chosen in
                     if chosen {
-                        Task { await sendHeartbeat() }
+                        Task { await sendHeartbeat(event: "consent") }
+                    }
+                }
+                // Beállítások-kapcsoló: bekapcsoláskor azonnal küldünk,
+                // kikapcsoláskor direkt semmit (visszavonáskor nem gyűjtünk).
+                .onChange(of: analytics.isEnabled) { _, enabled in
+                    if enabled {
+                        Task { await sendHeartbeat(event: "consent") }
                     }
                 }
                 .onChange(of: scenePhase) { _, new in
