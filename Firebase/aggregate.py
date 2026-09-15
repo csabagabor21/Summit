@@ -61,6 +61,16 @@ GAZETTEER = {
 }
 EXTRA_ALIASES = {"egri": "Eger", "fővárosi": "Budapest"}
 
+# Institut-kód -> (megjelenő név, (lon, lat)). Ha az app nem tud nevet
+# (üres adatlap), a kódot küldi — a feloldás itt történik, kézzel
+# bővíthető. Ismeretlen kód "KÓD KELL" sorral jelentkezik a logban.
+CODEBOOK = {
+    "siszc-mathiasz": (
+        "Siófoki SZC Mathiász János Technikum és Gimnázium",
+        (18.05, 46.91),  # Siófok
+    ),
+}
+
 
 def aliases():
     out = {}
@@ -138,6 +148,39 @@ def resolve_pin(name, pin_by_name, alias):
     return GAZETTEER[city] if city else None
 
 
+def usable_name(name):
+    """Küldhető-e térképre a név, vagy kód/demo/üres (az app szűrőjével
+    összhangban)."""
+    t = (name or "").strip()
+    if len(t) < 2:
+        return None
+    low = t.lower()
+    if low in ("demo", "unknown", "demo iskola", "diák"):
+        return None
+    if " " not in t and t == low and not any(c in t for c in "áéíóöőúüű"):
+        return None
+    return t
+
+
+def resolve_school(name, code, pin_by_name, alias):
+    """(megjelenő név, lon, lat) név+kód alapján — None, ha feloldhatatlan.
+    Sorrend: valódi név (városlexikon) → név/kód a CODEBOOK-ban."""
+    u = usable_name(name)
+    if u is not None:
+        if u in CODEBOOK:
+            disp, (lon, lat) = CODEBOOK[u][0], CODEBOOK[u][1]
+            return disp, lon, lat
+        hit = resolve_pin(u, pin_by_name, alias)
+        if hit is None:
+            return None
+        return u, hit[0], hit[1]
+    c = (code or "").strip()
+    if c and c in CODEBOOK:
+        disp, (lon, lat) = CODEBOOK[c][0], CODEBOOK[c][1]
+        return disp, lon, lat
+    return None
+
+
 def main():
     import hashlib
     tok = token()
@@ -146,16 +189,23 @@ def main():
     cutoff = now - timedelta(days=RETENTION_DAYS)
 
     beats = list_all(tok, "heartbeats")
-    per_school, old = {}, []
+    groups, old = {}, []
     for d in beats:
         f = d.get("fields", {})
         name = (f.get("school_name", {}).get("stringValue") or "").strip()
+        code = (f.get("institute_code", {}).get("stringValue") or "").strip()
         inst = f.get("install_id", {}).get("stringValue")
         created = parse_ts(f.get("createdAt", {}).get("timestampValue", ""))
         if created and created < cutoff:
             old.append(d["name"].rsplit("/", 1)[-1])
-        if name and inst and created and created >= since:
-            per_school.setdefault(name, set()).add(inst)
+        if inst and created and created >= since and (name or code):
+            key = ("n", name) if usable_name(name) else ("c", code or name)
+            g = groups.setdefault(key, {"name": name, "code": code, "ids": set()})
+            g["ids"].add(inst)
+            if name:
+                g["name"] = name
+            if code:
+                g["code"] = code
 
     pins = {}
     for d in list_all(tok, "school_pins"):
@@ -171,22 +221,23 @@ def main():
 
     alias = aliases()
     schools, need_pin = [], []
-    for name in sorted(per_school, key=lambda n: -len(per_school[n])):
-        ids = per_school[name]
+    for key in sorted(groups, key=lambda k: -len(groups[k]["ids"])):
+        g = groups[key]
+        ids = g["ids"]
         if not passes_threshold(ids):
             continue
-        hit = resolve_pin(name, pin_by_name, alias)
-        if hit is None:
-            need_pin.append((name, len(ids)))
+        res = resolve_school(g["name"], g["code"], pin_by_name, alias)
+        if res is None:
+            need_pin.append(((g["code"] or g["name"] or "?"), len(ids)))
             continue
-        lon, lat = hit
-        if name not in pin_by_name:
-            pid = hashlib.sha256(name.encode()).hexdigest()[:32]
+        display, lon, lat = res
+        if display not in pin_by_name:
+            pid = hashlib.sha256(display.encode()).hexdigest()[:32]
             st, _ = req(tok, "PATCH", f"/school_pins/{pid}", {"fields": {
-                "name": {"stringValue": name},
+                "name": {"stringValue": display},
                 "lon": {"doubleValue": lon}, "lat": {"doubleValue": lat}}})
-            assert st == 200, f"pin {name}: HTTP {st}"
-        schools.append({"name": name, "lon": lon, "lat": lat, "count": len(ids)})
+            assert st == 200, f"pin {display}: HTTP {st}"
+        schools.append({"name": display, "lon": lon, "lat": lat, "count": len(ids)})
 
     # Mindig írunk — 0 iskola esetén is: az oldal 0-t mutat, nem demót.
     body = {"fields": {
@@ -205,7 +256,7 @@ def main():
     for doc_id in old:
         st, _ = req(tok, "DELETE", f"/heartbeats/{doc_id}")
         assert st == 200, f"delete {doc_id}: HTTP {st}"
-    print(f"heartbeat olvasva: {len(beats)}, iskolák: {len(per_school)}, lejárt törölve: {len(old)}")
+    print(f"heartbeat olvasva: {len(beats)}, iskolák: {len(groups)}, lejárt törölve: {len(old)}")
     for name, cnt in need_pin:
         print(f"PIN KELL ({cnt} fő): {name}")
 

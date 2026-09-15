@@ -265,7 +265,7 @@ struct SettingsView: View {
                                     session.setSchoolOverride(draftSchoolName)
                                     Task {
                                         await session.refreshSchoolName(kreta: kreta)
-                                        analytics.recordEvent(schoolName: session.heartbeatSchoolName, event: "consent")
+                                        analytics.recordEvent(schoolName: session.heartbeatSchoolName, event: "consent", instituteCode: session.selectedUser?.instituteCode)
                                     }
                                 }
                                 .font(.subheadline.weight(.bold))

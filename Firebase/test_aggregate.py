@@ -34,5 +34,30 @@ class TestPinResolution(unittest.TestCase):
         self.assertIsNone(aggregate.resolve_pin("Kitalált Falusi Iskola", {}, self.alias))
 
 
+class TestCodeResolution(unittest.TestCase):
+    def setUp(self):
+        self.alias = aggregate.aliases()
+
+    def test_empty_name_known_code_resolves(self):
+        res = aggregate.resolve_school("", "siszc-mathiasz", {}, self.alias)
+        self.assertIsNotNone(res)
+        self.assertIn("Mathiász", res[0])
+
+    def test_code_like_name_resolves(self):
+        res = aggregate.resolve_school("siszc-mathiasz", "siszc-mathiasz", {}, self.alias)
+        self.assertIsNotNone(res)
+        self.assertIn("Mathiász", res[0])
+
+    def test_real_name_still_wins_over_code(self):
+        res = aggregate.resolve_school(
+            "Debreceni Ady Endre Gimnázium", "klik000000001", {}, self.alias)
+        self.assertIsNotNone(res)
+        self.assertIn("Debreceni", res[0])
+
+    def test_unknown_code_returns_none(self):
+        self.assertIsNone(aggregate.resolve_school("", "klik999999999", {}, self.alias))
+        self.assertIsNone(aggregate.resolve_school("", "", {}, self.alias))
+
+
 if __name__ == "__main__":
     unittest.main()

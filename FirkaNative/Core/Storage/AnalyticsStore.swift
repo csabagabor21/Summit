@@ -101,9 +101,9 @@ final class AnalyticsStore: ObservableObject {
     /// - Parameter schoolName: az iskola KRÉTA-beli neve (`AppUser.schoolName`).
     /// Napi heartbeat (előtérbe hozáskor): naponta max 1, `{install}_{nap}`
     /// dokumentumba. Sikertelen próba után a következő trigger újrapróbál.
-    func recordHeartbeat(schoolName: String?) {
+    func recordHeartbeat(schoolName: String?, instituteCode: String? = nil) {
         let now = Date()
-        guard let raw = validatedSchoolName(schoolName, at: now) else { return }
+        guard let (raw, code) = validatedSchoolName(schoolName, instituteCode: instituteCode, at: now) else { return }
         let today = Self.dayBucket(Date())
         if UserDefaults.standard.string(forKey: Self.lastDayKey) == today {
             note(result: "kihagyva: ma már elküldve", school: raw, at: now)
@@ -115,7 +115,7 @@ final class AnalyticsStore: ObservableObject {
         if inFlightDay == today { return }
         inFlightDay = today
         note(result: "küldés…", school: raw, at: now)
-        deliver(schoolName: raw, day: today, documentId: "\(installId)_\(today)", daily: true)
+        deliver(schoolName: raw, day: today, documentId: "\(installId)_\(today)", daily: true, instituteCode: code)
     }
 
     /// Esemény-heartbeat (belépés, statisztika bekapcsolása): azonnal megy,
@@ -123,9 +123,9 @@ final class AnalyticsStore: ObservableObject {
     /// (`{install}_{nap}_{esemény}_{epoch}`). Az összesítő install_id
     /// alapján deduplikál, így a térkép-szám ettől nem nő meg.
     /// Kikapcsoláskor direkt nincs hívás — visszavonáskor nem gyűjtünk.
-    func recordEvent(schoolName: String?, event: String) {
+    func recordEvent(schoolName: String?, event: String, instituteCode: String? = nil) {
         let now = Date()
-        guard let raw = validatedSchoolName(schoolName, at: now) else { return }
+        guard let (raw, code) = validatedSchoolName(schoolName, instituteCode: instituteCode, at: now) else { return }
         if let last = lastEventFire[event], now.timeIntervalSince(last) < 300 {
             note(result: "kihagyva: \(event) nemrég ment", school: raw, at: now)
             return
@@ -134,26 +134,37 @@ final class AnalyticsStore: ObservableObject {
         let today = Self.dayBucket(Date())
         let epoch = Int(now.timeIntervalSince1970)
         note(result: "küldés… (\(event))", school: raw, at: now)
-        deliver(schoolName: raw, day: today, documentId: "\(installId)_\(today)_\(event)_\(epoch)", daily: false)
+        deliver(schoolName: raw, day: today, documentId: "\(installId)_\(today)_\(event)_\(epoch)", daily: false, instituteCode: code)
     }
 
     /// Közös előszűrés mindkét küldési útra, diagnosztikai nyommal.
-    /// - Returns: a küldhető iskolanév, vagy nil kihagyáskor.
-    private func validatedSchoolName(_ schoolName: String?, at: Date) -> String? {
+    /// - Returns: (küldendő név, küldendő kód) vagy nil kihagyáskor.
+    /// Ha a név használhatatlan, de van valós institut-kód, a KÓDOT küldi
+    /// névként — a szerver CODEBOOK-ból oldja fel (lásd aggregate.py).
+    /// Ez a fejlesztő kifejezett döntése: a kód mehet, a név úgyis kell.
+    private func validatedSchoolName(_ schoolName: String?, instituteCode: String?, at: Date) -> (String, String?)? {
         guard isEnabled else {
             note(result: "kihagyva: kikapcsolva", school: schoolName, at: at)
             return nil
         }
-        guard let raw = schoolName?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !raw.isEmpty else {
-            note(result: "kihagyva: nincs iskolanév", school: nil, at: at)
-            return nil
+        let raw = schoolName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if Self.isRealSchoolName(raw) {
+            return (raw, Self.usableCode(instituteCode))
         }
-        guard Self.isRealSchoolName(raw) else {
-            note(result: "kihagyva: szűrt név", school: raw, at: at)
-            return nil
+        if let c = Self.usableCode(instituteCode) {
+            return (c, c)
         }
-        return raw
+        note(result: raw.isEmpty ? "kihagyva: nincs iskolanév" : "kihagyva: szűrt név", school: raw.isEmpty ? nil : raw, at: at)
+        return nil
+    }
+
+    /// Küldhető institut-kód (üres/demo/unknown nem az).
+    static func usableCode(_ s: String?) -> String? {
+        let t = s?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !t.isEmpty else { return nil }
+        let low = t.lowercased()
+        guard low != "demo" && low != "unknown" else { return nil }
+        return String(t.prefix(64))
     }
 
     /// Valódi sulinév-e, vagy kód/demo/üres placeholder.
@@ -177,8 +188,9 @@ final class AnalyticsStore: ObservableObject {
     /// Közvetlen dokumentum-létrehozás a `heartbeats` collectionben.
     /// Napi doc-ID: "{install_id}_{day}", esemény doc-ID:
     /// "{install_id}_{day}_{esemény}_{epoch}" — a rules mindkettőt
-    /// ellenőrzi (lásd `Firebase/firestore.rules`).
-    private func deliver(schoolName: String, day: String, documentId: String, daily: Bool) {
+    /// ellenőrzi (lásd `Firebase/firestore.rules`). Az institute_code
+    /// mezőt a szerver CODEBOOK-feloldáshoz használja.
+    private func deliver(schoolName: String, day: String, documentId: String, daily: Bool, instituteCode: String?) {
         let now = Date()
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime]
@@ -189,7 +201,7 @@ final class AnalyticsStore: ObservableObject {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
         let build = Bundle.main.object(forInfoDictionaryKey: kCFBundleVersionKey as String) as? String ?? "?"
         let str = { (v: String) -> [String: String] in ["stringValue": v] }
-        let doc: [String: Any] = ["fields": [
+        var fields: [String: Any] = [
             "school_name": str(String(schoolName.prefix(120))),
             "install_id": str(installId),
             "day": str(day),
@@ -197,7 +209,11 @@ final class AnalyticsStore: ObservableObject {
             "platform": str("iOS \(UIDevice.current.systemVersion)"),
             "createdAt": ["timestampValue": created],
             "expiresAt": ["timestampValue": expires]
-        ]]
+        ]
+        if let code = instituteCode, !code.isEmpty {
+            fields["institute_code"] = str(code)
+        }
+        let doc: [String: Any] = ["fields": fields]
         var comps = URLComponents(string: "https://firestore.googleapis.com/v1/projects/\(Self.projectId)/databases/(default)/documents/heartbeats")!
         comps.queryItems = [
             URLQueryItem(name: "documentId", value: documentId),

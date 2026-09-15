@@ -10,8 +10,10 @@ rules_version = '2';
 // Író: maga az app, közvetlen Firestore REST-hívássl (nincs backend).
 // Az összesítő install_id alapján deduplikál, a több doc nem dupláz.
 // Fields:
-//   - school_name: string (kötelező, 1-120 char; a KRÉTA-beli intézmény neve —
-//                  nyers kódot sosem küldünk, névből egyén nem beazonosítható)
+//   - school_name: string (kötelező, 1-120 char; a KRÉTA-beli intézmény neve,
+//                  ha nincs név, a nyers institut-kód — a szerver CODEBOOK-
+//                  ból oldja fel; névből/kódból egyén nem beazonosít)
+//   - institute_code: string (opcionális, 1-64 char; szerver-oldali feloldáshoz)
 //   - install_id:  string (kötelező, 8-64 char, véletlen UUID)
 //   - day:         string (kötelező, yyyy-MM-dd formátum)
 //   - app_version: string (opcionális, max 32 char)
@@ -36,6 +38,13 @@ function hasOnlyAllowedFields(fields) {
   return request.resource.data.keys().hasOnly(fields);
 }
 
+function validInstituteCodeField() {
+  return !('institute_code' in request.resource.data)
+    || (request.resource.data.institute_code is string
+      && request.resource.data.institute_code.size() >= 1
+      && request.resource.data.institute_code.size() <= 64);
+}
+
 function isRecent(ts) {
   return ts is timestamp &&
     ts <= request.time &&
@@ -43,7 +52,8 @@ function isRecent(ts) {
 }
 
 function isValidHeartbeat() {
-  return hasOnlyAllowedFields(['school_name', 'install_id', 'day', 'app_version', 'platform', 'createdAt', 'expiresAt'])
+  return hasOnlyAllowedFields(['school_name', 'institute_code', 'install_id', 'day', 'app_version', 'platform', 'createdAt', 'expiresAt'])
+    && validInstituteCodeField()
     && request.resource.data.school_name is string
     && request.resource.data.school_name.size() >= 2
     && request.resource.data.school_name.size() <= 120

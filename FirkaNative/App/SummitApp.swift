@@ -23,11 +23,14 @@ struct SummitApp: App {
     private func sendHeartbeat(event: String? = nil) async {
         await session.refreshSchoolName(kreta: kreta)
         // Kézi felülírás nyer (Beállítások → Fiók), különben az adatlap neve.
+        // A kódot is küldjük: ha a név használhatatlan, a szerver a kódból
+        // oldja fel az iskolát (CODEBOOK).
         let name = session.heartbeatSchoolName
+        let code = session.selectedUser?.instituteCode
         if let event {
-            analytics.recordEvent(schoolName: name, event: event)
+            analytics.recordEvent(schoolName: name, event: event, instituteCode: code)
         } else {
-            analytics.recordHeartbeat(schoolName: name)
+            analytics.recordHeartbeat(schoolName: name, instituteCode: code)
         }
     }
 
