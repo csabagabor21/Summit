@@ -653,6 +653,35 @@ enum JWT {
         return Array(out.prefix(8))
     }
 
+    /// Iskolanév-jelöltek tokenből/userinfóból: az "institute"/"school"/
+    /// "intezmeny" kulcsok szóközös, tulajdonnév-szerű értékei egy szint
+    /// mélyig. A kód-kinyerés az ilyet direkt eldobja (szóköz miatt) —
+    /// itt pont az kell. A hívó validál (AnalyticsStore.isRealSchoolName).
+    static func schoolNameCandidates(fromJWT token: String) -> [String] {
+        guard let p = payload(token) else { return [] }
+        return schoolNameCandidates(from: p)
+    }
+    static func schoolNameCandidates(from info: [String: Any]) -> [String] {
+        var out: [String] = []
+        func add(_ s: String?) {
+            guard let t = s?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  t.count >= 2, t.count <= 120, !out.contains(t) else { return }
+            out.append(t)
+        }
+        for (k, v) in info {
+            let lk = k.lowercased()
+            let isNameKey = lk.contains("school") || lk.contains("institute") || lk.contains("intezmeny") || lk.contains("intézmény")
+            if let s = v as? String {
+                if isNameKey { add(s) }
+            } else if let d = v as? [String: Any], isNameKey {
+                for (kk, vv) in d where kk.lowercased().contains("name") || kk.lowercased().contains("nev") || kk.lowercased().contains("név") {
+                    add(vv as? String)
+                }
+            }
+        }
+        return Array(out.prefix(8))
+    }
+
     /// Valódi institut-kód-e (pl. klik035454001)? URL-t, "unknown"-t,
     /// szóközt/pontot tartalmazó szemetet elutasít — a refresh-bodyba
     /// ilyen sosem kerülhet, mert az IDP biztosan eldobná.

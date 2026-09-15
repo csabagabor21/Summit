@@ -87,14 +87,32 @@ final class SessionStore: ObservableObject {
         if let o = users[idx].schoolNameOverride?.trimmingCharacters(in: .whitespacesAndNewlines),
            !o.isEmpty, AnalyticsStore.isRealSchoolName(o) { return true }
         if AnalyticsStore.isRealSchoolName(users[idx].schoolName) { return true }
-        guard let data = await kreta.probeInstitute(code),
-              let name = (try? JSONDecoder().decode(StudentResponse.self, from: data))?.IntezmenyNeve?
+        if let data = await kreta.probeInstitute(code),
+           let name = (try? JSONDecoder().decode(StudentResponse.self, from: data))?.IntezmenyNeve?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
-              !name.isEmpty else { return false }
-        users[idx].schoolName = name
-        persist()
-        objectWillChange.send()
-        return AnalyticsStore.isRealSchoolName(name)
+           AnalyticsStore.isRealSchoolName(name) {
+            users[idx].schoolName = name
+            persist()
+            objectWillChange.send()
+            return true
+        }
+        // Második forrás: a token és a userinfo névszerű claimjei —
+        // ennél a fióknál az adatlap üres nevet ad, innen még jöhet valódi.
+        if let at = kreta.accessToken,
+           let hit = JWT.schoolNameCandidates(fromJWT: at).first(where: { AnalyticsStore.isRealSchoolName($0) }) {
+            users[idx].schoolName = hit
+            persist()
+            objectWillChange.send()
+            return true
+        }
+        if let info = await kreta.fetchUserInfo(),
+           let hit = JWT.schoolNameCandidates(from: info).first(where: { AnalyticsStore.isRealSchoolName($0) }) {
+            users[idx].schoolName = hit
+            persist()
+            objectWillChange.send()
+            return true
+        }
+        return false
     }
     /// Token refresh után frissíti a kiválasztott user tokenjeit és perzisztálja
     func updateTokens(accessToken: String, refreshToken: String?, expiresIn: Int?) {

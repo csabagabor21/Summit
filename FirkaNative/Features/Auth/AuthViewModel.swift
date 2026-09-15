@@ -32,6 +32,15 @@ final class AuthViewModel: ObservableObject {
                    var u = AppUser.from(token: token, studentData: data) {
                     u.instituteCode = cand
                     kreta.instituteCode = cand
+                    // Ha az adatlap nem adott nevet, a token névszerű
+                    // claimjeiből pótoljuk — különben üres név ragad be.
+                    if !AnalyticsStore.isRealSchoolName(u.schoolName) {
+                        let toks = [token.access_token, token.id_token].compactMap { $0 }
+                        if let hit = toks.flatMap({ JWT.schoolNameCandidates(fromJWT: $0) })
+                            .first(where: { AnalyticsStore.isRealSchoolName($0) }) {
+                            u.schoolName = hit
+                        }
+                    }
                     user = u
                     break
                 }
