@@ -4,7 +4,9 @@
 Az app iskolaneveket küld (KRÉTA IntezmenyNeve — kódot sosem),
 ez a script pedig:
 - beolvassa az utolsó 30 nap heartbeatjeit (admin jogosultsággal),
-- iskolánként számol, küszöb nélkül (1 fős iskola is kikerül),
+- iskolánként számol, GDPR k-anonimitással: 6 főtől iskola nevével,
+  alatta csak városnévvel összevonva (az iskola neve ilyenkor
+  a nyilvános dokba sem kerül be),
 - városhoz rendeli a beépített városlexikon alapján, a pint beírja
   a school_pins-be (stabil, kézzel felülírható),
 - megírja a nyilvános public/map dokot,
@@ -26,10 +28,11 @@ from datetime import datetime, timedelta, timezone
 PROJECT = "summit-14b74"
 ACTIVE_DAYS = 30
 RETENTION_DAYS = 365
-# Nincs küszöb: 1 fős iskola is kikerül a térképre. Ez a fejlesztő
-# kifejezett kérése ("minden fő számít"); a térkép csak iskolanevet
-# és létszámot mutat, egyént nem beazonosít.
-PUBLIC_THRESHOLD = 1
+# GDPR k-anonimitás: 6 főtől (azaz "5 fő felett") kerül ki az iskola
+# a saját nevével; 5 fő és alatta csak a város neve jelenik meg,
+# összevont létszámmal. Így kis létszámból nem lehet visszakövetkeztetni
+# az iskolára, az iskola neve a nyilvános dokba sem kerül be.
+SCHOOL_NAME_THRESHOLD = 6
 BASE = f"https://firestore.googleapis.com/v1/projects/{PROJECT}/databases/(default)/documents"
 
 # város -> (lon, lat). Az illesztés a névben szereplő "Budapesti", "Debreceni"
@@ -69,6 +72,11 @@ CODEBOOK = {
         "Siófoki SZC Mathiász János Technikum és Gimnázium",
         (18.05, 46.91),  # Siófok
     ),
+}
+
+# Institut-kód -> város (a resolve_city-hez, ha az adatlap nem ad nevet).
+CODEBOOK_CITY = {
+    "siszc-mathiasz": "Siófok",
 }
 
 
@@ -134,9 +142,47 @@ def parse_ts(s):
         return None
 
 
-def passes_threshold(ids):
-    """Kikerül-e az iskola a nyilvános térképre (1 főtől igen)."""
-    return len(ids) >= PUBLIC_THRESHOLD
+def shows_school_name(count):
+    """Saját nevével kerül-e ki az iskola (6 főtől igen, alatta csak
+    a város neve, összevonva)."""
+    return count >= SCHOOL_NAME_THRESHOLD
+
+
+def resolve_city(name, code, alias):
+    """A csoporthoz tartozó város neve — None, ha nem állapítható meg.
+    Sorrend: CODEBOOK-város (kód alapján) → városnév az iskola nevében."""
+    c = (code or "").strip()
+    if c and c in CODEBOOK_CITY:
+        return CODEBOOK_CITY[c]
+    u = usable_name(name)
+    if u is not None:
+        if u in CODEBOOK_CITY:
+            return CODEBOOK_CITY[u]
+        low = u.lower()
+        return next((city for a, city in alias.items() if a in low), None)
+    return None
+
+
+def build_public_entries(items):
+    """K-anonimizált nyilvános lista feloldott csoportokból.
+
+    items: [{"display", "city" (vagy None), "lon", "lat", "count"}].
+    A 6+ fős iskola saját névvel + saját pinnel; az 5 fő alattiak
+    városonként összevonva, a város nevével + város-koordinátával.
+    Város nélküli kis csoport nem kerül ki (azt a hívó logolja)."""
+    named, buckets = [], {}
+    for it in items:
+        if shows_school_name(it["count"]):
+            named.append({"name": it["display"], "lon": it["lon"],
+                          "lat": it["lat"], "count": it["count"]})
+        elif it["city"]:
+            buckets[it["city"]] = buckets.get(it["city"], 0) + it["count"]
+    out = list(named)
+    for city in sorted(buckets, key=lambda c: -buckets[c]):
+        lon, lat = GAZETTEER[city]
+        out.append({"name": city, "lon": lon, "lat": lat,
+                    "count": buckets[city]})
+    return out
 
 
 def resolve_pin(name, pin_by_name, alias):
@@ -220,24 +266,33 @@ def main():
                 f.get("lat", {}).get("doubleValue", 0))
 
     alias = aliases()
-    schools, need_pin = [], []
+    items, need_pin = [], []
     for key in sorted(groups, key=lambda k: -len(groups[k]["ids"])):
         g = groups[key]
-        ids = g["ids"]
-        if not passes_threshold(ids):
-            continue
+        n = len(g["ids"])
         res = resolve_school(g["name"], g["code"], pin_by_name, alias)
         if res is None:
-            need_pin.append(((g["code"] or g["name"] or "?"), len(ids)))
+            need_pin.append(((g["code"] or g["name"] or "?"), n))
             continue
         display, lon, lat = res
-        if display not in pin_by_name:
-            pid = hashlib.sha256(display.encode()).hexdigest()[:32]
-            st, _ = req(tok, "PATCH", f"/school_pins/{pid}", {"fields": {
-                "name": {"stringValue": display},
-                "lon": {"doubleValue": lon}, "lat": {"doubleValue": lat}}})
-            assert st == 200, f"pin {display}: HTTP {st}"
-        schools.append({"name": display, "lon": lon, "lat": lat, "count": len(ids)})
+        if shows_school_name(n):
+            if display not in pin_by_name:
+                pid = hashlib.sha256(display.encode()).hexdigest()[:32]
+                st, _ = req(tok, "PATCH", f"/school_pins/{pid}", {"fields": {
+                    "name": {"stringValue": display},
+                    "lon": {"doubleValue": lon}, "lat": {"doubleValue": lat}}})
+                assert st == 200, f"pin {display}: HTTP {st}"
+            items.append({"display": display, "city": None,
+                          "lon": lon, "lat": lat, "count": n})
+        else:
+            city = resolve_city(g["name"], g["code"], alias)
+            if city is None:
+                need_pin.append(((g["code"] or g["name"] or "?"), n))
+                continue
+            items.append({"display": display, "city": city,
+                          "lon": lon, "lat": lat, "count": n})
+    n_named = sum(1 for i in items if i["city"] is None)
+    schools = build_public_entries(items)
 
     # Mindig írunk — 0 iskola esetén is: az oldal 0-t mutat, nem demót.
     body = {"fields": {
@@ -251,7 +306,8 @@ def main():
                 "count": {"integerValue": str(s["count"])}}}}
             for s in schools]}}}}
     st, _ = req(tok, "PATCH", "/public/map", body)
-    print(f"public/map frissítve ({len(schools)} iskola): HTTP {st}")
+    print(f"public/map frissítve ({len(schools)} pont: "
+          f"{n_named} iskola + {len(schools) - n_named} város): HTTP {st}")
 
     for doc_id in old:
         st, _ = req(tok, "DELETE", f"/heartbeats/{doc_id}")

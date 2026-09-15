@@ -60,5 +60,7 @@ Az app az iskola KRÉTA-beli nevét küldi (a nyers kód nem hagyja el a telefon
 az `aggregate.py` pedig a beépített városlexikon alapján magától teszi ki
 a pineket a `school_pins`-be. Új, ismeretlen városú iskola esetén kiírja:
 `PIN KELL (N fő): <név>` — azt egy gyors kereséssel pótoljuk a lexikonban.
-Kézzel feltöltendő szótár nincs; a nyilvános térképre minden iskola
-kikerül 1 fős létszámtól (nincs küszöb — fejlesztői döntés).
+Kézzel feltöltendő szótár nincs; GDPR k-anonimitás van: 6 főtől
+az iskola a saját nevével kerül ki, 5 fő és alatta csak a város neve
+jelenik meg, összevont létszámmal (az iskola neve ilyenkor a nyilvános
+`public/map` dokba sem kerül be).
