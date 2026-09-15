@@ -25,6 +25,7 @@ struct SettingsView: View {
     @State private var devTapReset: Task<Void, Never>?
     @State private var showDevAlert = false
     @State private var draftIss = ""
+    @State private var draftSchoolName = ""
     @State private var repairMsg = ""
     @State private var repairRunning = false
     @State private var scrollOffset: CGFloat = 0 // parallax háttérhez (onScrollGeometryChange)
@@ -253,6 +254,26 @@ struct SettingsView: View {
                             }
                         }
                     }
+                    settingsDivider
+                    row {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Iskola neve a térképhez").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                            HStack {
+                                TextField("pl. Siófoki SZC Mathiász János Technikum", text: $draftSchoolName)
+                                    .font(.subheadline)
+                                Button("Mentés") {
+                                    session.setSchoolOverride(draftSchoolName)
+                                    Task {
+                                        await session.refreshSchoolName(kreta: kreta)
+                                        analytics.recordEvent(schoolName: session.heartbeatSchoolName, event: "consent")
+                                    }
+                                }
+                                .font(.subheadline.weight(.bold))
+                            }
+                            Text("Csak akkor kell, ha a Diagnosztika szerint nincs iskolanév. A hivatalos, városos nevet írd be — ebből lesz a térkép-pötty.")
+                                .font(.caption2).foregroundStyle(.tertiary)
+                        }
+                    }
                 }
             }
 
@@ -316,6 +337,7 @@ struct SettingsView: View {
         .onAppear {
             thresholds = GradingLogic.loadThresholds()
             if draftIss.isEmpty { draftIss = session.selectedUser?.instituteCode ?? "" }
+            if draftSchoolName.isEmpty { draftSchoolName = session.selectedUser?.schoolNameOverride ?? "" }
         }
         .alert("Fejlesztői mód bekapcsolva", isPresented: $showDevAlert) {
             Button("OK", role: .cancel) {}

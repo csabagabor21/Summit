@@ -13,7 +13,7 @@ struct DiagnosticsView: View {
         List {
             Section {
                 diagRow("Állapot", analytics.isEnabled ? "bekapcsolva" : "kikapcsolva")
-                diagRow("Iskolanév", session.selectedUser?.schoolName ?? "–")
+                diagRow("Iskolanév", (session.heartbeatSchoolName ?? "–") + (session.selectedUser?.schoolNameOverride != nil ? " (kézi)" : ""))
                 diagRow("Utolsó próba", analytics.lastAttempt)
                 diagRow("Iskola (küldött)", analytics.lastSchool)
                 diagRow("Eredmény", analytics.lastResult)

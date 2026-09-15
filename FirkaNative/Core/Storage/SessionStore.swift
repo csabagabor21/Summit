@@ -57,6 +57,23 @@ final class SessionStore: ObservableObject {
         persist()
         objectWillChange.send()
     }
+    /// A heartbeathez használandó iskolanév: a kézi felülírás nyer, ha van,
+    /// különben az adatlapból jött név.
+    var heartbeatSchoolName: String? {
+        guard let u = selectedUser else { return nil }
+        if let o = u.schoolNameOverride?.trimmingCharacters(in: .whitespacesAndNewlines), !o.isEmpty {
+            return o
+        }
+        return u.schoolName
+    }
+    /// Kézi iskolanév mentése a kiválasztott userhez (üres = törlés).
+    func setSchoolOverride(_ name: String) {
+        guard let id = selectedId, let idx = users.firstIndex(where: { $0.id == id }) else { return }
+        let t = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        users[idx].schoolNameOverride = t.isEmpty ? nil : t
+        persist()
+        objectWillChange.send()
+    }
     /// Utólagos iskolanév-pótlás: ha a kiválasztott userhez nincs használható
     /// iskolanév (üres, vagy szűrt demo/kód-név), a TanuloAdatlapból tölti be
     /// a KRÉTA-beli intézménynevet. Demo vagy kód nélküli userhez nem nyúl —
@@ -67,6 +84,8 @@ final class SessionStore: ObservableObject {
         let code = users[idx].instituteCode.trimmingCharacters(in: .whitespacesAndNewlines)
         let low = code.lowercased()
         guard !code.isEmpty, low != "demo", low != "unknown" else { return false }
+        if let o = users[idx].schoolNameOverride?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !o.isEmpty, AnalyticsStore.isRealSchoolName(o) { return true }
         if AnalyticsStore.isRealSchoolName(users[idx].schoolName) { return true }
         guard let data = await kreta.probeInstitute(code),
               let name = (try? JSONDecoder().decode(StudentResponse.self, from: data))?.IntezmenyNeve?
