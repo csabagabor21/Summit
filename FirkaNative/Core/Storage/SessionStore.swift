@@ -57,6 +57,26 @@ final class SessionStore: ObservableObject {
         persist()
         objectWillChange.send()
     }
+    /// Utólagos iskolanév-pótlás: ha a kiválasztott userhez nincs használható
+    /// iskolanév (üres, vagy szűrt demo/kód-név), a TanuloAdatlapból tölti be
+    /// a KRÉTA-beli intézménynevet. Demo vagy kód nélküli userhez nem nyúl —
+    /// a heartbeat-szűrővel összhangban (lásd AnalyticsStore).
+    /// - Returns: van-e most küldhető iskolanév.
+    func refreshSchoolName(kreta: KretaClient) async -> Bool {
+        guard let id = selectedId, let idx = users.firstIndex(where: { $0.id == id }) else { return false }
+        let code = users[idx].instituteCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        let low = code.lowercased()
+        guard !code.isEmpty, low != "demo", low != "unknown" else { return false }
+        if AnalyticsStore.isRealSchoolName(users[idx].schoolName) { return true }
+        guard let data = await kreta.probeInstitute(code),
+              let name = (try? JSONDecoder().decode(StudentResponse.self, from: data))?.IntezmenyNeve?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+              !name.isEmpty else { return false }
+        users[idx].schoolName = name
+        persist()
+        objectWillChange.send()
+        return AnalyticsStore.isRealSchoolName(name)
+    }
     /// Token refresh után frissíti a kiválasztott user tokenjeit és perzisztálja
     func updateTokens(accessToken: String, refreshToken: String?, expiresIn: Int?) {
         guard let id = selectedId, let idx = users.firstIndex(where: { $0.id == id }) else { return }

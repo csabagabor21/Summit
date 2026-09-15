@@ -16,6 +16,13 @@ struct SummitApp: App {
         LiveActivityBackgroundRefresh.register()
     }
 
+    /// Heartbeat egy helyről: ha az iskolanév üres vagy szűrt (pl. belépéskor
+    /// nem jött meg az adatlap), a KRÉTA-adatlapból pótolja, csak utána küld.
+    private func sendHeartbeat() async {
+        await session.refreshSchoolName(kreta: kreta)
+        analytics.recordHeartbeat(schoolName: session.selectedUser?.schoolName)
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -56,7 +63,7 @@ struct SummitApp: App {
                     // instituteCode nem változik, így enélkül újra-belépéskor
                     // semmi nem triggerelne heartbeatet.
                     if session.selectedUser != nil {
-                        analytics.recordHeartbeat(schoolName: session.selectedUser?.schoolName)
+                        Task { await sendHeartbeat() }
                     }
                 }
                 .onChange(of: session.selectedUser?.accessToken) { _, new in
@@ -67,13 +74,13 @@ struct SummitApp: App {
                 }
                 .onChange(of: session.selectedUser?.instituteCode) { _, new in
                     kreta.instituteCode = new
-                    analytics.recordHeartbeat(schoolName: session.selectedUser?.schoolName)
+                    Task { await sendHeartbeat() }
                 }
                 // Beleegyezés pillanatában azonnal menjen ki az első jelzés —
                 // különben csak a következő előtérbe hozáskor küldene.
                 .onChange(of: analytics.hasChosen) { _, chosen in
                     if chosen {
-                        analytics.recordHeartbeat(schoolName: session.selectedUser?.schoolName)
+                        Task { await sendHeartbeat() }
                     }
                 }
                 .onChange(of: scenePhase) { _, new in
@@ -102,9 +109,12 @@ struct SummitApp: App {
                         }
                         // Proaktív token-megújítás: ha háttérben járt le a
                         // KRÉTA-token, az első lehúzás már friss tokennel
-                        // menjen, ne 401 + üres nézetekkel.
-                        Task { await kreta.ensureValidToken() }
-                        analytics.recordHeartbeat(schoolName: session.selectedUser?.schoolName)
+                        // menjen, ne 401 + üres nézetekkel. Utána heartbeat —
+                        // friss tokennel az iskolanév-pótlás is sikerülhet.
+                        Task {
+                            await kreta.ensureValidToken()
+                            await sendHeartbeat()
+                        }
                     }
                 }
         }

@@ -127,15 +127,16 @@ final class AnalyticsStore: ObservableObject {
     }
 
     /// Valódi sulinév-e, vagy kód/demo/üres placeholder.
-    /// A KRÉTA-nevekben van szóköz és/vagy ékezetes betű; a kódok
-    /// (pl. "klik035454001") csupa kisbetű+szám, szóköz nélkül.
+    /// A KRÉTA-nevek tulajdonnevek (nagybetűsek) és/vagy ékezetesek; a kódok
+    /// (pl. "klik035454001", "siszc-mathiasz") csupa kisbetűsek, szóköz
+    /// nélkül — az ilyen sosem oldható fel térkép-pinné, kiküldeni is felesleges.
     static func isRealSchoolName(_ s: String) -> Bool {
         let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
         guard t.count >= 2, t.count <= 120 else { return false }
         let low = t.lowercased()
         if low == "demo" || low == "unknown" || low == "demo iskola" || low == "diák" { return false }
-        if !t.contains(" ") && t.rangeOfCharacter(from: .decimalDigits) != nil
-            && t == low && t.rangeOfCharacter(from: CharacterSet(charactersIn: "áéíóöőúüű")) == nil {
+        if !t.contains(" ") && t == low
+            && t.rangeOfCharacter(from: CharacterSet(charactersIn: "áéíóöőúüű")) == nil {
             return false
         }
         return true
