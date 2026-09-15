@@ -52,6 +52,12 @@ struct SummitApp: App {
                     kreta.accessTokenExpire = session.selectedUser?.accessTokenExpire
                     kreta.sessionExpired = false
                     kreta.showExpiredAlert = false
+                    // Belépésváltáskor is: ha ugyanaz az iskola, az
+                    // instituteCode nem változik, így enélkül újra-belépéskor
+                    // semmi nem triggerelne heartbeatet.
+                    if session.selectedUser != nil {
+                        analytics.recordHeartbeat(schoolName: session.selectedUser?.schoolName)
+                    }
                 }
                 .onChange(of: session.selectedUser?.accessToken) { _, new in
                     kreta.accessToken = new

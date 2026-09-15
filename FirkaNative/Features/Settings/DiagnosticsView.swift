@@ -6,10 +6,22 @@ import UIKit
 struct DiagnosticsView: View {
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var kreta: KretaClient
+    @EnvironmentObject var analytics: AnalyticsStore
     @ObservedObject private var liveManager = SummitLiveActivityManager.shared
 
     var body: some View {
         List {
+            Section {
+                diagRow("Állapot", analytics.isEnabled ? "bekapcsolva" : "kikapcsolva")
+                diagRow("Iskolanév", session.selectedUser?.schoolName ?? "–")
+                diagRow("Utolsó próba", analytics.lastAttempt)
+                diagRow("Iskola (küldött)", analytics.lastSchool)
+                diagRow("Eredmény", analytics.lastResult)
+            } header: {
+                Text("Statisztika (térkép)")
+            } footer: {
+                Text("Napi max 1 heartbeat a Firestore heartbeats gyűjteménybe. Nem OK 200 esetén a következő előtérbe hozás vagy belépés újrapróbálja.")
+            }
             Section("Állapot") {
                 diagRow("Iskola", session.selectedUser?.instituteCode ?? "–")
                 diagRow("Token", tokenDiag)
@@ -88,6 +100,7 @@ struct DiagnosticsView: View {
     }
     private var diagExport: String {
         "iskola=\(session.selectedUser?.instituteCode ?? "-") token=\(tokenDiag) sessionExpired=\(kreta.sessionExpired)\n"
+            + "analytics: enabled=\(analytics.isEnabled) attempt=\(analytics.lastAttempt) school=\(analytics.lastSchool) result=\(analytics.lastResult)\n"
             + kreta.diagLog.joined(separator: "\n")
             + "\n--- push ---\n"
             + liveManager.pushLog.joined(separator: "\n")

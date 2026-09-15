@@ -36,17 +36,38 @@ final class AnalyticsStore: ObservableObject {
     private static let enabledKey = "analytics.enabled.v1"
     private static let installKey = "analytics.installId.v1"
     private static let lastDayKey = "analytics.lastHeartbeatDay.v1"
+    private static let lastAttemptKey = "analytics.lastAttempt.v1"
+    private static let lastSchoolKey = "analytics.lastSchool.v1"
+    private static let lastResultKey = "analytics.lastResult.v1"
     /// Közvetlen Firestore-írás (nincs köztes backend).
     /// A webes API-kulcs publikus azonosító — a védelmet a security rules
     /// adja (szigorú séma, csak létrehozás, olvasás sehol).
     private static let projectId = "summit-14b74"
     private static let apiKey = "AIzaSyA1TttM0aUUHsvjjAItYMbdID_no1vzg9s"
 
+    /// Diagnosztika (Beállítások → Diagnosztika): az utolsó heartbeat-
+    /// próbálkozás ember-olvasható nyoma. Release-ben is íródik, de csak
+    /// státuszkódot és iskolanevet tartalmaz — személyes adatot sosem.
+    @Published var lastAttempt: String {
+        didSet { UserDefaults.standard.set(lastAttempt, forKey: Self.lastAttemptKey) }
+    }
+    @Published var lastSchool: String {
+        didSet { UserDefaults.standard.set(lastSchool, forKey: Self.lastSchoolKey) }
+    }
+    @Published var lastResult: String {
+        didSet { UserDefaults.standard.set(lastResult, forKey: Self.lastResultKey) }
+    }
+
     let installId: String
+    /// Folyamatban lévő küldés napja — párhuzamos duplázás ellen.
+    private var inFlightDay: String?
 
     init() {
         self.hasChosen = UserDefaults.standard.bool(forKey: Self.choiceKey)
         self.isEnabled = UserDefaults.standard.bool(forKey: Self.enabledKey)
+        self.lastAttempt = UserDefaults.standard.string(forKey: Self.lastAttemptKey) ?? "–"
+        self.lastSchool = UserDefaults.standard.string(forKey: Self.lastSchoolKey) ?? "–"
+        self.lastResult = UserDefaults.standard.string(forKey: Self.lastResultKey) ?? "–"
         if let saved = UserDefaults.standard.string(forKey: Self.installKey), !saved.isEmpty {
             self.installId = saved
         } else {
@@ -77,13 +98,31 @@ final class AnalyticsStore: ObservableObject {
     /// Kód-szerű, üres és demo neveket nem küldünk (azokból úgysem lenne térkép).
     /// - Parameter schoolName: az iskola KRÉTA-beli neve (`AppUser.schoolName`).
     func recordHeartbeat(schoolName: String?) {
-        guard isEnabled else { return }
+        let now = Date()
+        guard isEnabled else {
+            note(result: "kihagyva: kikapcsolva", school: schoolName, at: now)
+            return
+        }
         guard let raw = schoolName?.trimmingCharacters(in: .whitespacesAndNewlines),
-              Self.isRealSchoolName(raw) else { return }
+              !raw.isEmpty else {
+            note(result: "kihagyva: nincs iskolanév", school: nil, at: now)
+            return
+        }
+        guard Self.isRealSchoolName(raw) else {
+            note(result: "kihagyva: szűrt név", school: raw, at: now)
+            return
+        }
         let today = Self.dayBucket(Date())
-        if UserDefaults.standard.string(forKey: Self.lastDayKey) == today { return }
-        UserDefaults.standard.set(today, forKey: Self.lastDayKey)
-
+        if UserDefaults.standard.string(forKey: Self.lastDayKey) == today {
+            note(result: "kihagyva: ma már elküldve", school: raw, at: now)
+            return
+        }
+        // A "mai nap elküldve" jelölés csak sikeres küldéskor áll be
+        // (lásd applyDelivery) — sikertelen próba után a következő
+        // előtérbe hozás újrapróbálja, nem hallgat el egész napra.
+        if inFlightDay == today { return }
+        inFlightDay = today
+        note(result: "küldés…", school: raw, at: now)
         deliver(schoolName: raw, day: today)
     }
 
@@ -136,13 +175,42 @@ final class AnalyticsStore: ObservableObject {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try? JSONSerialization.data(withJSONObject: doc)
-        URLSession.shared.dataTask(with: req) { _, resp, _ in
-            #if DEBUG
-            if let http = resp as? HTTPURLResponse, http.statusCode != 200 {
-                print("[analytics] heartbeat elutasítva: HTTP \(http.statusCode)")
+        URLSession.shared.dataTask(with: req) { [weak self] _, resp, err in
+            let code = (resp as? HTTPURLResponse)?.statusCode
+            let result: String
+            let ok: Bool
+            if code == 200 {
+                result = "OK 200"; ok = true
+            } else if let code {
+                result = "HTTP \(code)"; ok = false
+            } else {
+                result = "hálózati hiba"; ok = false
             }
+            #if DEBUG
+            if !ok { print("[analytics] heartbeat \(result): \(err?.localizedDescription ?? "–")") }
             #endif
+            Task { await self?.applyDelivery(day: day, result: result, ok: ok) }
         }.resume()
+    }
+
+    /// Diagnosztikai nyom rögzítése (sikeres és kihagyott próbálkozásnál is).
+    private func note(result: String, school: String?, at: Date) {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        iso.timeZone = TimeZone(secondsFromGMT: 0)
+        lastResult = result
+        if let s = school?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty {
+            lastSchool = String(s.prefix(120))
+        }
+        lastAttempt = iso.string(from: at)
+    }
+
+    /// Küldés lezárása: a napi jelölés csak HTTP 200-ra áll be, különben
+    /// a következő trigger újrapróbálkozik.
+    private func applyDelivery(day: String, result: String, ok: Bool) {
+        if inFlightDay == day { inFlightDay = nil }
+        lastResult = result
+        if ok { UserDefaults.standard.set(day, forKey: Self.lastDayKey) }
     }
 
     private static func dayBucket(_ d: Date) -> String {
