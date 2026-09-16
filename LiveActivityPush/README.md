@@ -13,15 +13,19 @@ push-tokent, és feltölti a workerbe a mai határokhoz tartozó kész
 2. **KV:** Workers & Pages → KV → Create namespace (pl. `summit-plans`) →
    vissza a workerre: Settings → Bindings → Add → KV namespace, neve
    pontosan `PLANS`.
-3. **Cron:** a worker Settings → Triggers → Add Cron Trigger: `*/5 * * * *`
-    (5 percenként — a worker index-alapú, NEM listáz, így a KV LIST-kvótát
-    nem égeti: körönként 1 index-GET + terven 1 GET. A push legfeljebb
-    ~5 percet késik a határhoz képest; a demo-teszt 2 perces átmenetei
-    összevonódva, késve érkezhetnek — ez normális).
+3. **Cron:** a worker Settings → Triggers → Add Cron Trigger: `* * * * *`
+    (percenként — de a körök olcsók: a worker körönként csak az `index`-et
+    olvassa, és csak azt a tervet tölti be, amelynél tényleg esedékes egy
+    határ (az index tervenként a következő határt is tárolja). Éjjel,
+    hétvégén, lyukasórában egy kör = 1 KV-olvasás. A push legfeljebb
+    ~1 percet késik a határhoz képest; az élő visszaszámlálót a widget
+    magától tickeli, a push csak az állapotot fordítja).
 4. **Változók:** Settings → Variables:
    - Text: `BUNDLE_ID` = `hu.flint`
    - Secrets → Add: `APNS_KEY` (a `.p8` fájl TARTALMA egyben),
      `APNS_KEY_ID` (10 jegyű), `TEAM_ID` (10 jegyű).
+   A cron 5 percenként (`perc % 5 == 0`) LIST-tel is egyezteti az indexet,
+   így egy KV-verseny miatt kimaradt terv legfeljebb 5 percet késik.
 5. **App-oldal:** `SummitPushSync.swift`-ben a `baseURL`-t átírni a worker
    címére (`https://valami.workers.dev`). Amíg ez nincs kitöltve, az app
    csendben helyi módban marad (a push-feltöltés kimarad).
@@ -51,7 +55,15 @@ Live Activity ettől még működik.)
 - Bejövő terv ellenőrzése: a worker logban (Observability → Logs) látszik
   minden küldés; `400/410` = halott token (a worker leveszi a listáról),
   más hiba = következő percben újrapróbálja (max ~10x).
-- Health: https://calm-leaf-ff15.gaborcsabusz.workers.dev/ → `{"ok":true,"service":"summit-liveactivity-push"}`
+- Health: https://calm-leaf-ff15.gaborcsabusz.workers.dev/ → `{"ok":true,"service":"summit-liveactivity-push","version":"2026-09-16"}`
+  (ha a `version` hiányzik, a dashboardon még a régi kód fut — újra kell deployolni).
+- Státusz egy tervről: `GET /status?userId=<KRÉTA-userId>.<identifierForVendor első 8>&dayKey=YYYY-MM-DD[&tag=preview]`
+  → entrynként `fireAt / sent / attempts / last{status, body}`. `last.status`
+  403 = kulcs/csapat gond (TEAM_ID, .p8), 400 BadDeviceToken vagy
+  DeviceTokenNotForTopic = sandbox/prod keveredés vagy rossz BUNDLE_ID,
+  `indexNext: "NOT-IN-INDEX"` = 5 percen belül a LIST-egyeztetés beteszi.
+- Az utolsó óra végére az app `end: true` entryt küld → a worker
+  `event: "end"` + `dismissal-date` (+1 perc) pusht küld, a kártya lekerül.
 - Esti push-teszt tanítási időn kívül: Fejlesztő → Idő-eltolás csúszka
   délelőttre (pl. 9:40) + bekapcsolás. Az app ilyenkor a `:preview` kulcsra
   tölt (a valós tervet nem bántja), a worker ugyanúgy kiküldi a határokat.
@@ -63,6 +75,7 @@ Live Activity ettől még működik.)
 
 ## Költség
 
-Free tier: napi 100 ezer kérés és KV-olvasás, az 5 perces cron napi ~288
-index-GET + terven 1-1 GET — bőven elég (egy felhasználó napi ~15 push +
-pár tucat KV-művelet). Írás napi pár tucat (hash-őr). Bankkártya nem kell.
+Free tier: napi 100 ezer kérés és KV-olvasás, a percenkénti cron ennek
+töredéke — körönként 1 index-olvasás (~1440/nap), terv-olvasás csak esedékes
+határnál (felhasználónként napi ~15 push + pár tucat KV-művelet). Írás napi
+pár tucat (hash-őr + határonkénti jelölés). Bankkártya nem kell.

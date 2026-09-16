@@ -1,46 +1,41 @@
 // Summit Live Activity push worker (Cloudflare Workers, free tier)
 // ---------------------------------------------------------------
-// Feladata: tanítási napokon, órahatárokon APNs Live Activity update
-// pushokat küld — akkor is átkapcsol a kártya, ha az appot az iOS
-// egyáltalán nem ébreszti fel (a BGAppRefresh best-effort).
+// 2026-09-16 (lásd LiveActivityPush/FIX_PROPOSAL_HU.md) — az előző
+// változathoz képest:
+//   1. APNs-hibák NEM némák: minden nem-200 válasz törzse a logba kerül, és
+//      a tervben entrynként megmarad az utolsó APNs-válasz (`last`).
+//   2. 403 (InvalidProviderToken/ExpiredProviderToken) → a JWT-cache-t
+//      eldobjuk, a következő kör friss aláírással próbál.
+//   3. Az `index` már nem egyetlen igazságforrás: 5 percenként a cron
+//      LIST-tel egyezteti (plan:* kulcsok), így egy KV read-modify-write
+//      versenyben elvesztett kulcs legfeljebb 5 percet késik, nem tűnik el
+//      egész napra. (Free tier: 288 LIST/nap az 1000-es keretből.)
+//   4. GET /status?userId=<scoped>&dayKey=YYYY-MM-DD[&tag=preview] →
+//      entrynkénti fireAt/sent/attempts/last — a Diagnosztikából vagy
+//      curl-lel ellenőrizhető, mi történt a határokkal. (contentState-et
+//      nem ad vissza.)
+//   5. Utolsó óra vége után `event: "end"` push (dismissal-date = +1 perc),
+//      ha az app küld `end: true` entryt — a kártya nem ül 0:00-n a nap
+//      végén. (Az app-oldali párja a javaslatban.)
 //
 // Működés:
 //  - Az app POST /plan hívással feltölti a mai nap hátralévő határait:
-//    { userId, dayKey, pushToken, sandbox, entries: [{ fireAt, contentState }] }
+//    { userId, dayKey, pushToken, sandbox, entries: [{ fireAt, contentState, staleDate?, end? }] }
 //    A contentState-t az app számolja (ő az egyetlen igazságforrás),
-//    a worker csak időzítve kézbesíti.
-//  - 5 percenkénti cron végigmegy a mára szóló terveken, és ami lejárt
+//    a worker csak időzítve kézbesíti. FONTOS: a contentState dátumai
+//    az Apple default JSON-stratégiával (mp 2001-01-01 óta) érkeznek —
+//    a worker NEM nyúl hozzájuk. Az aps-szintű mezők (timestamp,
+//    stale-date, dismissal-date) unix mp.
+//  - Percenkénti cron végigmegy az esedékes terveken, és ami lejárt
 //    (fireAt <= most, még nem küldött), azt POST-olja az Apple APNs-nek.
 //
-// KV binding neve: PLANS (KV namespace, key: "plan:<dayKey>:<userId>").
-// Több user külön kulcson van; ugyanaz a user iPhone-on és iPaden is
-// külön kulcsot kap (az app eszköz-azonosítót fűz a userId-hez).
-// Secrets (dashboard: Settings → Variables → Secrets):
-//   APNS_KEY    — a .p8 kulcs TARTALMA (-----BEGIN PRIVATE KEY----- ...)
-//   APNS_KEY_ID — a kulcs 10 jegyű azonosítója (Key ID)
-//   TEAM_ID     — 10 jegyű csapat-azonosító (Team ID)
-// Vars (Text variables):
-//   BUNDLE_ID   — pl. hu.flint (topic: <BUNDLE_ID>.push-type.liveactivity)
-// Cron trigger: "*/5 * * * *" (5 percenként).
-// Miért fér bele a free tierbe: a cron NEM listáz (a KV LIST napi 1k-s
-// kvótáját a perces lista 1440-nel túllépné). Helyette a /plan minden
-// feltöltéskor karbantart egy `index` kulcsot (a tervkulcsok tömbje),
-// a cron pedig csak azt az 1 kulcsot olvassa (napi ~288 GET) + terven
-// egy GET-et — ez a 100k-s napi olvasási keret töredéke. A kézbesítés
-// így legfeljebb ~5 percet csúszik a határhoz képest (a demo-teszt
-// 2 perces átmenetei összevonódva, késve érkezhetnek), az élő
-// visszaszámlálót a widget magától tickeli, a push csak az állapotot
-// fordítja.
-//
-// Megjegyzés: a .p8-at EGYSZER kell elkérni annak, aki Admin a fejlesztői
-// csapatban (az app bundle-jának gazdája). Ugyanaz a kulcs jó sandboxra
-// és productionre is — a végpontot terv-szinten választjuk (az app
-// DEBUG buildje sandbox=true-t küld).
+// KV binding neve: PLANS. Secrets: APNS_KEY, APNS_KEY_ID, TEAM_ID.
+// Vars: BUNDLE_ID (hu.flint → topic hu.flint.push-type.liveactivity).
+// Cron trigger: "* * * * *" (percenként).
 
 const APNS_PROD = "https://api.push.apple.com";
 const APNS_SANDBOX = "https://api.sandbox.push.apple.com";
 
-// Provider JWT cache (max ~50 percig érvényes, az Apple 60-at enged).
 let jwtCache = { token: null, at: 0 };
 
 function b64url(bytes) {
@@ -49,21 +44,6 @@ function b64url(bytes) {
   return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-// ECDSA DER -> JWS nyers (R||S) konverzió.
-//
-// A WebCrypto `subtle.sign` ECDSA-val a futtatókörnyezettől függően vagy
-// ASN.1 DER-kódolt (böngészők, Cloudflare workerd — a spec szerinti), vagy
-// nyers R||S (pl. újabb Node) aláírást ad vissza. A JWS (ES256) viszont
-// MINDIG a fix 64 bájtos nyers R||S formát követeli meg: a DER-rel aláírt
-// JWT-t az Apple 403 InvalidProviderToken-nel dobja, és SEMMELYIK push
-// nem érkezik meg (a worker ilyenkor 10x újrapróbálja, majd csendben
-// elengedi — kívülről "totál halottnak" látszik).
-// Ezért: DER-t (0x30 ...) átalakítunk, a már nyers 64 bájtot változatlanul
-// hagyjuk — így mindkét futtatókörnyezetben helyes tokent kapunk.
-// Valodi DER? (0x30 SEQ + a teljes hosszra raillo hossz-mezo.)
-// A puszta elso bajt nem donthet: egy nyers R||S alairas 1/256 esellyel
-// szinten 0x30-cal kezdodik — de akkor a "hossz-mezo" szinte biztosan nem
-// adja ki a tenyleges hosszt, igy azt nyerskent tartjuk meg.
 function isDerSequence(sig) {
   if (sig.length < 8 || sig[0] !== 0x30) return -1;
   let total = sig[1], hdr = 2;
@@ -79,7 +59,7 @@ function isDerSequence(sig) {
 function ecdsaSigToRaw(sig) {
   const hdr = isDerSequence(sig);
   if (hdr < 0) {
-    if (sig.length === 64) return sig; // mar nyers R||S
+    if (sig.length === 64) return sig;
     throw new Error("Ismeretlen ECDSA alairas-formatum");
   }
   let o = hdr;
@@ -88,9 +68,9 @@ function ecdsaSigToRaw(sig) {
     let len = sig[o++];
     if ((len & 0x80) !== 0) { const n = len & 0x7f; len = 0; for (let i = 0; i < n; i++) len = (len << 8) | sig[o++]; }
     let v = sig.slice(o, o + len); o += len;
-    while (v.length > 1 && v[0] === 0x00) v = v.slice(1); // vezeto nulla-padding le
+    while (v.length > 1 && v[0] === 0x00) v = v.slice(1);
     if (v.length > 32) throw new Error("Tul hosszu DER INTEGER");
-    const out = new Uint8Array(32); out.set(v, 32 - v.length); // balrol nullazva
+    const out = new Uint8Array(32); out.set(v, 32 - v.length);
     return out;
   };
   const r = takeInt(), s = takeInt();
@@ -112,11 +92,14 @@ async function apnsJwt(env) {
   return jwtCache.token;
 }
 
-// Egy update push. Vissza: "sent" (többet nem próbáljuk) vagy "retry".
-async function sendUpdate(env, host, pushToken, contentState, staleDate) {
+/// Egy APNs Live Activity push (update vagy end).
+/// Vissza: { r: "sent" | "retry", status, body } — a `last` diagnosztikához.
+async function sendPush(env, host, pushToken, entry) {
   const jwt = await apnsJwt(env);
-  const aps = { timestamp: Math.floor(Date.now() / 1000), event: "update", "content-state": contentState };
-  if (staleDate) aps["stale-date"] = staleDate;
+  const nowS = Math.floor(Date.now() / 1000);
+  const aps = { timestamp: nowS, event: entry.end ? "end" : "update", "content-state": entry.contentState };
+  if (entry.staleDate && !entry.end) aps["stale-date"] = Math.floor(entry.staleDate);
+  if (entry.end) aps["dismissal-date"] = nowS + 60;
   let res;
   try {
     res = await fetch(`${host}/3/device/${pushToken}`, {
@@ -126,78 +109,134 @@ async function sendUpdate(env, host, pushToken, contentState, staleDate) {
         "apns-topic": `${env.BUNDLE_ID}.push-type.liveactivity`,
         "apns-push-type": "liveactivity",
         "apns-priority": "10",
+        "apns-expiration": String(nowS + 15 * 60),
         "content-type": "application/json",
       },
       body: JSON.stringify({ aps }),
     });
   } catch (e) {
-    console.log(`APNs hálózati hiba: ${e && e.message ? e.message : e}`);
-    return "retry";
+    const msg = e && e.message ? e.message : String(e);
+    console.log(`APNs hálózati hiba: ${msg}`);
+    return { r: "retry", status: 0, body: msg.slice(0, 200) };
   }
-  if (res.status === 200) return "sent";
-  if (res.status === 400 || res.status === 410) {
-    // Halott token / rossz kérés — újrapróbálni felesleges.
-    const body = await res.text().catch(() => "");
-    console.log(`APNs terminal (${res.status}): ${body.slice(0, 200)}`);
-    return "sent";
-  }
-  console.log(`APNs retry (${res.status})`);
-  return "retry";
+  if (res.status === 200) return { r: "sent", status: 200, body: "" };
+  const body = (await res.text().catch(() => "")).slice(0, 200);
+  console.log(`APNs ${res.status} (${host === APNS_SANDBOX ? "sandbox" : "prod"}): ${body}`);
+  // 403 = provider token gond (InvalidProviderToken / ExpiredProviderToken):
+  // a cache-elt JWT-t eldobjuk, a következő próbálkozás frissen ír alá.
+  if (res.status === 403) jwtCache = { token: null, at: 0 };
+  // 400 BadDeviceToken/DeviceTokenNotForTopic, 410 Unregistered: halott
+  // token — ismételni felesleges, az app friss tokennel újratölt.
+  if (res.status === 400 || res.status === 410) return { r: "sent", status: res.status, body };
+  return { r: "retry", status: res.status, body };
 }
 
 const INDEX_KEY = "index";
 
-async function readIndex(env) {
-  const idx = await env.PLANS.get(INDEX_KEY, "json");
-  return Array.isArray(idx) ? idx.filter((k) => typeof k === "string") : null;
-}
-
-async function writeIndex(env, keys) {
-  await env.PLANS.put(INDEX_KEY, JSON.stringify([...new Set(keys)].slice(0, 500)));
-}
-
-async function handleCron(env) {
-  const now = Math.floor(Date.now() / 1000);
-  const todayUTC = new Date().toISOString().slice(0, 10); // csak takarításhoz
-  // Index-alapú végigjárás (LIST nélkül): 1 GET + terven 1 GET.
-  let keys = await readIndex(env);
-  if (!keys) {
-    // Migráció: régi, index nélküli telep egyszer listáz, és felépíti
-    // az indexet — utána már a fenti ág él.
-    keys = [];
-    let cursor = undefined;
-    for (;;) {
-      const page = await env.PLANS.list({ prefix: "plan:", cursor });
-      for (const k of page.keys) keys.push(k.name);
-      if (page.list_complete) break;
-      cursor = page.cursor;
+function normIndex(idx) {
+  if (!Array.isArray(idx)) return null;
+  const out = [];
+  for (const e of idx) {
+    if (typeof e === "string") out.push({ k: e, next: 0 });
+    else if (e && typeof e.k === "string") {
+      out.push({ k: e.k, next: (typeof e.next === "number" || e.next === null) ? e.next : 0 });
     }
-    await writeIndex(env, keys);
+  }
+  return out;
+}
+
+async function readIndex(env) {
+  return normIndex(await env.PLANS.get(INDEX_KEY, "json"));
+}
+
+async function writeIndex(env, entries) {
+  const seen = new Set();
+  const out = [];
+  for (const e of entries) {
+    if (!e || typeof e.k !== "string" || seen.has(e.k)) continue;
+    seen.add(e.k);
+    out.push({ k: e.k, next: (typeof e.next === "number" || e.next === null) ? e.next : 0 });
+  }
+  await env.PLANS.put(INDEX_KEY, JSON.stringify(out.slice(0, 500)));
+}
+
+function minFireAt(entries) {
+  let m = null;
+  for (const e of entries || []) {
+    if (e && typeof e.fireAt === "number" && !e.sent && (m === null || e.fireAt < m)) m = e.fireAt;
+  }
+  return m;
+}
+
+/// Minden plan:* kulcs a KV-ból (LIST). Csak egyeztetésre, 5 percenként.
+async function listPlanKeys(env) {
+  const keys = [];
+  let cursor = undefined;
+  for (;;) {
+    const page = await env.PLANS.list({ prefix: "plan:", cursor });
+    for (const k of page.keys) keys.push(k.name);
+    if (page.list_complete) break;
+    cursor = page.cursor;
+  }
+  return keys;
+}
+
+async function handleCron(env, nowMs = Date.now()) {
+  const now = Math.floor(nowMs / 1000);
+  const todayUTC = new Date(nowMs).toISOString().slice(0, 10);
+  const minute = new Date(nowMs).getUTCMinutes();
+  let entries = await readIndex(env);
+  let indexDirty = false;
+  if (!entries) {
+    entries = [];
+    indexDirty = true;
+  }
+  // Egyeztetés LIST-tel 5 percenként (és ha az index hiányzott): az
+  // indexből kimaradt kulcs (KV read-modify-write verseny handlePlan és
+  // cron között) next=0-val bekerül → a következő sorban betöltődik.
+  if (minute % 5 === 0 || entries.length === 0) {
+    const known = new Set(entries.map((e) => e.k));
+    for (const k of await listPlanKeys(env)) {
+      if (!known.has(k)) { entries.push({ k, next: 0 }); indexDirty = true; }
+    }
   }
   const live = [];
-  for (const name of keys) {
-    const dayKey = name.split(":")[1] || "";
-    if (dayKey && dayKey < todayUTC) { await env.PLANS.delete(name); continue; }
-    live.push(name);
-    const rec = await env.PLANS.get(name, "json");
-    if (!rec || !rec.pushToken || !Array.isArray(rec.entries)) continue;
+  for (const e of entries) {
+    const dayKey = e.k.split(":")[1] || "";
+    if (dayKey && dayKey < todayUTC) { await env.PLANS.delete(e.k); indexDirty = true; continue; }
+    if (e.next === null || e.next > now) { live.push(e); continue; }
+    const rec = await env.PLANS.get(e.k, "json");
+    if (!rec || !rec.pushToken || !Array.isArray(rec.entries)) {
+      indexDirty = true; continue;
+    }
     const host = rec.sandbox ? APNS_SANDBOX : APNS_PROD;
     let dirty = false;
-    for (const e of rec.entries) {
-      if (e.sent || typeof e.fireAt !== "number" || e.fireAt > now || !e.contentState) continue;
-      const r = await sendUpdate(env, host, rec.pushToken, e.contentState, e.staleDate);
-      e.attempts = (e.attempts || 0) + 1;
-      if (r === "sent" || e.attempts > 10) { e.sent = true; dirty = true; }
-      else dirty = true; // attempts mentése
+    for (const en of rec.entries) {
+      if (en.sent || typeof en.fireAt !== "number" || en.fireAt > now || !en.contentState) continue;
+      const out = await sendPush(env, host, rec.pushToken, en);
+      en.attempts = (en.attempts || 0) + 1;
+      en.last = { at: now, status: out.status, body: out.body };
+      if (out.r === "sent" || en.attempts > 10) en.sent = true;
+      dirty = true;
     }
-    if (dirty) await env.PLANS.put(name, JSON.stringify(rec));
+    if (dirty) await env.PLANS.put(e.k, JSON.stringify(rec));
+    const next = minFireAt(rec.entries);
+    if (next !== e.next) { e.next = next; indexDirty = true; }
+    live.push(e);
   }
-  // Takarítás után az indexet is szűkítjük (olcsó, napi pár write).
-  if (live.length !== keys.length) await writeIndex(env, live);
+  if (indexDirty || live.length !== entries.length) await writeIndex(env, live);
 }
 
 function isHex64(s) {
   return typeof s === "string" && /^[0-9a-fA-F]{64}$/.test(s);
+}
+
+function planKey(dayKey, userId, tag) {
+  return tag ? `plan:${dayKey}:${userId}:${tag}` : `plan:${dayKey}:${userId}`;
+}
+
+function parseTag(t) {
+  return typeof t === "string" && /^[a-z-]{1,16}$/.test(t) ? t : "";
 }
 
 async function handlePlan(request, env) {
@@ -219,39 +258,72 @@ async function handlePlan(request, env) {
       return Response.json({ ok: false, error: "bad-entry" }, { status: 400 });
     }
   }
-  // Preview-tag: a fejlesztői idő-eltolás külön kulcsra tölt (a valós
-  // tervet nem szennyezi), a worker ugyanúgy kézbesíti — így a push-út
-  // este, tanítási időn kívül is tesztelhető.
-  const tag = typeof body.tag === "string" && /^[a-z-]{1,16}$/.test(body.tag) ? body.tag : "";
-  const key = tag ? `plan:${body.dayKey}:${body.userId}:${tag}` : `plan:${body.dayKey}:${body.userId}`;
+  const key = planKey(body.dayKey, body.userId, parseTag(body.tag));
   await env.PLANS.put(key, JSON.stringify({
     pushToken: body.pushToken || "",
     sandbox: body.sandbox === true,
-    entries: entries.map((e) => ({ fireAt: e.fireAt, contentState: e.contentState, staleDate: e.staleDate || null })),
+    entries: entries.map((e) => ({
+      fireAt: e.fireAt, contentState: e.contentState,
+      staleDate: typeof e.staleDate === "number" ? e.staleDate : null,
+      end: e.end === true,
+    })),
     updatedAt: Math.floor(Date.now() / 1000),
   }));
-  // Index-karbantartás a LIST-mentes 5 perces cronhoz (1 PUT feltöltésenként —
-  // a feltöltések hash-őr miatt napi pár tucat, bőven a keretben).
-  // Üres (törlő) feltöltéskor a kulcs kikerül az indexből.
+  let next = null;
+  for (const e of entries) {
+    if (typeof e.fireAt === "number" && (next === null || e.fireAt < next)) next = e.fireAt;
+  }
   const prev = (await readIndex(env)) || [];
   if (entries.length === 0) {
-    const next = prev.filter((k) => k !== key);
-    if (next.length !== prev.length) await writeIndex(env, next);
-  } else if (!prev.includes(key)) {
-    prev.push(key);
-    await writeIndex(env, prev);
+    const kept = prev.filter((en) => en.k !== key);
+    if (kept.length !== prev.length) await writeIndex(env, kept);
+  } else {
+    const found = prev.find((en) => en.k === key);
+    if (found) {
+      if (found.next !== next) { found.next = next; await writeIndex(env, prev); }
+    } else {
+      prev.push({ k: key, next });
+      await writeIndex(env, prev);
+    }
   }
   return Response.json({ ok: true, entries: entries.length });
 }
 
-// Tesztelhetoseg kedveert (a Cloudflare csak a default exportot nezi).
-export { ecdsaSigToRaw };
+/// GET /status?userId=<scoped userId>&dayKey=YYYY-MM-DD[&tag=preview]
+/// Diagnosztika: mi van a tervben, mi ment ki, mit válaszolt az APNs.
+async function handleStatus(url, env) {
+  const userId = url.searchParams.get("userId") || "";
+  const dayKey = url.searchParams.get("dayKey") || "";
+  if (!userId || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
+    return Response.json({ ok: false, error: "bad-fields" }, { status: 400 });
+  }
+  const key = planKey(dayKey, userId, parseTag(url.searchParams.get("tag")));
+  const rec = await env.PLANS.get(key, "json");
+  if (!rec) return Response.json({ ok: true, found: false, key });
+  const idx = (await readIndex(env)) || [];
+  const inIndex = idx.find((e) => e.k === key) || null;
+  return Response.json({
+    ok: true, found: true, key,
+    sandbox: rec.sandbox === true,
+    tokenSuffix: (rec.pushToken || "").slice(-6),
+    updatedAt: rec.updatedAt || null,
+    indexNext: inIndex ? inIndex.next : "NOT-IN-INDEX",
+    now: Math.floor(Date.now() / 1000),
+    entries: (rec.entries || []).map((e) => ({
+      fireAt: e.fireAt, end: e.end === true, sent: e.sent === true,
+      attempts: e.attempts || 0, last: e.last || null,
+    })),
+  });
+}
+
+export { ecdsaSigToRaw, handleCron, handlePlan, handleStatus };
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "POST" && url.pathname === "/plan") return handlePlan(request, env);
-    return Response.json({ ok: true, service: "summit-liveactivity-push" });
+    if (request.method === "GET" && url.pathname === "/status") return handleStatus(url, env);
+    return Response.json({ ok: true, service: "summit-liveactivity-push", version: "2026-09-16" });
   },
   async scheduled(_event, env, _ctx) {
     if (!env.APNS_KEY || !env.APNS_KEY_ID || !env.TEAM_ID || !env.BUNDLE_ID) {

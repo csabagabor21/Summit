@@ -3,7 +3,7 @@
 > **Állapot (2026-09-16):** a Swift-oldali javítások (1., 2., 3., 6. pont)
 > BEÉPÍTVE a repóba (`SummitPushSync.swift`, `SummitLiveActivityManager.swift`,
 > `LiveActivityBackgroundRefresh.swift`), Simulator Debug build zöld. Ami még
-> KÉZI: a worker deploy (`worker.proposed.js` → Cloudflare dashboard) és a
+> KÉZI: a worker deploy (`worker.js` → Cloudflare dashboard) és a
 > 7. pont ellenőrzőlistája. A lenti kódrészletek referenciaként maradnak.
 
 Dátum: 2026-09-16. Átnézett fájlok: `FirkaNative/LiveActivity/*.swift`,
@@ -194,7 +194,7 @@ reggeli app-megnyitás is elég: activity indul → token jön → terv fel.
 
 ## 4–5. Worker: hangos hibák, önjavító index, `/status`, `end` push
 
-Kész fájl: **`LiveActivityPush/worker.proposed.js`** — a dashboardon
+Kész fájl: **`LiveActivityPush/worker.js`** (2026-09-16 óta ez a rendes worker) — a dashboardon
 Edit code → teljes tartalom bemásolása → Deploy. (Node-dal mock KV + mock
 APNs ellen 22 ellenőrzés zöld: időzítés, index-léptetés, 403-retry,
 LIST-egyeztetés, sandbox/prod host, `/status`, törlés, takarítás, JWS
@@ -276,8 +276,8 @@ return updated
    tartoznia, különben 403 `InvalidProviderToken`). `APNS_KEY_ID` = a kulcs
    10 jegyű ID-ja, `APNS_KEY` = a .p8 teljes tartalma a BEGIN/END sorokkal.
 3. **Bindings**: KV namespace, változónév pontosan `PLANS`.
-4. Edit code → `worker.proposed.js` teljes tartalma → Deploy. `GET /`
-   válaszában `"version":"2026-09-16-proposed"` kell legyen.
+4. Edit code → `worker.js` teljes tartalma → Deploy. `GET /`
+   válaszában `"version":"2026-09-16"` kell legyen.
 5. **Observability → Logs** bekapcsolva; tanítási időben az órahatár utáni
    percben vagy semmi (200, nincs log), vagy `APNs 4xx ...` sor — az
    utóbbi megmondja a valódi okot.
