@@ -91,20 +91,67 @@ final class SummitLiveActivityManager: ObservableObject {
     func pushPreviewPlan(lessons: [LessonItem], now: Date, userId: String) async {
         await SummitPushSync.shared.kick(
             today: lessons, now: now, dayKey: Self.dayKey(for: now),
-            userId: userId.isEmpty ? "demo" : userId, pushToken: pushTokens.values.first, preview: true)
+            userId: userId.isEmpty ? "demo" : userId, pushToken: primaryPushToken, preview: true)
     }
 
     private func observePushTokens(for activity: Activity<SummitLiveActivityAttributes>) {
         guard pushTokenTasks[activity.id] == nil else { return }
+        // Szinkron mag: a már futó activity AKTUÁLIS tokenje azonnal a
+        // szótárba kerül. App-újraindulás (pl. hideg BG-ébresztés) után a
+        // stream aszinkron és csak a változást hozza — addig a sync üres
+        // szótárral futott, és hamisan „örökölt, push nélküli” activitynek
+        // nézte a sajátját (→ endAll + háttér-request → a kártya meghalt).
+        if let data = activity.pushToken {
+            pushTokens[activity.id] = Self.hex(data)
+            UserDefaults.standard.set(false, forKey: Self.pushTypeNilKey)
+        }
         pushTokenTasks[activity.id] = Task { @MainActor [weak self] in
             for await data in activity.pushTokenUpdates {
-                let hex = data.map { String(format: "%02.2hhx", $0) }.joined()
-                self?.pushTokens[activity.id] = hex
+                guard let self else { return }
+                let hex = Self.hex(data)
+                let changed = self.pushTokens[activity.id] != hex
+                self.pushTokens[activity.id] = hex
                 // Token megérkezett: a build tud push-t (a nil-nyom elavult).
                 UserDefaults.standard.set(false, forKey: SummitLiveActivityManager.pushTypeNilKey)
+                // Token megjött / cserélődött → AZONNALI terv-feltöltés a
+                // mentett mai tervből. Enélkül a feltöltés a következő
+                // percenkénti előtéri syncre várt: ha a user 60 mp-en belül
+                // kilépett, aznap semmi nem ment fel a workerbe.
+                if changed { await self.uploadPlanFromCache(now: Date()) }
             }
             self?.pushTokenTasks[activity.id] = nil
         }
+    }
+
+    private static func hex(_ data: Data) -> String {
+        data.map { String(format: "%02.2hhx", $0) }.joined()
+    }
+
+    /// Az ELSŐ (egyetlen érvényes) activity tokenje. Zombi-duplikátum
+    /// tokenje sosem kerülhet a workerbe (a `pushTokens.values.first`
+    /// bármelyiket adhatta volna).
+    var primaryPushToken: String? {
+        if let first = Activity<SummitLiveActivityAttributes>.activities.first {
+            if let t = pushTokens[first.id] { return t }
+            if let d = first.pushToken { return Self.hex(d) }
+        }
+        return pushTokens.values.first
+    }
+
+    /// Terv-feltöltés a mentett mai tervből (token-érkezéskor hívjuk).
+    /// Csak valós cache-ből dolgozik — preview/demo sosem ír a cache-be.
+    func uploadPlanFromCache(now: Date) async {
+        guard let cached = cachedLessons(now: now),
+              let uid = SessionStore().selectedUser?.id else { return }
+        let cal = Calendar.current
+        let today = cached.lessons
+            .filter { cal.isDate($0.start, inSameDayAs: now) }
+            .sorted { $0.start < $1.start }
+        guard !today.isEmpty else { return }
+        logEvent("push-token megjött → terv feltöltése")
+        await SummitPushSync.shared.kick(
+            today: today, now: now, dayKey: Self.dayKey(for: now),
+            userId: uid, pushToken: primaryPushToken)
     }
 
     // MARK: - System state
@@ -293,8 +340,16 @@ final class SummitLiveActivityManager: ObservableObject {
     /// A friss (< 10 perces) activityt békén hagyjuk: a token tipikusan
     /// másodpercek alatt megérkezik, ne zúzzuk szét a kártyát miatta.
     /// Időbélyeg nélküli (régi buildtől örökölt) activity = 0 → azonnal.
-    private func shouldRestartForPush(now: Date, dayKey: String) -> Bool {
-        guard pushTokens.isEmpty, !startedWithoutPush else { return false }
+    /// CSAK ELŐTÉRBEN: háttérből az Activity.request mindig
+    /// ActivityAuthorizationError.visibility-vel dob, így a lezárt activity
+    /// helyére nem indulna új — a kártya eltűnne, és az endAll a
+    /// worker-tervet is törölné (a szerver-push is meghalna vele).
+    /// Bizonyíték: az activitynek TÉNYLEG nincs tokenje (activity.pushToken
+    /// nil), nem csak a memóriabeli szótár üres újraindulás után.
+    private func shouldRestartForPush(existing: Activity<SummitLiveActivityAttributes>,
+                                      now: Date, dayKey: String) -> Bool {
+        guard UIApplication.shared.applicationState == .active else { return false }
+        guard existing.pushToken == nil, pushTokens[existing.id] == nil, !startedWithoutPush else { return false }
         guard UserDefaults.standard.string(forKey: Self.pushRestartDayKey) != dayKey else { return false }
         let lastReq = UserDefaults.standard.double(forKey: Self.lastPushRequestAtKey)
         return now.timeIntervalSince1970 - lastReq > 600
@@ -350,7 +405,7 @@ final class SummitLiveActivityManager: ObservableObject {
             await SummitPushSync.shared.kick(
                 today: today, now: now, dayKey: key,
                 userId: SessionStore().selectedUser?.id ?? "",
-                pushToken: pushTokens.values.first)
+                pushToken: primaryPushToken)
         }
 
         // Van futó activity → update (háttérből is engedélyezett).
@@ -358,7 +413,7 @@ final class SummitLiveActivityManager: ObservableObject {
         if let existing = Activity<SummitLiveActivityAttributes>.activities.first {
             if existing.attributes.dayKey != key {
                 await endAllImpl(dismissalPolicy: .immediate)
-            } else if shouldRestartForPush(now: now, dayKey: key) {
+            } else if shouldRestartForPush(existing: existing, now: now, dayKey: key) {
                 // Örökölt, push nélküli activity (régi build nil-lel
                 // indította, frissítéskor megmaradt): az update-ág sosem
                 // kérne újat, token sosem jönne. Zárjuk, és essünk át az
@@ -572,7 +627,7 @@ final class SummitLiveActivityManager: ObservableObject {
         // különben a preview-feltöltés még token nélkül futna és kimaradna
         // (az esti tesztgomb pont ezért tűnt halottnak).
         for _ in 0..<15 {
-            if !pushTokens.isEmpty { break }
+            if primaryPushToken != nil { break }
             try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
         await pushPreviewPlan(lessons: [demo, next], now: now, userId: uid)

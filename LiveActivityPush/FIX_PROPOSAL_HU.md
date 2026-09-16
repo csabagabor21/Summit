@@ -1,5 +1,11 @@
 # Live Activity óraátmenet + Cloudflare push — hibaelemzés és javítási javaslat
 
+> **Állapot (2026-09-16):** a Swift-oldali javítások (1., 2., 3., 6. pont)
+> BEÉPÍTVE a repóba (`SummitPushSync.swift`, `SummitLiveActivityManager.swift`,
+> `LiveActivityBackgroundRefresh.swift`), Simulator Debug build zöld. Ami még
+> KÉZI: a worker deploy (`worker.proposed.js` → Cloudflare dashboard) és a
+> 7. pont ellenőrzőlistája. A lenti kódrészletek referenciaként maradnak.
+
 Dátum: 2026-09-16. Átnézett fájlok: `FirkaNative/LiveActivity/*.swift`,
 `SummitWidgets/SummitLiveActivityWidget.swift`, `LiveActivityPush/worker.js`
 (commitolt ÉS a fában lévő, még nem commitolt változat), `project.yml`,

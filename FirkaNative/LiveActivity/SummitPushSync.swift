@@ -28,13 +28,17 @@ final class SummitPushSync {
     static let lastSkipReasonKey = "liveActivity.pushLastSkip.v1"
     private init() {}
 
-    /// APNs unix timestampot vár a content-state dátumaiban — a sima
-    /// JSONEncoder 2001-es referencia-dátum óta számolna (~31 év eltérés),
-    /// és a pusholt kártyán minden timer befagyna.
+    /// A content-state-et a rendszer MINDIG a default JSON-stratégiával
+    /// dekódolja (Apple, ActivityKit push doksi: „don't use any custom JSON
+    /// encoding strategies … Custom encoding strategies will result in
+    /// update failures.”). Default = másodperc 2001-01-01 óta
+    /// (.deferredToDate). TILOS ide .secondsSince1970-et vagy .iso8601-et
+    /// tenni — a korábbi .secondsSince1970 minden pusholt dátumot +31 évre
+    /// (2057) tolt, a pusholt kártya timerei/progressze széthullott.
+    /// Az aps-szintű unix mp mezőket (fireAt, staleDate) külön Int/Double
+    /// mezőben visszük, nem a content-state-ben.
     private static func makeEncoder() -> JSONEncoder {
-        let e = JSONEncoder()
-        e.dateEncodingStrategy = .secondsSince1970
-        return e
+        JSONEncoder()
     }
 
     /// Kimaradás rögzítése: csak az első (változáskor), hogy a percenkénti
@@ -64,6 +68,9 @@ final class SummitPushSync {
         var fireAt: Int
         var contentState: SummitLiveActivityAttributes.ContentState
         var staleDate: Double?
+        /// true → a worker `event: "end"`-et küld (utolsó óra vége), a
+        /// rendszer 1 perc múlva leveszi a kártyát — nem ül 0:00-n.
+        var end: Bool?
     }
 
     struct PlanUpload: Encodable {
@@ -87,7 +94,17 @@ final class SummitPushSync {
             let nxt = today.first { $0.start > at }
             guard cur != nil || nxt != nil else { continue }
             let state = SummitLiveActivityManager.makeState(today: today, current: cur, next: nxt, now: at)
-            out.append(PushEntry(fireAt: Int(at.timeIntervalSince1970), contentState: state, staleDate: state.staleDate?.timeIntervalSince1970))
+            out.append(PushEntry(fireAt: Int(at.timeIntervalSince1970), contentState: state,
+                                 staleDate: state.staleDate?.timeIntervalSince1970, end: nil))
+        }
+        // Utolsó óra vége: záró push. A fenti ciklus erre a határra nem ad
+        // entryt (cur és nxt is nil), így enélkül a kártya a nap végén
+        // lejárt 0:00-s timerrel ülne, amíg a stale-date le nem hervasztja.
+        if let last = today.max(by: { $0.end < $1.end }), last.end > now {
+            let at = last.end.addingTimeInterval(10)
+            let final = SummitLiveActivityManager.makeState(today: today, current: last, next: nil, now: at)
+            out.append(PushEntry(fireAt: Int(at.timeIntervalSince1970), contentState: final,
+                                 staleDate: nil, end: true))
         }
         return out
     }

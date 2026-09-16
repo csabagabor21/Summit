@@ -200,12 +200,15 @@ enum LiveActivityBackgroundRefresh {
         // Napi-egy-activity: ez háttérből is csak UPDATE (engedélyezett),
         // új request csak akkor, ha még nincs mai activity.
         let updated = await mgr.syncDay(lessons: lessons, now: now, accentHex: accent)
-        if !updated && SummitLiveActivityManager.shared.canStart {
-            // Mai órák vége (a futó activity lezárva, nincs új határ) —
-            // holnap reggelre ébresztőt kérünk, hogy a következő tanítási
-            // napon app-megnyitás nélkül is elinduljon az activity.
-            // (Kikapcsolt toggle / rendszer-tiltás esetén a syncDay
-            // hamisat ad, de akkor a canStart hamis — oda nem kell ébresztő.)
+        // Reggeli ébresztő CSAK akkor, ha mára tényleg nincs több óra — nem
+        // akkor, ha a sync más okból hamis (pl. háttérben nincs activity és
+        // a request visibility-hibával dob). Utóbbinál a runRefresh 15
+        // perces pót-ébresztése tartja a láncot; a régi kód ilyenkor a mai
+        // határ-láncot törölte, és holnap reggelre ütemezett.
+        // (Kikapcsolt toggle / rendszer-tiltás esetén a canStart hamis —
+        // oda nem kell ébresztő.)
+        let hasRemaining = lessons.contains { cal.isDate($0.start, inSameDayAs: now) && $0.end > now }
+        if !hasRemaining && SummitLiveActivityManager.shared.canStart {
             scheduleMorningFallback(now: now)
             return true
         }
