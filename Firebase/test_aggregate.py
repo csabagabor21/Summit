@@ -206,6 +206,20 @@ class TestPinResolution(unittest.TestCase):
         self.assertEqual(pin["city"], "Debrecen")
         self.assertEqual((pin["lon"], pin["lat"]), aggregate.GAZETTEER["Debrecen"])
 
+    def test_legacy_gazetteer_pin_gets_regeocoded(self):
+        # A régi futás Siófokra írta (névből tippelve) — a geokódolás felülírja.
+        legacy = {MATHIASZ: aggregate.make_pin(18.05, 46.91, "Siófok", "gazetteer")}
+        pin = aggregate.resolve_pin(MATHIASZ, legacy, self.alias, self.geocode)
+        self.assertEqual(pin["source"], "nominatim")
+        self.assertEqual(pin["city"], "Balatonboglár")
+
+    def test_legacy_gazetteer_pin_kept_when_geocode_fails(self):
+        legacy = {MATHIASZ: aggregate.make_pin(18.05, 46.91, "Siófok", "gazetteer")}
+        empty = aggregate.make_geocoder(fetch=canned({}), log=lambda *_: None)
+        pin = aggregate.resolve_pin(MATHIASZ, legacy, self.alias, empty)
+        self.assertEqual(pin["source"], "gazetteer")
+        self.assertEqual(pin["city"], "Siófok")
+
     def test_pin_from_directory_wins(self):
         pins = {"Valami Gimnázium": aggregate.make_pin(1.0, 2.0, None, "manual")}
         pin = aggregate.resolve_pin("Valami Gimnázium", pins, self.alias)
@@ -263,6 +277,15 @@ class TestPinStorage(unittest.TestCase):
         pins = aggregate.read_pins(docs)
         self.assertEqual(pins["Régi Iskola"]["source"], "manual")
         self.assertIsNone(pins["Régi Iskola"]["city"])
+
+    def test_read_pins_old_doc_on_gazetteer_point_is_not_manual(self):
+        lon, lat = aggregate.GAZETTEER["Siófok"]
+        docs = [{"name": "p/4", "fields": {
+            "name": {"stringValue": MATHIASZ},
+            "lon": {"doubleValue": lon}, "lat": {"doubleValue": lat}}}]
+        pin = aggregate.read_pins(docs)[MATHIASZ]
+        self.assertEqual(pin["source"], "gazetteer")
+        self.assertEqual(pin["city"], "Siófok")
 
     def test_read_pins_keeps_city_and_source(self):
         docs = [{"name": "p/2", "fields": {

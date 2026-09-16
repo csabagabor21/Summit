@@ -201,9 +201,22 @@ def num(v):
     return None
 
 
+def legacy_source(lon, lat):
+    """Régi (source nélküli) pin besorolása. A korábbi aggregate a névből
+    tippelt várost automatikusan beírta a school_pins-be — az ilyen pin
+    koordinátája PONTOSAN egy lexikon-város pontja. Ez nem kézi döntés,
+    hanem a rossz heurisztika lenyomata (pl. Mathiász → Siófok, valójában
+    Balatonboglár), ezért "gazetteer"-nek vesszük, hogy a geokódolás
+    felülírhassa. Minden más régi pin kézi marad."""
+    for city, (glon, glat) in GAZETTEER.items():
+        if abs(lon - glon) < 1e-6 and abs(lat - glat) < 1e-6:
+            return "gazetteer", city
+    return "manual", None
+
+
 def read_pins(docs):
-    """school_pins dokumentumok -> {név: pin}. A régi dokokban nincs
-    source/city mező — azokat KÉZINEK vesszük, hogy sose írjuk felül."""
+    """school_pins dokumentumok -> {név: pin}. Régi dok (nincs source):
+    lexikon-koordinátán → "gazetteer" (újra-geokódolható), különben kézi."""
     out = {}
     for d in docs:
         f = d.get("fields", {})
@@ -211,10 +224,12 @@ def read_pins(docs):
         lon, lat = num(f.get("lon")), num(f.get("lat"))
         if not isinstance(name, str) or lon is None or lat is None:
             continue
-        out[name] = make_pin(
-            lon, lat,
-            f.get("city", {}).get("stringValue") or None,
-            f.get("source", {}).get("stringValue") or "manual")
+        source = f.get("source", {}).get("stringValue") or None
+        city = f.get("city", {}).get("stringValue") or None
+        if not source:
+            source, legacy_city = legacy_source(lon, lat)
+            city = city or legacy_city
+        out[name] = make_pin(lon, lat, city, source)
     return out
 
 
@@ -382,7 +397,14 @@ def resolve_pin(name, pin_by_name, alias, geocode=None):
     """Pin a névhez. Sorrend: meglévő school_pins (kézi felülírás is itt
     nyer) → Nominatim geokódolás → városlexikon a névben (végső mentsvár)."""
     if name in pin_by_name:
-        return pin_by_name[name]
+        cur = pin_by_name[name]
+        # Lexikonos (névből tippelt) pin nem végleges: ha van geokódoló,
+        # megpróbáljuk a valódi helyet. Kézi és nominatim pint sosem bántunk.
+        if cur.get("source") == "gazetteer" and geocode is not None:
+            hit = geocode(name)
+            if hit is not None:
+                return hit
+        return cur
     if geocode is not None:
         hit = geocode(name)
         if hit is not None:
@@ -511,9 +533,10 @@ def main():
 
     def remember(name, pin):
         """Frissen feloldott pin gyorsítótárazása a school_pins-be, hogy a
-        következő futás már ne hálózzon. Meglévő (pl. kézi) pint SOSEM
-        írunk felül."""
-        if name in pin_by_name or name in new_pins:
+        következő futás már ne hálózzon. Kézi/nominatim pint SOSEM írunk
+        felül; a lexikonos (tippelt) pint csak jobbra (geokódoltra) cseréljük."""
+        old = pin_by_name.get(name)
+        if name in new_pins or (old is not None and (old is pin or old.get("source") != "gazetteer")):
             return
         new_pins[name] = pin
         pin_by_name[name] = pin
