@@ -16,6 +16,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install google-auth requests
+      # Tesztek a futtatás ELŐTT: hibás script ne írhasson a public/map-be.
+      - run: python3 -m unittest discover -s Firebase -p "test_*.py"
       - env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa-key.json
         run: |

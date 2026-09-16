@@ -57,10 +57,71 @@ felirata magától átáll élőre.
 ## Iskolanevek → térkép (automatikus, rád nem vár semmi)
 
 Az app az iskola KRÉTA-beli nevét küldi (a nyers kód nem hagyja el a telefont),
-az `aggregate.py` pedig a beépített városlexikon alapján magától teszi ki
-a pineket a `school_pins`-be. Új, ismeretlen városú iskola esetén kiírja:
-`PIN KELL (N fő): <név>` — azt egy gyors kereséssel pótoljuk a lexikonban.
-Kézzel feltöltendő szótár nincs; GDPR k-anonimitás van: 6 főtől
-az iskola a saját nevével kerül ki, 5 fő és alatta csak a város neve
-jelenik meg, összevont létszámmal (az iskola neve ilyenkor a nyilvános
-`public/map` dokba sem kerül be).
+az `aggregate.py` pedig **magától megkeresi, hol van valójában az iskola**.
+A feloldás sorrendje (az első találat nyer):
+
+1. **`school_pins` meglévő pin** — ez a stabil, kézzel felülírható szótár.
+   Ha egy név már szerepel benne, azt semmi nem írja felül.
+2. **Nominatim (OpenStreetMap) geokódolás a teljes iskolanévre** —
+   `https://nominatim.openstreetmap.org/search` (csak stdlib, saját
+   `User-Agent`, max 1 kérés/mp, futásonként max 12 iskola). Ha a teljes név
+   nem hoz találatot, egyre egyszerűbb kérdések következnek: SZC-előtag
+   nélkül, majd csak a tulajdonnévi rész. A találat csak akkor fogadható el,
+   ha iskola-jellegű (`amenity=school` stb.) vagy a névbeli kulcsszavak
+   egyeznek, **és** Magyarország befoglaló dobozában van
+   (lon 16.1–22.9, lat 45.7–48.6).
+3. **Városlexikon (GAZETTEER) a névben** — végső mentsvár, csak akkor,
+   ha a geokódolás nem hozott semmit.
+4. Ha egyik sem sikerül: `PIN KELL (N fő): <név>` sor a logban.
+
+Miért kell mindez: sok iskola a fenntartó szakképzési centrumáról vagy egy
+személyről kapja a nevét, nem a saját városáról. A
+*Siófoki SZC Mathiász János Technikum és Gimnázium* például
+**Balatonbogláron** van (17.658, 46.775) — a névből „kitalált” Siófok
+rossz pin lenne.
+
+A geokódolt találat (koordináta + **valódi város**) bekerül a `school_pins`-be,
+így óránként nem megyünk újra a Nominatimra: normál esetben **nulla** hálózati
+kérés fut. Ez a város fontos a k-anonimitás miatt is: 6 fő alatt csak ez a
+városnév jelenik meg a térképen, az iskola neve nem.
+
+### Pin mezői (`school_pins`, csak a service account éri el)
+
+| mező | jelentés |
+| --- | --- |
+| `name` | az iskola (vagy város) neve, ehhez illeszkedik a feloldás |
+| `lon`, `lat` | koordináta |
+| `city` | a település neve (a 6 fő alatti, összevont megjelenítéshez) |
+| `source` | `manual` / `nominatim` / `gazetteer` — honnan jött a pin |
+
+A régi, `city`/`source` nélküli dokumentumok is működnek: azokat kézinek
+tekintjük, tehát sosem íródnak felül.
+
+### Kézi felülírás (ha egy pin rossz helyre került)
+
+Firebase Console → Firestore → `school_pins` → keresd meg a dokumentumot a
+`name` mező alapján (a dok-azonosító a név SHA-256 lenyomatának eleje) →
+írd át a `lon`/`lat`/`city` mezőt, és a `source`-ot állítsd `manual`-ra.
+Ettől kezdve a script hozzá sem nyúl. Új pin kézzel: hozz létre egy
+dokumentumot tetszőleges azonosítóval, `name` + `lon` + `lat` (+ `city`,
+`source: manual`) mezőkkel.
+Ha inkább újra geokódoltatnád: **töröld** a dokumentumot, a következő
+futás újra megkeresi.
+
+### Ellenőrzés futtatás nélkül
+
+```bash
+# egy iskola geokódolása (csak Nominatim, semmit nem ír)
+python3 Firebase/aggregate.py --geocode "Siófoki SZC Mathiász János Technikum és Gimnázium"
+
+# teljes összesítés szárazon: mindent kiszámol, de semmit nem ír Firestore-ba
+python3 Firebase/aggregate.py --dry-run
+
+# tesztek (hálózat nélkül, mockolt Nominatim-válasszal)
+python3 -m unittest discover -s Firebase -p "test_*.py"
+```
+
+GDPR k-anonimitás: 6 főtől az iskola a saját nevével kerül ki, 5 fő és alatta
+csak a (geokódolt) város neve jelenik meg, összevont létszámmal és a város
+koordinátájával — az iskola neve ilyenkor a nyilvános `public/map` dokba sem
+kerül be.

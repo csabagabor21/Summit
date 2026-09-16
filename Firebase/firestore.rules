@@ -22,7 +22,9 @@ rules_version = '2';
 //   - expiresAt:   timestamp (kötelező, = createdAt + 365 nap; TTL-mező)
 //
 // Collection: school_pins — név->koordináta térkép-pin szótár
-// ({name, lon, lat}); csak összesítő script írja/olvassa,
+// ({name, lon, lat, city?, source?}); a source a pin eredete
+// (manual/nominatim/gazetteer), a city a geokódolt település neve.
+// Csak az összesítő script írja/olvassa (service account),
 // kliensnek sem írni, sem olvasni nem szabad.
 //
 // Collection: public — összesített, név nélküli térkép-adat ({demo, schools,

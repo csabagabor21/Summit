@@ -7,21 +7,34 @@ ez a script pedig:
 - iskolánként számol, GDPR k-anonimitással: 6 főtől iskola nevével,
   alatta csak városnévvel összevonva (az iskola neve ilyenkor
   a nyilvános dokba sem kerül be),
-- városhoz rendeli a beépített városlexikon alapján, a pint beírja
-  a school_pins-be (stabil, kézzel felülírható),
+- helyet rendel az iskolához: meglévő school_pins pin → Nominatim
+  (OpenStreetMap) geokódolás a TELJES iskolanévre → végső esetben
+  a beépített városlexikon (városnév az iskola nevében),
+- a geokódolt pint (koordináta + valódi város) beírja a school_pins-be,
+  hogy óránként ne kelljen újra hálózni; a kézzel felvitt pin szent,
+  azt sosem írjuk felül,
 - megírja a nyilvános public/map dokot,
 - törli a 365 napnál régebbi rekordokat (TTL-helyettesítő).
 
-Ismeretlen városú iskolákat kilistázza (PIN KELL) —
-azokat egy gyors kereséssel be kell tenni a GAZETTEER-be vagy
-kézzel a school_pins-be.
+Miért kell a geokódolás: sok magyar iskola a fenntartó szakképzési
+centrumáról vagy egy személyről kapja a nevét, nem a saját városáról.
+Pl. a "Siófoki SZC Mathiász János Technikum és Gimnázium" fizikailag
+Balatonbogláron van — a névből "kitalált" Siófok rossz pin lenne.
 
-Használat:  python3 Firebase/aggregate.py
-(Időzítve: launchd / cron, pl. naponta egyszer. Addig kézzel is futtatható.)
+Feloldhatatlan iskolákat kilistázza (PIN KELL) — azokat kézzel kell
+betenni a school_pins-be (ld. SETUP_HU.md).
+
+Használat:
+  python3 Firebase/aggregate.py                # éles futás (írással)
+  python3 Firebase/aggregate.py --dry-run      # semmit nem ír, kiírja a leendő public/map-et
+  python3 Firebase/aggregate.py --geocode "<iskolanév>"   # csak geokódolás-próba
 """
 import json
+import re
 import subprocess
 import sys
+import time
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
@@ -35,8 +48,32 @@ RETENTION_DAYS = 365
 SCHOOL_NAME_THRESHOLD = 6
 BASE = f"https://firestore.googleapis.com/v1/projects/{PROJECT}/databases/(default)/documents"
 
+# --- Nominatim (OpenStreetMap) geokódolás ---------------------------------
+# Usage policy: max 1 kérés/mp, valódi User-Agent kötelező. Csak stdlib.
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+USER_AGENT = "Summit-aggregator/1.0 (hello@gaborcsaba.com)"
+NOMINATIM_DELAY = 1.1          # mp két kérés között (policy: 1/mp)
+NOMINATIM_TIMEOUT = 20         # mp
+MAX_GEOCODE_PER_RUN = 12       # futásonkénti kérés-plafon (az óránkénti cron miatt)
+# Magyarország nagyjábóli befoglaló doboza (lon_min, lat_min, lon_max, lat_max).
+HU_BBOX = (16.1, 45.7, 22.9, 48.6)
+# Ezekre a class/type értékekre hisszük el, hogy tényleg iskolát találtunk.
+SCHOOL_TYPES = ("school", "college", "university", "kindergarten", "educational_institution")
+# Iskolanévben gyakori, nem megkülönböztető szavak (a kereséshez/pontozáshoz).
+NAME_STOPWORDS = {
+    "szc", "szakképzési", "centrum", "centruma", "technikum", "technikuma", "és", "es",
+    "gimnázium", "gimnáziuma", "iskola", "iskolája", "általános", "szakgimnázium",
+    "szakközépiskola", "szakiskola", "középiskola", "kollégium", "kollégiuma",
+    "alapfokú", "művészeti", "köznevelési", "intézmény", "intézménye", "tagintézmény",
+    "tagintézménye", "nyelvoktató", "nemzetiségi", "kéttannyelvű", "két", "tanítási",
+    "nyelvű", "óvoda", "bölcsőde", "egységes", "gyógypedagógiai", "módszertani",
+    "szakszolgálat", "iskolaközpont", "líceum", "főiskola", "egyetem", "campus",
+    "a", "az", "és/vagy", "sz", "számú",
+}
+
 # város -> (lon, lat). Az illesztés a névben szereplő "Budapesti", "Debreceni"
-# stb. alakokra is működik (ld. aliases()).
+# stb. alakokra is működik (ld. aliases()). Ez már csak VÉGSŐ mentsvár:
+# elsődlegesen a school_pins és a geokódolás dönt.
 GAZETTEER = {
     "Budapest": (19.04, 47.50), "Debrecen": (21.63, 47.53), "Szeged": (20.15, 46.25),
     "Miskolc": (20.78, 48.10), "Pécs": (18.23, 46.07), "Győr": (17.63, 47.68),
@@ -59,24 +96,18 @@ GAZETTEER = {
     "Kiskőrös": (19.29, 46.62), "Monor": (19.45, 47.35), "Vecsés": (19.27, 47.41),
     "Veresegyház": (19.29, 47.65), "Szarvas": (20.55, 46.86), "Mezőkövesd": (20.58, 47.81),
     "Tiszaújváros": (21.02, 47.92), "Komló": (18.26, 46.19), "Siklós": (18.30, 45.86),
+    "Balatonboglár": (17.65, 46.77),
     # rendhagyó melléknévi alakok:
     "Egri": (20.37, 47.90), "Fővárosi": (19.04, 47.50),
 }
 EXTRA_ALIASES = {"egri": "Eger", "fővárosi": "Budapest"}
 
-# Institut-kód -> (megjelenő név, (lon, lat)). Ha az app nem tud nevet
-# (üres adatlap), a kódot küldi — a feloldás itt történik, kézzel
-# bővíthető. Ismeretlen kód "KÓD KELL" sorral jelentkezik a logban.
+# Institut-kód -> megjelenő név. Ha az app nem tud nevet (üres adatlap),
+# a kódot küldi — a NÉV feloldása itt történik, kézzel bővíthető.
+# Koordináta itt NINCS: a helyet ugyanaz a lánc adja, mint a többi
+# iskolánál (school_pins → geokódolás → városlexikon).
 CODEBOOK = {
-    "siszc-mathiasz": (
-        "Siófoki SZC Mathiász János Technikum és Gimnázium",
-        (18.05, 46.91),  # Siófok
-    ),
-}
-
-# Institut-kód -> város (a resolve_city-hez, ha az adatlap nem ad nevet).
-CODEBOOK_CITY = {
-    "siszc-mathiasz": "Siófok",
+    "siszc-mathiasz": "Siófoki SZC Mathiász János Technikum és Gimnázium",
 }
 
 
@@ -148,50 +179,220 @@ def shows_school_name(count):
     return count >= SCHOOL_NAME_THRESHOLD
 
 
-def resolve_city(name, code, alias):
-    """A csoporthoz tartozó város neve — None, ha nem állapítható meg.
-    Sorrend: CODEBOOK-város (kód alapján) → városnév az iskola nevében."""
-    c = (code or "").strip()
-    if c and c in CODEBOOK_CITY:
-        return CODEBOOK_CITY[c]
-    u = usable_name(name)
-    if u is not None:
-        if u in CODEBOOK_CITY:
-            return CODEBOOK_CITY[u]
-        low = u.lower()
-        return next((city for a, city in alias.items() if a in low), None)
+# --- pin-szerkezet ---------------------------------------------------------
+# Egy "pin" dict: {"lon": float, "lat": float, "city": str|None,
+#                  "source": "manual"|"nominatim"|"gazetteer"}
+
+
+def make_pin(lon, lat, city, source):
+    return {"lon": float(lon), "lat": float(lat), "city": city or None, "source": source}
+
+
+def num(v):
+    """Firestore szám-mező -> float (doubleValue vagy integerValue)."""
+    if not isinstance(v, dict):
+        return None
+    for k in ("doubleValue", "integerValue"):
+        if k in v:
+            try:
+                return float(v[k])
+            except (TypeError, ValueError):
+                return None
     return None
 
 
-def build_public_entries(items):
-    """K-anonimizált nyilvános lista feloldott csoportokból.
-
-    items: [{"display", "city" (vagy None), "lon", "lat", "count"}].
-    A 6+ fős iskola saját névvel + saját pinnel; az 5 fő alattiak
-    városonként összevonva, a város nevével + város-koordinátával.
-    Város nélküli kis csoport nem kerül ki (azt a hívó logolja)."""
-    named, buckets = [], {}
-    for it in items:
-        if shows_school_name(it["count"]):
-            named.append({"name": it["display"], "lon": it["lon"],
-                          "lat": it["lat"], "count": it["count"]})
-        elif it["city"]:
-            buckets[it["city"]] = buckets.get(it["city"], 0) + it["count"]
-    out = list(named)
-    for city in sorted(buckets, key=lambda c: -buckets[c]):
-        lon, lat = GAZETTEER[city]
-        out.append({"name": city, "lon": lon, "lat": lat,
-                    "count": buckets[city]})
+def read_pins(docs):
+    """school_pins dokumentumok -> {név: pin}. A régi dokokban nincs
+    source/city mező — azokat KÉZINEK vesszük, hogy sose írjuk felül."""
+    out = {}
+    for d in docs:
+        f = d.get("fields", {})
+        name = f.get("name", {}).get("stringValue")
+        lon, lat = num(f.get("lon")), num(f.get("lat"))
+        if not isinstance(name, str) or lon is None or lat is None:
+            continue
+        out[name] = make_pin(
+            lon, lat,
+            f.get("city", {}).get("stringValue") or None,
+            f.get("source", {}).get("stringValue") or "manual")
     return out
 
 
-def resolve_pin(name, pin_by_name, alias):
-    """(lon, lat) az iskola nevéhez, hálózat nélkül — None, ha ismeretlen."""
+def pin_body(name, pin):
+    """school_pins dok törzse (a régi {name, lon, lat} sémával felfelé
+    kompatibilis, csak bővül city/source mezővel)."""
+    fields = {
+        "name": {"stringValue": name},
+        "lon": {"doubleValue": pin["lon"]},
+        "lat": {"doubleValue": pin["lat"]},
+        "source": {"stringValue": pin.get("source") or "manual"},
+    }
+    if pin.get("city"):
+        fields["city"] = {"stringValue": pin["city"]}
+    return {"fields": fields}
+
+
+# --- geokódolás ------------------------------------------------------------
+
+_last_call = 0.0
+
+
+def in_hungary(lon, lat):
+    """Józansági szűrő: a találat Magyarország befoglaló dobozában van-e."""
+    lo_min, la_min, lo_max, la_max = HU_BBOX
+    return lo_min <= lon <= lo_max and la_min <= lat <= la_max
+
+
+def key_words(name):
+    """Az iskolanév megkülönböztető szavai (eredeti kis/nagybetűvel):
+    típusszavak (SZC, technikum, gimnázium...) és városnevek nélkül.
+    "Siófoki SZC Mathiász János Technikum és Gimnázium" -> ["Mathiász", "János"]."""
+    city_words = set(aliases())
+    out = []
+    for raw in re.split(r"[\s,\-–—/()\.]+", name or ""):
+        w = raw.strip("'\"")
+        low = w.lower()
+        if len(w) < 2 or low in NAME_STOPWORDS or low in city_words:
+            continue
+        if not re.search(r"[A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű]", w):
+            continue
+        out.append(w)
+    return out
+
+
+def geocode_queries(name):
+    """Egyre egyszerűbb keresőkifejezések: teljes név → SZC-előtag nélkül →
+    csak a megkülönböztető (tulajdonnévi) rész."""
+    qs = [(name or "").strip()]
+    m = re.search(r"(?:\bSZC\b|Szakképzési\s+Centrum(?:a)?)\s+(.+)", name or "", re.IGNORECASE)
+    if m:
+        qs.append(m.group(1).strip())
+    core = key_words(name)
+    if core:
+        qs.append(" ".join(core))
+    seen, out = set(), []
+    for q in qs:
+        if len(q) >= 4 and q.lower() not in seen:
+            seen.add(q.lower())
+            out.append(q)
+    return out
+
+
+def nominatim_fetch(query):
+    """Nyers Nominatim-találatok (lista). Hálózat, max 1 kérés/mp."""
+    global _last_call
+    wait = NOMINATIM_DELAY - (time.monotonic() - _last_call)
+    if wait > 0:
+        time.sleep(wait)
+    url = NOMINATIM_URL + "?" + urllib.parse.urlencode({
+        "q": query, "format": "jsonv2", "countrycodes": "hu",
+        "limit": 3, "addressdetails": 1})
+    r = urllib.request.Request(url, headers={
+        "User-Agent": USER_AGENT, "Accept": "application/json",
+        "Accept-Language": "hu"})
+    try:
+        with urllib.request.urlopen(r, timeout=NOMINATIM_TIMEOUT) as x:
+            data = json.loads(x.read() or b"[]")
+            return data if isinstance(data, list) else []
+    except Exception:
+        return []
+    finally:
+        _last_call = time.monotonic()
+
+
+def score_hit(hit, words):
+    """Mennyire hihető, hogy ez a találat a keresett iskola.
+    Iskola-jellegű objektum sokat ér, a névbeli kulcsszavak is."""
+    cls = (hit.get("class") or hit.get("category") or "").lower()
+    typ = (hit.get("type") or "").lower()
+    score = 0
+    if cls == "amenity" and typ in SCHOOL_TYPES:
+        score += 10
+    elif typ in SCHOOL_TYPES or cls in SCHOOL_TYPES:
+        score += 6
+    disp = (hit.get("display_name") or "").lower()
+    score += 2 * sum(1 for w in words if w in disp)
+    return score
+
+
+def hit_city(hit):
+    """Település a találat address-blokkjából. A "... járás"/"... vármegye"
+    alakok nem városnevek, azokat kihagyjuk."""
+    addr = hit.get("address") or {}
+    for k in ("city", "town", "village", "suburb", "municipality", "county"):
+        v = addr.get(k)
+        if v and not re.search(r"\b(járás|vármegye|megye)$", v.strip()):
+            return v.strip()
+    return None
+
+
+def pick_pin(hits, name, min_score=4):
+    """A legjobb találatból pin — None, ha nincs elég hihető, magyarországi."""
+    words = [w.lower() for w in key_words(name)]
+    best, best_score = None, 0
+    for hit in hits or []:
+        try:
+            lon, lat = float(hit.get("lon")), float(hit.get("lat"))
+        except (TypeError, ValueError):
+            continue
+        if not in_hungary(lon, lat):
+            continue
+        score = score_hit(hit, words)
+        if score > best_score:
+            best, best_score = (hit, lon, lat), score
+    if best is None or best_score < min_score:
+        return None
+    hit, lon, lat = best
+    return make_pin(lon, lat, hit_city(hit), "nominatim")
+
+
+def geocode_school(name, fetch=nominatim_fetch):
+    """Iskolanév -> pin a Nominatim alapján (None, ha nincs hihető találat)."""
+    for q in geocode_queries(name):
+        pin = pick_pin(fetch(q), name)
+        if pin is not None:
+            return pin
+    return None
+
+
+def make_geocoder(limit=MAX_GEOCODE_PER_RUN, fetch=nominatim_fetch, log=print):
+    """Geokódoló futásonkénti kéréskorláttal (óránként fut, a Nominatim
+    policy miatt keveset hálózunk; a találatok school_pins-be kerülnek)."""
+    left = [limit]
+
+    def geocode(name):
+        if left[0] <= 0:
+            return None
+        left[0] -= 1
+        pin = geocode_school(name, fetch=fetch)
+        if pin:
+            log(f"geokódolva: {name} → {pin.get('city') or '?'} "
+                f"({pin['lon']:.4f}, {pin['lat']:.4f})")
+        else:
+            log(f"geokódolás sikertelen: {name}")
+        return pin
+
+    return geocode
+
+
+# --- feloldás --------------------------------------------------------------
+
+
+def resolve_pin(name, pin_by_name, alias, geocode=None):
+    """Pin a névhez. Sorrend: meglévő school_pins (kézi felülírás is itt
+    nyer) → Nominatim geokódolás → városlexikon a névben (végső mentsvár)."""
     if name in pin_by_name:
         return pin_by_name[name]
-    low = name.lower()
+    if geocode is not None:
+        hit = geocode(name)
+        if hit is not None:
+            return hit
+    low = (name or "").lower()
     city = next((c for a, c in alias.items() if a in low), None)
-    return GAZETTEER[city] if city else None
+    if city is None:
+        return None
+    lon, lat = GAZETTEER[city]
+    return make_pin(lon, lat, city, "gazetteer")
 
 
 def usable_name(name):
@@ -208,27 +409,77 @@ def usable_name(name):
     return t
 
 
-def resolve_school(name, code, pin_by_name, alias):
-    """(megjelenő név, lon, lat) név+kód alapján — None, ha feloldhatatlan.
-    Sorrend: valódi név (városlexikon) → név/kód a CODEBOOK-ban."""
+def resolve_display(name, code):
+    """Megjelenő iskolanév név/kód alapján — None, ha nincs használható."""
     u = usable_name(name)
     if u is not None:
-        if u in CODEBOOK:
-            disp, (lon, lat) = CODEBOOK[u][0], CODEBOOK[u][1]
-            return disp, lon, lat
-        hit = resolve_pin(u, pin_by_name, alias)
-        if hit is None:
-            return None
-        return u, hit[0], hit[1]
+        return CODEBOOK.get(u, u)
     c = (code or "").strip()
-    if c and c in CODEBOOK:
-        disp, (lon, lat) = CODEBOOK[c][0], CODEBOOK[c][1]
-        return disp, lon, lat
-    return None
+    return CODEBOOK.get(c)
+
+
+def resolve_school(name, code, pin_by_name, alias, geocode=None):
+    """(megjelenő név, pin) név+kód alapján — None, ha feloldhatatlan.
+    A helyet kódos és nevesített esetben is ugyanaz a lánc adja."""
+    display = resolve_display(name, code)
+    if display is None:
+        return None
+    pin = resolve_pin(display, pin_by_name, alias, geocode)
+    if pin is None:
+        return None
+    return display, pin
+
+
+def resolve_city(name, pin, alias):
+    """A csoporthoz tartozó város (6 fő alatt EZ látszik a térképen) —
+    elsősorban a feloldott pin városa (geokódolt, valódi hely), csak
+    utána a névben szereplő városnév."""
+    if pin and pin.get("city"):
+        return pin["city"]
+    u = usable_name(name)
+    if u is None:
+        return None
+    low = u.lower()
+    return next((city for a, city in alias.items() if a in low), None)
+
+
+def build_public_entries(items, city_pos=None):
+    """K-anonimizált nyilvános lista feloldott csoportokból.
+
+    items: [{"display", "city" (vagy None), "lon", "lat", "count"}].
+    city_pos: város -> (lon, lat) a GAZETTEER-en túli (geokódolt) városokhoz.
+    A 6+ fős iskola saját névvel + saját pinnel; az 5 fő alattiak
+    városonként összevonva, a város nevével + város-koordinátával.
+    Város (vagy város-koordináta) nélküli kis csoport nem kerül ki."""
+    pos = dict(GAZETTEER)
+    pos.update(city_pos or {})
+    named, buckets = [], {}
+    for it in items:
+        if shows_school_name(it["count"]):
+            named.append({"name": it["display"], "lon": it["lon"],
+                          "lat": it["lat"], "count": it["count"]})
+        elif it["city"] and it["city"] in pos:
+            buckets[it["city"]] = buckets.get(it["city"], 0) + it["count"]
+    out = list(named)
+    for city in sorted(buckets, key=lambda c: -buckets[c]):
+        lon, lat = pos[city]
+        out.append({"name": city, "lon": lon, "lat": lat,
+                    "count": buckets[city]})
+    return out
 
 
 def main():
     import hashlib
+    argv = sys.argv[1:]
+    if "--geocode" in argv:  # egyszeri próba: python3 aggregate.py --geocode "<név>"
+        i = argv.index("--geocode")
+        q = argv[i + 1] if len(argv) > i + 1 else ""
+        print(json.dumps({"name": q, "pin": geocode_school(q),
+                          "queries": geocode_queries(q)},
+                         ensure_ascii=False, indent=2))
+        return 0
+    dry = "--dry-run" in argv
+
     tok = token()
     now = datetime.now(timezone.utc)
     since = now - timedelta(days=ACTIVE_DAYS)
@@ -253,46 +504,59 @@ def main():
             if code:
                 g["code"] = code
 
-    pins = {}
-    for d in list_all(tok, "school_pins"):
-        f = d.get("fields", {})
-        pins[d["name"].rsplit("/", 1)[-1]] = d
-    pin_by_name = {}
-    for d in pins.values():
-        f = d.get("fields", {})
-        if isinstance(f.get("name", {}).get("stringValue"), str):
-            pin_by_name[f["name"]["stringValue"]] = (
-                f.get("lon", {}).get("doubleValue", 0),
-                f.get("lat", {}).get("doubleValue", 0))
-
+    pin_by_name = read_pins(list_all(tok, "school_pins"))
     alias = aliases()
+    geocode = make_geocoder()
+    new_pins = {}  # név -> pin (amit ebben a futásban oldottunk fel)
+
+    def remember(name, pin):
+        """Frissen feloldott pin gyorsítótárazása a school_pins-be, hogy a
+        következő futás már ne hálózzon. Meglévő (pl. kézi) pint SOSEM
+        írunk felül."""
+        if name in pin_by_name or name in new_pins:
+            return
+        new_pins[name] = pin
+        pin_by_name[name] = pin
+        if dry:
+            print(f"[dry-run] pin lenne: {name} → {pin}")
+            return
+        pid = hashlib.sha256(name.encode()).hexdigest()[:32]
+        st, _ = req(tok, "PATCH", f"/school_pins/{pid}", pin_body(name, pin))
+        assert st == 200, f"pin {name}: HTTP {st}"
+
     items, need_pin = [], []
     for key in sorted(groups, key=lambda k: -len(groups[k]["ids"])):
         g = groups[key]
         n = len(g["ids"])
-        res = resolve_school(g["name"], g["code"], pin_by_name, alias)
+        res = resolve_school(g["name"], g["code"], pin_by_name, alias, geocode)
         if res is None:
             need_pin.append(((g["code"] or g["name"] or "?"), n))
             continue
-        display, lon, lat = res
-        if shows_school_name(n):
-            if display not in pin_by_name:
-                pid = hashlib.sha256(display.encode()).hexdigest()[:32]
-                st, _ = req(tok, "PATCH", f"/school_pins/{pid}", {"fields": {
-                    "name": {"stringValue": display},
-                    "lon": {"doubleValue": lon}, "lat": {"doubleValue": lat}}})
-                assert st == 200, f"pin {display}: HTTP {st}"
-            items.append({"display": display, "city": None,
-                          "lon": lon, "lat": lat, "count": n})
-        else:
-            city = resolve_city(g["name"], g["code"], alias)
-            if city is None:
-                need_pin.append(((g["code"] or g["name"] or "?"), n))
-                continue
-            items.append({"display": display, "city": city,
-                          "lon": lon, "lat": lat, "count": n})
-    n_named = sum(1 for i in items if i["city"] is None)
-    schools = build_public_entries(items)
+        display, pin = res
+        remember(display, pin)
+        city = resolve_city(g["name"], pin, alias)
+        if not shows_school_name(n) and city is None:
+            need_pin.append(((g["code"] or g["name"] or "?"), n))
+            continue
+        items.append({"display": display, "city": city,
+                      "lon": pin["lon"], "lat": pin["lat"], "count": n})
+
+    # A 6 fő alatti csoportok a VÁROS koordinátájával kerülnek ki (nem az
+    # iskoláéval) — a lexikonon kívüli városokat is feloldjuk + pineljük.
+    city_pos = {}
+    for it in items:
+        c = it["city"]
+        if shows_school_name(it["count"]) or not c or c in GAZETTEER or c in city_pos:
+            continue
+        cp = resolve_pin(c, pin_by_name, alias, geocode)
+        if cp is None:
+            need_pin.append((f"város: {c}", it["count"]))
+            continue
+        remember(c, cp)
+        city_pos[c] = (cp["lon"], cp["lat"])
+
+    n_named = sum(1 for i in items if shows_school_name(i["count"]))
+    schools = build_public_entries(items, city_pos)
 
     # Mindig írunk — 0 iskola esetén is: az oldal 0-t mutat, nem demót.
     body = {"fields": {
@@ -305,14 +569,23 @@ def main():
                 "lat": {"doubleValue": s["lat"]},
                 "count": {"integerValue": str(s["count"])}}}}
             for s in schools]}}}}
-    st, _ = req(tok, "PATCH", "/public/map", body)
+    if dry:
+        print("[dry-run] public/map lenne:")
+        print(json.dumps(schools, ensure_ascii=False, indent=2))
+        st = "-"
+    else:
+        st, _ = req(tok, "PATCH", "/public/map", body)
     print(f"public/map frissítve ({len(schools)} pont: "
           f"{n_named} iskola + {len(schools) - n_named} város): HTTP {st}")
 
-    for doc_id in old:
-        st, _ = req(tok, "DELETE", f"/heartbeats/{doc_id}")
-        assert st == 200, f"delete {doc_id}: HTTP {st}"
-    print(f"heartbeat olvasva: {len(beats)}, iskolák: {len(groups)}, lejárt törölve: {len(old)}")
+    if dry:
+        print(f"[dry-run] lejárt rekord törlés nélkül: {len(old)}")
+    else:
+        for doc_id in old:
+            st, _ = req(tok, "DELETE", f"/heartbeats/{doc_id}")
+            assert st == 200, f"delete {doc_id}: HTTP {st}"
+    print(f"heartbeat olvasva: {len(beats)}, iskolák: {len(groups)}, "
+          f"lejárt törölve: {0 if dry else len(old)}, új pin: {len(new_pins)}")
     for name, cnt in need_pin:
         print(f"PIN KELL ({cnt} fő): {name}")
 
