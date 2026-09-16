@@ -93,11 +93,13 @@ városnév jelenik meg a térképen, az iskola neve nem.
 | `lon`, `lat` | koordináta |
 | `city` | a település neve (a 6 fő alatti, összevont megjelenítéshez) |
 | `source` | `manual` / `nominatim` / `gazetteer` — honnan jött a pin |
-- **Régi pinek (nincs `source` mező):** ha a koordináta pontosan egy lexikon-város pontja (a régi aggregate névből tippelte, pl. Mathiász → Siófok), az `gazetteer`-nek számít, és a következő futás geokódolással felülírja. Bármilyen más régi pin kézinek számít és nem változik. Ha egy tippelt pint mégis meg akarsz tartani, írd bele: `source: manual`.
 
-
-A régi, `city`/`source` nélküli dokumentumok is működnek: azokat kézinek
-tekintjük, tehát sosem íródnak felül.
+A régi, `city`/`source` nélküli dokumentumok is működnek. Besorolásuk:
+ha a koordináta pontosan egy lexikon-város pontja (a régi aggregate a
+névből tippelte, pl. Mathiász → Siófok), az `gazetteer`-nek számít, és a
+következő futás geokódolással felülírja; minden más régi pin kézinek
+számít, és sosem íródik felül. Ha egy tippelt pint mégis meg akarsz
+tartani, írd bele: `source: manual`.
 
 ### Kézi felülírás (ha egy pin rossz helyre került)
 
