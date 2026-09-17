@@ -56,6 +56,15 @@ final class SummitPushSync {
         UserDefaults.standard.removeObject(forKey: Self.lastSkipReasonKey)
     }
 
+    /// Feltöltés-hash érvénytelenítése egy napra: a következő `kick` akkor is
+    /// POST-ol, ha a body látszólag változatlan. Új activity-indítás után
+    /// hívjuk (SummitLiveActivityManager) — az új activity ÚJ push-tokent kap,
+    /// a workeren lévő régi tokenes vagy üres/lezárt terv különben bennragadna,
+    /// és a token-érkezéskori feltöltés a hash-egyezés miatt némán kimaradna.
+    func invalidateUploadHash(dayKey: String) {
+        UserDefaults.standard.removeObject(forKey: Self.lastUploadKey + "." + dayKey)
+    }
+
     /// Eszköz-szintű kulcs: ugyanaz a user iPhone-on és iPaden KÜLÖN tervet
     /// kap (különben felülírnák egymást, és a push csak az egyikre menne).
     /// Különböző userek eleve külön kulcson vannak (`plan:nap:userId`).
@@ -160,7 +169,14 @@ final class SummitPushSync {
                 if !preview {
                     UserDefaults.standard.set("\(SummitLiveActivityManager.eventTimeString()) • \(entries.count) határ • \(dayKey)", forKey: Self.lastUploadSummaryKey)
                 }
-                SummitLiveActivityManager.shared.pushLogEvent("feltöltve (\(scope)): \(entries.count) határ")
+                // Az APNs Live Activity payload-limit 4 KB: a legnagyobb
+                // content-state méretét is naplózzuk, hogy az eldobott
+                // (túl nagy) push ne legyen láthatatlan ok — sok órás napon
+                // a hátralévő terv (plan) szoros lehet.
+                let maxBytes = entries.compactMap { try? Self.makeEncoder().encode($0.contentState).count }.max() ?? 0
+                SummitLiveActivityManager.shared.pushLogEvent(
+                    "feltöltve (\(scope)): \(entries.count) határ, max \(maxBytes) B"
+                        + (maxBytes > 3800 ? " — FIGYELEM: 4 KB közelében, az APNs eldobhatja" : ""))
             } else if let http = resp as? HTTPURLResponse {
                 SummitLiveActivityManager.shared.pushLogEvent("feltöltés HTTP \(http.statusCode)")
             }
@@ -168,6 +184,57 @@ final class SummitPushSync {
             // Hálózat-hiba: a következő sync úgyis újrapróbálja.
             SummitLiveActivityManager.shared.pushLogEvent("feltöltés hiba: \(error.localizedDescription)")
             debugPrint("[LiveActivity] push upload failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// GET /status a mai (vagy adott napi) tervre — a Diagnosztika mutatja,
+    /// mi van a workerben, mi ment ki, és mit válaszolt az APNs. Ez a döntő
+    /// adat, ha „nem vált a kártya”: nincs terv fent (feltöltés kimaradt),
+    /// APNs 400/410 (rossz token, sandbox–prod keveredés), 403 (kulcs/Team
+    /// ID), vagy minden 200 és mégsem vált (payload / widget oldal).
+    func fetchStatus(userId rawUserId: String, dayKey: String, preview: Bool = false) async -> String {
+        guard Self.isConfigured else { return "worker nincs beállítva" }
+        guard !rawUserId.isEmpty else { return "nincs belépett user" }
+        guard var comps = URLComponents(string: Self.baseURL + "/status") else { return "rossz URL" }
+        comps.queryItems = [
+            URLQueryItem(name: "userId", value: Self.scopedUserId(rawUserId)),
+            URLQueryItem(name: "dayKey", value: dayKey),
+        ]
+        if preview { comps.queryItems?.append(URLQueryItem(name: "tag", value: "preview")) }
+        guard let url = comps.url else { return "rossz URL" }
+        do {
+            let (data, resp) = try await URLSession.shared.data(from: url)
+            guard let http = resp as? HTTPURLResponse else { return "nincs HTTP válasz" }
+            guard 200..<300 ~= http.statusCode else { return "HTTP \(http.statusCode)" }
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { return "nem JSON válasz" }
+            guard json["found"] as? Bool == true else { return "nincs terv a workerben (\(dayKey)) — a feltöltés kimaradt" }
+            let tf = DateFormatter()
+            tf.locale = Locale(identifier: "hu_HU")
+            tf.dateFormat = "HH:mm:ss"
+            func time(_ v: Any?) -> String? {
+                guard let d = v as? Double else { return nil }
+                return tf.string(from: Date(timeIntervalSince1970: d))
+            }
+            let sandbox = json["sandbox"] as? Bool == true
+            let suffix = json["tokenSuffix"] as? String ?? "?"
+            let updated = time(json["updatedAt"]) ?? "?"
+            let next = time(json["indexNext"]) ?? (json["indexNext"] as? String ?? "nincs több")
+            var lines = ["terv fent: \(sandbox ? "sandbox" : "prod") APNs, token …\(suffix), feltöltve \(updated), köv. push \(next)"]
+            for e in json["entries"] as? [[String: Any]] ?? [] {
+                let at = time(e["fireAt"]) ?? "?"
+                let end = e["end"] as? Bool == true ? " END" : ""
+                let sent = e["sent"] as? Bool == true ? "kiment" : "vár"
+                let attempts = e["attempts"] as? Int ?? 0
+                var last = ""
+                if let l = e["last"] as? [String: Any] {
+                    let body = String((l["body"] as? String ?? "").prefix(80))
+                    last = " → APNs \(l["status"] as? Int ?? 0)\(body.isEmpty ? "" : " \(body)")"
+                }
+                lines.append("  \(at)\(end) \(sent)\(attempts > 0 ? " (\(attempts) próba)" : "")\(last)")
+            }
+            return lines.joined(separator: "\n")
+        } catch {
+            return "hiba: \(error.localizedDescription)"
         }
     }
 

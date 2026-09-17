@@ -312,6 +312,10 @@ final class KretaClient: ObservableObject {
         do {
             let dtos: [KretaLessonDTO] = try await get(url)
             let r = dtos.compactMap { $0.toItem() }.sorted { $0.start < $1.start }
+            // Minden sikeres valós órarend a közös tárgy-cache-be is beolvad:
+            // a Felmentés/Kerekítés lista és a Jegyek tab jegy nélküli tárgyai
+            // így akkor is megvannak, ha az átlag-végpontok halottak.
+            Self.mergeCachedSubjects(r.map(\.subject))
             diag("órarend: \(r.count) db"); return r
         } catch { diagErr("órarend", error); return [] }
     }
@@ -496,6 +500,21 @@ final class KretaClient: ObservableObject {
         }
     }
 
+    // MARK: - Tárgy-cache (firka.cachedSubjects.v1)
+    /// Közös tárgy-cache a Jegyek tab, a Felmentés és a Kerekítés listáihoz.
+    /// Csak valós backendről töltjük (demo sosem szennyezi); a hívók a
+    /// hálózati listával egyesítve mutatják. Üres/„Ismeretlen” nem kerül be.
+    static let cachedSubjectsKey = "firka.cachedSubjects.v1"
+    static func mergeCachedSubjects(_ names: [String]) {
+        let clean = names.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty && $0 != "Ismeretlen" }
+        guard !clean.isEmpty else { return }
+        var set = Set(UserDefaults.standard.stringArray(forKey: cachedSubjectsKey) ?? [])
+        let before = set.count
+        set.formUnion(clean)
+        guard set.count != before else { return }
+        UserDefaults.standard.set(set.sorted(), forKey: cachedSubjectsKey)
+    }
+
     // MARK: - Tantárgyak — KRÉTA tudja akkor is ha nincs jegy (Atlagok + órarend fallback + cached)
     func fetchAllSubjectNames(iss: String) async -> [String] {
         if isDemoBackend(iss: iss) {
@@ -515,13 +534,29 @@ final class KretaClient: ObservableObject {
                 if !names.isEmpty { break }
             } catch { continue }
         }
-        // 2) Órarend fallback — széles időablak, hogy minden tárgy szerepeljen
+        // 2) Órarend fallback — HETI ablakokban. A régi egyetlen 90 napos
+        //    kérés (−60…+30 nap) a KRÉTÁ-tól HTTP 400 ModelValidacio-t kapott
+        //    (túl széles datumTol–datumIg tartomány), így ahol az átlag-
+        //    végpontok halottak (siszc-mathiasz: 500/403), a lista üresen
+        //    maradt → a Jegyek tab nem mutatta a jegy nélküli tárgyakat, és
+        //    a Felmentés képernyőnek sem volt mit felsorolnia. A heti kérés
+        //    ugyanaz, ami az Órarend tabon is működik.
         if names.isEmpty || names.count < 5 {
             let cal = Calendar.current
-            let start = cal.date(byAdding: .day, value: -60, to: Date())!
-            let end = cal.date(byAdding: .day, value: 30, to: Date())!
-            let lessons = await fetchTimetable(iss: iss, from: start, to: end)
-            for l in lessons { names.insert(l.subject) }
+            let weekStart = cal.dateInterval(of: .weekOfYear, for: Date())?.start ?? cal.startOfDay(for: Date())
+            // 3 hét vissza + aktuális + 1 hét előre, párhuzamosan — tanév
+            // eleji (0 jegy) helyzetben is összegyűlik minden felvett tárgy.
+            let weekly: [[LessonItem]] = await withTaskGroup(of: [LessonItem].self) { group in
+                for w in [-3, -2, -1, 0, 1] {
+                    guard let from = cal.date(byAdding: .weekOfYear, value: w, to: weekStart),
+                          let to = cal.date(byAdding: .day, value: 7, to: from) else { continue }
+                    group.addTask { [self] in await self.fetchTimetable(iss: iss, from: from, to: to) }
+                }
+                var out: [[LessonItem]] = []
+                for await part in group { out.append(part) }
+                return out
+            }
+            for l in weekly.joined() { names.insert(l.subject) }
         }
         // Szándékosan NINCS cached-union: a cache demo-módból szennyezett lehet,
         // a hívó (GradesView) külön fűzi hozzá megjelenítéshez, mentéshez viszont

@@ -270,11 +270,26 @@ final class SummitLiveActivityManager: ObservableObject {
     /// Cloudflare-push forgalom a Diagnosztika-tabnak (csak érdemi
     /// események: feltöltés, hiba, törlés — a percenkénti rutin-skipek
     /// nem kerülnek bele, lásd a gyűrű-kommentet feljebb).
+    /// Perzisztens (UserDefaults-gyűrű, utolsó 30). Korábban csak memóriában
+    /// élt, így minden app-újraindulás után üresen indult — a Diagnosztika-
+    /// export „--- push ---” szakasza pont akkor volt üres, amikor kellett
+    /// volna (a reggeli feltöltés egy korábbi folyamatban történt, vagy egy
+    /// változatlan kimaradás-ok némán ismétlődött). Napot is írunk, mert a
+    /// gyűrű több napot is átfoghat.
     @Published var pushLog: [String] = []
+    private static let pushLogKey = "liveActivity.pushLog.v1"
+    private static let pushLogMax = 30
+    private static let pushLogTime: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "hu_HU")
+        f.dateFormat = "MM.dd HH:mm:ss"
+        return f
+    }()
 
     func pushLogEvent(_ msg: String) {
-        pushLog.append("\(Self.eventTime.string(from: Date())) \(msg)")
-        if pushLog.count > 30 { pushLog.removeFirst(pushLog.count - 30) }
+        pushLog.append("\(Self.pushLogTime.string(from: Date())) \(msg)")
+        if pushLog.count > Self.pushLogMax { pushLog.removeFirst(pushLog.count - Self.pushLogMax) }
+        UserDefaults.standard.set(pushLog, forKey: Self.pushLogKey)
     }
 
     private static let eventTime: DateFormatter = {
@@ -289,6 +304,7 @@ final class SummitLiveActivityManager: ObservableObject {
     }
 
     private func loadEvents() {
+        pushLog = UserDefaults.standard.stringArray(forKey: Self.pushLogKey) ?? []
         guard let data = UserDefaults.standard.data(forKey: Self.eventLogKey),
               let events = try? JSONDecoder().decode([LiveEvent].self, from: data) else {
             recentEvents = []
@@ -383,8 +399,19 @@ final class SummitLiveActivityManager: ObservableObject {
                 lastAction = "Demo teszt fut (valós órarend üres)"
                 return true
             }
+            // ÜRES today = tipikusan „még nincs betöltve az órarend” (app-
+            // indításkor a Főoldal sync-je a refresh ELŐTT is lefut), NEM
+            // „vége a napnak”. Ilyenkor SOSEM zárunk/törlünk: a régi hívás az
+            // induláskori üres körrel törölte a worker-tervet (üres, token
+            // nélküli rekord maradt fent), és az órák közti szerver-push soha
+            // nem indult be. A valódi nap-vége ág lentebb: today NEM üres, de
+            // minden óra a múltban van.
+            if today.isEmpty {
+                lastAction = "Nincs betöltött órarend → változatlan"
+                return !Activity<SummitLiveActivityAttributes>.activities.isEmpty
+            }
             demoTestActiveUntil = nil
-            lastAction = today.isEmpty ? "Ma nincs óra → lezárva" : "Mai órák vége → lezárva"
+            lastAction = "Mai órák vége → lezárva"
             await endAllImpl(dismissalPolicy: .default)
             return false
         }
@@ -477,6 +504,14 @@ final class SummitLiveActivityManager: ObservableObject {
                 logEvent("pushType NIL (token-kérés dobott: \(error.localizedDescription))")
             }
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastPushRequestAtKey)
+            // Új activity = ÚJ push-token. A workeren lévő korábbi terv (régi
+            // tokennel, vagy a nap-eleji üres/lezárt rekord) különben
+            // bennragadna, és a token-érkezéskori feltöltés a hash-egyezés
+            // miatt némán kimaradna → a szerver rossz/nincs tokenre push-olna
+            // (APNs 410), az órák közti átkapcsolás elmaradna. Ezért a
+            // feltöltés-hash-t érvénytelenítjük: token megjöttekor biztosan
+            // friss terv megy fel az ÚJ tokennel.
+            SummitPushSync.shared.invalidateUploadHash(dayKey: key)
             observePushTokens(for: activity)
             lastError = nil
             lastAction = "Napi activity indítva (\(today.count) óra)"

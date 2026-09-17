@@ -8,6 +8,8 @@ struct DiagnosticsView: View {
     @EnvironmentObject var kreta: KretaClient
     @EnvironmentObject var analytics: AnalyticsStore
     @ObservedObject private var liveManager = SummitLiveActivityManager.shared
+    /// A worker /status válasza a mai tervre (megnyitáskor és gombra frissül).
+    @State private var workerStatus: String = "–"
 
     var body: some View {
         List {
@@ -29,15 +31,38 @@ struct DiagnosticsView: View {
             }
             Section {
                 diagRow("Worker", SummitPushSync.isConfigured ? (URL(string: SummitPushSync.baseURL)?.host ?? SummitPushSync.baseURL) : "nincs beállítva")
-                diagRow("Push token", liveManager.pushTokens.isEmpty
-                    ? (liveManager.startedWithoutPush ? "nincs (push nélküli build)" : "nincs")
-                    : "van (\(liveManager.pushTokens.count))")
-                diagRow("Utolsó feltöltés", UserDefaults.standard.string(forKey: SummitPushSync.lastUploadSummaryKey) ?? "–")
+                diagRow("Push token", pushTokenDiag)
+                diagRow("Utolsó feltöltés", lastUploadDiag)
                 diagRow("Kimaradás oka", skipDiag)
+                diagRow("Terv-kulcs", planKeyDiag)
             } header: {
                 Text("Push (Cloudflare)")
             } footer: {
                 Text("A napi terv és a határ-entryk feltöltése a workerbe — ha a token vagy a feltöltés hiányzik, a szerver nem tud átkapcsolni.")
+            }
+            Section {
+                Text(workerStatus).font(.caption2.monospaced()).foregroundStyle(.secondary)
+                Button("Worker állapot frissítése") { Task { await loadWorkerStatus() } }
+            } header: {
+                Text("Worker (mai terv)")
+            } footer: {
+                Text("A worker /status válasza: melyik határra ment ki push, hány próbával, mit felelt az APNs. „Nincs terv” = a feltöltés maradt ki; APNs 400/410 = rossz token vagy sandbox–prod keveredés; 403 = kulcs/Team ID.")
+            }
+            Section {
+                diagRow("Rendszer", liveManager.isSystemEnabled ? "engedélyezett" : "TILTVA (Beállítások → Summit)")
+                diagRow("App-kapcsoló", liveManager.isAppEnabled ? "be" : "KI")
+                diagRow("Aktív activity", "\(liveManager.activeCount)")
+                diagRow("Utolsó művelet", liveManager.lastAction)
+                if let err = liveManager.lastError { diagRow("Hiba", err) }
+                if liveManager.recentEvents.isEmpty {
+                    Text("Még nincs esemény.").font(.caption).foregroundStyle(.tertiary)
+                } else {
+                    ForEach(Array(liveManager.recentEvents.enumerated()), id: \.offset) { _, line in
+                        Text(line).font(.caption2.monospaced()).foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text("Live Activity események")
             }
             Section {
                 if liveManager.pushLog.isEmpty {
@@ -71,6 +96,27 @@ struct DiagnosticsView: View {
         }
         .navigationTitle("Diagnosztika")
         .navigationBarTitleDisplayMode(.inline)
+        .task { await loadWorkerStatus() }
+    }
+
+    private func loadWorkerStatus() async {
+        guard let uid = session.selectedUser?.id else { workerStatus = "nincs belépett user"; return }
+        workerStatus = "lekérés…"
+        workerStatus = await SummitPushSync.shared.fetchStatus(userId: uid, dayKey: SummitLiveActivityManager.dayKey(for: Date()))
+    }
+
+    private var pushTokenDiag: String {
+        liveManager.pushTokens.isEmpty
+            ? (liveManager.startedWithoutPush ? "nincs (push nélküli build)" : "nincs")
+            : "van (\(liveManager.pushTokens.count))"
+    }
+    private var lastUploadDiag: String {
+        UserDefaults.standard.string(forKey: SummitPushSync.lastUploadSummaryKey) ?? "–"
+    }
+    /// A worker KV-kulcsa (scoped userId @ nap) — curl-lel is ellenőrizhető.
+    private var planKeyDiag: String {
+        guard let uid = session.selectedUser?.id else { return "–" }
+        return "\(SummitPushSync.scopedUserId(uid)) @ \(SummitLiveActivityManager.dayKey(for: Date()))"
     }
 
     private func diagRow(_ k: String, _ v: String) -> some View {
@@ -101,8 +147,15 @@ struct DiagnosticsView: View {
     private var diagExport: String {
         "iskola=\(session.selectedUser?.instituteCode ?? "-") token=\(tokenDiag) sessionExpired=\(kreta.sessionExpired)\n"
             + "analytics: enabled=\(analytics.isEnabled) attempt=\(analytics.lastAttempt) school=\(analytics.lastSchool) result=\(analytics.lastResult)\n"
+            + "push: token=\(pushTokenDiag) feltöltés=\(lastUploadDiag) kimaradás=\(skipDiag)\n"
+            + "terv-kulcs: \(planKeyDiag)\n"
+            + "live activity: rendszer=\(liveManager.isSystemEnabled ? "engedélyezett" : "TILTVA") app=\(liveManager.isAppEnabled ? "be" : "KI") aktív=\(liveManager.activeCount) utolsó=\(liveManager.lastAction) hiba=\(liveManager.lastError ?? "–")\n"
             + kreta.diagLog.joined(separator: "\n")
+            + "\n--- live activity események ---\n"
+            + liveManager.recentEvents.joined(separator: "\n")
             + "\n--- push ---\n"
             + liveManager.pushLog.joined(separator: "\n")
+            + "\n--- worker ---\n"
+            + workerStatus
     }
 }
