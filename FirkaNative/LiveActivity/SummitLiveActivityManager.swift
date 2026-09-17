@@ -138,8 +138,37 @@ final class SummitLiveActivityManager: ObservableObject {
         return pushTokens.values.first
     }
 
-    /// Terv-feltöltés a mentett mai tervből (token-érkezéskor hívjuk).
-    /// Csak valós cache-ből dolgozik — preview/demo sosem ír a cache-be.
+    /// App-előtérbe kerüléskor: ha van élő activity ÉS push-token, a mai
+    /// tervet BIZTOSAN feltöltjük a workerbe — a tokenre várva, a hash-t
+    /// érvénytelenítve. A user kifejezetten ezt kérte: napközbeni
+    /// megnyitáskor is menjen fel a terv, ne csak reggel.
+    ///
+    /// Miért kell külön lépés? Meglévő activity mellett a két automata út
+    /// elcsúszik: a token-érkezéskori feltöltés (`uploadPlanFromCache`) a
+    /// cache-mentés ELŐTT futhat (üres cache → néma kilépés), a cache-es
+    /// sync (`syncDayImpl` kick) pedig még token NÉLKÜL (kimarad). Így
+    /// egyik ág sem töltött fel — a workeren üres/régi terv maradt, és a
+    /// napközbeni megnyitás nem indította el a szerver-oldali átkapcsolást.
+    func ensurePlanUploaded(now: Date = Date()) async {
+        guard #available(iOS 16.1, *), canStart else { return }
+        guard !Activity<SummitLiveActivityAttributes>.activities.isEmpty else { return }
+        // A push-token egy meglévő activityhez is a stream-en, aszinkron
+        // érkezik app-újraindulás után — várunk rá (max ~12 mp).
+        for _ in 0..<12 {
+            if primaryPushToken?.count == 64 { break }
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
+        guard primaryPushToken?.count == 64 else {
+            logEvent("napközbeni feltöltés: nincs push-token (kimarad)")
+            return
+        }
+        SummitPushSync.shared.invalidateUploadHash(dayKey: Self.dayKey(for: now))
+        await uploadPlanFromCache(now: now)
+    }
+
+    /// Terv-feltöltés a mentett mai tervből (token-érkezéskor + app-
+    /// megnyitáskor hívjuk). Csak valós cache-ből dolgozik — preview/demo
+    /// sosem ír a cache-be.
     func uploadPlanFromCache(now: Date) async {
         guard let cached = cachedLessons(now: now),
               let uid = SessionStore().selectedUser?.id else { return }

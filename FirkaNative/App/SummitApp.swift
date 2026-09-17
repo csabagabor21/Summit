@@ -133,6 +133,11 @@ struct SummitApp: App {
                             await kreta.ensureValidToken()
                             await sendHeartbeat()
                         }
+                        // Napközbeni megnyitáskor is menjen fel a mai terv a
+                        // workerbe (ne csak reggel, az activity indításakor) —
+                        // különben a szerver-oldali óraváltás nem indul be, ha
+                        // a user csak napközben nyitja meg az appot.
+                        Task { await SummitLiveActivityManager.shared.ensurePlanUploaded() }
                     }
                 }
         }
