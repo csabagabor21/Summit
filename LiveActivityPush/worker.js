@@ -273,8 +273,15 @@ async function handleCron(env, nowMs = Date.now()) {
   if (indexDirty || live.length !== entries.length) await writeIndex(env, live);
 }
 
-function isHex64(s) {
-  return typeof s === "string" && /^[0-9a-fA-F]{64}$/.test(s);
+/// A Live Activity push-token hossza NEM fix 64 hex karakter — az a
+/// klasszikus 32 bájtos device token. Az Apple opak értéknek tekinti, a
+/// hosszára nem szabad építeni, és a gyakorlatban jóval hosszabb. A korábbi
+/// {64}-es regex ezért `bad-token`-nel dobta volna vissza a valódi tervet.
+/// Hex-only marad (a token az APNs URL path-jába kerül), csak a fix hossz
+/// szabadul fel; a felső korlát a védelem miatt van.
+function isPushToken(s) {
+  return typeof s === "string" && s.length >= 32 && s.length <= 512 &&
+    s.length % 2 === 0 && /^[0-9a-fA-F]+$/.test(s);
 }
 
 function planKey(dayKey, userId, tag) {
@@ -296,7 +303,7 @@ async function handlePlan(request, env) {
   const userOk = typeof body.userId === "string" && body.userId.length > 0 && body.userId.length < 128;
   const entries = Array.isArray(body.entries) ? body.entries.slice(0, 40) : null;
   if (!dayOk || !userOk || !entries) return jsonRes({ ok: false, error: "bad-fields" }, { status: 400 });
-  if (entries.length > 0 && !isHex64(body.pushToken)) {
+  if (entries.length > 0 && !isPushToken(body.pushToken)) {
     return jsonRes({ ok: false, error: "bad-token" }, { status: 400 });
   }
   for (const e of entries) {

@@ -155,11 +155,11 @@ final class SummitLiveActivityManager: ObservableObject {
         // A push-token egy meglévő activityhez is a stream-en, aszinkron
         // érkezik app-újraindulás után — várunk rá (max ~12 mp).
         for _ in 0..<12 {
-            if primaryPushToken?.count == 64 { break }
+            if SummitPushSync.isValidToken(primaryPushToken) { break }
             try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
-        guard primaryPushToken?.count == 64 else {
-            logEvent("napközbeni feltöltés: nincs push-token (kimarad)")
+        guard SummitPushSync.isValidToken(primaryPushToken) else {
+            logEvent("napközbeni feltöltés: nincs használható push-token (hossz: \(primaryPushToken?.count ?? 0)) — kimarad")
             return
         }
         SummitPushSync.shared.invalidateUploadHash(dayKey: Self.dayKey(for: now))

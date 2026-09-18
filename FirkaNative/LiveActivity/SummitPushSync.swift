@@ -65,6 +65,21 @@ final class SummitPushSync {
         UserDefaults.standard.removeObject(forKey: Self.lastUploadKey + "." + dayKey)
     }
 
+    /// Érvényes-e a push-token? A Live Activity tokenje NEM a klasszikus
+    /// 32 bájtos (64 hex karakteres) device token: az Apple szerint opak
+    /// érték, amelynek a hosszára NEM szabad építeni — a gyakorlatban
+    /// jóval hosszabb. A korábbi `count == 64` feltétel ezért minden
+    /// valódi Live Activity tokenre „nincs push-token"-t mondott: a
+    /// feltöltés némán kimaradt, a workerre nem került terv, és a
+    /// szerver-oldali óraváltás soha nem tudott elindulni — miközben a
+    /// Diagnosztika „van (1)" tokent jelzett. Csak azt kötjük ki, ami
+    /// tényleg kell: nem üres, páros hosszú, csupa hex (a token az APNs
+    /// URL path-jába kerül).
+    static func isValidToken(_ t: String?) -> Bool {
+        guard let t, t.count >= 32, t.count % 2 == 0 else { return false }
+        return t.allSatisfy(\.isHexDigit)
+    }
+
     /// Eszköz-szintű kulcs: ugyanaz a user iPhone-on és iPaden KÜLÖN tervet
     /// kap (különben felülírnák egymást, és a push csak az egyikre menne).
     /// Különböző userek eleve külön kulcson vannak (`plan:nap:userId`).
@@ -129,8 +144,13 @@ final class SummitPushSync {
         guard Self.isConfigured else { Self.noteSkipped("worker nincs beállítva"); return }
         guard !userId.isEmpty else { Self.noteSkipped("nincs belépett user"); return }
         let userId = Self.scopedUserId(userId)
-        guard let pushToken, pushToken.count == 64 else {
-            if UserDefaults.standard.bool(forKey: SummitLiveActivityManager.pushTypeNilKey) {
+        guard let pushToken, Self.isValidToken(pushToken) else {
+            // A hosszt is kiírjuk: ha VAN token, csak nem felel meg, az eddig
+            // ugyanazt a „nincs push-token" szöveget adta, mint a tényleges
+            // hiány — pont ez rejtette el a 64-karakteres feltételt.
+            if let t = pushToken, !t.isEmpty {
+                Self.noteSkipped("a push-token nem érvényes (\(t.count) karakter)")
+            } else if UserDefaults.standard.bool(forKey: SummitLiveActivityManager.pushTypeNilKey) {
                 Self.noteSkipped("nincs push-token (ez a build push nélkül fut — újratelepítés kell)")
             } else {
                 Self.noteSkipped("nincs push-token (a token még nem jött meg)")

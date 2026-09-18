@@ -105,10 +105,15 @@ struct DiagnosticsView: View {
         workerStatus = await SummitPushSync.shared.fetchStatus(userId: uid, dayKey: SummitLiveActivityManager.dayKey(for: Date()))
     }
 
+    /// A HOSSZ is kell ide: a „van (1)" korábban elrejtette, hogy a token
+    /// megvan, csak a feltöltés 64-karakteres feltétele dobta el. A végződés
+    /// a worker /status `tokenSuffix`-ével vethető össze.
     private var pushTokenDiag: String {
-        liveManager.pushTokens.isEmpty
-            ? (liveManager.startedWithoutPush ? "nincs (push nélküli build)" : "nincs")
-            : "van (\(liveManager.pushTokens.count))"
+        guard let t = liveManager.primaryPushToken, !t.isEmpty else {
+            return liveManager.startedWithoutPush ? "nincs (push nélküli build)" : "nincs"
+        }
+        let ok = SummitPushSync.isValidToken(t) ? "" : " ÉRVÉNYTELEN"
+        return "van (\(liveManager.pushTokens.count)), \(t.count) karakter, …\(t.suffix(6))\(ok)"
     }
     private var lastUploadDiag: String {
         UserDefaults.standard.string(forKey: SummitPushSync.lastUploadSummaryKey) ?? "–"
