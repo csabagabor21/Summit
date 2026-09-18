@@ -400,10 +400,10 @@ Javítás: `SummitPushSync.isValidToken` (nem üres, páros hosszú, csupa hex)
 és a workerben `isPushToken` (32..512 hex, páros). A hex-kötés marad, mert a
 token az APNs URL path-jába kerül; csak a fix 64-es hossz tűnt el.
 
-Beszédes részlet: a preview-ág (`SummitLiveActivityManager`, esti
-teszt-gomb) csak `primaryPushToken != nil`-t ellenőrzött, ezért az **tudott
-működni**, miközben a valós út sosem — ez is hozzájárult ahhoz, hogy a hiba
-ilyen sokáig megfoghatatlan maradt.
+Részlet, amit könnyű félreolvasni: a preview-ág (esti teszt-gomb) a
+token-várakozásnál csak `primaryPushToken != nil`-t ellenőrzött, a
+`kick` 64-es guardja viszont a preview-feltöltést is ugyanúgy eldobta —
+tehát a preview SEM működött, csak a várakozása futott le hamarabb.
 
 ### Diagnosztika-változások
 
