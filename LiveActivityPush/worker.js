@@ -57,6 +57,16 @@ function cleanId(v) {
   return typeof v === "string" ? v.trim() : "";
 }
 
+/// A `jsonRes()` charset NÉLKÜLI `application/json`-t ad, amit több
+/// kliens (pl. a Safari nyers JSON-nézete) windows-1250-ként dekódol — a
+/// magyar /selftest verdikt így „ĂŠ"-foltokban jön. Explicit UTF-8 kell.
+function jsonRes(obj, init) {
+  return new Response(JSON.stringify(obj), {
+    ...(init || {}),
+    headers: { "content-type": "application/json; charset=utf-8" },
+  });
+}
+
 function b64url(bytes) {
   let s = "";
   for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
@@ -280,18 +290,18 @@ async function handlePlan(request, env) {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ ok: false, error: "bad-json" }, { status: 400 });
+    return jsonRes({ ok: false, error: "bad-json" }, { status: 400 });
   }
   const dayOk = typeof body.dayKey === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.dayKey);
   const userOk = typeof body.userId === "string" && body.userId.length > 0 && body.userId.length < 128;
   const entries = Array.isArray(body.entries) ? body.entries.slice(0, 40) : null;
-  if (!dayOk || !userOk || !entries) return Response.json({ ok: false, error: "bad-fields" }, { status: 400 });
+  if (!dayOk || !userOk || !entries) return jsonRes({ ok: false, error: "bad-fields" }, { status: 400 });
   if (entries.length > 0 && !isHex64(body.pushToken)) {
-    return Response.json({ ok: false, error: "bad-token" }, { status: 400 });
+    return jsonRes({ ok: false, error: "bad-token" }, { status: 400 });
   }
   for (const e of entries) {
     if (typeof e.fireAt !== "number" || typeof e.contentState !== "object" || !e.contentState) {
-      return Response.json({ ok: false, error: "bad-entry" }, { status: 400 });
+      return jsonRes({ ok: false, error: "bad-entry" }, { status: 400 });
     }
   }
   const key = planKey(body.dayKey, body.userId, parseTag(body.tag));
@@ -322,7 +332,7 @@ async function handlePlan(request, env) {
       await writeIndex(env, prev);
     }
   }
-  return Response.json({ ok: true, entries: entries.length });
+  return jsonRes({ ok: true, entries: entries.length });
 }
 
 /// GET /status?userId=<scoped userId>&dayKey=YYYY-MM-DD[&tag=preview]
@@ -331,14 +341,14 @@ async function handleStatus(url, env) {
   const userId = url.searchParams.get("userId") || "";
   const dayKey = url.searchParams.get("dayKey") || "";
   if (!userId || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
-    return Response.json({ ok: false, error: "bad-fields" }, { status: 400 });
+    return jsonRes({ ok: false, error: "bad-fields" }, { status: 400 });
   }
   const key = planKey(dayKey, userId, parseTag(url.searchParams.get("tag")));
   const rec = await env.PLANS.get(key, "json");
-  if (!rec) return Response.json({ ok: true, found: false, key });
+  if (!rec) return jsonRes({ ok: true, found: false, key });
   const idx = (await readIndex(env)) || [];
   const inIndex = idx.find((e) => e.k === key) || null;
-  return Response.json({
+  return jsonRes({
     ok: true, found: true, key,
     sandbox: rec.sandbox === true,
     tokenSuffix: (rec.pushToken || "").slice(-6),
@@ -386,7 +396,7 @@ function selfTestVerdict(out) {
 async function handleSelfTest(url, env) {
   const missing = ["APNS_KEY", "APNS_KEY_ID", "TEAM_ID", "BUNDLE_ID"].filter((k) => !env[k]);
   if (missing.length) {
-    return Response.json({ ok: false, missing, verdict: `Hiányzó secret/var: ${missing.join(", ")}` });
+    return jsonRes({ ok: false, missing, verdict: `Hiányzó secret/var: ${missing.join(", ")}` });
   }
   const sandbox = url.searchParams.get("sandbox") === "1";
   const keyId = cleanId(env.APNS_KEY_ID);
@@ -397,7 +407,7 @@ async function handleSelfTest(url, env) {
   const out = await sendPush(env, sandbox ? APNS_SANDBOX : APNS_PROD, "0".repeat(64), {
     contentState: { selftest: 1 },
   });
-  return Response.json({
+  return jsonRes({
     ok: true,
     env: sandbox ? "sandbox" : "prod",
     keyId,
@@ -421,7 +431,7 @@ export default {
     if (request.method === "POST" && url.pathname === "/plan") return handlePlan(request, env);
     if (request.method === "GET" && url.pathname === "/status") return handleStatus(url, env);
     if (request.method === "GET" && url.pathname === "/selftest") return handleSelfTest(url, env);
-    return Response.json({ ok: true, service: "summit-liveactivity-push", version: "2026-09-18" });
+    return jsonRes({ ok: true, service: "summit-liveactivity-push", version: "2026-09-18" });
   },
   async scheduled(_event, env, _ctx) {
     if (!env.APNS_KEY || !env.APNS_KEY_ID || !env.TEAM_ID || !env.BUNDLE_ID) {
