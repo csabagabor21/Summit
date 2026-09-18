@@ -298,27 +298,40 @@ final class SummitSync: ObservableObject {
         ]
         for (f, d) in tsPairs { fields[f.tsKey] = ts(d) }
 
-        var req = URLRequest(url: url)
-        req.httpMethod = "PATCH"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try? JSONSerialization.data(withJSONObject: ["fields": fields])
-        do {
-            let (_, resp) = try await URLSession.shared.data(for: req)
-            guard (resp as? HTTPURLResponse)?.statusCode == 200 else {
+        func patch(_ fields: [String: Any]) async -> Int? {
+            var req = URLRequest(url: url)
+            req.httpMethod = "PATCH"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try? JSONSerialization.data(withJSONObject: ["fields": fields])
+            do {
+                let (_, resp) = try await URLSession.shared.data(for: req)
+                return (resp as? HTTPURLResponse)?.statusCode
+            } catch {
+                return nil
+            }
+        }
+        let code = await patch(fields)
+        if code == 403 {
+            // Átmeneti védelem: a szerveren még a régi szabály élhet
+            // (`ts_*` nélkül) — ilyenkor egyszer visszalépünk a régi
+            // sémára, hogy a szinkron ne haljon meg a szabály-deployig.
+            var legacy = fields
+            for f in SummitSyncField.allCases { legacy.removeValue(forKey: f.tsKey) }
+            guard await patch(legacy) == 200 else {
                 status = "feltöltés hiba"
                 return false
             }
-            for (f, d) in tsPairs { fieldTimestamps[f.rawValue] = d }
-            persistFieldTs()
-            dirtyFields.subtract(pending)
-            persistDirty()
-            lastApplied = nowISO
-            status = "szinkronizálva"
-            return true
-        } catch {
-            status = "hálózati hiba"
+        } else if code != 200 {
+            status = code == nil ? "hálózati hiba" : "feltöltés hiba"
             return false
         }
+        for (f, d) in tsPairs { fieldTimestamps[f.rawValue] = d }
+        persistFieldTs()
+        dirtyFields.subtract(pending)
+        persistDirty()
+        lastApplied = nowISO
+        status = "szinkronizálva"
+        return true
     }
 
     /// Tanári kerekítés JSON-stringgé (tárgy → küszöb). Csak ép
