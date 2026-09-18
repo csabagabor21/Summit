@@ -1,5 +1,11 @@
 # Live Activity óraátmenet + Cloudflare push — hibaelemzés és javítási javaslat
 
+> **Állapot (2026-09-18): a szerver-push két TOVÁBBI, önmagában is halálos
+> hibája megvan és javítva** — egy rossz APNs-kulcs a workerben, és egy
+> 64-karakteres token-feltétel az appban. Részletek a doksi végén:
+> [2026-09-18 — a „minden jó, mégsem vált" kör](#2026-09-18--a-minden-jó-mégsem-vált-kör).
+> A kártya tényleges átváltása csukott telefonon MÉG NINCS igazolva.
+
 > **Állapot (2026-09-16):** a Swift-oldali javítások (1., 2., 3., 6. pont)
 > BEÉPÍTVE a repóba (`SummitPushSync.swift`, `SummitLiveActivityManager.swift`,
 > `LiveActivityBackgroundRefresh.swift`), Simulator Debug build zöld. Ami még
@@ -307,3 +313,135 @@ A 3. hiba miatt egy rövid reggeli app-megnyitás után egyáltalán nincs terv
 a workerben. A három együtt fedi le a „nem lapoz és a Cloudflare se
 működik” teljes tünetét; a javítások egymástól függetlenül beépíthetők,
 de mind a három kell.
+
+---
+
+# 2026-09-18 — a „minden jó, mégsem vált" kör
+
+A 2026-09-16-i javítások után a push **továbbra sem** működött. Ebben a
+körben két újabb, egymástól független hiba került elő; mindkettő önmagában
+elég volt ahhoz, hogy egyetlen óraváltás se menjen ki, és mindkettő úgy
+viselkedett, mintha „minden rendben lenne".
+
+## TL;DR
+
+| # | Hol | Mi történt | Hogyan lett bizonyítva |
+|---|-----|-----------|------------------------|
+| 8 | Cloudflare secretek | Az APNs **minden** pushra `403 InvalidProviderToken`-t adott, tehát a kulcs/Key ID/Team ID hármas nem állt össze. | Hamis (csupa `ab`) tokenes próba-terv feltöltése a `/plan`-ra, majd `/status`: a cron elindult, `attempts` 1→5-re nőtt, és minden kör `403`-at rögzített. Ehhez nem kellett telefon. |
+| 9 | `SummitPushSync` + `SummitLiveActivityManager` + `worker.js` | Három helyen **pontosan 64 hex karakter** volt a push-token feltétele. A 64 hex (32 bájt) a klasszikus device token hossza; a Live Activity tokenje opak, ennél hosszabb. Így egy jó token minden úton „nincs push-token"-ként esett ki, és a terv soha nem ment fel. | A telefon Diagnosztika-exportja: `token=van (1)`, ugyanakkor `feltöltés=–`, a kimaradás-ok `nincs push-token`, a worker `/status` pedig „nincs terv a workerben". |
+
+A kettő sorrendje fontos: a 9. pont miatt a workerre **nem is jutott fel**
+valódi terv, tehát a 8. pontot (a kulcsot) valódi forgalommal nem is lehetett
+volna észrevenni — csak a szándékosan hamis tokennel injektált próba-tervvel.
+
+## 8. Az APNs-kulcs (worker-oldal)
+
+A privát kulcs bájtjai **érvényesek voltak**: az aláírás megszületett (a
+`/status`-ban volt `attempts` és APNs-válasz), tehát nem formátum-hiba,
+hanem a kulcs AZONOSÍTÓ-oldala volt rossz — elgépelt vagy másik kulcshoz
+tartozó `APNS_KEY_ID`, más csapat kulcsa, visszavont kulcs, vagy olyan
+`.p8`, amin nincs APNs szolgáltatás (pl. egy App Store Connect API kulcs,
+ami szintén P-256 `.p8`, de az APNs nem fogadja el).
+
+Nehezítés: a gépen lévő `~/Downloads/Apple Auth Key.p8` iMessage-en jött és
+át van **nevezve**, márpedig az Apple `AuthKey_<KEYID>.p8` néven adja ki —
+a Key ID tehát a fájlból nem visszafejthető, csak a fejlesztői portálról.
+
+Megoldás: a user új APNs-kulcsot generált. A `/selftest` ezután
+`400 BadDeviceToken`-t adott (`keyId: 6NDL864PYX`, `teamId: 38DAVMRN66`),
+ami azt jelenti, hogy az Apple **elfogadja a JWT-t**, és csak a
+szándékosan hamis device tokent dobja el. A `TEAM_ID` eleve helyes volt.
+
+### Worker-változások, hogy ez ne tudjon még egyszer elrejtőzni
+
+- **`GET /selftest[?sandbox=1]`** — a kulcs/Key ID/Team ID hármas
+  ellenőrzése telefon és valódi token NÉLKÜL, csupa-nulla device tokennel,
+  magyar nyelvű `verdict`-tel. Visszaadja a használt `keyId`/`teamId`/
+  `topic` értéket és a nyers vs. trimmelt hosszt.
+- **`cleanId()`** — az `APNS_KEY_ID` / `TEAM_ID` / `BUNDLE_ID` trimmelve. A
+  dashboardból másolt értékek végén ottmaradó sortörés PONTOSAN ugyanezt a
+  403-at okozza, mint egy rossz kulcs; ezért adja vissza a `/selftest` a
+  nyers hosszt is (`keyIdRaw > keyId` = whitespace).
+- **A JWT-aláírás a `try`-on BELÜL** (`status: -1`) — rossz `.p8` esetén a
+  kivétel eddig az egész cron-kört megölte, és az entryn nem lett se
+  `attempts`, se `last`. A kulcshiba pont annyira volt néma, mint amit a
+  4. pont állítása szerint megszüntetett.
+- **403 és JWT-hiba nem fogyasztja a 10-es próba-budgetet** — ezeket a
+  dashboardon javítják; ha elfogyasztanák, a határ 10 perc után
+  „kiment"-re váltana, és a secret javítása után sem pótolná magát aznap.
+- **`jsonRes()`** — minden JSON-válasz `charset=utf-8`-cal. A `/selftest`
+  magyar verdiktje nélküle mojibake-ként jött (a `Response.json()` charset
+  nélküli `application/json`-t ad, amit a kliens windows-1250-nek hisz).
+
+### `apns_keycheck.mjs` (új)
+
+A `.p8` ellenőrzése a workertől és a dashboardtól **függetlenül**, ES256
+(`ieee-p1363`, nyers r||s) aláírással:
+
+```
+node LiveActivityPush/apns_keycheck.mjs <kulcs.p8> <KEY_ID> <TEAM_ID> hu.flint prod
+```
+
+`400 BadDeviceToken` = ez a hármas jó, ezt kell a secretekbe írni. Ez
+választja el, hogy magával a kulcsfájllal van gond, vagy csak azzal, ami a
+dashboardba be van írva — érdemes MÉG a beírás előtt lefuttatni.
+
+## 9. A 64-karakteres token-feltétel (app- és worker-oldal)
+
+Ez volt az érdemi, feltöltést ölő hiba:
+
+| Hol | Régi feltétel | Következmény |
+|-----|---------------|--------------|
+| `SummitPushSync.kick` | `pushToken.count == 64` | a guard eldobta a feltöltést, és „nincs push-token"-t naplózott |
+| `SummitLiveActivityManager.ensurePlanUploaded` | `primaryPushToken?.count == 64` | a 12 mp-es várakozás soha nem teljesült, majd a guard kilépett — ezért ismétlődött a „napközbeni feltöltés: nincs push-token" sor egész nap |
+| `worker.js` `isHex64` | `/^[0-9a-fA-F]{64}$/` | a valódi tokenes tervet `bad-token`-nel dobta volna vissza → a Swift-oldal javítása EGYEDÜL nem lett volna elég |
+
+Javítás: `SummitPushSync.isValidToken` (nem üres, páros hosszú, csupa hex)
+és a workerben `isPushToken` (32..512 hex, páros). A hex-kötés marad, mert a
+token az APNs URL path-jába kerül; csak a fix 64-es hossz tűnt el.
+
+Beszédes részlet: a preview-ág (`SummitLiveActivityManager`, esti
+teszt-gomb) csak `primaryPushToken != nil`-t ellenőrzött, ezért az **tudott
+működni**, miközben a valós út sosem — ez is hozzájárult ahhoz, hogy a hiba
+ilyen sokáig megfoghatatlan maradt.
+
+### Diagnosztika-változások
+
+- A **„Push token" sor mostantól a HOSSZT és a végződést is mutatja**, és
+  kiírja, ha a token ÉRVÉNYTELEN. A puszta `van (1)` pont azt fedte el,
+  hogy a token megvan, csak a feltöltés hossz-feltétele dobja el. A
+  végződés a worker `/status` `tokenSuffix`-ével vethető össze.
+- A kimaradás-ok külön szöveget kap, ha VAN token, de nem felel meg:
+  `a push-token nem érvényes (N karakter)`. Eddig ez ugyanazt a
+  „nincs push-token" sort adta, mint a tényleges hiány.
+
+## Hibakeresési sorrend (ezt kövesd legközelebb)
+
+1. **`GET /selftest`** — kulcs-oldal. `400 BadDeviceToken` = jó, mehetsz a
+   2. pontra. `403` = kulcs/Key ID/Team ID. `-1` = rossz `.p8`.
+2. **Diagnosztika → „Push token"** — van-e, és mekkora a HOSSZA. Ha van
+   token, de „nincs push-token" a kimaradás oka, akkor valahol megint
+   hossz-feltétel van.
+3. **Diagnosztika → „Utolsó feltöltés"** — ha `–`, a terv soha nem ment
+   fel; a workert nincs értelme tovább nyomozni.
+4. **`/status`** — entrynkénti `fireAt / sent / attempts / last`.
+5. Csak ezután gyanakodj buildre, profilra vagy entitlementre.
+
+## Ami MÉG NYITOTT
+
+- A worker deploy **továbbra is kézi** (dashboard → Edit code → beilleszt).
+  A mai `worker.js` (`/selftest`, `isPushToken`, `jsonRes`) deploy nélkül
+  nem ér semmit: a régi `isHex64` a valódi tokenes tervet visszadobja.
+- **A SZERVER-PUSH tényleges kézbesítése nincs igazolva.** Óvatosan kell
+  olvasni, hogy „a kártya egész nap váltott": a user szerint 2026-09-18-án
+  a kártya végig rendesen követte az órákat — de ezt a **helyi** út adta
+  (előtéri percenkénti sync + BG-ébresztés), nem a push. Bizonyíték: a
+  napló csak `update:` sorokat tartalmaz, a workeren aznap egyáltalán nem
+  volt terv (`nincs terv a workerben`, `feltöltés=–`), és a kulcs is
+  403-at adott délig. **Épp ez a maszkoló hatás rejtette el hetekig a
+  push-hibát:** amíg az iOS elég gyakran felébreszti az appot, a kártya
+  akkor is jól viselkedik, ha a szerver-oldal halott. A push pont arra a
+  helyzetre való, amikor az iOS NEM ébreszt — ezt csak az igazolja, ha a
+  friss build telepítése után a Diagnosztikában `Utolsó feltöltés` ≠ `–`,
+  a „Worker (mai terv)" alatt `terv fent: prod APNs`, és egy óraváltásnál
+  `kiment` + `APNs 200` szerepel.
