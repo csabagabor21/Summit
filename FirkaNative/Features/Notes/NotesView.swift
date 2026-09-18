@@ -227,15 +227,19 @@ struct NotesView: View {
                         Label(hw.teacher, systemImage: "person.fill")
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    // Csatolt fájlok (PDF, kép…) — koppintásra QuickLook.
-                    AttachmentsBlock(attachments: hw.attachments, ownerId: hw.id)
+                    // Órarend-ugrás (a csatolmány-blokk fölött), majd a fájlok.
                     Button {
-                        NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": hw.subject, "deadline": hw.deadline.timeIntervalSince1970])
+                        NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": hw.subject, "deadline": hw.deadline.timeIntervalSince1970, "hwId": hw.id])
                     } label: {
                         Label("Mutatás az órarendben", systemImage: "calendar")
                             .font(.caption.weight(.semibold))
+                            .foregroundStyle(colors.accent)
+                            .padding(.horizontal, 12).padding(.vertical, 8)
+                            .background(Capsule().strokeBorder(colors.accent.opacity(0.35), lineWidth: 1))
                     }
-                    .tint(colors.accent)
+                    .buttonStyle(.plain)
+                    // Csatolt fájlok (PDF, kép…) — koppintásra QuickLook.
+                    AttachmentsBlock(attachments: hw.attachments, ownerId: hw.id)
                 } else {
                     Text(hw.plainTitle.isEmpty ? "(nincs leírás)" : hw.plainTitle)
                         .font(.callout).foregroundStyle(.secondary).lineLimit(3)
@@ -307,14 +311,17 @@ struct NotesView: View {
                         Label(exam.groupName, systemImage: "person.2.fill")
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    AttachmentsBlock(attachments: exam.attachments, ownerId: exam.id)
                     Button {
                         NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": exam.subject, "deadline": exam.date.timeIntervalSince1970])
                     } label: {
                         Label("Mutatás az órarendben", systemImage: "calendar")
                             .font(.caption.weight(.semibold))
+                            .foregroundStyle(colors.accent)
+                            .padding(.horizontal, 12).padding(.vertical, 8)
+                            .background(Capsule().strokeBorder(colors.accent.opacity(0.35), lineWidth: 1))
                     }
-                    .tint(colors.accent)
+                    .buttonStyle(.plain)
+                    AttachmentsBlock(attachments: exam.attachments, ownerId: exam.id)
                 } else {
                     Text(exam.plainDescription.isEmpty ? exam.mode : "\(exam.mode) • \(exam.plainDescription)")
                         .font(.callout).foregroundStyle(.secondary).lineLimit(2)

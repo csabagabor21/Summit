@@ -23,6 +23,7 @@ struct TimetableView: View {
     @State private var flashedLessonID: String?
     @State private var suppressAutoJumpUntil = Date.distantPast // házi-deeplink alatt nincs okos ugrás
     @State private var flashPulse = false
+    @State private var scrollProxy: ScrollViewProxy?
     @State private var exemptedTick = 0
     private let switchToTimetable = Notification.Name("summit.switchToTimetable")
     @Environment(\.colorScheme) var scheme
@@ -105,6 +106,62 @@ struct TimetableView: View {
         userHasNavigated = false
         Task { await load() }
     }
+
+    /// Deeplink-cél hét/nap a határidőből (a lapozó ±8 hetéhez igazítva).
+    /// Hétvégi határidő → péntek (a házi órája jellemzően ott van).
+    private func deeplinkTarget(for deadline: Date) -> (weekOffset: Int, weekday: Int) {
+        let cal = Calendar.current
+        let base = mondayOfWeek(offset: 0)
+        let diff = cal.dateComponents([.day], from: base, to: cal.startOfDay(for: deadline)).day ?? 0
+        let off = max(-8, min(8, Int(floor(Double(diff) / 7.0))))
+        var wd = cal.component(.weekday, from: deadline)
+        if wd < 2 || wd > 6 { wd = 6 }
+        return (off, wd)
+    }
+
+    /// "Mutatás az órarendben" ugrás: a határidő hetére lapoz (ha kell),
+    /// megvárja a töltést, és CSAK a betöltött órák közt keres — korábban
+    /// a régi hét rossz órája villant fel, és oda sem görgetett.
+    /// Illesztés: 1) HaziFeladatUid-kapocs, 2) tárgy+nap, 3) tárgy.
+    private func jumpToLesson(subject: String, deadline: Date, hwId: String? = nil) async {
+        let cal = Calendar.current
+        let target = deeplinkTarget(for: deadline)
+        // Deeplink alatt nincs okos ugrás, és a tabra lépés se írja felül.
+        suppressAutoJumpUntil = Date().addingTimeInterval(10)
+        userHasNavigated = true
+        if target.weekOffset != weekOffset {
+            withAnimation(SummitMotion.page) { weekOffset = target.weekOffset }
+            await load()
+        } else if lessons.isEmpty {
+            await load()
+        }
+        var match: LessonItem?
+        if let hwId { match = lessons.first(where: { $0.haziFeladatUid == hwId }) }
+        if match == nil {
+            match = lessons.first(where: { SubjectMatcher.same($0.subject, subject) && cal.isDate($0.start, inSameDayAs: deadline) })
+        }
+        if match == nil { match = lessons.first(where: { SubjectMatcher.same($0.subject, subject) }) }
+        // A napot a ténylegesen megtalált órához igazítjuk (ne a hétvégi
+        // határidő napjához), különben üres napra állna.
+        let day = match.map { cal.component(.weekday, from: $0.start) } ?? target.weekday
+        withAnimation(SummitMotion.page) {
+            selectedDay = day
+            flashedLessonID = match?.id
+            flashPulse = false
+        }
+        guard let m = match else { return }
+        // A sorok kirajzolódnak, aztán odagörgetünk és villogtatunk.
+        try? await Task.sleep(nanoseconds: 350_000_000)
+        withAnimation(SummitMotion.page) {
+            scrollProxy?.scrollTo(m.id, anchor: .center)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            withAnimation(.easeInOut(duration: 0.45).repeatCount(3, autoreverses: true)) { flashPulse = true }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+            withAnimation { flashedLessonID = nil; flashPulse = false }
+        }
+    }
     private var currentWeekRangeText: String {
         let cal = Calendar.current
         let monday = currentMonday
@@ -130,6 +187,7 @@ struct TimetableView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             List {
                 // MARK: Week pager — előre/hátra a hetekben
                 Section {
@@ -349,6 +407,7 @@ struct TimetableView: View {
                 await load()
             }
             .onAppear {
+                scrollProxy = proxy
                 // Órarend tabra koppintáskor: ha az utolsó mai óra már lement
                 // vagy hétvége van, a következő tanítási napot mutassa —
                 // DE csak ha a user nem lapozott kézzel máshova.
@@ -368,25 +427,9 @@ struct TimetableView: View {
                       let subject = info["subject"] as? String,
                       let deadlineTS = info["deadline"] as? Double else { return }
                 let deadline = Date(timeIntervalSince1970: deadlineTS)
-                let cal = Calendar.current
-                // Kanonikus egyeztetés — demo rövid vs KRÉTA hosszú
-                var match = lessons.first(where: { SubjectMatcher.same($0.subject, subject) && cal.isDate($0.start, inSameDayAs: deadline) })
-                if match == nil { match = lessons.first(where: { SubjectMatcher.same($0.subject, subject) }) }
-                guard let m = match else { return }
-                suppressAutoJumpUntil = Date().addingTimeInterval(3) // deeplink célja marad, nincs okos ugrás
-                withAnimation(SummitMotion.page) {
-                    selectedDay = cal.component(.weekday, from: m.start)
-                    flashedLessonID = m.id
-                    flashPulse = false
-                }
-                // villogás indítása
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    withAnimation(.easeInOut(duration: 0.45).repeatCount(3, autoreverses: true)) { flashPulse = true }
-                }
-                // 2.2s után kikapcsol
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
-                    withAnimation { flashedLessonID = nil; flashPulse = false }
-                }
+                let hwId = info["hwId"] as? String
+                Task { await jumpToLesson(subject: subject, deadline: deadline, hwId: hwId) }
+            }
             }
         }
         .tint(colors.accent)
@@ -445,6 +488,7 @@ struct TimetableView: View {
                         isFlashing: isFlash,
                         flashPulse: flashPulse
                     )
+                    .id(lesson.id)
                     .padding(.vertical, 5)
                     .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
                 }
@@ -470,6 +514,7 @@ struct TimetableView: View {
                             isFlashing: isFlash,
                             flashPulse: flashPulse
                         )
+                        .id(lesson.id)
                         .padding(.vertical, 5)
                         .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
                     }
