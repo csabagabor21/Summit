@@ -31,6 +31,36 @@ rules_version = '2';
 // updated}); bárki olvashatja, senki nem írhatja (írást service account
 // végez konzolból/scriptből).
 //
+// Collection: sync — Blaze-mentes beállítás-szinkron (Spark).
+// Document ID: SHA256-hex (64 kar.) az eszközön képzett kulcsból
+// ("summit-sync-v1" + JWT sub/email + user jelmondat). A jelmondat sehova
+// nem kerül fel, így az ID kitalálhatatlan: az ID ismerete a belépő
+// ("unguessable capability"). Ezért: get igen, list nem.
+// Fields:
+//   - v: int (kötelező, == 1; sémaverzió)
+//   - updatedAt: timestamp (kötelező, max 5 perccel lehet jövőbeli —
+//                  óraelcsúszás-tűrés; utolsó írás nyer)
+//   - theme: string (kötelező: system/light/dark)
+//   - accentHex: int (kötelező, 0-0xFFFFFF)
+//   - sizeKey: string (kötelező: system/large/extraLarge/
+//              extraExtraLarge/extraExtraExtraLarge)
+//   - photo: string (kötelező, base64 jpeg ≤ 120 000 kar.; üres = nincs kép)
+//   - rounding: string (kötelező, JSON tárgy→küszöb ≤ 16 000 kar.,
+//                üres = nincs egyedi kerekítés)
+//   - exempted: string (kötelező, JSON névtömb ≤ 8 000 kar., max 128;
+//                "[]" = nincs felmentés)
+//   - completedHw / completedEx: string (kötelező, JSON ID-tömbök
+//                ≤ 12 000 kar., max 256-256; "[]" = nincs pipa)
+//   - notifyGrades / notifyTasks / notifyAbsences / liveActivity:
+//     bool (kötelezők)
+//   - ts_theme / ts_accentHex / ts_sizeKey / ts_photo / ts_rounding /
+//     ts_exempted / ts_completedHw / ts_completedEx / ts_notifyGrades /
+//     ts_notifyTasks / ts_notifyAbsences / ts_liveActivity: timestamp
+//     (opcionálisak; mezőnkénti verzióbélyeg a delta-szinkronhoz —
+//     hiányukban az updatedAt a helyettes. Régi kliensek nem írják.)
+// OM, e-mail, token, jegy ebben a collectionben SOHA nem szerepelhet
+// (a séma más mezőt nem enged).
+//
 // ===============================================================
 
 // ===============================================================
@@ -70,6 +100,51 @@ function isValidHeartbeat() {
     && request.resource.data.expiresAt == request.resource.data.createdAt + duration.value(365, 'd');
 }
 
+function isValidSyncDoc() {
+  return hasOnlyAllowedFields(['v', 'updatedAt', 'theme', 'accentHex', 'sizeKey', 'photo',
+      'rounding', 'exempted', 'completedHw', 'completedEx',
+      'notifyGrades', 'notifyTasks', 'notifyAbsences', 'liveActivity',
+      'ts_theme', 'ts_accentHex', 'ts_sizeKey', 'ts_photo', 'ts_rounding',
+      'ts_exempted', 'ts_completedHw', 'ts_completedEx', 'ts_notifyGrades',
+      'ts_notifyTasks', 'ts_notifyAbsences', 'ts_liveActivity'])
+    && request.resource.data.v is int && request.resource.data.v == 1
+    && request.resource.data.updatedAt is timestamp
+    && request.resource.data.updatedAt <= request.time + duration.value(5, 'm')
+    && request.resource.data.theme is string
+    && request.resource.data.theme in ['system', 'light', 'dark']
+    && request.resource.data.accentHex is int
+    && request.resource.data.accentHex >= 0
+    && request.resource.data.accentHex <= 16777215
+    && request.resource.data.sizeKey is string
+    && request.resource.data.sizeKey in ['system', 'large', 'extraLarge', 'extraExtraLarge', 'extraExtraExtraLarge']
+    && request.resource.data.photo is string
+    && request.resource.data.photo.size() <= 120000
+    && request.resource.data.rounding is string
+    && request.resource.data.rounding.size() <= 16000
+    && request.resource.data.exempted is string
+    && request.resource.data.exempted.size() <= 8000
+    && request.resource.data.completedHw is string
+    && request.resource.data.completedHw.size() <= 12000
+    && request.resource.data.completedEx is string
+    && request.resource.data.completedEx.size() <= 12000
+    && request.resource.data.notifyGrades is bool
+    && request.resource.data.notifyTasks is bool
+    && request.resource.data.notifyAbsences is bool
+    && request.resource.data.liveActivity is bool
+    && (!('ts_theme' in request.resource.data) || request.resource.data.ts_theme is timestamp)
+    && (!('ts_accentHex' in request.resource.data) || request.resource.data.ts_accentHex is timestamp)
+    && (!('ts_sizeKey' in request.resource.data) || request.resource.data.ts_sizeKey is timestamp)
+    && (!('ts_photo' in request.resource.data) || request.resource.data.ts_photo is timestamp)
+    && (!('ts_rounding' in request.resource.data) || request.resource.data.ts_rounding is timestamp)
+    && (!('ts_exempted' in request.resource.data) || request.resource.data.ts_exempted is timestamp)
+    && (!('ts_completedHw' in request.resource.data) || request.resource.data.ts_completedHw is timestamp)
+    && (!('ts_completedEx' in request.resource.data) || request.resource.data.ts_completedEx is timestamp)
+    && (!('ts_notifyGrades' in request.resource.data) || request.resource.data.ts_notifyGrades is timestamp)
+    && (!('ts_notifyTasks' in request.resource.data) || request.resource.data.ts_notifyTasks is timestamp)
+    && (!('ts_notifyAbsences' in request.resource.data) || request.resource.data.ts_notifyAbsences is timestamp)
+    && (!('ts_liveActivity' in request.resource.data) || request.resource.data.ts_liveActivity is timestamp);
+}
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -90,6 +165,15 @@ service cloud.firestore {
     match /public/{doc} {
       allow read: if true;
       allow write: if false;
+    }
+
+    match /sync/{id} {
+      // ID: 64 hex kar. (SHA256). Get: az ID ismerete a belépő.
+      // Listázni (gyűjteni) senki nem tud — nincs enumerálás.
+      allow get: if id.matches('^[0-9a-f]{64}$');
+      allow list: if false;
+      allow create, update: if id.matches('^[0-9a-f]{64}$') && isValidSyncDoc();
+      allow delete: if id.matches('^[0-9a-f]{64}$');
     }
 
     match /{document=**} {

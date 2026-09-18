@@ -9,8 +9,10 @@ enum GradingLogic {
     static func loadThresholds() -> [String: Double] {
         (UserDefaults.standard.dictionary(forKey: key) as? [String: Double]) ?? [:]
     }
+    static let changedNotification = Notification.Name("summit.roundingChanged")
     static func save(_ dict: [String: Double]) {
         UserDefaults.standard.set(dict, forKey: key)
+        NotificationCenter.default.post(name: changedNotification, object: nil)
     }
     static func threshold(for subject: String) -> Double {
         loadThresholds()[subject] ?? defaultThreshold

@@ -289,7 +289,7 @@ struct HomeView: View {
                                 }
                         }
                         .buttonStyle(.plain)
-                        NavigationLink { SettingsView() } label: { ProfileImageView(name: user.name, userId: user.id, size: 30) }
+                        NavigationLink { SettingsView() } label: { ProfileImageView(name: user.name, userId: ProfileImageStore.key(userId: user.id, accessToken: user.accessToken), size: 30) }
                             .buttonStyle(.plain) // különben a rendszer glass-pilleket tesz a kör mögé
                     }
                 }

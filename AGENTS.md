@@ -54,3 +54,25 @@ nélkül, csak az, amit a user észrevesz.
   tisztelni `accessibilityReduceTransparency`-t és `colorSchemeContrast`-ot.
 - Hibaüzenet sosem némulhat el: minden fetch-hiba naplóz (`KretaClient.diag`)
   és látszik a Beállítások → Diagnosztika tabon.
+
+## Beállítás-szinkron (kötelező minden új user-állítható feature-re)
+Ha új, a user által állítható állapotot vezetsz be (kapcsoló, csúszka, pipa,
+választás — BÁRMIT), azt KÖTELEZŐ bekötni a `SummitSync`-szinkronba (`sync`
+Firestore-collection, Blaze-mentes). Kivétel csak az alábbi listán szerepelhet;
+minden más szinkronizálandó:
+- Szinkronizálandó minta: téma, kiemelőszín, szövegméret, profilkép,
+  tanári kerekítés, felmentések, házi/dolgozat pipák, értesítési kapcsolók,
+  Live Activity kapcsoló.
+- SOHA nem szinkronizálunk: hozzájárulás/analitika (`AnalyticsStore`,
+  install-ID), belépési adatok (tokenek, `StoredUsers`, fiók-ID),
+  fejlesztői/teszt flagok (`developer.enabled`, demo-preview),
+  gyorsítótárak és eszköz-helyi műkődési állapot (Live Activity push-logok,
+  napiterv, tantárgy-cache).
+- Hogyan: a store írása postoljon `NotificationCenter`-dirty-t (minta:
+  `GradingLogic.changedNotification`) VAGY a szerkesztő nézet hívja a
+  `summitSync.markDirty(<mező>)`-t — a `SummitSync` 2 mp-es összevonással, csak a megjelölt mezőket tölti fel.
+  Új mező = új kulcs a `Payload`-ban + `pushNow`/`parse`/`parseSnapshot` +
+  `applyRemote` + séma a `Firebase/firestore.rules`-ben (`isValidSyncDoc`,
+  minden stringre méretkorlát, listázás tiltva).
+- Személyes adat (név, OM, e-mail, token, jegy) a `sync` docba SEMMILYEN
+  formában nem kerülhet — a kulcs kizárólag eszközön képzett SHA256-lenyomat.

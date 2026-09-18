@@ -7,6 +7,8 @@ struct SettingsView: View {
     @EnvironmentObject var kreta: KretaClient
     @EnvironmentObject var profileStore: ProfileImageStore
     @EnvironmentObject var analytics: AnalyticsStore
+    @EnvironmentObject var summitSync: SummitSync
+    @EnvironmentObject var completed: CompletedStore
     @Environment(\.colorScheme) var scheme
     @Environment(\.horizontalSizeClass) private var hSize
     private var isPad: Bool { hSize == .regular }
@@ -28,6 +30,8 @@ struct SettingsView: View {
     @State private var draftSchoolName = ""
     @State private var repairMsg = ""
     @State private var repairRunning = false
+    @State private var summitSyncPassphrase = ""
+    @State private var summitSyncBusy = false
     @State private var scrollOffset: CGFloat = 0 // parallax háttérhez (onScrollGeometryChange)
     var colors: AppColors { theme.colors(for: scheme) }
 
@@ -36,37 +40,12 @@ struct SettingsView: View {
             // Közös glass-konténer: az egy- és többsoros szigetek üvege
             // ugyanabban a mintavételi térben renderelődik, így az átlátszóság
             // (/blur) nem függ a sziget méretétől.
-            SettingsGlassGroup {
+            SummitGlassGroup {
             VStack(spacing: 20) {
-            // Adatvédelem — direkt a tetején: a hozzájárulás visszavonása
-            // egy koppintás (GDPR 7. cikk (3)). Nem az alján, nem eldugva.
-            island(header: "Adatvédelem", footer: "Csak az iskola nevét, egy véletlen telepítés-azonosítót, a verziót és a napot küldi — napi max egyszer. Név, jelszó, jegy, hely, eszköz-ID sosem.") {
-                row {
-                    Toggle(isOn: Binding(
-                        get: { analytics.isEnabled },
-                        set: { analytics.setEnabled($0) }
-                    )) {
-                        Label("Névtelen használati statisztika", systemImage: "chart.bar.fill")
-                            .font(.subheadline.weight(.medium))
-                    }
-                    .tint(colors.accent)
-                }
-                settingsDivider
-                row {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Telepítés-azonosító").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                        Text(analytics.installId).font(.caption2.monospaced()).foregroundStyle(.tertiary)
-                            .textSelection(.enabled)
-                        Text("Törlési kérelemhez ezt küldd el e-mailben.")
-                            .font(.caption2).foregroundStyle(.tertiary)
-                    }
-                }
-            }
-
             // Profil-sziget (fejléc nélkül, mint eddig)
             HStack(spacing: 12) {
                 ZStack(alignment: .bottomTrailing) {
-                    ProfileImageView(name: session.selectedUser?.name ?? "Diák", userId: session.selectedUser?.id, size: 56).frame(width: 56, height: 56)
+                    ProfileImageView(name: session.selectedUser?.name ?? "Diák", userId: summitProfileKey, size: 56).frame(width: 56, height: 56)
                     Circle().fill(colors.accent).frame(width: 22, height: 22)
                         .overlay(Image(systemName: "camera.fill").font(.system(size: 10, weight: .bold)).foregroundStyle(.white))
                         .overlay(Circle().stroke(.white, lineWidth: 1.5))
@@ -92,16 +71,18 @@ struct SettingsView: View {
             .summitGlassRow(cornerRadius: 20)
             .confirmationDialog("Profilkép", isPresented: $showPhotoOptions, titleVisibility: .visible) {
                 // PhotosPicker is already in row; dialog for remove
-                if profileStore.hasImage(for: session.selectedUser?.id) {
+                // (a törlés SummitSync-értesítést postol → a `photo` mező
+                // delta-feltöltése automatikus, kézi push nem kell)
+                if profileStore.hasImage(for: summitProfileKey) {
                     Button("Kép törlése", role: .destructive) {
-                        if let id = session.selectedUser?.id { profileStore.remove(for: id) }
+                        profileStore.remove(for: summitProfileKey)
                     }
                 }
                 Button("Mégse", role: .cancel) {}
                 } message: { Text("Válassz új képet a Módosítás gombbal, vagy töröld a jelenlegit.") }
 
-            island(header: "Tanári kerekítés", footer: "Tantárgyanként állítható, hogy a tanár mikortól kerekít fel — külön menüben.") {
-                row {
+            summitIsland(header: "Tanári kerekítés", footer: "Tantárgyanként állítható, hogy a tanár mikortól kerekít fel — külön menüben.") {
+                summitRow {
                     NavigationLink { TeacherRoundingView() } label: {
                         HStack {
                             Label("Tanári kerekítés", systemImage: "slider.horizontal.below.rounded")
@@ -120,46 +101,49 @@ struct SettingsView: View {
                 }
             }
 
-            island(header: "Live Activity", footer: "Lock Screen + Dynamic Island — szünetben a következőt mutatja. Rendszer tiltás esetén a Beállításokban engedélyezd.") {
-                row { LiveActivitySettingsRow() }
+            summitIsland(header: "Live Activity", footer: "Lock Screen + Dynamic Island — szünetben a következőt mutatja. Rendszer tiltás esetén a Beállításokban engedélyezd.") {
+                summitRow { LiveActivitySettingsRow() }
             }
 
-            island(header: "Értesítések", footer: "A KRÉTA nem küld push-t, ezért az app minden adatfrissítéskor (megnyitás, lehúzás, háttér-ébresztés) megnézi, mi az új, és arra küld helyi értesítést.") {
-                row {
+            summitIsland(header: "Értesítések", footer: "A KRÉTA nem küld push-t, ezért az app minden adatfrissítéskor (megnyitás, lehúzás, háttér-ébresztés) megnézi, mi az új, és arra küld helyi értesítést.") {
+                summitRow {
                     Toggle(isOn: $notifyGrades) {
                         Label("Új jegy", systemImage: "star.fill").font(.subheadline.weight(.medium))
                     }
                     .tint(colors.accent)
                     .onChange(of: notifyGrades) { _, new in
                         if new { Task { await NotificationManager.shared.requestPermission() } }
+                        summitSync.markDirty(.notifyGrades)
                     }
                 }
-                settingsDivider
-                row {
+                summitDivider
+                summitRow {
                     Toggle(isOn: $notifyTasks) {
                         Label("Új házi / dolgozat", systemImage: "checklist").font(.subheadline.weight(.medium))
                     }
                     .tint(colors.accent)
                     .onChange(of: notifyTasks) { _, new in
                         if new { Task { await NotificationManager.shared.requestPermission() } }
+                        summitSync.markDirty(.notifyTasks)
                     }
                 }
-                settingsDivider
-                row {
+                summitDivider
+                summitRow {
                     Toggle(isOn: $notifyAbsences) {
                         Label("Új hiányzás", systemImage: "person.crop.rectangle.stack").font(.subheadline.weight(.medium))
                     }
                     .tint(colors.accent)
                     .onChange(of: notifyAbsences) { _, new in
                         if new { Task { await NotificationManager.shared.requestPermission() } }
+                        summitSync.markDirty(.notifyAbsences)
                     }
                 }
                 // A tesztelőeszközök (értesítés-tesztek, szimulált jegy) a
                 // Fejlesztői módban élnek — Beállítások alján feloldható.
             }
 
-            island(header: "Megjelenés") {
-                row {
+            summitIsland(header: "Megjelenés") {
+                summitRow {
                     Picker("Téma", selection: Binding(get: { theme.mode }, set: { theme.mode = $0 })) {
                         ForEach(AppThemeMode.allCases) { m in
                             Label(m.title, systemImage: m.icon).tag(m)
@@ -167,9 +151,9 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.segmented)
                 }
-                settingsDivider
+                summitDivider
                 // Accent —简单 színválasztó
-                row {
+                summitRow {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Kiemelés színe").font(.subheadline.weight(.medium))
                         HStack(spacing: 10) {
@@ -195,9 +179,9 @@ struct SettingsView: View {
                     }
                     .padding(.vertical, 4)
                 }
-                settingsDivider
+                summitDivider
                 // Szövegméret — Macen (iPad-app Macen) alapból nagyobb
-                row {
+                summitRow {
                     Picker("Szövegméret", selection: Binding(get: { theme.sizeCategoryKey }, set: { theme.sizeCategoryKey = $0 })) {
                         ForEach(ThemeStore.sizeSteps, id: \.key) { step in
                             Text(step.title).tag(step.key)
@@ -208,13 +192,13 @@ struct SettingsView: View {
                 }
             }
 
-            island(header: "Fiók") {
-                row {
+            summitIsland(header: "Fiók") {
+                summitRow {
                     Button("Kijelentkezés", role: .destructive) { session.logout() }
                 }
                 if session.selectedUser?.isDemo == true {
-                    settingsDivider
-                    row {
+                    summitDivider
+                    summitRow {
                         Label("Demo módban vagy — kijelentkezéssel kilépsz", systemImage: "flask.fill").font(.subheadline).foregroundStyle(.secondary)
                     }
                 }
@@ -222,8 +206,8 @@ struct SettingsView: View {
                 // (pl. OM-azonosító) — olyankor minden DNS-hibával hal meg.
                 // Ide a böngészős e-KRÉTA cím eleje kell: https://EZ.e-kreta.hu
                 if session.selectedUser?.isDemo != true {
-                    settingsDivider
-                    row {
+                    summitDivider
+                    summitRow {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Iskola kód").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                             HStack {
@@ -254,8 +238,8 @@ struct SettingsView: View {
                             }
                         }
                     }
-                    settingsDivider
-                    row {
+                    summitDivider
+                    summitRow {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Iskola neve a térképhez").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                             HStack {
@@ -277,8 +261,8 @@ struct SettingsView: View {
                 }
             }
 
-            island(header: "Diagnosztika") {
-                row {
+            summitIsland(header: "Diagnosztika") {
+                summitRow {
                     NavigationLink { DiagnosticsView() } label: {
                         HStack {
                             Label("Diagnosztika", systemImage: "stethoscope")
@@ -295,8 +279,8 @@ struct SettingsView: View {
             }
 
             if devEnabled {
-                island(header: "Fejlesztő") {
-                    row {
+                summitIsland(header: "Fejlesztő") {
+                    summitRow {
                         NavigationLink { DeveloperView() } label: {
                             HStack {
                                 Label("Fejlesztő", systemImage: "hammer.fill")
@@ -310,6 +294,32 @@ struct SettingsView: View {
                         }
                     }
                 }
+            }
+
+            // Adatvédelem — a lista legeslegalján.
+            summitIsland(header: "Adatvédelem", footer: "Statisztika: csak az iskola nevét, egy véletlen telepítés-azonosítót, a verziót és a napot küldi — napi max egyszer. Szinkron (külön kapcsoló): jelmondattal védett lenyomat alatt témát, színt, szövegméretet, kerekítést, felmentéseket, pipákat, értesítési kapcsolókat és profilképet tárol az eszközeid között. Név, jelszó, jegy, hely, eszköz-ID sosem.") {
+                summitRow {
+                    Toggle(isOn: Binding(
+                        get: { analytics.isEnabled },
+                        set: { analytics.setEnabled($0) }
+                    )) {
+                        Label("Névtelen használati statisztika", systemImage: "chart.bar.fill")
+                            .font(.subheadline.weight(.medium))
+                    }
+                    .tint(colors.accent)
+                }
+                summitDivider
+                summitRow {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Telepítés-azonosító").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        Text(analytics.installId).font(.caption2.monospaced()).foregroundStyle(.tertiary)
+                            .textSelection(.enabled)
+                        Text("Törlési kérelemhez ezt küldd el e-mailben.")
+                            .font(.caption2).foregroundStyle(.tertiary)
+                    }
+                }
+                summitDivider
+                summitRow { summitSyncSection }
             }
 
             Text("Summit • Gábor Csaba").font(.caption2).foregroundStyle(.tertiary).frame(maxWidth: .infinity)
@@ -348,6 +358,11 @@ struct SettingsView: View {
             isPresented: Binding(get: { cropImage != nil }, set: { if !$0 { cropImage = nil } })
         ) { cropSheet }
         .onChange(of: session.selectedId) { _, _ in Task { await loadSubjects(force: true) } }
+        // Téma-változás: 2 mp-es összevont feltöltés, ha a szinkron él.
+        // (Pull utáni alkalmazást a suppress-ablak szűri ki.)
+        .onChange(of: theme.mode) { _, _ in summitSync.markDirty(.theme) }
+        .onChange(of: theme.accentHex) { _, _ in summitSync.markDirty(.accentHex) }
+        .onChange(of: theme.sizeCategoryKey) { _, _ in summitSync.markDirty(.sizeKey) }
     }
 
     /// Fejlesztői mód feloldása: 10 tap a "Summit • Gábor Csaba" láblécre
@@ -373,7 +388,7 @@ struct SettingsView: View {
     /// Üveg sziget-szekció: fejléc + egybefüggő liquid glass kártya + lábléc —
     /// mint az insetGrouped lista, csak az EGÉSZ sziget egy üveg,
     /// nem soronkénti csíkok. Mögötte átlátszik a SummitBackdrop.
-    private func island<Content: View>(header: String? = nil, footer: String? = nil, @ViewBuilder content: () -> Content) -> some View {
+    private func summitIsland<Content: View>(header: String? = nil, footer: String? = nil, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             if let header {
                 Text(header).font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
@@ -414,14 +429,14 @@ struct SettingsView: View {
         }
         repairMsg = "nincs működő jelölt — írd be kézzel"
     }
-    private func row<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+    private func summitRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 0) { content() }
             .padding(.horizontal, 16)
             .padding(.vertical, 11)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var settingsDivider: some View {
+    private var summitDivider: some View {
         Divider().padding(.leading, 16)
     }
 
@@ -439,9 +454,10 @@ struct SettingsView: View {
             ProfileCropView(
                 image: img,
                 onDone: { out in
-                    if let id = session.selectedUser?.id {
-                        profileStore.save(image: resize(image: out, maxSize: 512), for: id)
-                    }
+                    // Stabil kulcs (JWT-alapú): a másik eszköz és egy új
+                    // belépés is ugyanazt a képet találja meg. A mentés
+                    // SummitSync-értesítést postol → delta-feltöltés.
+                    profileStore.save(image: resize(image: out, maxSize: 512), for: summitProfileKey)
                     cropImage = nil
                 },
                 onCancel: { cropImage = nil }
@@ -487,13 +503,150 @@ struct SettingsView: View {
         isLoadingSubjects = false
         if !filtered.isEmpty, !isDemo { UserDefaults.standard.set(filtered, forKey: "firka.cachedSubjects.v1") }
     }
+
+    // MARK: - SummitSync (Blaze-mentes beállítás-szinkron, Spark)
+
+    /// Téma + kiemelőszín + szövegméret + profilkép az összes bejelentkezett
+    /// eszköz között. Kulcs: SHA256(stabil KRÉTA-azonosító + jelmondat) —
+    /// az azonosító és a jelmondat sosem hagyja el a telefont.
+    /// Delta-elv: egy szerkesztés csak a saját mezőjét tölti fel, a
+    /// "Frissítés most" pedig csak lehúz (a helyi állapotot nem tolja fel).
+    private var summitSyncSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle(isOn: Binding(
+                get: { summitSync.isEnabled },
+                set: { v in
+                    if v { Task { await summitSyncEnable() } }
+                    else { summitSync.isEnabled = false; summitSync.status = "kikapcsolva" }
+                }
+            )) {
+                Label("Beállítások szinkronizálása", systemImage: "arrow.triangle.2.circlepath")
+                    .font(.subheadline.weight(.medium))
+            }
+            .tint(colors.accent)
+            .disabled(summitSyncBusy || session.selectedUser?.isDemo == true)
+            Text("A jelmondat köti össze az eszközeidet — mindenhol ugyanaz kell. Azonosító és jelmondat csak ezen a telefonon van, a szerverre csak a beállítások és a kép kerül.")
+                .font(.caption2).foregroundStyle(.tertiary)
+            if session.selectedUser?.isDemo == true {
+                Text("Demo módban nem elérhető.")
+                    .font(.caption2).foregroundStyle(.secondary)
+            } else if !summitSync.isEnabled {
+                SecureField("Szinkron-jelmondat (min. 8 karakter)", text: $summitSyncPassphrase)
+                    .font(.subheadline)
+                    .textContentType(.newPassword)
+                    .disabled(summitSyncBusy)
+            }
+            HStack(spacing: 12) {
+                if summitSync.isEnabled {
+                    Button("Frissítés most") { Task { await summitSyncPullNow() } }
+                        .font(.caption.weight(.bold))
+                        .disabled(summitSyncBusy)
+                    Button("Szinkron törlése", role: .destructive) { Task { await summitSyncDelete() } }
+                        .font(.caption.weight(.bold))
+                        .disabled(summitSyncBusy)
+                }
+                if summitSyncBusy { ProgressView().scaleEffect(0.8) }
+                if !summitSync.isEnabled {
+                    Text(summitSyncStatusText).font(.caption2).foregroundStyle(.secondary)
+                } else {
+                    Text(summitSync.status).font(.caption2).foregroundStyle(.secondary)
+                    if summitSync.realtimeActive {
+                        Text("• élő").font(.caption2.weight(.bold)).foregroundStyle(colors.accent)
+                    }
+                }
+            }
+        }
+        .onAppear {
+            if summitSyncPassphrase.isEmpty, let saved = SummitSync.loadPassphrase() {
+                summitSyncPassphrase = saved
+            }
+            // Csendes frissítés (listener vagy egyszeri pull).
+            if let at = summitSyncToken {
+                summitSync.refresh(accessToken: at, theme: theme,
+                                   profile: profileStore, completed: completed,
+                                   userId: session.selectedUser?.id)
+            }
+        }
+    }
+
+    private var summitSyncStatusText: String {
+        if SummitSync.loadPassphrase() != nil { return "jelszó mentve — kapcsolhatod" }
+        return summitSync.status
+    }
+
+    private var summitSyncToken: String? { session.selectedUser?.accessToken }
+
+    /// Eszközfüggetlen profilkép-kulcs (lásd `ProfileImageStore.key`).
+    private var summitProfileKey: String {
+        ProfileImageStore.key(userId: session.selectedUser?.id,
+                              accessToken: session.selectedUser?.accessToken)
+    }
+
+    /// "Frissítés most": LEHÚZÁS a szerverről (a másik eszköz újdonságai).
+    /// Direkt nem tölt fel — egy friss eszköz alapértelmezései így nem
+    /// írhatják felül a többi eszköz beállításait.
+    private func summitSyncPullNow() async {
+        guard let at = summitSyncToken else { return }
+        summitSync.configure(accessToken: at, theme: theme, profile: profileStore,
+                             completed: completed, userId: session.selectedUser?.id)
+        summitSyncBusy = true
+        defer { summitSyncBusy = false }
+        switch await summitSync.pullNow() {
+        case "applied": summitSync.status = "frissítve"
+        case "fresh": summitSync.status = "nincs újdonság"
+        case "nodoc": summitSync.status = "nincs szerver-oldali adat"
+        default: summitSync.status = "frissítés hiba"
+        }
+    }
+
+    private func summitSyncEnable() async {
+        guard let at = summitSyncToken else { summitSync.status = "nincs munkamenet"; return }
+        guard summitSyncPassphrase.count >= SummitSync.minPassphraseLength else {
+            summitSync.status = "min. 8 karakteres jelmondat kell"
+            return
+        }
+        guard SummitSync.syncId(accessToken: at, passphrase: summitSyncPassphrase) != nil else {
+            summitSync.status = "nem olvasható a fiókazonosító"
+            return
+        }
+        SummitSync.savePassphrase(summitSyncPassphrase)
+        summitSync.configure(accessToken: at, theme: theme, profile: profileStore,
+                             completed: completed, userId: session.selectedUser?.id)
+        summitSyncBusy = true
+        defer { summitSyncBusy = false }
+        // Ha van szerver-oldali állapot, az nyer (másik eszköz már szinkronizál);
+        // ha nincs, az itteni beállítások mennek fel (minden mező piszkos).
+        let r = await summitSync.pullNow()
+        if r == "applied" || r == "fresh" {
+            // A szerver nyert — a függő helyi jelölések mehetnek.
+            summitSync.discardPendingEdits()
+            summitSync.isEnabled = true
+        } else if r == "nodoc" {
+            summitSync.markAllDirty()
+            // A debounce-ra nem várunk: ez tudatos, teljes feltöltés.
+            summitSyncBusy = false
+            let ok = await summitSync.pushNow()
+            summitSyncBusy = true
+            if ok { summitSync.isEnabled = true }
+        }
+        if summitSync.isEnabled {
+            summitSync.startListener()
+        }
+    }
+
+    private func summitSyncDelete() async {
+        guard let at = summitSyncToken else { return }
+        summitSyncBusy = true
+        defer { summitSyncBusy = false }
+        _ = await summitSync.deleteRemote(accessToken: at)
+    }
 }
 
 /// Közös Liquid Glass konténer a beállítások szigetei köré (iOS 26+):
 /// a rendszer ilyenkor egyben rendereli a szigetek üvegét, így az egysoros
 /// és a többsoros sziget átlátszósága/blurje nem válik szét. Régebbi
 /// rendszeren sima átengedő csoport.
-private struct SettingsGlassGroup<Content: View>: View {
+private struct SummitGlassGroup<Content: View>: View {
     var content: Content
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     var body: some View {
@@ -508,6 +661,7 @@ private struct SettingsGlassGroup<Content: View>: View {
 // MARK: - Live Activity toggle — csak a kapcsoló, státusz nélkül
 private struct LiveActivitySettingsRow: View {
     @EnvironmentObject var theme: ThemeStore
+    @EnvironmentObject var summitSync: SummitSync
     @Environment(\.colorScheme) var scheme
     @StateObject private var manager = SummitLiveActivityManager.shared
     @AppStorage("liveActivity.enabled") private var enabled: Bool = true
@@ -522,6 +676,7 @@ private struct LiveActivitySettingsRow: View {
                 if new { Task { await tryStartPreview() } }
                 manager.refreshSystemState()
                 if new && !manager.isSystemEnabled { showSystemAlert = true }
+                summitSync.markDirty(.liveActivity)
             }
         )) {
             Label("Live Activity", systemImage: "clock.badge.checkmark")

@@ -3,6 +3,23 @@ import Combine
 
 @MainActor
 final class ProfileImageStore: ObservableObject {
+    /// Profilkép változott (mentés/törlés) — a SummitSync erre jelöli
+    /// piszkosnak a `photo` mezőt (delta-feltöltés).
+    static let changedNotification = Notification.Name("summit.profileImageChanged")
+
+    /// Eszköz- és belépésfüggetlen képkulcs: az AppUser.id belépésenként
+    /// új UUID, ezért a JWT stabil kulcsa (sub/e-mail) az elsődleges —
+    /// csak így találja meg a másik eszköz / új belépés ugyanazt a képet.
+    /// A kulcs csak fájlnév, sehova nem kerül fel.
+    static func key(userId: String?, accessToken: String?) -> String {
+        if let at = accessToken, !at.isEmpty,
+           let s = JWT.stableUserKey(from: at), !s.isEmpty {
+            return "stable-\(s)"
+        }
+        if let u = userId, !u.isEmpty { return u }
+        return "default"
+    }
+
     @Published private var cache: [String: UIImage] = [:]
 
     func image(for userId: String?) -> UIImage? {
@@ -22,6 +39,7 @@ final class ProfileImageStore: ObservableObject {
         try? data.write(to: url, options: [.atomic])
         cache[userId] = image
         objectWillChange.send()
+        NotificationCenter.default.post(name: Self.changedNotification, object: nil)
     }
 
     func remove(for userId: String) {
@@ -29,6 +47,7 @@ final class ProfileImageStore: ObservableObject {
         try? FileManager.default.removeItem(at: url)
         cache.removeValue(forKey: userId)
         objectWillChange.send()
+        NotificationCenter.default.post(name: Self.changedNotification, object: nil)
     }
 
     func hasImage(for userId: String?) -> Bool {

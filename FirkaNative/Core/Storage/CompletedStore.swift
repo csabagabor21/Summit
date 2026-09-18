@@ -25,9 +25,33 @@ final class CompletedStore: ObservableObject {
     func toggleHomework(_ id: String) {
         if homeworkDone.contains(id) { homeworkDone.remove(id) } else { homeworkDone.insert(id) }
         persist(); objectWillChange.send()
+        NotificationCenter.default.post(name: Self.changedNotification, object: nil)
     }
     func toggleExam(_ id: String) {
         if examDone.contains(id) { examDone.remove(id) } else { examDone.insert(id) }
+        persist(); objectWillChange.send()
+        NotificationCenter.default.post(name: Self.changedNotification, object: nil)
+    }
+
+    // MARK: - Szinkron-hub (SummitSync) számára
+
+    static let changedNotification = Notification.Name("summit.completedChanged")
+    /// Max ennyi ID utazik (régiek kihullhatnak — efemer házi/dolgozat ID-k).
+    static let maxSyncedIDs = 256
+
+    static func loadHomeworkIDs() -> [String] {
+        (UserDefaults.standard.array(forKey: "firka.completed.homework.v1") as? [String]) ?? []
+    }
+    static func loadExamIDs() -> [String] {
+        (UserDefaults.standard.array(forKey: "firka.completed.exam.v1") as? [String]) ?? []
+    }
+
+    /// Távoli állapot teljes átvétele (újabb doc esetén). Nem postol
+    /// dirty-t — a SummitSync visszhang-védelme (suppress) mellé ez a
+    /// második zár a ping-pong ellen.
+    func replaceAll(homework: [String], exams: [String]) {
+        homeworkDone = Set(homework.prefix(Self.maxSyncedIDs))
+        examDone = Set(exams.prefix(Self.maxSyncedIDs))
         persist(); objectWillChange.send()
     }
 }

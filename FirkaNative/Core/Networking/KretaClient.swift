@@ -683,6 +683,19 @@ enum JWT {
         guard let data = Data(base64Encoded: b64), let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
         return json
     }
+    /// Eszközfüggetlen user-kulcs a beállítás-szinkronhoz: a JWT `sub`
+    /// (KRÉTA-azonosító, pl. OM) vagy `email` — minden eszközön azonos,
+    /// szemben az AppUser belépésenkénti UUID-jével. Csak kulcsképzésre,
+    /// sehova nem küldjük és nem tároljuk.
+    static func stableUserKey(from token: String) -> String? {
+        guard let p = payload(token) else { return nil }
+        let raw = (p["sub"] as? String) ?? (p["email"] as? String) ?? ""
+        let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard t.count >= 2, t.count <= 128 else { return nil }
+        let low = t.lowercased()
+        guard low != "user" && low != "demo" && low != "unknown" else { return nil }
+        return t
+    }
     static func instituteCode(from token: String) -> String? {
         guard let p = payload(token) else { return nil }
         // Kulcs-keresés kisbetűsen: az IDP claim-neve ("kreta:institute_code"

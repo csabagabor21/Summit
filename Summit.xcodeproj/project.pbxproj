@@ -7,90 +7,93 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		035CCDDD8008E434E80735BC /* NotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D93941AC0EF9492E8E8FC87C /* NotesView.swift */; };
-		A77AC4B1001A2B3C4D5E6005 /* AttachmentViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A77AC4B1001A2B3C4D5E6003 /* AttachmentViewer.swift */; };
-		A77AC4B1001A2B3C4D5E6006 /* MessagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A77AC4B1001A2B3C4D5E6004 /* MessagesView.swift */; };
-		070BED0806B24776C9CA0378 /* TeacherRoundingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B34D700082CBC9796AA731F /* TeacherRoundingView.swift */; };
-		07425EA432B29AF616973EFD /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2796FFD5EF18E9AD20A660A2 /* SessionStore.swift */; };
-		B1B2C3D4E5F60718293A4B5C7 /* AnalyticsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C6 /* AnalyticsStore.swift */; };
-		D1B2C3D4E5F60718293A4B5C9 /* AnalyticsConsentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1B2C3D4E5F60718293A4B5C8 /* AnalyticsConsentView.swift */; };
-		08B20D4184B2C1194D0A0884 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30EFB3459DEFF383F8DF8668 /* ThemeStore.swift */; };
-		0D7F31ED54AD916271BAD3F5 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 114F416793F8E8A5BBB69F07 /* HomeView.swift */; };
-		138A5FE91FAA46F7BD543BF2 /* GradeCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFB24E078D65400F947E6C37 /* GradeCelebrationView.swift */; };
-		1ACACC9DC25A96F900A11014 /* SummitLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B5C9EC44D39D87241B550D5 /* SummitLiveActivityAttributes.swift */; };
-		1AEDE391AD49AD57FF1571B6 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = F71E956AC45085B50004306D /* User.swift */; };
-		1C9E9A5B58414865BD85D754 /* ProfileCropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B53DEDFDFC4992BB7AFADD /* ProfileCropView.swift */; };
-		1DE67DADB887915E2F7D2944 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADB93DE401D53E80FEEF49D2 /* MainTabView.swift */; };
-		2BD208A43080EA01B7873BCB /* GradesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 545D16B4E6B97B9D2399B5FC /* GradesView.swift */; };
-		34D3F85661D7CEEF7CFE3AB0 /* ProfileImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11397958896C63F02493DC94 /* ProfileImageView.swift */; };
-		350860F0739797515BE0641D /* CompletedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F44247D87A1D5AF0D5AD57 /* CompletedStore.swift */; };
-		3F9A6A266B4576E426D5B504 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59B95265FA2B313F786E0034 /* SettingsView.swift */; };
-		488FA74DB8C609136814EA37 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56AB3DC865533A530A9162C8 /* NotificationManager.swift */; };
-		4EB18D0CFA45C5421E6C64EF /* SummitLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B5C9EC44D39D87241B550D5 /* SummitLiveActivityAttributes.swift */; };
-		5969DACA1CC73099A7AE3ACD /* AbsencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 112CF35802F49E7BC4E6FA39 /* AbsencesView.swift */; };
-		62D5A9DA0D7F15825847108D /* SummitLiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 888F7384D4773D1C3BCE5570 /* SummitLiveActivityManager.swift */; };
-		6CC72D51E3A5DD8E4C547A50 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9CA9ED6D07518801F3F89E9 /* KeychainHelper.swift */; };
-		74842E2110FDAB09903940C3 /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B26BDB2D3FAFE6B7F461831 /* AuthViewModel.swift */; };
-		76752C875CB743BE18894408 /* LiveCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F08AAC09AED35E586880C3 /* LiveCardView.swift */; };
-		77DDD734CA756ED5F9079FFE /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B583B6C153A6667EF44FA31 /* FeedView.swift */; };
-		7C0F28E3F337A7A37682A693 /* SubjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85D39B9212DD03C8DC8D44A9 /* SubjectDetailView.swift */; };
-		B7B1C2D3E4F5061728394A5B /* SummitMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B1C2D3E4F5061728394A5B /* SummitMotion.swift */; };
-		7E1A0ED474A7A629DBFC5888 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 994B88B24DE91E2B0F59CAEB /* ContentView.swift */; };
-		7E985966C1A47C81DC29F551 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E954ADB490013B5DCE52078 /* HomeViewModel.swift */; };
-		806A49F9C7B875C5E0124D34 /* showcase1.png in Resources */ = {isa = PBXBuildFile; fileRef = 8080F293104888E9B66544B3 /* showcase1.png */; };
-		891A56B341C2C628B38291F8 /* Student.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94653307B2040819726B6EC4 /* Student.swift */; };
-		8936464F8564BD002832C02C /* GradeCircle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D71686153B4EAB1990577975 /* GradeCircle.swift */; };
-		8AD801314247C79354C069BD /* KretaAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D821885DD5DB8AB896B9E77 /* KretaAPI.swift */; };
-		8E10EB72340D58DBA05AC570 /* ProfileImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DEF36C43E5FED1FF34023D9 /* ProfileImageStore.swift */; };
-		8E803F292515E61B75D6F307 /* KretaWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21FFABFBD79176A7FDD582C /* KretaWebView.swift */; };
+		0048146EEDBAF2200F28A063 /* SummitApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E156CB119C0AA44F6ECF68 /* SummitApp.swift */; };
+		01061E088472CD4B58E83731 /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = B148C2CB66ADC6FEBA6C1694 /* AppColors.swift */; };
+		04D92300F2F40E2E33AE52DB /* GradeChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 343E8AF99B84335349319C56 /* GradeChartView.swift */; };
+		1794ABDF8895488700C4BF24 /* showcase2.png in Resources */ = {isa = PBXBuildFile; fileRef = D545B038F89135DDB38415E2 /* showcase2.png */; };
+		19D3A7B14C46D6CC18FD0B79 /* ProfileCropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1C976816869424CEBF8461 /* ProfileCropView.swift */; };
+		2318ABF5F2C7E205618489DC /* ic_splash.png in Resources */ = {isa = PBXBuildFile; fileRef = 225D81CC5A3BF3C9D730B87F /* ic_splash.png */; };
+		25F89268618A3B90B1444BDD /* KretaWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A280F65EA8973C9BD6A643 /* KretaWebView.swift */; };
+		29BEF006108E9889DE878B71 /* AbsencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B840F52C3466DB1B0AF667 /* AbsencesView.swift */; };
+		2DD85531BC25CEBDE94C9DEC /* LiveActivityBackgroundRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39EBCE90E5E55CCF969EB995 /* LiveActivityBackgroundRefresh.swift */; };
+		333705F710AABC832AC38E7C /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 543BEB289D6EA82EDB362D7B /* HomeViewModel.swift */; };
+		3396D165DABBF9F014328390 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ECFE2CF9540E13685C2C6145 /* Assets.xcassets */; };
+		371B199FB30740EA5F3A7D25 /* showcase3.png in Resources */ = {isa = PBXBuildFile; fileRef = B7AEC13243FD70028FF077DA /* showcase3.png */; };
+		39C60F238B9CE1643D4D00FB /* ExemptedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 326A7165235AF080CF90FB8D /* ExemptedStore.swift */; };
+		3DD981EF753741F402A6F479 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0BD3D0BD4C28044F95ED458 /* HomeView.swift */; };
+		3E46C09489740EF31AAF0E51 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CE0368F13109AD5B0C8D790 /* LoginView.swift */; };
+		42F61C8AFE8009002E272540 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22EE35060AC05385D57607A4 /* SettingsView.swift */; };
+		4307013EF2822F600C935AB2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B418024E2E5AE953F6E3E66 /* ContentView.swift */; };
+		48330717AF388A44702AC30C /* TeacherRoundingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCD612738202004C2155D62E /* TeacherRoundingView.swift */; };
+		48F96C10608E8954DDA4BA18 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 447C41908D13C10B28E4707B /* FeedView.swift */; };
+		497DBC3AB13FF8515F308F9E /* showcase1.png in Resources */ = {isa = PBXBuildFile; fileRef = 89E8B5ED4F9208BE53619044 /* showcase1.png */; };
+		4A3A1F774121CB67FC9D79B8 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = E04476DB51EA8A9629DBF660 /* KeychainHelper.swift */; };
+		4B568FDB3CC82699DBA1D8F0 /* SummitLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8039D6CB6607F635046C9DF5 /* SummitLiveActivityWidget.swift */; };
+		5018989BC909CC553E5C5ECA /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 720F49AFD0A1A5B6C3CA9AB6 /* DiagnosticsView.swift */; };
+		51445194496F9216C84299A8 /* MessagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF41EC6F961DFC321F8FED9 /* MessagesView.swift */; };
+		5241B1427BAF33A62FB8BF40 /* GradeCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74E818A1B6A970A1BB821FA5 /* GradeCelebrationView.swift */; };
+		58098CCBB8D9D3DB1C5A6596 /* AnalyticsConsentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E0E94310269FCFFF2F115AC /* AnalyticsConsentView.swift */; };
+		595775BF1AE585D948E4CA9B /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC0B40D99CA71E14A82E1AF /* AuthViewModel.swift */; };
+		5C24A893E84C2752AE05C4C9 /* SummitLiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 952A77C87AE801894AD9FA0F /* SummitLiveActivityManager.swift */; };
+		5F20AD0975C509783B0C6515 /* KretaClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 749530AC3E1096307CE8ED24 /* KretaClient.swift */; };
+		616093231CBFBBE90164AAA2 /* CompletedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 092823FDC89EDC54BE31739D /* CompletedStore.swift */; };
+		640B370AF5466C1D7A216A0D /* DeveloperView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E3BE3B35F7AD238DA07178B /* DeveloperView.swift */; };
+		674CE5979E8C603D02423427 /* SummitLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16DF003F0DB021C460B7EF92 /* SummitLiveActivityAttributes.swift */; };
+		696ADDAD7F531A0DED44E8CC /* ic_rounded.png in Resources */ = {isa = PBXBuildFile; fileRef = BD41B4ED9508F804D6940D5E /* ic_rounded.png */; };
+		6A78B5223C6737939601214B /* RootViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B97ACEA310D6F1D6FC56F2 /* RootViewModel.swift */; };
+		6FD6D376BF8C8537963C516F /* GradeCircle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19DFC7C10A0189809286952D /* GradeCircle.swift */; };
+		79486CB87A01E8EC73A80F16 /* RoundingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F5EC6EB282C3C33E5FB6F00 /* RoundingDetailView.swift */; };
+		7D969EE8488778FF82B72229 /* FilterBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83B9022E76AD6AB32842452B /* FilterBarView.swift */; };
+		8957515789A879317AE7291A /* SummitPushSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3E3A06805897E70CA3FE15D /* SummitPushSync.swift */; };
+		8C2B1C9B56CDA57FDA0F1AD5 /* SummitWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3ABCF5C0C06170BB971F626E /* SummitWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		8C6140AB017826BDF110FABD /* NotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F810987AB234C214EFE198C /* NotesView.swift */; };
+		8D867F1B7783C5AA139BA81D /* showcase4.png in Resources */ = {isa = PBXBuildFile; fileRef = 38378D28718442B4059B4C78 /* showcase4.png */; };
+		8FA20E049E51FE3A80FA29EF /* AttachmentViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B927208857FCA38A9068DD6 /* AttachmentViewer.swift */; };
+		94AD1980D99DE0FB7EEC9EC4 /* TimetableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 038E0AFC6C033CBCCCA58205 /* TimetableView.swift */; };
+		952CC5EA8265073FC9C0C7BF /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = AC7D44EC5172AB0DE3C2616C /* FirebaseFirestore */; };
 		95CE7EB4304633540076C893 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 95CE7EB3304633540076C893 /* AppIcon.icon */; };
-		984267543D8E473BA81DF5F4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3337D352E360755819EB0510 /* Assets.xcassets */; };
-		991303E9F4F90047910C0687 /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E08D7B3573B350535BD3BEE /* AppColors.swift */; };
-		A0FCEF0EED7B41D6BA47C2F7 /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2EFD6BB47BB4BDCB2B70305 /* DiagnosticsView.swift */; };
-		A3EA64722B9F546A6CA5F77E /* ic_rounded.png in Resources */ = {isa = PBXBuildFile; fileRef = 35FA765F437DEF476D570261 /* ic_rounded.png */; };
-		A46197861CEB176F0BEED984 /* TimetableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7CCF5CF8EB6B3291CA48C5 /* TimetableView.swift */; };
-		A9768A46A796C7C7A8666DAA /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 917F86853EF0EEB6D842FCF4 /* LoginView.swift */; };
-		AA7672F41F61BABF278B899B /* GradingLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31BC2B27C81200C54D92CECD /* GradingLogic.swift */; };
-		AC9A384890897A5C81F0A09B /* SummitWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52E5BC6F4AFDA9E5DB6D34DD /* SummitWidgetsBundle.swift */; };
-		AE02E34AD6872D3120D1F37C /* LiveActivityBackgroundRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BD24134911466149B1A0C22 /* LiveActivityBackgroundRefresh.swift */; };
-		B09C12718DC808B55FB7B786 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6699562344F56B767C796F7 /* AppTheme.swift */; };
-		BB01463BEEE7170A7C8236AA /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 3086D3040980CBE0BC5728BC /* LaunchScreen.storyboard */; };
-		C0DEA855E4E5CF1191ECADC9 /* KretaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 182D1911F7DEAA25C5ABA212 /* KretaModels.swift */; };
-		C3CD383D33EAE4841C7753CB /* GradeChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 630D3F7140DAD8A14041B2F9 /* GradeChartView.swift */; };
-		C7D2E4F18A3B5C6D9E0F1A2B /* SummitPushSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8E3F5A29B4C6D7E1F2A3B4C /* SummitPushSync.swift */; };
-		C9E1519A1D0042F8B08CE8A0 /* DeveloperView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BD7C3F1A894B639B0E0137 /* DeveloperView.swift */; };
-		CB85FF074993D6D6A40EDA90 /* FilterBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 126C156F77EEE10AA99D4A35 /* FilterBarView.swift */; };
-		D2B776CD41AD4993371C8890 /* showcase4.png in Resources */ = {isa = PBXBuildFile; fileRef = 954A60421D8D72C5A0A1B315 /* showcase4.png */; };
-		D2FD83AA4ED9E13CB151AEC9 /* SummitApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F112D8A15555A47C54624544 /* SummitApp.swift */; };
-		D41802437FBFB85E631E36D4 /* KretaClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B506EC58964F0853D14F0E87 /* KretaClient.swift */; };
-		D97BB40B5672B8870CA50F8E /* showcase2.png in Resources */ = {isa = PBXBuildFile; fileRef = 1F7FAC1C8C85C5123F473597 /* showcase2.png */; };
-		DE6D757E1643907DF761D21B /* SummitLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF8616F5C94FBEA818DD3DAF /* SummitLiveActivityWidget.swift */; };
-		E0623933380F0CCBEC687550 /* RoundingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0FB0CA7C07E5D8E328A4A6D /* RoundingDetailView.swift */; };
-		E577413793117E0C94AB97DB /* ExemptedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF82F0EE85913650A024661 /* ExemptedStore.swift */; };
-		E7501D5748228F9733F03744 /* ic_splash.png in Resources */ = {isa = PBXBuildFile; fileRef = 82A1969A19D465070B5D9D16 /* ic_splash.png */; };
-		F47C6EC0F219201108F7F3C7 /* showcase3.png in Resources */ = {isa = PBXBuildFile; fileRef = 9C8942DBC1A76729FD04B0D4 /* showcase3.png */; };
-		F8896E923D655012621E68C7 /* RootViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DB6FAC1C01D1EDE74EFCB61 /* RootViewModel.swift */; };
-		FBBDE450BF66B985896E436C /* SummitWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DD5BC59929976BB7E3C0B07C /* SummitWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		9789AAA16FD9B3D6B4ABA252 /* ProfileImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510DB597EF2AEFBA9384D46D /* ProfileImageStore.swift */; };
+		9E88851079D387BDF0DFD963 /* SubjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 194B529DC564DF78077C938A /* SubjectDetailView.swift */; };
+		9F1C2EEE3787B2B981B5367E /* Student.swift in Sources */ = {isa = PBXBuildFile; fileRef = 290841CB6CF37C571738D5D8 /* Student.swift */; };
+		9F3F61CCD3F516DECF51FD51 /* SummitMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D59A6CCFD64FBB01C3CF5B5 /* SummitMotion.swift */; };
+		A07B170986E9E0FA04EB2CD2 /* SummitWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95654B92402375A7D376E636 /* SummitWidgetsBundle.swift */; };
+		A80924E518A695C4FF3762D7 /* SummitLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16DF003F0DB021C460B7EF92 /* SummitLiveActivityAttributes.swift */; };
+		AAC678B01A46579284937183 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E3C021CA7F83DB9478FE33 /* ThemeStore.swift */; };
+		BDFD31F2A263320EC8B6D2F2 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58236DD34EB1ADABB1A9F254 /* SessionStore.swift */; };
+		BFD4B5425FC95BBEC6575868 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE74420CE9DA6A0EA10197C /* MainTabView.swift */; };
+		C0193DFFC067EF63923C0A7E /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBFE1FE503B9522FABFD9105 /* NotificationManager.swift */; };
+		C026E62584894F948EB60943 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 60D2939ED79D4FB99E8D8A22 /* GoogleService-Info.plist */; };
+		C0F24198AE153BA7213BED6C /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1D92783AAF33901FDCC0CB3B /* LaunchScreen.storyboard */; };
+		C938C8B4A79AFC320ACA93DB /* SummitSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22EC4A8863AF602ECCB0A304 /* SummitSync.swift */; };
+		D98770305ADBCA9B0CCC1D6D /* GradingLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E84D5228585755250AA0D05 /* GradingLogic.swift */; };
+		DA9FAB3C3C4BCED9B3B83028 /* AnalyticsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 403733D1E79BF3F0BDF3A215 /* AnalyticsStore.swift */; };
+		DF031CE0F1D65920D1D003E7 /* LiveCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F94AC888464350A05C1090C /* LiveCardView.swift */; };
+		E18B6A9B4FA1105E20981AF6 /* KretaAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62D820C4CC82989E7AB176A3 /* KretaAPI.swift */; };
+		EB0BA8A61112DF3F8C21100C /* KretaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBF03B396B70AF1C4B035458 /* KretaModels.swift */; };
+		F6711F9870E041805B9772B2 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E86A32AD2DDFC87FB138D5 /* AppTheme.swift */; };
+		F8233A954E2118EBB3EBFD56 /* GradesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58254DFECD2C7AC3611DD728 /* GradesView.swift */; };
+		FD026D2EFE2507AB734BC8F1 /* ProfileImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 496420BF202DA6E01F09EA1D /* ProfileImageView.swift */; };
+		FFA61B0FDD4305EDABC7DE2A /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = A861E0155EDA827AA2285902 /* User.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		62747712C3E8D2864318F372 /* PBXContainerItemProxy */ = {
+		AC2229307D01E68669C6AB0F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 5FB4A80B97536C63EDB86BDC /* Project object */;
+			containerPortal = 6510C8A6EF4312A2F2013012 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 462BC4BB7D47D98FE2FD503A;
+			remoteGlobalIDString = FC8FDBD76C8EAED05EFD9DED;
 			remoteInfo = SummitWidgets;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		0D7B8A2E611D98C854AB65A4 /* Embed Foundation Extensions */ = {
+		4F02A7F9F941C88A0AC69F36 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				FBBDE450BF66B985896E436C /* SummitWidgets.appex in Embed Foundation Extensions */,
+				8C2B1C9B56CDA57FDA0F1AD5 /* SummitWidgets.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -98,333 +101,367 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		112CF35802F49E7BC4E6FA39 /* AbsencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbsencesView.swift; sourceTree = "<group>"; };
-		11397958896C63F02493DC94 /* ProfileImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileImageView.swift; sourceTree = "<group>"; };
-		114F416793F8E8A5BBB69F07 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
-		126C156F77EEE10AA99D4A35 /* FilterBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBarView.swift; sourceTree = "<group>"; };
-		182D1911F7DEAA25C5ABA212 /* KretaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaModels.swift; sourceTree = "<group>"; };
-		1F7FAC1C8C85C5123F473597 /* showcase2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase2.png; sourceTree = "<group>"; };
-		2796FFD5EF18E9AD20A660A2 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60718293A4B5C6 /* AnalyticsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsStore.swift; sourceTree = "<group>"; };
-		C1B2C3D4E5F60718293A4B5C8 /* AnalyticsConsentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsConsentView.swift; sourceTree = "<group>"; };
-		27A03FE61351781FF2B0E1ED /* Summit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Summit.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		2B5C9EC44D39D87241B550D5 /* SummitLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityAttributes.swift; sourceTree = "<group>"; };
-		3086D3040980CBE0BC5728BC /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
-		30BD7C3F1A894B639B0E0137 /* DeveloperView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperView.swift; sourceTree = "<group>"; };
-		30EFB3459DEFF383F8DF8668 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
-		31BC2B27C81200C54D92CECD /* GradingLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradingLogic.swift; sourceTree = "<group>"; };
-		3337D352E360755819EB0510 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		35FA765F437DEF476D570261 /* ic_rounded.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_rounded.png; sourceTree = "<group>"; };
-		4BD24134911466149B1A0C22 /* LiveActivityBackgroundRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityBackgroundRefresh.swift; sourceTree = "<group>"; };
-		52E5BC6F4AFDA9E5DB6D34DD /* SummitWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitWidgetsBundle.swift; sourceTree = "<group>"; };
-		545D16B4E6B97B9D2399B5FC /* GradesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradesView.swift; sourceTree = "<group>"; };
-		56AB3DC865533A530A9162C8 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
-		59B95265FA2B313F786E0034 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		5D821885DD5DB8AB896B9E77 /* KretaAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaAPI.swift; sourceTree = "<group>"; };
-		630D3F7140DAD8A14041B2F9 /* GradeChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeChartView.swift; sourceTree = "<group>"; };
-		79F44247D87A1D5AF0D5AD57 /* CompletedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompletedStore.swift; sourceTree = "<group>"; };
-		7B26BDB2D3FAFE6B7F461831 /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
-		7B583B6C153A6667EF44FA31 /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
-		8080F293104888E9B66544B3 /* showcase1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase1.png; sourceTree = "<group>"; };
-		82A1969A19D465070B5D9D16 /* ic_splash.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_splash.png; sourceTree = "<group>"; };
-		85D39B9212DD03C8DC8D44A9 /* SubjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectDetailView.swift; sourceTree = "<group>"; };
-		A7B1C2D3E4F5061728394A5B /* SummitMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitMotion.swift; sourceTree = "<group>"; };
-		888F7384D4773D1C3BCE5570 /* SummitLiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityManager.swift; sourceTree = "<group>"; };
-		8AF82F0EE85913650A024661 /* ExemptedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExemptedStore.swift; sourceTree = "<group>"; };
-		8B34D700082CBC9796AA731F /* TeacherRoundingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeacherRoundingView.swift; sourceTree = "<group>"; };
-		8DB6FAC1C01D1EDE74EFCB61 /* RootViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootViewModel.swift; sourceTree = "<group>"; };
-		8E08D7B3573B350535BD3BEE /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
-		917F86853EF0EEB6D842FCF4 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
-		94653307B2040819726B6EC4 /* Student.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Student.swift; sourceTree = "<group>"; };
-		9549DB36305350AB00DB1755 /* Summit.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Summit.entitlements; sourceTree = "<group>"; };
-		4078D5C3D0D5410298BEB784 /* SummitRelease.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SummitRelease.entitlements; sourceTree = "<group>"; };
-		954A60421D8D72C5A0A1B315 /* showcase4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase4.png; sourceTree = "<group>"; };
+		01B840F52C3466DB1B0AF667 /* AbsencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbsencesView.swift; sourceTree = "<group>"; };
+		038E0AFC6C033CBCCCA58205 /* TimetableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableView.swift; sourceTree = "<group>"; };
+		092823FDC89EDC54BE31739D /* CompletedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompletedStore.swift; sourceTree = "<group>"; };
+		0BAE871D50553D3FF30F87AD /* Summit.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Summit.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0F5EC6EB282C3C33E5FB6F00 /* RoundingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundingDetailView.swift; sourceTree = "<group>"; };
+		16DF003F0DB021C460B7EF92 /* SummitLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityAttributes.swift; sourceTree = "<group>"; };
+		194B529DC564DF78077C938A /* SubjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectDetailView.swift; sourceTree = "<group>"; };
+		19DFC7C10A0189809286952D /* GradeCircle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCircle.swift; sourceTree = "<group>"; };
+		1D92783AAF33901FDCC0CB3B /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		1E84D5228585755250AA0D05 /* GradingLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradingLogic.swift; sourceTree = "<group>"; };
+		225D81CC5A3BF3C9D730B87F /* ic_splash.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_splash.png; sourceTree = "<group>"; };
+		22EC4A8863AF602ECCB0A304 /* SummitSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitSync.swift; sourceTree = "<group>"; };
+		22EE35060AC05385D57607A4 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		290841CB6CF37C571738D5D8 /* Student.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Student.swift; sourceTree = "<group>"; };
+		326A7165235AF080CF90FB8D /* ExemptedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExemptedStore.swift; sourceTree = "<group>"; };
+		343E8AF99B84335349319C56 /* GradeChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeChartView.swift; sourceTree = "<group>"; };
+		36B97ACEA310D6F1D6FC56F2 /* RootViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootViewModel.swift; sourceTree = "<group>"; };
+		38378D28718442B4059B4C78 /* showcase4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase4.png; sourceTree = "<group>"; };
+		39EBCE90E5E55CCF969EB995 /* LiveActivityBackgroundRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityBackgroundRefresh.swift; sourceTree = "<group>"; };
+		3ABCF5C0C06170BB971F626E /* SummitWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SummitWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		3D59A6CCFD64FBB01C3CF5B5 /* SummitMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitMotion.swift; sourceTree = "<group>"; };
+		3E3BE3B35F7AD238DA07178B /* DeveloperView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperView.swift; sourceTree = "<group>"; };
+		403733D1E79BF3F0BDF3A215 /* AnalyticsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsStore.swift; sourceTree = "<group>"; };
+		447C41908D13C10B28E4707B /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
+		496420BF202DA6E01F09EA1D /* ProfileImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileImageView.swift; sourceTree = "<group>"; };
+		4B927208857FCA38A9068DD6 /* AttachmentViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentViewer.swift; sourceTree = "<group>"; };
+		4CC0B40D99CA71E14A82E1AF /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
+		4F810987AB234C214EFE198C /* NotesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesView.swift; sourceTree = "<group>"; };
+		510DB597EF2AEFBA9384D46D /* ProfileImageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileImageStore.swift; sourceTree = "<group>"; };
+		543BEB289D6EA82EDB362D7B /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
+		58236DD34EB1ADABB1A9F254 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		58254DFECD2C7AC3611DD728 /* GradesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradesView.swift; sourceTree = "<group>"; };
+		58E3C021CA7F83DB9478FE33 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
+		5FE74420CE9DA6A0EA10197C /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		60D2939ED79D4FB99E8D8A22 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		62D820C4CC82989E7AB176A3 /* KretaAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaAPI.swift; sourceTree = "<group>"; };
+		66A280F65EA8973C9BD6A643 /* KretaWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaWebView.swift; sourceTree = "<group>"; };
+		6E0E94310269FCFFF2F115AC /* AnalyticsConsentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsConsentView.swift; sourceTree = "<group>"; };
+		6F94AC888464350A05C1090C /* LiveCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCardView.swift; sourceTree = "<group>"; };
+		720F49AFD0A1A5B6C3CA9AB6 /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
+		749530AC3E1096307CE8ED24 /* KretaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaClient.swift; sourceTree = "<group>"; };
+		74E818A1B6A970A1BB821FA5 /* GradeCelebrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCelebrationView.swift; sourceTree = "<group>"; };
+		7CE0368F13109AD5B0C8D790 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		8039D6CB6607F635046C9DF5 /* SummitLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityWidget.swift; sourceTree = "<group>"; };
+		83B9022E76AD6AB32842452B /* FilterBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBarView.swift; sourceTree = "<group>"; };
+		89E8B5ED4F9208BE53619044 /* showcase1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase1.png; sourceTree = "<group>"; };
+		952A77C87AE801894AD9FA0F /* SummitLiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityManager.swift; sourceTree = "<group>"; };
+		95654B92402375A7D376E636 /* SummitWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitWidgetsBundle.swift; sourceTree = "<group>"; };
 		95CE7EB3304633540076C893 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
-		994B88B24DE91E2B0F59CAEB /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		9C8942DBC1A76729FD04B0D4 /* showcase3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase3.png; sourceTree = "<group>"; };
-		9DEF36C43E5FED1FF34023D9 /* ProfileImageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileImageStore.swift; sourceTree = "<group>"; };
-		9E954ADB490013B5DCE52078 /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
-		A21FFABFBD79176A7FDD582C /* KretaWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaWebView.swift; sourceTree = "<group>"; };
-		ACE0D7B2587B35F058D48BD7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		ADB93DE401D53E80FEEF49D2 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
-		AF8616F5C94FBEA818DD3DAF /* SummitLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityWidget.swift; sourceTree = "<group>"; };
-		B506EC58964F0853D14F0E87 /* KretaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaClient.swift; sourceTree = "<group>"; };
-		D0F08AAC09AED35E586880C3 /* LiveCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCardView.swift; sourceTree = "<group>"; };
-		D71686153B4EAB1990577975 /* GradeCircle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCircle.swift; sourceTree = "<group>"; };
-		D8E3F5A29B4C6D7E1F2A3B4C /* SummitPushSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitPushSync.swift; sourceTree = "<group>"; };
-		D93941AC0EF9492E8E8FC87C /* NotesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesView.swift; sourceTree = "<group>"; };
-		DD5BC59929976BB7E3C0B07C /* SummitWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SummitWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		E6699562344F56B767C796F7 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
-		E9CA9ED6D07518801F3F89E9 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
-		EFB24E078D65400F947E6C37 /* GradeCelebrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCelebrationView.swift; sourceTree = "<group>"; };
-		F0FB0CA7C07E5D8E328A4A6D /* RoundingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundingDetailView.swift; sourceTree = "<group>"; };
-		F112D8A15555A47C54624544 /* SummitApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitApp.swift; sourceTree = "<group>"; };
-		F2B53DEDFDFC4992BB7AFADD /* ProfileCropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileCropView.swift; sourceTree = "<group>"; };
-		F2EFD6BB47BB4BDCB2B70305 /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
-		F71E956AC45085B50004306D /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
-		FF7CCF5CF8EB6B3291CA48C5 /* TimetableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableView.swift; sourceTree = "<group>"; };
-		A77AC4B1001A2B3C4D5E6003 /* AttachmentViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentViewer.swift; sourceTree = "<group>"; };
-		A77AC4B1001A2B3C4D5E6004 /* MessagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesView.swift; sourceTree = "<group>"; };
+		9B418024E2E5AE953F6E3E66 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A861E0155EDA827AA2285902 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
+		B148C2CB66ADC6FEBA6C1694 /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
+		B4E86A32AD2DDFC87FB138D5 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
+		B7AEC13243FD70028FF077DA /* showcase3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase3.png; sourceTree = "<group>"; };
+		B7E156CB119C0AA44F6ECF68 /* SummitApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitApp.swift; sourceTree = "<group>"; };
+		BD41B4ED9508F804D6940D5E /* ic_rounded.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_rounded.png; sourceTree = "<group>"; };
+		D545B038F89135DDB38415E2 /* showcase2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase2.png; sourceTree = "<group>"; };
+		DDF41EC6F961DFC321F8FED9 /* MessagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesView.swift; sourceTree = "<group>"; };
+		E04476DB51EA8A9629DBF660 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
+		E3E3A06805897E70CA3FE15D /* SummitPushSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitPushSync.swift; sourceTree = "<group>"; };
+		EBF03B396B70AF1C4B035458 /* KretaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaModels.swift; sourceTree = "<group>"; };
+		ECFE2CF9540E13685C2C6145 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		EF1C976816869424CEBF8461 /* ProfileCropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileCropView.swift; sourceTree = "<group>"; };
+		F0BD3D0BD4C28044F95ED458 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		F129BF98BF502D69E561BE08 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		FBFE1FE503B9522FABFD9105 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		FCD612738202004C2155D62E /* TeacherRoundingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeacherRoundingView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFrameworksBuildPhase section */
+		B819DC522B5493DD13D46FD0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				952CC5EA8265073FC9C0C7BF /* FirebaseFirestore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXGroup section */
-		09CC6981BBCF8E6567CF6675 /* Core */ = {
+		018A05B9D2DE7C260226F8E2 /* Auth */ = {
 			isa = PBXGroup;
 			children = (
-				65A23A922B42E267EF48EAE8 /* Models */,
-				EA59F6783320A4AB45EC5E72 /* Networking */,
-				C0ABE8B07E9E75B3DF5D86DC /* Storage */,
-				33C798E4E0BF776491F261AE /* Theme */,
-			);
-			path = Core;
-			sourceTree = "<group>";
-		};
-		14890CC5436FAB1F4F8B1B4D /* Notes */ = {
-			isa = PBXGroup;
-			children = (
-				D93941AC0EF9492E8E8FC87C /* NotesView.swift */,
-			);
-			path = Notes;
-			sourceTree = "<group>";
-		};
-		A77AC4B1001A2B3C4D5E6001 /* Attachments */ = {
-			isa = PBXGroup;
-			children = (
-				A77AC4B1001A2B3C4D5E6003 /* AttachmentViewer.swift */,
-			);
-			path = Attachments;
-			sourceTree = "<group>";
-		};
-		A77AC4B1001A2B3C4D5E6002 /* Messages */ = {
-			isa = PBXGroup;
-			children = (
-				A77AC4B1001A2B3C4D5E6004 /* MessagesView.swift */,
-			);
-			path = Messages;
-			sourceTree = "<group>";
-		};
-		21F08CACFC301081E046297D /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				35FA765F437DEF476D570261 /* ic_rounded.png */,
-				82A1969A19D465070B5D9D16 /* ic_splash.png */,
-				3086D3040980CBE0BC5728BC /* LaunchScreen.storyboard */,
-				8080F293104888E9B66544B3 /* showcase1.png */,
-				1F7FAC1C8C85C5123F473597 /* showcase2.png */,
-				9C8942DBC1A76729FD04B0D4 /* showcase3.png */,
-				954A60421D8D72C5A0A1B315 /* showcase4.png */,
-			);
-			path = Resources;
-			sourceTree = "<group>";
-		};
-		319D2B6DEF1C6D384B981554 /* Timetable */ = {
-			isa = PBXGroup;
-			children = (
-				FF7CCF5CF8EB6B3291CA48C5 /* TimetableView.swift */,
-			);
-			path = Timetable;
-			sourceTree = "<group>";
-		};
-		33C798E4E0BF776491F261AE /* Theme */ = {
-			isa = PBXGroup;
-			children = (
-				8E08D7B3573B350535BD3BEE /* AppColors.swift */,
-				E6699562344F56B767C796F7 /* AppTheme.swift */,
-				630D3F7140DAD8A14041B2F9 /* GradeChartView.swift */,
-				D71686153B4EAB1990577975 /* GradeCircle.swift */,
-				A7B1C2D3E4F5061728394A5B /* SummitMotion.swift */,
-				30EFB3459DEFF383F8DF8668 /* ThemeStore.swift */,
-			);
-			path = Theme;
-			sourceTree = "<group>";
-		};
-		3868048BA738C4C7A522306A /* App */ = {
-			isa = PBXGroup;
-			children = (
-				994B88B24DE91E2B0F59CAEB /* ContentView.swift */,
-				F112D8A15555A47C54624544 /* SummitApp.swift */,
-				8DB6FAC1C01D1EDE74EFCB61 /* RootViewModel.swift */,
-			);
-			path = App;
-			sourceTree = "<group>";
-		};
-		49D67383939B0B640CFB50FA /* Absences */ = {
-			isa = PBXGroup;
-			children = (
-				112CF35802F49E7BC4E6FA39 /* AbsencesView.swift */,
-			);
-			path = Absences;
-			sourceTree = "<group>";
-		};
-		4B6FAC4C37201DEC100F469F /* MainTab */ = {
-			isa = PBXGroup;
-			children = (
-				ADB93DE401D53E80FEEF49D2 /* MainTabView.swift */,
-			);
-			path = MainTab;
-			sourceTree = "<group>";
-		};
-		5710BE5639E0AF4B3B2E2B34 /* SummitWidgets */ = {
-			isa = PBXGroup;
-			children = (
-				AF8616F5C94FBEA818DD3DAF /* SummitLiveActivityWidget.swift */,
-				52E5BC6F4AFDA9E5DB6D34DD /* SummitWidgetsBundle.swift */,
-				ACE0D7B2587B35F058D48BD7 /* Info.plist */,
-			);
-			path = SummitWidgets;
-			sourceTree = "<group>";
-		};
-		65A23A922B42E267EF48EAE8 /* Models */ = {
-			isa = PBXGroup;
-			children = (
-				31BC2B27C81200C54D92CECD /* GradingLogic.swift */,
-				182D1911F7DEAA25C5ABA212 /* KretaModels.swift */,
-				94653307B2040819726B6EC4 /* Student.swift */,
-				F71E956AC45085B50004306D /* User.swift */,
-			);
-			path = Models;
-			sourceTree = "<group>";
-		};
-		7EF67D9956BA73446E01B83D /* Home */ = {
-			isa = PBXGroup;
-			children = (
-				7B583B6C153A6667EF44FA31 /* FeedView.swift */,
-				126C156F77EEE10AA99D4A35 /* FilterBarView.swift */,
-				114F416793F8E8A5BBB69F07 /* HomeView.swift */,
-				9E954ADB490013B5DCE52078 /* HomeViewModel.swift */,
-				D0F08AAC09AED35E586880C3 /* LiveCardView.swift */,
-				11397958896C63F02493DC94 /* ProfileImageView.swift */,
-			);
-			path = Home;
-			sourceTree = "<group>";
-		};
-		8A8B7BAE68DD8C4F2A3361D2 /* Auth */ = {
-			isa = PBXGroup;
-			children = (
-				7B26BDB2D3FAFE6B7F461831 /* AuthViewModel.swift */,
-				A21FFABFBD79176A7FDD582C /* KretaWebView.swift */,
-				917F86853EF0EEB6D842FCF4 /* LoginView.swift */,
-				C1B2C3D4E5F60718293A4B5C8 /* AnalyticsConsentView.swift */,
+				6E0E94310269FCFFF2F115AC /* AnalyticsConsentView.swift */,
+				4CC0B40D99CA71E14A82E1AF /* AuthViewModel.swift */,
+				66A280F65EA8973C9BD6A643 /* KretaWebView.swift */,
+				7CE0368F13109AD5B0C8D790 /* LoginView.swift */,
 			);
 			path = Auth;
 			sourceTree = "<group>";
 		};
-		A0BDE3FCE3AC5F4909455973 /* Grades */ = {
+		0272352E5D70CB2EDF5DDFED /* Settings */ = {
 			isa = PBXGroup;
 			children = (
-				545D16B4E6B97B9D2399B5FC /* GradesView.swift */,
-				85D39B9212DD03C8DC8D44A9 /* SubjectDetailView.swift */,
-				EFB24E078D65400F947E6C37 /* GradeCelebrationView.swift */,
-			);
-			path = Grades;
-			sourceTree = "<group>";
-		};
-		A3E76599CCED446DCF6D429B = {
-			isa = PBXGroup;
-			children = (
-				9549DB36305350AB00DB1755 /* Summit.entitlements */,
-				4078D5C3D0D5410298BEB784 /* SummitRelease.entitlements */,
-				B38BA6B05F57D8CD74E679C7 /* FirkaNative */,
-				5710BE5639E0AF4B3B2E2B34 /* SummitWidgets */,
-				95CE7EB3304633540076C893 /* AppIcon.icon */,
-				C7064AF918D959AD365ED143 /* Products */,
-			);
-			sourceTree = "<group>";
-		};
-		B14C1C29E2CCFB9F2D16B5F7 /* Settings */ = {
-			isa = PBXGroup;
-			children = (
-				F0FB0CA7C07E5D8E328A4A6D /* RoundingDetailView.swift */,
-				59B95265FA2B313F786E0034 /* SettingsView.swift */,
-				F2EFD6BB47BB4BDCB2B70305 /* DiagnosticsView.swift */,
-				8B34D700082CBC9796AA731F /* TeacherRoundingView.swift */,
-				F2B53DEDFDFC4992BB7AFADD /* ProfileCropView.swift */,
-				30BD7C3F1A894B639B0E0137 /* DeveloperView.swift */,
+				3E3BE3B35F7AD238DA07178B /* DeveloperView.swift */,
+				720F49AFD0A1A5B6C3CA9AB6 /* DiagnosticsView.swift */,
+				EF1C976816869424CEBF8461 /* ProfileCropView.swift */,
+				0F5EC6EB282C3C33E5FB6F00 /* RoundingDetailView.swift */,
+				22EE35060AC05385D57607A4 /* SettingsView.swift */,
+				FCD612738202004C2155D62E /* TeacherRoundingView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
 		};
-		B38BA6B05F57D8CD74E679C7 /* FirkaNative */ = {
+		1CE56449BE9B6275DDD4EA9A /* App */ = {
 			isa = PBXGroup;
 			children = (
-				3337D352E360755819EB0510 /* Assets.xcassets */,
-				3868048BA738C4C7A522306A /* App */,
-				09CC6981BBCF8E6567CF6675 /* Core */,
-				BE9003340B7467FE33914CBF /* Features */,
-				B3D4FC4CEC4CBBDE47504F03 /* LiveActivity */,
-				21F08CACFC301081E046297D /* Resources */,
+				9B418024E2E5AE953F6E3E66 /* ContentView.swift */,
+				36B97ACEA310D6F1D6FC56F2 /* RootViewModel.swift */,
+				B7E156CB119C0AA44F6ECF68 /* SummitApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		225F791A575F82F35ECE1EAB /* Absences */ = {
+			isa = PBXGroup;
+			children = (
+				01B840F52C3466DB1B0AF667 /* AbsencesView.swift */,
+			);
+			path = Absences;
+			sourceTree = "<group>";
+		};
+		24B69D4CF1C8E2057530B073 /* SummitWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				F129BF98BF502D69E561BE08 /* Info.plist */,
+				8039D6CB6607F635046C9DF5 /* SummitLiveActivityWidget.swift */,
+				95654B92402375A7D376E636 /* SummitWidgetsBundle.swift */,
+			);
+			path = SummitWidgets;
+			sourceTree = "<group>";
+		};
+		2B392934834A2113E74B9584 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				BD41B4ED9508F804D6940D5E /* ic_rounded.png */,
+				225D81CC5A3BF3C9D730B87F /* ic_splash.png */,
+				1D92783AAF33901FDCC0CB3B /* LaunchScreen.storyboard */,
+				89E8B5ED4F9208BE53619044 /* showcase1.png */,
+				D545B038F89135DDB38415E2 /* showcase2.png */,
+				B7AEC13243FD70028FF077DA /* showcase3.png */,
+				38378D28718442B4059B4C78 /* showcase4.png */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		3756BEA367F7738755D3D24D = {
+			isa = PBXGroup;
+			children = (
+				5B560CD737C0C2BA11AB462B /* FirkaNative */,
+				24B69D4CF1C8E2057530B073 /* SummitWidgets */,
+				95CE7EB3304633540076C893 /* AppIcon.icon */,
+				83661FDFBF33D1DB3F71AA1D /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4393A737D8D343A80B277A26 /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				447C41908D13C10B28E4707B /* FeedView.swift */,
+				83B9022E76AD6AB32842452B /* FilterBarView.swift */,
+				F0BD3D0BD4C28044F95ED458 /* HomeView.swift */,
+				543BEB289D6EA82EDB362D7B /* HomeViewModel.swift */,
+				6F94AC888464350A05C1090C /* LiveCardView.swift */,
+				496420BF202DA6E01F09EA1D /* ProfileImageView.swift */,
+			);
+			path = Home;
+			sourceTree = "<group>";
+		};
+		543BEB68D0EDE17F433EF23B /* Networking */ = {
+			isa = PBXGroup;
+			children = (
+				62D820C4CC82989E7AB176A3 /* KretaAPI.swift */,
+				749530AC3E1096307CE8ED24 /* KretaClient.swift */,
+			);
+			path = Networking;
+			sourceTree = "<group>";
+		};
+		5A389BE08D8F1CAE09827E38 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				B148C2CB66ADC6FEBA6C1694 /* AppColors.swift */,
+				B4E86A32AD2DDFC87FB138D5 /* AppTheme.swift */,
+				343E8AF99B84335349319C56 /* GradeChartView.swift */,
+				19DFC7C10A0189809286952D /* GradeCircle.swift */,
+				3D59A6CCFD64FBB01C3CF5B5 /* SummitMotion.swift */,
+				58E3C021CA7F83DB9478FE33 /* ThemeStore.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		5B560CD737C0C2BA11AB462B /* FirkaNative */ = {
+			isa = PBXGroup;
+			children = (
+				ECFE2CF9540E13685C2C6145 /* Assets.xcassets */,
+				60D2939ED79D4FB99E8D8A22 /* GoogleService-Info.plist */,
+				1CE56449BE9B6275DDD4EA9A /* App */,
+				CF231186DF00419FC07DB8F3 /* Core */,
+				71D2D4CC2ED61C9F033A23C9 /* Features */,
+				7373662DA2C13441465F1954 /* LiveActivity */,
+				2B392934834A2113E74B9584 /* Resources */,
 			);
 			path = FirkaNative;
 			sourceTree = "<group>";
 		};
-		B3D4FC4CEC4CBBDE47504F03 /* LiveActivity */ = {
+		653F96092664E799B430D729 /* Attachments */ = {
 			isa = PBXGroup;
 			children = (
-				2B5C9EC44D39D87241B550D5 /* SummitLiveActivityAttributes.swift */,
-				888F7384D4773D1C3BCE5570 /* SummitLiveActivityManager.swift */,
-				4BD24134911466149B1A0C22 /* LiveActivityBackgroundRefresh.swift */,
-				D8E3F5A29B4C6D7E1F2A3B4C /* SummitPushSync.swift */,
+				4B927208857FCA38A9068DD6 /* AttachmentViewer.swift */,
 			);
-			path = LiveActivity;
+			path = Attachments;
 			sourceTree = "<group>";
 		};
-		BE9003340B7467FE33914CBF /* Features */ = {
+		7070AF8DA86AD8AD598D36E7 /* Grades */ = {
 			isa = PBXGroup;
 			children = (
-				49D67383939B0B640CFB50FA /* Absences */,
-				A77AC4B1001A2B3C4D5E6001 /* Attachments */,
-				8A8B7BAE68DD8C4F2A3361D2 /* Auth */,
-				A0BDE3FCE3AC5F4909455973 /* Grades */,
-				7EF67D9956BA73446E01B83D /* Home */,
-				4B6FAC4C37201DEC100F469F /* MainTab */,
-				A77AC4B1001A2B3C4D5E6002 /* Messages */,
-				14890CC5436FAB1F4F8B1B4D /* Notes */,
-				B14C1C29E2CCFB9F2D16B5F7 /* Settings */,
-				319D2B6DEF1C6D384B981554 /* Timetable */,
+				74E818A1B6A970A1BB821FA5 /* GradeCelebrationView.swift */,
+				58254DFECD2C7AC3611DD728 /* GradesView.swift */,
+				194B529DC564DF78077C938A /* SubjectDetailView.swift */,
+			);
+			path = Grades;
+			sourceTree = "<group>";
+		};
+		71D2D4CC2ED61C9F033A23C9 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				225F791A575F82F35ECE1EAB /* Absences */,
+				653F96092664E799B430D729 /* Attachments */,
+				018A05B9D2DE7C260226F8E2 /* Auth */,
+				7070AF8DA86AD8AD598D36E7 /* Grades */,
+				4393A737D8D343A80B277A26 /* Home */,
+				93A188207B192C2AF33F83B9 /* MainTab */,
+				C05120D21AD95C2B8EE5A9EB /* Messages */,
+				D6FC0D642E023A1D657E8703 /* Notes */,
+				0272352E5D70CB2EDF5DDFED /* Settings */,
+				B0A8E7B69D1AE53DFF36E402 /* Timetable */,
 			);
 			path = Features;
 			sourceTree = "<group>";
 		};
-		C0ABE8B07E9E75B3DF5D86DC /* Storage */ = {
+		7373662DA2C13441465F1954 /* LiveActivity */ = {
 			isa = PBXGroup;
 			children = (
-				79F44247D87A1D5AF0D5AD57 /* CompletedStore.swift */,
-				8AF82F0EE85913650A024661 /* ExemptedStore.swift */,
-				E9CA9ED6D07518801F3F89E9 /* KeychainHelper.swift */,
-				56AB3DC865533A530A9162C8 /* NotificationManager.swift */,
-				9DEF36C43E5FED1FF34023D9 /* ProfileImageStore.swift */,
-				2796FFD5EF18E9AD20A660A2 /* SessionStore.swift */,
-				A1B2C3D4E5F60718293A4B5C6 /* AnalyticsStore.swift */,
+				39EBCE90E5E55CCF969EB995 /* LiveActivityBackgroundRefresh.swift */,
+				16DF003F0DB021C460B7EF92 /* SummitLiveActivityAttributes.swift */,
+				952A77C87AE801894AD9FA0F /* SummitLiveActivityManager.swift */,
+				E3E3A06805897E70CA3FE15D /* SummitPushSync.swift */,
 			);
-			path = Storage;
+			path = LiveActivity;
 			sourceTree = "<group>";
 		};
-		C7064AF918D959AD365ED143 /* Products */ = {
+		83661FDFBF33D1DB3F71AA1D /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				27A03FE61351781FF2B0E1ED /* Summit.app */,
-				DD5BC59929976BB7E3C0B07C /* SummitWidgets.appex */,
+				0BAE871D50553D3FF30F87AD /* Summit.app */,
+				3ABCF5C0C06170BB971F626E /* SummitWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		EA59F6783320A4AB45EC5E72 /* Networking */ = {
+		93A188207B192C2AF33F83B9 /* MainTab */ = {
 			isa = PBXGroup;
 			children = (
-				5D821885DD5DB8AB896B9E77 /* KretaAPI.swift */,
-				B506EC58964F0853D14F0E87 /* KretaClient.swift */,
+				5FE74420CE9DA6A0EA10197C /* MainTabView.swift */,
 			);
-			path = Networking;
+			path = MainTab;
+			sourceTree = "<group>";
+		};
+		B0A8E7B69D1AE53DFF36E402 /* Timetable */ = {
+			isa = PBXGroup;
+			children = (
+				038E0AFC6C033CBCCCA58205 /* TimetableView.swift */,
+			);
+			path = Timetable;
+			sourceTree = "<group>";
+		};
+		C05120D21AD95C2B8EE5A9EB /* Messages */ = {
+			isa = PBXGroup;
+			children = (
+				DDF41EC6F961DFC321F8FED9 /* MessagesView.swift */,
+			);
+			path = Messages;
+			sourceTree = "<group>";
+		};
+		CF231186DF00419FC07DB8F3 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				F5F2A779776DCD68ABC5348D /* Models */,
+				543BEB68D0EDE17F433EF23B /* Networking */,
+				EB8606EEC55060B92D11CA44 /* Storage */,
+				5A389BE08D8F1CAE09827E38 /* Theme */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		D6FC0D642E023A1D657E8703 /* Notes */ = {
+			isa = PBXGroup;
+			children = (
+				4F810987AB234C214EFE198C /* NotesView.swift */,
+			);
+			path = Notes;
+			sourceTree = "<group>";
+		};
+		EB8606EEC55060B92D11CA44 /* Storage */ = {
+			isa = PBXGroup;
+			children = (
+				403733D1E79BF3F0BDF3A215 /* AnalyticsStore.swift */,
+				092823FDC89EDC54BE31739D /* CompletedStore.swift */,
+				326A7165235AF080CF90FB8D /* ExemptedStore.swift */,
+				E04476DB51EA8A9629DBF660 /* KeychainHelper.swift */,
+				FBFE1FE503B9522FABFD9105 /* NotificationManager.swift */,
+				510DB597EF2AEFBA9384D46D /* ProfileImageStore.swift */,
+				58236DD34EB1ADABB1A9F254 /* SessionStore.swift */,
+				22EC4A8863AF602ECCB0A304 /* SummitSync.swift */,
+			);
+			path = Storage;
+			sourceTree = "<group>";
+		};
+		F5F2A779776DCD68ABC5348D /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				1E84D5228585755250AA0D05 /* GradingLogic.swift */,
+				EBF03B396B70AF1C4B035458 /* KretaModels.swift */,
+				290841CB6CF37C571738D5D8 /* Student.swift */,
+				A861E0155EDA827AA2285902 /* User.swift */,
+			);
+			path = Models;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		462BC4BB7D47D98FE2FD503A /* SummitWidgets */ = {
+		ABA958FA185265DCF2621F4E /* Summit */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 162014FFBEF40BB38CEC3EB2 /* Build configuration list for PBXNativeTarget "SummitWidgets" */;
+			buildConfigurationList = EB8A99BEE9416DD76E545213 /* Build configuration list for PBXNativeTarget "Summit" */;
 			buildPhases = (
-				30E9F6F4FA7C477FED69F7A0 /* Sources */,
+				C21C0E3E5615E7EF8622D13C /* Sources */,
+				DB139E2AE54457ED270A191C /* Resources */,
+				B819DC522B5493DD13D46FD0 /* Frameworks */,
+				4F02A7F9F941C88A0AC69F36 /* Embed Foundation Extensions */,
+				1BE0609A0110A58FB875FFC1 /* Inject background refresh plist keys */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				45E71802CEF13A3C0A4EEE5C /* PBXTargetDependency */,
+			);
+			name = Summit;
+			packageProductDependencies = (
+				AC7D44EC5172AB0DE3C2616C /* FirebaseFirestore */,
+			);
+			productName = Summit;
+			productReference = 0BAE871D50553D3FF30F87AD /* Summit.app */;
+			productType = "com.apple.product-type.application";
+		};
+		FC8FDBD76C8EAED05EFD9DED /* SummitWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 872B489B4BA0BE3BFE50C194 /* Build configuration list for PBXNativeTarget "SummitWidgets" */;
+			buildPhases = (
+				4F016B80ABA3AE9151A27D57 /* Sources */,
 			);
 			buildRules = (
 			);
@@ -434,80 +471,69 @@
 			packageProductDependencies = (
 			);
 			productName = SummitWidgets;
-			productReference = DD5BC59929976BB7E3C0B07C /* SummitWidgets.appex */;
+			productReference = 3ABCF5C0C06170BB971F626E /* SummitWidgets.appex */;
 			productType = "com.apple.product-type.app-extension";
-		};
-		FCBF8911DD76CDFEB024468F /* Summit */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 4A9B0C2882E997553A7DC288 /* Build configuration list for PBXNativeTarget "Summit" */;
-			buildPhases = (
-				D9AE8212788500131A76AC6F /* Sources */,
-				B8F41D787DCA63643D00EBFF /* Resources */,
-				0D7B8A2E611D98C854AB65A4 /* Embed Foundation Extensions */,
-				3FC377A5152C26468A84C0FA /* Inject background refresh plist keys */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				5862B460BD43FF3E37106510 /* PBXTargetDependency */,
-			);
-			name = Summit;
-			packageProductDependencies = (
-			);
-			productName = Summit;
-			productReference = 27A03FE61351781FF2B0E1ED /* Summit.app */;
-			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		5FB4A80B97536C63EDB86BDC /* Project object */ = {
+		6510C8A6EF4312A2F2013012 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					ABA958FA185265DCF2621F4E = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Manual;
+					};
+				};
 			};
-			buildConfigurationList = 365D98C0A9E92BE879BB433D /* Build configuration list for PBXProject "Summit" */;
+			buildConfigurationList = 8DCA4189E11D58BED6F950F8 /* Build configuration list for PBXProject "Summit" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				Base,
 				en,
 			);
-			mainGroup = A3E76599CCED446DCF6D429B;
+			mainGroup = 3756BEA367F7738755D3D24D;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				D5DB33949EF45B4DE4C651CD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = C7064AF918D959AD365ED143 /* Products */;
+			productRefGroup = 83661FDFBF33D1DB3F71AA1D /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				FCBF8911DD76CDFEB024468F /* Summit */,
-				462BC4BB7D47D98FE2FD503A /* SummitWidgets */,
+				ABA958FA185265DCF2621F4E /* Summit */,
+				FC8FDBD76C8EAED05EFD9DED /* SummitWidgets */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		B8F41D787DCA63643D00EBFF /* Resources */ = {
+		DB139E2AE54457ED270A191C /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				984267543D8E473BA81DF5F4 /* Assets.xcassets in Resources */,
+				3396D165DABBF9F014328390 /* Assets.xcassets in Resources */,
+				C026E62584894F948EB60943 /* GoogleService-Info.plist in Resources */,
 				95CE7EB4304633540076C893 /* AppIcon.icon in Resources */,
-				BB01463BEEE7170A7C8236AA /* LaunchScreen.storyboard in Resources */,
-				A3EA64722B9F546A6CA5F77E /* ic_rounded.png in Resources */,
-				E7501D5748228F9733F03744 /* ic_splash.png in Resources */,
-				806A49F9C7B875C5E0124D34 /* showcase1.png in Resources */,
-				D97BB40B5672B8870CA50F8E /* showcase2.png in Resources */,
-				F47C6EC0F219201108F7F3C7 /* showcase3.png in Resources */,
-				D2B776CD41AD4993371C8890 /* showcase4.png in Resources */,
+				C0F24198AE153BA7213BED6C /* LaunchScreen.storyboard in Resources */,
+				696ADDAD7F531A0DED44E8CC /* ic_rounded.png in Resources */,
+				2318ABF5F2C7E205618489DC /* ic_splash.png in Resources */,
+				497DBC3AB13FF8515F308F9E /* showcase1.png in Resources */,
+				1794ABDF8895488700C4BF24 /* showcase2.png in Resources */,
+				371B199FB30740EA5F3A7D25 /* showcase3.png in Resources */,
+				8D867F1B7783C5AA139BA81D /* showcase4.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		3FC377A5152C26468A84C0FA /* Inject background refresh plist keys */ = {
+		1BE0609A0110A58FB875FFC1 /* Inject background refresh plist keys */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -528,154 +554,87 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		30E9F6F4FA7C477FED69F7A0 /* Sources */ = {
+		4F016B80ABA3AE9151A27D57 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1ACACC9DC25A96F900A11014 /* SummitLiveActivityAttributes.swift in Sources */,
-				DE6D757E1643907DF761D21B /* SummitLiveActivityWidget.swift in Sources */,
-				AC9A384890897A5C81F0A09B /* SummitWidgetsBundle.swift in Sources */,
+				674CE5979E8C603D02423427 /* SummitLiveActivityAttributes.swift in Sources */,
+				4B568FDB3CC82699DBA1D8F0 /* SummitLiveActivityWidget.swift in Sources */,
+				A07B170986E9E0FA04EB2CD2 /* SummitWidgetsBundle.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		D9AE8212788500131A76AC6F /* Sources */ = {
+		C21C0E3E5615E7EF8622D13C /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5969DACA1CC73099A7AE3ACD /* AbsencesView.swift in Sources */,
-				991303E9F4F90047910C0687 /* AppColors.swift in Sources */,
-				B09C12718DC808B55FB7B786 /* AppTheme.swift in Sources */,
-				74842E2110FDAB09903940C3 /* AuthViewModel.swift in Sources */,
-				350860F0739797515BE0641D /* CompletedStore.swift in Sources */,
-				7E1A0ED474A7A629DBFC5888 /* ContentView.swift in Sources */,
-				E577413793117E0C94AB97DB /* ExemptedStore.swift in Sources */,
-				77DDD734CA756ED5F9079FFE /* FeedView.swift in Sources */,
-				CB85FF074993D6D6A40EDA90 /* FilterBarView.swift in Sources */,
-				D2FD83AA4ED9E13CB151AEC9 /* SummitApp.swift in Sources */,
-				4EB18D0CFA45C5421E6C64EF /* SummitLiveActivityAttributes.swift in Sources */,
-				62D5A9DA0D7F15825847108D /* SummitLiveActivityManager.swift in Sources */,
-				C7D2E4F18A3B5C6D9E0F1A2B /* SummitPushSync.swift in Sources */,
-				138A5FE91FAA46F7BD543BF2 /* GradeCelebrationView.swift in Sources */,
-				C3CD383D33EAE4841C7753CB /* GradeChartView.swift in Sources */,
-				8936464F8564BD002832C02C /* GradeCircle.swift in Sources */,
-				2BD208A43080EA01B7873BCB /* GradesView.swift in Sources */,
-				AA7672F41F61BABF278B899B /* GradingLogic.swift in Sources */,
-				0D7F31ED54AD916271BAD3F5 /* HomeView.swift in Sources */,
-				7E985966C1A47C81DC29F551 /* HomeViewModel.swift in Sources */,
-				6CC72D51E3A5DD8E4C547A50 /* KeychainHelper.swift in Sources */,
-				8AD801314247C79354C069BD /* KretaAPI.swift in Sources */,
-				D41802437FBFB85E631E36D4 /* KretaClient.swift in Sources */,
-				C0DEA855E4E5CF1191ECADC9 /* KretaModels.swift in Sources */,
-				8E803F292515E61B75D6F307 /* KretaWebView.swift in Sources */,
-				AE02E34AD6872D3120D1F37C /* LiveActivityBackgroundRefresh.swift in Sources */,
-				76752C875CB743BE18894408 /* LiveCardView.swift in Sources */,
-				A9768A46A796C7C7A8666DAA /* LoginView.swift in Sources */,
-				1DE67DADB887915E2F7D2944 /* MainTabView.swift in Sources */,
-				035CCDDD8008E434E80735BC /* NotesView.swift in Sources */,
-				A77AC4B1001A2B3C4D5E6005 /* AttachmentViewer.swift in Sources */,
-				A77AC4B1001A2B3C4D5E6006 /* MessagesView.swift in Sources */,
-				488FA74DB8C609136814EA37 /* NotificationManager.swift in Sources */,
-				8E10EB72340D58DBA05AC570 /* ProfileImageStore.swift in Sources */,
-				34D3F85661D7CEEF7CFE3AB0 /* ProfileImageView.swift in Sources */,
-				1C9E9A5B58414865BD85D754 /* ProfileCropView.swift in Sources */,
-				F8896E923D655012621E68C7 /* RootViewModel.swift in Sources */,
-				E0623933380F0CCBEC687550 /* RoundingDetailView.swift in Sources */,
-				07425EA432B29AF616973EFD /* SessionStore.swift in Sources */,
-				B1B2C3D4E5F60718293A4B5C7 /* AnalyticsStore.swift in Sources */,
-				D1B2C3D4E5F60718293A4B5C9 /* AnalyticsConsentView.swift in Sources */,
-				3F9A6A266B4576E426D5B504 /* SettingsView.swift in Sources */,
-				A0FCEF0EED7B41D6BA47C2F7 /* DiagnosticsView.swift in Sources */,
-				C9E1519A1D0042F8B08CE8A0 /* DeveloperView.swift in Sources */,
-				891A56B341C2C628B38291F8 /* Student.swift in Sources */,
-				7C0F28E3F337A7A37682A693 /* SubjectDetailView.swift in Sources */,
-				B7B1C2D3E4F5061728394A5B /* SummitMotion.swift in Sources */,
-				070BED0806B24776C9CA0378 /* TeacherRoundingView.swift in Sources */,
-				08B20D4184B2C1194D0A0884 /* ThemeStore.swift in Sources */,
-				A46197861CEB176F0BEED984 /* TimetableView.swift in Sources */,
-				1AEDE391AD49AD57FF1571B6 /* User.swift in Sources */,
+				29BEF006108E9889DE878B71 /* AbsencesView.swift in Sources */,
+				58098CCBB8D9D3DB1C5A6596 /* AnalyticsConsentView.swift in Sources */,
+				DA9FAB3C3C4BCED9B3B83028 /* AnalyticsStore.swift in Sources */,
+				01061E088472CD4B58E83731 /* AppColors.swift in Sources */,
+				F6711F9870E041805B9772B2 /* AppTheme.swift in Sources */,
+				8FA20E049E51FE3A80FA29EF /* AttachmentViewer.swift in Sources */,
+				595775BF1AE585D948E4CA9B /* AuthViewModel.swift in Sources */,
+				616093231CBFBBE90164AAA2 /* CompletedStore.swift in Sources */,
+				4307013EF2822F600C935AB2 /* ContentView.swift in Sources */,
+				640B370AF5466C1D7A216A0D /* DeveloperView.swift in Sources */,
+				5018989BC909CC553E5C5ECA /* DiagnosticsView.swift in Sources */,
+				39C60F238B9CE1643D4D00FB /* ExemptedStore.swift in Sources */,
+				48F96C10608E8954DDA4BA18 /* FeedView.swift in Sources */,
+				7D969EE8488778FF82B72229 /* FilterBarView.swift in Sources */,
+				5241B1427BAF33A62FB8BF40 /* GradeCelebrationView.swift in Sources */,
+				04D92300F2F40E2E33AE52DB /* GradeChartView.swift in Sources */,
+				6FD6D376BF8C8537963C516F /* GradeCircle.swift in Sources */,
+				F8233A954E2118EBB3EBFD56 /* GradesView.swift in Sources */,
+				D98770305ADBCA9B0CCC1D6D /* GradingLogic.swift in Sources */,
+				3DD981EF753741F402A6F479 /* HomeView.swift in Sources */,
+				333705F710AABC832AC38E7C /* HomeViewModel.swift in Sources */,
+				4A3A1F774121CB67FC9D79B8 /* KeychainHelper.swift in Sources */,
+				E18B6A9B4FA1105E20981AF6 /* KretaAPI.swift in Sources */,
+				5F20AD0975C509783B0C6515 /* KretaClient.swift in Sources */,
+				EB0BA8A61112DF3F8C21100C /* KretaModels.swift in Sources */,
+				25F89268618A3B90B1444BDD /* KretaWebView.swift in Sources */,
+				2DD85531BC25CEBDE94C9DEC /* LiveActivityBackgroundRefresh.swift in Sources */,
+				DF031CE0F1D65920D1D003E7 /* LiveCardView.swift in Sources */,
+				3E46C09489740EF31AAF0E51 /* LoginView.swift in Sources */,
+				BFD4B5425FC95BBEC6575868 /* MainTabView.swift in Sources */,
+				51445194496F9216C84299A8 /* MessagesView.swift in Sources */,
+				8C6140AB017826BDF110FABD /* NotesView.swift in Sources */,
+				C0193DFFC067EF63923C0A7E /* NotificationManager.swift in Sources */,
+				19D3A7B14C46D6CC18FD0B79 /* ProfileCropView.swift in Sources */,
+				9789AAA16FD9B3D6B4ABA252 /* ProfileImageStore.swift in Sources */,
+				FD026D2EFE2507AB734BC8F1 /* ProfileImageView.swift in Sources */,
+				6A78B5223C6737939601214B /* RootViewModel.swift in Sources */,
+				79486CB87A01E8EC73A80F16 /* RoundingDetailView.swift in Sources */,
+				BDFD31F2A263320EC8B6D2F2 /* SessionStore.swift in Sources */,
+				42F61C8AFE8009002E272540 /* SettingsView.swift in Sources */,
+				9F1C2EEE3787B2B981B5367E /* Student.swift in Sources */,
+				9E88851079D387BDF0DFD963 /* SubjectDetailView.swift in Sources */,
+				0048146EEDBAF2200F28A063 /* SummitApp.swift in Sources */,
+				A80924E518A695C4FF3762D7 /* SummitLiveActivityAttributes.swift in Sources */,
+				5C24A893E84C2752AE05C4C9 /* SummitLiveActivityManager.swift in Sources */,
+				9F3F61CCD3F516DECF51FD51 /* SummitMotion.swift in Sources */,
+				8957515789A879317AE7291A /* SummitPushSync.swift in Sources */,
+				C938C8B4A79AFC320ACA93DB /* SummitSync.swift in Sources */,
+				48330717AF388A44702AC30C /* TeacherRoundingView.swift in Sources */,
+				AAC678B01A46579284937183 /* ThemeStore.swift in Sources */,
+				94AD1980D99DE0FB7EEC9EC4 /* TimetableView.swift in Sources */,
+				FFA61B0FDD4305EDABC7DE2A /* User.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		5862B460BD43FF3E37106510 /* PBXTargetDependency */ = {
+		45E71802CEF13A3C0A4EEE5C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 462BC4BB7D47D98FE2FD503A /* SummitWidgets */;
-			targetProxy = 62747712C3E8D2864318F372 /* PBXContainerItemProxy */;
+			target = FC8FDBD76C8EAED05EFD9DED /* SummitWidgets */;
+			targetProxy = AC2229307D01E68669C6AB0F /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		1E03BB7E72CECF69A9763D74 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = Summit.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
-				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 10;
-				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 38DAVMRN66;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Summit;
-				INFOPLIST_KEY_CFBundleName = Summit;
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Profilkép készítéséhez kamera hozzáférés szükséges.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Profilkép beállításához hozzáférés a fotókönyvtárhoz szükséges.";
-				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
-				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				INFOPLIST_KEY_UIRequiresFullScreen = NO;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				"INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad" = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportsDocumentBrowser = NO;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = hu.flint;
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = csabav3;
-				SDKROOT = iphoneos;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		378FB1356BF8D702936F0246 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
-				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 10;
-				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 38DAVMRN66;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = SummitWidgets/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Summit Widgets";
-				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.Widgets;
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = wideget;
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		6A1EAF22F8359C9178FF97B1 /* Debug */ = {
+		268401C1D0A5FDEDE64EB1AD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -738,7 +697,107 @@
 			};
 			name = Debug;
 		};
-		7EC338BD8D5C9FB52D8641DC /* Release */ = {
+		33D528C61A9D9419DBDC8EE3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 10;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 38DAVMRN66;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SummitWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Summit Widgets";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.Widgets;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = wideget;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		7172BC39B5DA1845D87AA38B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 10;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 38DAVMRN66;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SummitWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Summit Widgets";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.Widgets;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = wideget;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		856E19681AF54FD342E85BA1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = SummitRelease.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 10;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 38DAVMRN66;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Summit;
+				INFOPLIST_KEY_CFBundleName = Summit;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Profilkép készítéséhez kamera hozzáférés szükséges.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Profilkép beállításához hozzáférés a fotókönyvtárhoz szükséges.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIRequiresFullScreen = NO;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				"INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad" = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportsDocumentBrowser = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = hu.flint;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = csabav3;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A1BD8C1CFB28A7C31F491554 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -794,39 +853,11 @@
 			};
 			name = Release;
 		};
-		97B9AE9AFECB8609285D6021 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
-				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 10;
-				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 38DAVMRN66;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = SummitWidgets/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Summit Widgets";
-				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.Widgets;
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = wideget;
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
-		E70D7193D057630958DC1E52 /* Release */ = {
+		ECCAC48AD9CB2CD99A6EF52B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = SummitRelease.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Summit.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
@@ -852,6 +883,10 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = hu.flint;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = csabav3;
@@ -860,39 +895,58 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
-			name = Release;
+			name = Debug;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		162014FFBEF40BB38CEC3EB2 /* Build configuration list for PBXNativeTarget "SummitWidgets" */ = {
+		872B489B4BA0BE3BFE50C194 /* Build configuration list for PBXNativeTarget "SummitWidgets" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				378FB1356BF8D702936F0246 /* Debug */,
-				97B9AE9AFECB8609285D6021 /* Release */,
+				7172BC39B5DA1845D87AA38B /* Debug */,
+				33D528C61A9D9419DBDC8EE3 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		365D98C0A9E92BE879BB433D /* Build configuration list for PBXProject "Summit" */ = {
+		8DCA4189E11D58BED6F950F8 /* Build configuration list for PBXProject "Summit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				6A1EAF22F8359C9178FF97B1 /* Debug */,
-				7EC338BD8D5C9FB52D8641DC /* Release */,
+				268401C1D0A5FDEDE64EB1AD /* Debug */,
+				A1BD8C1CFB28A7C31F491554 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		4A9B0C2882E997553A7DC288 /* Build configuration list for PBXNativeTarget "Summit" */ = {
+		EB8A99BEE9416DD76E545213 /* Build configuration list for PBXNativeTarget "Summit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				1E03BB7E72CECF69A9763D74 /* Debug */,
-				E70D7193D057630958DC1E52 /* Release */,
+				ECCAC48AD9CB2CD99A6EF52B /* Debug */,
+				856E19681AF54FD342E85BA1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		D5DB33949EF45B4DE4C651CD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = exactVersion;
+				version = 12.19.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AC7D44EC5172AB0DE3C2616C /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D5DB33949EF45B4DE4C651CD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = 5FB4A80B97536C63EDB86BDC /* Project object */;
+	rootObject = 6510C8A6EF4312A2F2013012 /* Project object */;
 }

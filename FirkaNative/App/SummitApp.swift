@@ -8,12 +8,16 @@ struct SummitApp: App {
     @StateObject private var completed = CompletedStore()
     @StateObject private var profileImages = ProfileImageStore()
     @StateObject private var analytics = AnalyticsStore()
+    @StateObject private var summitSync = SummitSync()
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
         // Live Activity háttér-ébresztés: óra/szünet végén az app
         // megnyitása nélkül is átkapcsol az activity.
         LiveActivityBackgroundRefresh.register()
+        // Realtime szinkron: csak ha a GoogleService-Info.plist a
+        // bundle-ben van; nélküle néma, a REST-út marad.
+        SummitSync.configureIfNeeded()
     }
 
     /// Heartbeat egy helyről: ha az iskolanév üres vagy szűrt (pl. belépéskor
@@ -43,6 +47,7 @@ struct SummitApp: App {
                 .environmentObject(completed)
                 .environmentObject(profileImages)
                 .environmentObject(analytics)
+                .environmentObject(summitSync)
                 .tint(theme.accent)
                 .preferredColorScheme(theme.mode.scheme)
                 .onAppear {
@@ -64,6 +69,9 @@ struct SummitApp: App {
                     UserDefaults.standard.removeObject(forKey: "timetable.useHardcoded")
                 }
                 .onChange(of: session.selectedId) { _, _ in
+                    // A szinkron fiókonkénti opt-in: váltáskor kikapcsol
+                    // (a jelmondat marad, újbóli bekapcsolás ugyanoda köt).
+                    summitSync.isEnabled = false
                     kreta.accessToken = session.selectedUser?.accessToken
                     kreta.refreshToken = session.selectedUser?.refreshToken
                     kreta.instituteCode = session.selectedUser?.instituteCode
@@ -132,6 +140,14 @@ struct SummitApp: App {
                         Task {
                             await kreta.ensureValidToken()
                             await sendHeartbeat()
+                        }
+                        // Előtérben a szerver-oldali beállítások nyernek,
+                        // ha újabbak (másik eszközről jöttek): listener,
+                        // ha lehet, különben egyszeri lehúzás.
+                        if let at = session.selectedUser?.accessToken {
+                            summitSync.refresh(accessToken: at, theme: theme,
+                                         profile: profileImages, completed: completed,
+                                         userId: session.selectedUser?.id)
                         }
                         // Napközbeni megnyitáskor is menjen fel a mai terv a
                         // workerbe (ne csak reggel, az activity indításakor) —
