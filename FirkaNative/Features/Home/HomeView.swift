@@ -10,6 +10,8 @@ struct HomeView: View {
     @Environment(\.horizontalSizeClass) private var hSize
     private var isPad: Bool { hSize == .regular }
     var colors: AppColors { theme.colors(for: scheme) }
+    /// Olvasatlan KRÉTA-üzenetek — a csengő piros pöttyéhez.
+    private var unreadCount: Int { vm.messages.filter { !$0.isRead }.count }
     @AppStorage("home.demoPreviewActive") private var isPreviewActive = false
     @AppStorage("home.demoPreviewMinutes") private var previewMinutes: Double = 540
     @AppStorage("liveActivity.enabled") private var liveActivityEnabled = true
@@ -267,8 +269,24 @@ struct HomeView: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink { SettingsView() } label: { ProfileImageView(name: user.name, userId: user.id, size: 30) }
-                        .buttonStyle(.plain) // különben a rendszer glass-pilleket tesz a kör mögé
+                    HStack(spacing: 18) {
+                        // Értesítések (KRÉTA-postaláda) — a 6. tab helyett itt,
+                        // hogy ne legyen rendszer-More tab a TabBaron.
+                        NavigationLink { MessagesView() } label: {
+                            Image(systemName: "bell.fill")
+                                .font(.body)
+                                .foregroundStyle(colors.accent)
+                                .overlay(alignment: .topTrailing) {
+                                    if unreadCount > 0 {
+                                        Circle().fill(Color.red).frame(width: 9, height: 9)
+                                            .offset(x: 5, y: -5)
+                                    }
+                                }
+                        }
+                        .buttonStyle(.plain)
+                        NavigationLink { SettingsView() } label: { ProfileImageView(name: user.name, userId: user.id, size: 30) }
+                            .buttonStyle(.plain) // különben a rendszer glass-pilleket tesz a kör mögé
+                    }
                 }
             }
         }

@@ -9,7 +9,8 @@ import UIKit
 /// push-hoz saját backend szerver + APNs kellene (a Firka is így oldja meg a
 /// Live Activity / push részt, kliens-oldali jegy-push nekik sincs).
 /// Ezért ez polling-alapú: minden sikeres adatfrissítés után diffelünk az
-/// utoljára látott ID-khoz képest, és ami új, arra helyi értesítést ütemezünk.
+/// utoljára látott ID-khoz képest. Egy frissítési körre legfeljebb 1 banner
+/// megy ki (digest): 1 db újdonságnál specifikus, többnél összevont sorok.
 /// Háttérben a meglévő liveactivity-refresh BGTask ébresztésekor is lefut.
 @MainActor
 final class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
@@ -137,26 +138,22 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         UserDefaults.standard.set(Array(ids), forKey: seenKey(kind, userId: userId))
     }
 
-    /// Általános diff: első futáskor csak magot vet (nincs spam-spam belépéskor),
-    /// utána az újakra ütemez. Visszatér az újak számával.
-    @discardableResult
-    private func diffAndNotify(
-        kind: String, userId: String, ids: [String],
-        notify: ([String]) -> Void
-    ) -> Int {
+    /// Diff-mag: első futáskor csak magot vet (nincs spam belépéskor),
+    /// utána visszaadja az új ID-kat és lépteti a seen-készletet.
+    /// Ütemezést nem végez — azt a hívó dönti el (azonnali / digest).
+    private func fresh(kind: String, userId: String, ids: [String]) -> [String] {
         let key = seenKey(kind, userId: userId)
         guard UserDefaults.standard.object(forKey: key) != nil else {
-            // Első találkozás: baseline mag, értesítés nélkül.
+            // Első találkozás: baseline mag, újdonság nélkül.
             UserDefaults.standard.set(ids, forKey: key)
-            return 0
+            return []
         }
         var seen = loadSeen(kind, userId: userId)
-        let fresh = ids.filter { !seen.contains($0) }
-        guard !fresh.isEmpty else { return 0 }
-        fresh.forEach { seen.insert($0) }
+        let new = ids.filter { !seen.contains($0) }
+        guard !new.isEmpty else { return [] }
+        new.forEach { seen.insert($0) }
         saveSeen(kind, userId: userId, ids: seen)
-        notify(fresh)
-        return fresh.count
+        return new
     }
 
     /// Olvasatlan-számláló per felhasználó — ebből lesz az ikon-jelvény száma.
@@ -230,101 +227,185 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         UNUserNotificationCenter.current().add(req)
     }
 
-    @discardableResult
-    func checkGrades(_ grades: [GradeItem], userId: String) -> Int {
-        guard Self.isEnabled(Self.gradesKey) else { return 0 }
+    /// Új elemek oldalhatás nélkül (toggle + diff, ütemezés nélkül) —
+    /// a digest (checkAll) és az azonnali (checkX) ág közös alapja.
+    private func freshGradeItems(_ grades: [GradeItem], userId: String) -> [GradeItem] {
+        guard Self.isEnabled(Self.gradesKey) else { return [] }
         let byId = Dictionary(uniqueKeysWithValues: grades.map { ($0.id, $0) })
-        return diffAndNotify(kind: "Grades", userId: userId, ids: grades.map(\.id)) { fresh in
-            let freshGrades = fresh.compactMap { byId[$0] }
-            // A legfrissebb új jegyre fullscreen ünneplő kártya is jár.
-            if let latest = freshGrades.sorted(by: { $0.date > $1.date }).first {
-                self.celebrationGrade = latest
-            }
-            if fresh.count == 1, let g = byId[fresh[0]] {
-                self.schedule(
-                    id: "summit.grade.\(g.id)",
-                    title: "Új jegy: \(g.valueText) (\(g.subject))",
-                    body: [g.type, g.plainTopic, g.teacher].filter { !$0.isEmpty }.joined(separator: " • "),
-                    userId: userId, bumpBy: 1,
-                    imageURL: self.gradeImageURL(value: g.value),
-                    userInfo: Self.gradeUserInfo(g)
-                )
-            } else {
-                let latest = freshGrades.sorted(by: { $0.date > $1.date }).first
-                self.schedule(
-                    id: "summit.grades.\(Int(Date().timeIntervalSince1970))",
-                    title: "\(fresh.count) új jegy érkezett",
-                    body: freshGrades.prefix(3)
-                        .map { "\($0.valueText) • \($0.subject)" }.joined(separator: ", "),
-                    userId: userId, bumpBy: fresh.count,
-                    userInfo: latest.map { Self.gradeUserInfo($0) } ?? [:]
-                )
-            }
-        }
+        return fresh(kind: "Grades", userId: userId, ids: grades.map(\.id)).compactMap { byId[$0] }
     }
 
-    @discardableResult
-    func checkHomeworks(_ items: [HomeworkItem], userId: String) -> Int {
-        guard Self.isEnabled(Self.tasksKey) else { return 0 }
+    private func freshHomeworkItems(_ items: [HomeworkItem], userId: String) -> [HomeworkItem] {
+        guard Self.isEnabled(Self.tasksKey) else { return [] }
         let byId = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
-        return diffAndNotify(kind: "Homework", userId: userId, ids: items.map(\.id)) { fresh in
-            if fresh.count == 1, let h = byId[fresh[0]] {
-                self.schedule(id: "summit.hw.\(h.id)", title: "Új házi: \(h.subject)", body: h.plainTitle, userId: userId, bumpBy: 1)
-            } else {
-                self.schedule(
-                    id: "summit.hw.\(Int(Date().timeIntervalSince1970))",
-                    title: "\(fresh.count) új házi feladat",
-                    body: fresh.compactMap { byId[$0] }.prefix(3).map(\.subject).joined(separator: ", "),
-                    userId: userId, bumpBy: fresh.count
-                )
-            }
-        }
+        return fresh(kind: "Homework", userId: userId, ids: items.map(\.id)).compactMap { byId[$0] }
     }
 
-    @discardableResult
-    func checkExams(_ items: [ExamItem], userId: String) -> Int {
-        guard Self.isEnabled(Self.tasksKey) else { return 0 }
+    private func freshExamItems(_ items: [ExamItem], userId: String) -> [ExamItem] {
+        guard Self.isEnabled(Self.tasksKey) else { return [] }
         let byId = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
-        return diffAndNotify(kind: "Exams", userId: userId, ids: items.map(\.id)) { fresh in
-            let df = DateFormatter(); df.locale = Locale(identifier: "hu_HU"); df.dateFormat = "MMM d."
-            if fresh.count == 1, let e = byId[fresh[0]] {
-                self.schedule(
-                    id: "summit.exam.\(e.id)", title: "Új dolgozat: \(e.subject)",
-                    body: "\(e.mode) • \(df.string(from: e.date))\(e.plainDescription.isEmpty ? "" : " • \(e.plainDescription)")",
-                    userId: userId, bumpBy: 1,
-                    userInfo: ["kind": "exams"]
-                )
-            } else {
-                self.schedule(
-                    id: "summit.exam.\(Int(Date().timeIntervalSince1970))",
-                    title: "\(fresh.count) új dolgozat",
-                    body: fresh.compactMap { byId[$0] }.prefix(3).map(\.subject).joined(separator: ", "),
-                    userId: userId, bumpBy: fresh.count,
-                    userInfo: ["kind": "exams"]
-                )
-            }
-        }
+        return fresh(kind: "Exams", userId: userId, ids: items.map(\.id)).compactMap { byId[$0] }
     }
 
-    @discardableResult
-    func checkAbsences(_ items: [AbsenceItem], userId: String) -> Int {
+    private func freshAbsenceCount(_ items: [AbsenceItem], userId: String) -> Int {
         guard Self.isEnabled(Self.absencesKey) else { return 0 }
-        return diffAndNotify(kind: "Absences", userId: userId, ids: items.map(\.id)) { fresh in
-            self.schedule(
-                id: "summit.abs.\(Int(Date().timeIntervalSince1970))",
-                title: fresh.count == 1 ? "Új hiányzás" : "\(fresh.count) új hiányzás",
-                body: "Nézd meg a Hiányzások fülön.",
-                userId: userId, bumpBy: fresh.count
+        return fresh(kind: "Absences", userId: userId, ids: items.map(\.id)).count
+    }
+
+    /// Jegy-bannerek: 1 db-nál specifikus, többnél összevont.
+    private func scheduleGrades(_ items: [GradeItem], userId: String) {
+        if items.count == 1, let g = items.first {
+            schedule(
+                id: "summit.grade.\(g.id)",
+                title: "Új jegy: \(g.valueText) (\(g.subject))",
+                body: [g.type, g.plainTopic, g.teacher].filter { !$0.isEmpty }.joined(separator: " • "),
+                userId: userId, bumpBy: 1,
+                imageURL: gradeImageURL(value: g.value),
+                userInfo: Self.gradeUserInfo(g)
+            )
+        } else {
+            let latest = items.sorted(by: { $0.date > $1.date }).first
+            schedule(
+                id: "summit.grades.\(Int(Date().timeIntervalSince1970))",
+                title: "\(items.count) új jegy érkezett",
+                body: items.prefix(3)
+                    .map { "\($0.valueText) • \($0.subject)" }.joined(separator: ", "),
+                userId: userId, bumpBy: items.count,
+                userInfo: latest.map { Self.gradeUserInfo($0) } ?? [:]
             )
         }
     }
 
-    /// Minden kategória egyben — a HomeViewModel.refresh hívja.
-    func checkAll(grades: [GradeItem], homeworks: [HomeworkItem], exams: [ExamItem], absences: [AbsenceItem], userId: String) {
-        checkGrades(grades, userId: userId)
-        checkHomeworks(homeworks, userId: userId)
-        checkExams(exams, userId: userId)
-        checkAbsences(absences, userId: userId)
+    private func scheduleHomeworks(_ items: [HomeworkItem], userId: String) {
+        if items.count == 1, let h = items.first {
+            schedule(id: "summit.hw.\(h.id)", title: "Új házi: \(h.subject)", body: h.plainTitle, userId: userId, bumpBy: 1)
+        } else {
+            schedule(
+                id: "summit.hw.\(Int(Date().timeIntervalSince1970))",
+                title: "\(items.count) új házi feladat",
+                body: items.prefix(3).map(\.subject).joined(separator: ", "),
+                userId: userId, bumpBy: items.count
+            )
+        }
+    }
+
+    private func scheduleExams(_ items: [ExamItem], userId: String) {
+        let df = DateFormatter(); df.locale = Locale(identifier: "hu_HU"); df.dateFormat = "MMM d."
+        if items.count == 1, let e = items.first {
+            schedule(
+                id: "summit.exam.\(e.id)", title: "Új dolgozat: \(e.subject)",
+                body: "\(e.mode) • \(df.string(from: e.date))\(e.plainDescription.isEmpty ? "" : " • \(e.plainDescription)")",
+                userId: userId, bumpBy: 1,
+                userInfo: ["kind": "exams"]
+            )
+        } else {
+            schedule(
+                id: "summit.exam.\(Int(Date().timeIntervalSince1970))",
+                title: "\(items.count) új dolgozat",
+                body: items.prefix(3).map(\.subject).joined(separator: ", "),
+                userId: userId, bumpBy: items.count,
+                userInfo: ["kind": "exams"]
+            )
+        }
+    }
+
+    private func scheduleAbsences(count: Int, userId: String) {
+        schedule(
+            id: "summit.abs.\(Int(Date().timeIntervalSince1970))",
+            title: count == 1 ? "Új hiányzás" : "\(count) új hiányzás",
+            body: "Nézd meg a Hiányzások fülön.",
+            userId: userId, bumpBy: count
+        )
+    }
+
+    @discardableResult
+    func checkGrades(_ grades: [GradeItem], userId: String) -> Int {
+        let items = freshGradeItems(grades, userId: userId)
+        guard !items.isEmpty else { return 0 }
+        // A legfrissebb új jegyre fullscreen ünneplő kártya is jár.
+        if let latest = items.sorted(by: { $0.date > $1.date }).first {
+            self.celebrationGrade = latest
+        }
+        scheduleGrades(items, userId: userId)
+        return items.count
+    }
+
+    @discardableResult
+    func checkHomeworks(_ items: [HomeworkItem], userId: String) -> Int {
+        let freshItems = freshHomeworkItems(items, userId: userId)
+        guard !freshItems.isEmpty else { return 0 }
+        scheduleHomeworks(freshItems, userId: userId)
+        return freshItems.count
+    }
+
+    @discardableResult
+    func checkExams(_ items: [ExamItem], userId: String) -> Int {
+        let freshItems = freshExamItems(items, userId: userId)
+        guard !freshItems.isEmpty else { return 0 }
+        scheduleExams(freshItems, userId: userId)
+        return freshItems.count
+    }
+
+    @discardableResult
+    func checkAbsences(_ items: [AbsenceItem], userId: String) -> Int {
+        let count = freshAbsenceCount(items, userId: userId)
+        guard count > 0 else { return 0 }
+        scheduleAbsences(count: count, userId: userId)
+        return count
+    }
+
+    /// Összevont kör: akárhány kategóriában van újdonság, legfeljebb
+    /// 1 rendszer-banner megy ki (megnyitáskor nem torlódik 3-4).
+    /// 1 db újdonságnál a specifikus banner jön (mint eddig).
+    /// A HomeViewModel.refresh és a háttér-ébresztés is ezt hívja.
+    @discardableResult
+    func checkAll(grades: [GradeItem], homeworks: [HomeworkItem], exams: [ExamItem], absences: [AbsenceItem], userId: String) -> Int {
+        let fg = freshGradeItems(grades, userId: userId)
+        let fh = freshHomeworkItems(homeworks, userId: userId)
+        let fe = freshExamItems(exams, userId: userId)
+        let fa = freshAbsenceCount(absences, userId: userId)
+        let total = fg.count + fh.count + fe.count + fa
+        guard total > 0 else { return 0 }
+        // A legfrissebb új jegyre fullscreen ünneplő kártya is jár.
+        let latestGrade = fg.sorted(by: { $0.date > $1.date }).first
+        if let latest = latestGrade {
+            self.celebrationGrade = latest
+        }
+        if total == 1 {
+            if let g = fg.first { scheduleGrades([g], userId: userId) }
+            else if let h = fh.first { scheduleHomeworks([h], userId: userId) }
+            else if let e = fe.first { scheduleExams([e], userId: userId) }
+            else { scheduleAbsences(count: 1, userId: userId) }
+            return 1
+        }
+        var lines: [String] = []
+        if !fg.isEmpty {
+            lines.append("\(fg.count) új jegy: " + (latestGrade.map { "\($0.valueText) • \($0.subject)" } ?? "") + (fg.count > 1 ? " (+\(fg.count - 1) további)" : ""))
+        }
+        if !fh.isEmpty {
+            lines.append("\(fh.count) új házi: " + fh.prefix(2).map(\.subject).joined(separator: ", "))
+        }
+        if !fe.isEmpty {
+            lines.append("\(fe.count) új dolgozat: " + fe.prefix(2).map(\.subject).joined(separator: ", "))
+        }
+        if fa > 0 {
+            lines.append(fa == 1 ? "1 új hiányzás" : "\(fa) új hiányzás")
+        }
+        // Koppintási cél: jegy → ünneplő kártya, különben dolgozat → Feladatok tab.
+        var tap: [AnyHashable: Any] = [:]
+        if let latest = latestGrade {
+            tap = Self.gradeUserInfo(latest)
+        } else if !fe.isEmpty {
+            tap = ["kind": "exams"]
+        }
+        schedule(
+            id: "summit.digest.\(Int(Date().timeIntervalSince1970))",
+            title: "\(total) újdonság a Krétában",
+            body: lines.joined(separator: "\n"),
+            userId: userId, bumpBy: total,
+            userInfo: tap
+        )
+        return total
     }
 
     // MARK: - Demo teszt

@@ -176,16 +176,22 @@ enum LiveActivityBackgroundRefresh {
         let cal = Calendar.current
         let start = cal.startOfDay(for: Date())
         guard let end = cal.date(byAdding: .day, value: 1, to: start) else { return cacheHit }
-        // Párhuzamosan: az órarend a kapcsoláshoz kell, a jegyek csak
-        // értesítéshez — a jegylekérés már nem tarthatja fel az átkapcsolást.
+        // Párhuzamosan: az órarend a kapcsoláshoz kell, a többi csak
+        // értesítéshez — ezek már nem tarthatják fel az átkapcsolást.
         async let timetable = kreta.fetchTimetable(iss: iss, from: start, to: end)
         async let gradesFetch = kreta.fetchGrades(iss: iss)
+        async let homeworkFetch = kreta.fetchHomework(iss: iss)
+        async let examsFetch = kreta.fetchExams(iss: iss)
+        async let absencesFetch = kreta.fetchAbsences(iss: iss)
         let lessons = await timetable
         let bgGrades = await gradesFetch
+        let bgHomework = await homeworkFetch
+        let bgExams = await examsFetch
+        let bgAbsences = await absencesFetch
         // Üres órarend élesben = fetch-hiba → a cache-sync fent már
         // átkapcsolt (ha volt cache) és a következő határ be van ütemezve,
         // így a lánc él: nincs szükség 15 perces pót-ébresztésre.
-        // Jegy-diffet üres listával nem futtatunk (törlési zajt okozna).
+        // Diffet üres listával nem futtatunk (törlési zajt okozna).
         // Demóban az üres (pl. hétvége) valós állapot → syncDay zár + reggeli ébresztő.
         if lessons.isEmpty, iss != KretaClient.demoInstitute {
             await mgr.logEvent(cacheHit
@@ -193,9 +199,14 @@ enum LiveActivityBackgroundRefresh {
                 : "BG: hálózat hiba, nincs cache → 15p múlva újra")
             return cacheHit
         }
-        // Polling-alapú jegy-értesítés háttérből is: ha a rendszer
-        // felébreszt az élő órához, az új jegyeket is észrevesszük.
-        await NotificationManager.shared.checkGrades(bgGrades, userId: user.id)
+        // Polling-alapú értesítés háttérből is: ha a rendszer
+        // felébreszt az élő órához, az új jegyeket, házikat,
+        // dolgozatokat és hiányzásokat is észrevesszük —
+        // egy összevont bannerben, nem kategóriánként.
+        await NotificationManager.shared.checkAll(
+            grades: bgGrades, homeworks: bgHomework, exams: bgExams,
+            absences: bgAbsences, userId: user.id
+        )
         let accent = UserDefaults.standard.object(forKey: "theme.accentHex") as? Int ?? 0x4A90E2
         // Napi-egy-activity: ez háttérből is csak UPDATE (engedélyezett),
         // új request csak akkor, ha még nincs mai activity.
