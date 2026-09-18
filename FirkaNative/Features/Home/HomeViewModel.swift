@@ -74,7 +74,9 @@ final class HomeViewModel: ObservableObject {
         // mint egy valós userre.
         self.homeworks = hwR.filter { !HomeworkExpiry.isExpired($0) }
         self.absences = abR
-        self.exams = exR
+        // Lejárt dolgozat a főoldalra sem kerül (a Feladatok tab Kész
+        // szegmensében és az értesítési diffben megmarad).
+        self.exams = exR.filter { !ExamExpiry.isExpired($0) }
         self.messages = msgR
         self.lessonsToday = ttR
         // Helyi értesítés-diff az újakról (KRÉTA push nincs, ez polling-alapú)

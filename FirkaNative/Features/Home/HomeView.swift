@@ -110,7 +110,10 @@ struct HomeView: View {
                 // iPad: két oszlop egy Section-ben — kihasználja a szélességet, nem 3 külön nyújtott sor
                 if isPad {
                     let examsSorted = vm.exams.sorted { $0.date < $1.date }.prefix(3)
-                    let hwSorted = vm.homeworks.sorted { $0.deadline < $1.deadline }.prefix(3)
+                    // A szám és a sorok ugyanazt mutatják, mint a Feladatok tab:
+                    // csak az élő, kipipálatlan házik (a kész a Kész szegmensben van).
+                    let hwVisible = vm.homeworks.filter { !completed.isHomeworkDone($0.id) }
+                    let hwSorted = hwVisible.sorted { $0.deadline < $1.deadline }.prefix(3)
                     Section {
                         HStack(alignment: .top, spacing: 16) {
                             // Bal: dolgozatok
@@ -138,7 +141,7 @@ struct HomeView: View {
                                             withAnimation(SummitMotion.snappy) { completed.toggleHomework(h.id) }
                                         }
                                     }
-                                    if vm.homeworks.count > 3 { NavigationLink("Összes feladat (\(vm.homeworks.count))") { NotesView() }.font(.caption.weight(.semibold)).tint(colors.accent) }
+                                    if hwVisible.count > 3 { NavigationLink("Összes feladat (\(hwVisible.count))") { NotesView() }.font(.caption.weight(.semibold)).tint(colors.accent) }
                                 }
                             }.frame(maxWidth: .infinity, alignment: .topLeading)
                         }.padding(.vertical, 4)
@@ -184,7 +187,9 @@ struct HomeView: View {
                 } header: { Text("Közelgő dolgozatok").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
 
                 Section {
-                    let sorted = vm.homeworks.sorted { $0.deadline < $1.deadline }
+                    // A szám és a sorok ugyanazt mutatják, mint a Feladatok tab:
+                    // csak az élő, kipipálatlan házik (a kész a Kész szegmensben van).
+                    let sorted = vm.homeworks.filter { !completed.isHomeworkDone($0.id) }.sorted { $0.deadline < $1.deadline }
                     if sorted.isEmpty {
                         Text("Nincs feladat").foregroundStyle(.secondary)
                     } else {

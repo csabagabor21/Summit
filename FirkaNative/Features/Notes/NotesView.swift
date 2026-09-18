@@ -60,8 +60,13 @@ struct NotesView: View {
                                 examRow(exam, isFlash: flashedID == exam.id)
                             }
                         } else if filter == 2 {
-                            ForEach(filteredDoneHomeworks, id: \.id) { hw in
-                                homeworkRow(hw, isFlash: flashedID == hw.id)
+                            ForEach(doneEntries) { entry in
+                                switch entry {
+                                case .homework(let hw):
+                                    homeworkRow(hw, isFlash: flashedID == hw.id)
+                                case .exam(let exam):
+                                    examRow(exam, isFlash: flashedID == exam.id)
+                                }
                             }
                         } else {
                             ForEach(filteredHomeworks, id: \.id) { hw in
@@ -119,22 +124,49 @@ struct NotesView: View {
         }
     }
 
-    // Kipipált házi nem jelenik meg (eltűnik a Feladatok tabról), Home-on marad zölden
+    // Élő házi: kipipált és lejárt nem jelenik meg (a Készbe kerül),
+    // Home-on a kipipált zölden marad
     var filteredHomeworks: [HomeworkItem] {
-        homeworks.filter { !completed.isHomeworkDone($0.id) }.sorted { $0.deadline < $1.deadline }
+        homeworks.filter { !completed.isHomeworkDone($0.id) && !HomeworkExpiry.isExpired($0) }.sorted { $0.deadline < $1.deadline }
     }
-    // Kész szegmens — innen vissza is hozható (kipipálás visszavonása)
-    var filteredDoneHomeworks: [HomeworkItem] {
-        homeworks.filter { completed.isHomeworkDone($0.id) || $0.isDone }.sorted { $0.deadline < $1.deadline }
+    /// Kész szegmens: kipipált + lejárt házi és lejárt dolgozat, időrendben.
+    /// A kipipálás innen vissza is vonható; a lejárt csak történet.
+    enum DoneEntry: Identifiable {
+        case homework(HomeworkItem)
+        case exam(ExamItem)
+        var id: String {
+            switch self {
+            case .homework(let hw): return "hw-" + hw.id
+            case .exam(let ex): return "ex-" + ex.id
+            }
+        }
+        var date: Date {
+            switch self {
+            case .homework(let hw): return hw.deadline
+            case .exam(let ex): return ex.date
+            }
+        }
     }
-    // Régi dolgozatok nem kellenek — tegnaptól felfelé, időrendben
+    var doneEntries: [DoneEntry] {
+        let today = Calendar.current.startOfDay(for: Date())
+        // A dolgozat-történet nem nőhet végtelenre: az elmúlt 30 nap lejártjai
+        // (a házi-lista amúgy is -30 napos ablakból jön).
+        let examCutoff = Calendar.current.date(byAdding: .day, value: -30, to: today)!
+        var out: [DoneEntry] = homeworks
+            .filter { completed.isHomeworkDone($0.id) || $0.isDone || HomeworkExpiry.isExpired($0) }
+            .map { .homework($0) }
+        out += exams
+            .filter { ExamExpiry.isExpired($0) && $0.date >= examCutoff }
+            .map { .exam($0) }
+        return out.sorted { $0.date < $1.date }
+    }
+    // Élő dolgozat: csak a mai és jövőbeli — a lejárt a Készbe kerül
     var filteredExams: [ExamItem] {
-        let cutoff = Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: Date()))!
-        return exams.filter { $0.date >= cutoff }.sorted { $0.date < $1.date }
+        exams.filter { !ExamExpiry.isExpired($0) }.sorted { $0.date < $1.date }
     }
     private var currentIsEmpty: Bool {
         if filter == 1 { return filteredExams.isEmpty }
-        if filter == 2 { return filteredDoneHomeworks.isEmpty }
+        if filter == 2 { return doneEntries.isEmpty }
         return filteredHomeworks.isEmpty
     }
     // Magyar dátum — az eszköz nyelve angol is lehet, a KRÉTA-dátum éjfélkor időpont nélkül
@@ -179,7 +211,7 @@ struct NotesView: View {
             VStack(alignment: .leading, spacing: 6) {
                 // Csak a fejléc és az előnézet nyit-csuk — a kinyitott
                 // részletező blokkban a gombok önállóan működnek
-                HStack { Text(hw.subject).font(.subheadline.weight(.semibold)); Spacer(); Text(hw.deadline.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.primary.opacity(0.06))) }
+                HStack { Text(hw.subject).font(.subheadline.weight(.semibold)); Spacer(); if !hw.attachments.isEmpty { HStack(spacing: 3) { Image(systemName: "paperclip"); if hw.attachments.count > 1 { Text("\(hw.attachments.count)") } }.font(.caption2.weight(.semibold)).foregroundStyle(.secondary).accessibilityLabel("\(hw.attachments.count) csatolmány") }; Text(hw.deadline.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.primary.opacity(0.06))) }
                     .contentShape(Rectangle())
                     .onTapGesture { toggleExpanded(hw.id, expanded: expanded) }
                 if expanded {
@@ -326,9 +358,49 @@ struct NotesView: View {
         if hwR.isEmpty && exR.isEmpty && hadData {
             homeworks = prevHW; exams = prevEx
         } else {
-            homeworks = hwR; exams = exR
+            homeworks = await lessonAttachments(hwR, kreta: kreta, iss: iss); exams = exR
         }
         isLoading=false
+    }
+
+    /// Firka-minta: a KRÉTA a fájlokat az órarendi elemre teszi
+    /// (`OrarendElemek[].Csatolmanyok`), a házi-payloadban gyakran semmi
+    /// sincs. A fájl a FELADÁS hetének óráján is lehet (HaziFeladatUid-kapocs),
+    /// nem csak a határidő napján — ezért a teljes listaablakot (-35 nap)
+    /// plusz a határidőket nézzük át, heti darabokban, párhuzamosan.
+    /// Üres/sikertelen órarendnél a házi-lista változatlanul marad.
+    private func lessonAttachments(_ hwR: [HomeworkItem], kreta: KretaClient, iss: String) async -> [HomeworkItem] {
+        guard !hwR.isEmpty else { return hwR }
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let deadlines = hwR.map(\.deadline)
+        guard let from = cal.date(byAdding: .day, value: -35, to: today),
+              let to = cal.date(byAdding: .day, value: 2, to: cal.startOfDay(for: max(deadlines.max() ?? today, today))),
+              to > from else { return hwR }
+        // Heti darabolás (nagy ablakra az órarend-végpont megbízhatatlan),
+        // max ~3 hónap — a listaablak és a tipikus határidők beleférnek.
+        var chunks: [(Date, Date)] = []
+        var cur = from
+        while cur < to && chunks.count < 12 {
+            let end = min(cal.date(byAdding: .day, value: 7, to: cur)!, to)
+            chunks.append((cur, end))
+            cur = end
+        }
+        let lessons: [LessonItem] = await withTaskGroup(of: [LessonItem].self) { group in
+            for (s, e) in chunks {
+                group.addTask { await kreta.fetchTimetable(iss: iss, from: s, to: e) }
+            }
+            var out: [LessonItem] = []
+            for await part in group { out.append(contentsOf: part) }
+            return out
+        }
+        // Ami órarendből sem jött meg (vagy üres volt az órarend),
+        // annak a részlet-végpont adhat fájlt.
+        if lessons.isEmpty { return await kreta.fetchHomeworkDetails(hwR, iss: iss) }
+        let merged = HomeworkLessonAttachments.merged(hwR, lessons: lessons)
+        let hits = merged.filter { !$0.attachments.isEmpty }.count
+        kreta.diag("feladat-csatolmány: \(hits)/\(hwR.count) házihoz van fájl (\(lessons.count) óra átnézve)")
+        return await kreta.fetchHomeworkDetails(merged, iss: iss)
     }
 }
 

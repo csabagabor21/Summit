@@ -89,6 +89,10 @@ struct AttachmentsBlock: View {
     var body: some View {
         if !attachments.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
+                Text(attachments.count == 1 ? "Csatolmány" : "\(attachments.count) csatolmány")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .textCase(.uppercase)
                 ForEach(attachments) { att in
                     AttachmentRow(att: att, ownerId: ownerId, store: store)
                 }

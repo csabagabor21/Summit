@@ -25,6 +25,15 @@ struct LessonItem: Identifiable, Hashable {
     var isSubstituted: Bool = false
     var isCancelled: Bool = false
     var originalTeacher: String? = nil
+    /// Firka-minta: a KRÉTA a fájlokat az órarendi elemre teszi
+    /// (`OrarendElemek[].Csatolmanyok: [{Uid, Nev}]`), nem a házi-payloadba.
+    var attachments: [AttachmentItem] = []
+    /// Közvetlen kapocs a házira (`OrarendElemek[].HaziFeladatUid`) —
+    /// a tárgy+nap heurisztikánál biztosabb illesztés.
+    var haziFeladatUid: String? = nil
+    func withAttachments(_ a: [AttachmentItem]) -> LessonItem {
+        var c = self; c.attachments = a; return c
+    }
 
     var substitutionLabel: String? {
         if isCancelled { return "Elmarad" }
@@ -105,12 +114,47 @@ enum KretaAttachmentParser {
         return out
     }
 
+    /// Csatolmány-gyanús kulcs? (lista-elem vagy részlet-payload).
+    /// A végpontok kulcsnevei szórnak (Csatolmanyok, CsatoltFajlok,
+    /// Mellekletek, Attachments…), ezért heurisztika.
+    static func keyLooksLikeAttachments(_ key: String) -> Bool {
+        let lk = key.lowercased()
+        // `IsCsatolasEngedelyezes` csak engedély-flag (csatolhat-e a diák
+        // beadandót), nem fájllista — kizárjuk, különben minden házi
+        // "csatolmányosnak" látszana a diagnosztikában.
+        if lk == "iscsatolasengedelyezes" { return false }
+        return lk.contains("csatol") || lk.contains("mellek") || lk.contains("attach")
+            || lk.contains("fajl") || lk == "files" || lk.contains("dokument")
+    }
+
+    /// PII-mentes érték-összefoglaló a csatolmány-gyanús kulcsokról:
+    /// csak típus + darabszám + belső kulcsnevek (pl.
+    /// `Csatolmanyok=arr[2]{Uid,Nev}`), fájlnevek és tartalom nélkül.
+    /// Diagnosztikába való — megmutatja, milyen alakban jön a fájllista.
+    static func attachmentValueSummary(in d: [String: Any]) -> [String] {
+        d.compactMap { (k, v) in
+            guard keyLooksLikeAttachments(k) else { return nil }
+            if let arr = v as? [Any] {
+                if let first = arr.first(where: { $0 is [String: Any] }) as? [String: Any] {
+                    return "\(k)=arr[\(arr.count)]{\(first.keys.sorted().joined(separator: ","))}"
+                }
+                let types = Set(arr.map { el -> String in
+                    if el is String { return "str" }
+                    if el is NSNumber { return "num" }
+                    return "?"
+                })
+                return "\(k)=arr[\(arr.count)]<\(types.sorted().joined(separator: ","))>"
+            }
+            if let sub = v as? [String: Any] {
+                return "\(k)=dict{\(sub.keys.sorted().joined(separator: ","))}"
+            }
+            return "\(k)=\(type(of: v))"
+        }
+    }
+
     private static func fromDict(_ d: [String: Any]) -> [AttachmentItem] {
         for (k, v) in d {
-            let lk = k.lowercased()
-            let hit = lk.contains("csatol") || lk.contains("mellek") || lk.contains("attach")
-                || lk.contains("fajl") || lk == "files" || lk.contains("dokument")
-            guard hit, let arr = v as? [Any] else { continue }
+            guard keyLooksLikeAttachments(k), let arr = v as? [Any] else { continue }
             let items = arr.compactMap { ($0 as? [String: Any]).flatMap(item(from:)) }
             if !items.isEmpty { return items }
         }
@@ -243,11 +287,48 @@ enum HomeworkMatcher {
     }
 }
 
+/// Órarendi csatolmányok befüzése a házikba (Firka-minta): a KRÉTA a
+/// fájlokat az órarendi elemre (`OrarendElemek[].Csatolmanyok`) teszi, a
+/// házi-payloadban gyakran semmi sincs — ezért a Feladatok tab a
+/// határidő-napi, azonos tárgyú óra fájljait is megmutatja.
+/// Unió id alapján: a házi saját csatolmányai maradnak elöl, ismétlődés nincs.
+enum HomeworkLessonAttachments {
+    static func merged(_ homeworks: [HomeworkItem], lessons: [LessonItem], calendar: Calendar = .current) -> [HomeworkItem] {
+        homeworks.map { hw in
+            // 1) Biztos kapocs: az óra HaziFeladatUid-ja közvetlenül mutat
+            //    a házira (a fájl a feladás hetének óráján is lehet, nem csak
+            //    a határidő napján). 2) Fallback: határidő-napi, azonos tárgyú óra.
+            var found: [AttachmentItem] = []
+            var seen = Set(hw.attachments.map(\.id))
+            for lesson in lessons {
+                let linked = lesson.haziFeladatUid == hw.id
+                    || (SubjectMatcher.same(lesson.subject, hw.subject)
+                        && calendar.isDate(lesson.start, inSameDayAs: hw.deadline))
+                guard linked else { continue }
+                for att in lesson.attachments where seen.insert(att.id).inserted {
+                    found.append(att)
+                }
+            }
+            guard !found.isEmpty else { return hw }
+            return hw.withAttachments(hw.attachments + found)
+        }
+    }
+}
+
 /// Lejárt határidő: a határidő napja már elmúlt (ma éjfélnél korábbi).
 /// Az ilyen házi lekerül a főoldalról — a Feladatok tabon megmarad.
 enum HomeworkExpiry {
     static func isExpired(_ h: HomeworkItem, now: Date = Date(), calendar: Calendar = .current) -> Bool {
         h.deadline < calendar.startOfDay(for: now)
+    }
+}
+
+/// Lejárt dolgozat: a napja már elmúlt (ma éjfélnél korábbi).
+/// A mai dolgozat egész nap élő — csak a tegnapi és régebbi számít lejártnak,
+/// az ilyen a Dolgozatok szegmensből a Készbe kerül.
+enum ExamExpiry {
+    static func isExpired(_ e: ExamItem, now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        e.date < calendar.startOfDay(for: now)
     }
 }
 
@@ -663,6 +744,25 @@ struct KretaLessonDTO: Decodable {
     let TeremNeve: String?
     let Tema: String?
     let Allapot: TipusDTO?
+    /// Melyik házihoz tartozik az óra (ekreta-docs: `HaziFeladatUid`) —
+    /// a csatolmány-illesztés biztos kapcsa.
+    let HaziFeladatUid: String?
+    /// Elemenkénti toleráns dekódolás (házi/dolgozat-minta): egy hibás óra
+    /// nem nullázza a teljes órarendet — a szigorú tömb-decode helyett.
+    static func lenientDTOs(from data: Data) -> [KretaLessonDTO] {
+        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [Any] else {
+            return (try? JSONDecoder().decode([KretaLessonDTO].self, from: data)) ?? []
+        }
+        let decoder = JSONDecoder()
+        return raw.compactMap { element in
+            guard let ed = try? JSONSerialization.data(withJSONObject: element),
+                  let dto = try? decoder.decode(KretaLessonDTO.self, from: ed) else { return nil }
+            return dto
+        }
+    }
+    static func lenientItems(from data: Data) -> [LessonItem] {
+        lenientDTOs(from: data).compactMap { $0.toItem() }
+    }
     func toItem() -> LessonItem? {
         guard let tant = Tantargy?.Nev, !tant.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
         guard let start = KretaDateParser.parse(KezdetIdopont), let end = KretaDateParser.parse(VegIdopont) else { return nil }
@@ -689,7 +789,8 @@ struct KretaLessonDTO: Decodable {
             index: Oraszam.map(String.init) ?? "-",
             isSubstituted: isSubstituted,
             isCancelled: isCancelled,
-            originalTeacher: hasSubstitute ? TanarNeve : nil
+            originalTeacher: hasSubstitute ? TanarNeve : nil,
+            haziFeladatUid: HaziFeladatUid
         )
     }
 }
@@ -715,11 +816,15 @@ struct KretaHomeworkDTO: Decodable {
         var out: [String] = []
         for el in raw {
             guard let d = el as? [String: Any] else { continue }
-            let uid: String?
-            if let s = d["Uid"] as? String, !s.isEmpty { uid = s }
-            else if let n = d["Uid"] as? Int { uid = String(n) }
-            else if let n = d["Uid"] as? Int64 { uid = String(n) }
-            else { uid = nil }
+            // Azonos kulcskészlet, mint az attachmentsByUid-ban (Uid/ID/
+            // azon/Azonosito, string és szám is) — különben a csupasz
+            // hivatkozások részlet-lekérése marad el némán.
+            var uid: String?
+            for k in ["Uid", "ID", "Id", "azon", "Azonosito"] {
+                if let s = d[k] as? String, !s.isEmpty { uid = s; break }
+                if let n = d[k] as? Int { uid = String(n); break }
+                if let n = d[k] as? Int64 { uid = String(n); break }
+            }
             if let u = uid, seen.insert(u).inserted { out.append(u) }
         }
         return out
