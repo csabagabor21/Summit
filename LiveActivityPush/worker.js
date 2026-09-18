@@ -18,6 +18,17 @@
 //      ha az app küld `end: true` entryt — a kártya nem ül 0:00-n a nap
 //      végén. (Az app-oldali párja a javaslatban.)
 //
+// 2026-09-18 — a „minden feltöltés rendben, mégsem vált a kártya” kör után
+// (az élő worker APNs 403 InvalidProviderToken-t kapott minden pushra):
+//   6. GET /selftest[?sandbox=1] → a kulcs/Key ID/Team ID hármas ellenőrzése
+//      telefon és valódi push-token NÉLKÜL, emberi nyelvű verdikttel.
+//   7. A Key ID / Team ID / Bundle ID secret trimmelve (`cleanId`): egy
+//      odaragadt sortörés ugyanazt a 403-at adta, mint egy rossz kulcs.
+//   8. A JWT-aláírás a try-on belül: rossz .p8 esetén eddig a KIVÉTEL ölte
+//      meg az egész cron-kört, diagnosztika nélkül (status -1 jelzi).
+//   9. 403 és JWT-hiba nem fogyasztja a 10-es próba-budgetet — konfigurációs
+//      hibát a dashboardon javítanak, nem kell miatta „kiment”-re váltani.
+//
 // Működés:
 //  - Az app POST /plan hívással feltölti a mai nap hátralévő határait:
 //    { userId, dayKey, pushToken, sandbox, entries: [{ fireAt, contentState, staleDate?, end? }] }
@@ -37,6 +48,14 @@ const APNS_PROD = "https://api.push.apple.com";
 const APNS_SANDBOX = "https://api.sandbox.push.apple.com";
 
 let jwtCache = { token: null, at: 0 };
+
+/// A dashboardból másolt secretek végén gyakran ott marad egy sortörés vagy
+/// szóköz. A Key ID / Team ID akkor is „jól néz ki”, de a JWT fejlécébe
+/// whitespace-szel kerül → az Apple 403 InvalidProviderToken-t ad, ugyanazt,
+/// mint egy teljesen rossz kulcsra. Ezért mindent trimmelünk.
+function cleanId(v) {
+  return typeof v === "string" ? v.trim() : "";
+}
 
 function b64url(bytes) {
   let s = "";
@@ -82,7 +101,7 @@ async function apnsJwt(env) {
   const now = Math.floor(Date.now() / 1000);
   if (jwtCache.token && now - jwtCache.at < 50 * 60) return jwtCache.token;
   const enc = (o) => b64url(new TextEncoder().encode(JSON.stringify(o)));
-  const unsigned = `${enc({ alg: "ES256", kid: env.APNS_KEY_ID })}.${enc({ iss: env.TEAM_ID, iat: now })}`;
+  const unsigned = `${enc({ alg: "ES256", kid: cleanId(env.APNS_KEY_ID) })}.${enc({ iss: cleanId(env.TEAM_ID), iat: now })}`;
   const pem = env.APNS_KEY.replace(/\\n/g, "\n");
   const b64 = pem.replace(/-----.*?-----/gs, "").replace(/\s/g, "");
   const raw = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
@@ -95,7 +114,19 @@ async function apnsJwt(env) {
 /// Egy APNs Live Activity push (update vagy end).
 /// Vissza: { r: "sent" | "retry", status, body } — a `last` diagnosztikához.
 async function sendPush(env, host, pushToken, entry) {
-  const jwt = await apnsJwt(env);
+  // Az aláírás a try-on BELÜL: rossz formátumú APNS_KEY esetén korábban
+  // kivétel szállt ki egészen a cronig, így a kör MEGHALT — az entryn nem
+  // lett se `attempts`, se `last`, a /status pedig úgy nézett ki, mintha
+  // semmi sem történt volna. A kulcshiba pont annyira volt néma, mint amit
+  // ez a fájl állítása szerint megszüntetett.
+  let jwt;
+  try {
+    jwt = await apnsJwt(env);
+  } catch (e) {
+    const msg = e && e.message ? e.message : String(e);
+    console.log(`APNs JWT-aláírás hiba (APNS_KEY?): ${msg}`);
+    return { r: "retry", status: -1, body: `jwt: ${msg}`.slice(0, 200) };
+  }
   const nowS = Math.floor(Date.now() / 1000);
   const aps = { timestamp: nowS, event: entry.end ? "end" : "update", "content-state": entry.contentState };
   if (entry.staleDate && !entry.end) aps["stale-date"] = Math.floor(entry.staleDate);
@@ -106,7 +137,7 @@ async function sendPush(env, host, pushToken, entry) {
       method: "POST",
       headers: {
         authorization: `bearer ${jwt}`,
-        "apns-topic": `${env.BUNDLE_ID}.push-type.liveactivity`,
+        "apns-topic": `${cleanId(env.BUNDLE_ID)}.push-type.liveactivity`,
         "apns-push-type": "liveactivity",
         "apns-priority": "10",
         "apns-expiration": String(nowS + 15 * 60),
@@ -216,7 +247,12 @@ async function handleCron(env, nowMs = Date.now()) {
       const out = await sendPush(env, host, rec.pushToken, en);
       en.attempts = (en.attempts || 0) + 1;
       en.last = { at: now, status: out.status, body: out.body };
-      if (out.r === "sent" || en.attempts > 10) en.sent = true;
+      // 403 (InvalidProviderToken) és -1 (JWT/kulcs) NEM átmeneti zaj, hanem
+      // konfigurációs hiba, amit a dashboardon javítanak. Ha ezek is
+      // elfogyasztanák a 10 próbát, a határ 10 perc után „kiment”-re
+      // váltana, és a kulcs javítása után sem pótolná magát aznap.
+      const configError = out.status === 403 || out.status === -1;
+      if (out.r === "sent" || (en.attempts > 10 && !configError)) en.sent = true;
       dirty = true;
     }
     if (dirty) await env.PLANS.put(e.k, JSON.stringify(rec));
@@ -316,14 +352,76 @@ async function handleStatus(url, env) {
   });
 }
 
-export { ecdsaSigToRaw, handleCron, handlePlan, handleStatus };
+/// A /selftest verdiktje emberi nyelven — ne kelljen APNs reason-kódokat
+/// fejben tartani.
+function selfTestVerdict(out) {
+  if (out.status === -1) {
+    return "Az APNS_KEY secret tartalma nem értelmezhető PKCS8 EC (P-256) kulcsként — a .p8 fájl TELJES tartalmát kell bemásolni, a BEGIN/END sorokkal együtt.";
+  }
+  if (out.status === 400 && /BadDeviceToken/.test(out.body)) {
+    return "A kulcs-oldal RENDBEN: az Apple elfogadta a JWT-t, és csak a szándékosan hamis device tokent dobta el. Ha a kártya mégsem vált, a hiba az app oldalán van (token/terv-feltöltés) — nézd a /status-t.";
+  }
+  if (out.status === 403 && /Expired/.test(out.body)) {
+    return "ExpiredProviderToken: a JWT `iat`-ja kívül van az Apple által elfogadott 1 órás ablakon (worker-óra vagy cache-gond).";
+  }
+  if (out.status === 403) {
+    return "InvalidProviderToken: az Apple elutasítja a kulcsot. A .p8 privát kulcs formátuma önmagában jó (az aláírás megszületett), tehát a hármas nem áll össze — rossz vagy elgépelt APNS_KEY_ID, rossz TEAM_ID, más csapat kulcsa, visszavont kulcs, vagy a kulcson nincs bekapcsolva az APNs szolgáltatás.";
+  }
+  if (out.status === 400 && /TopicDisallowed|DeviceTokenNotForTopic|MissingTopic/.test(out.body)) {
+    return "A topic nem stimmel: a BUNDLE_ID var vagy a kulcs hatóköre (topic-ra korlátozott kulcs) nem ehhez az apphoz tartozik.";
+  }
+  return "Váratlan APNs válasz, lásd apns.status / apns.body.";
+}
+
+/// GET /selftest[?sandbox=1] — a kulcs-oldal ellenőrzése TELEFON NÉLKÜL.
+/// Aláír egy JWT-t és egy csupa-nulla device tokennel bekopogtat az APNs-nél;
+/// a hamis token miatt semmi nem megy ki senkinek, de az Apple válaszából
+/// kiderül, hogy a kulcs/Key ID/Team ID hármas rendben van-e.
+///
+/// A visszaadott keyId/teamId/topic NEM titok: a Key ID minden APNs-kérésben
+/// kimegy a JWT fejlécében, a Team ID pedig az app aláírásában van — a .p8
+/// privát kulcs nélkül önmagában használhatatlan. Viszont pont ezek kellenek
+/// ahhoz, hogy egy elgépelés vagy egy odaragadt sortörés egy pillantásból
+/// látszódjon, ezért a nyers hosszt is megadjuk (raw != clean = whitespace).
+async function handleSelfTest(url, env) {
+  const missing = ["APNS_KEY", "APNS_KEY_ID", "TEAM_ID", "BUNDLE_ID"].filter((k) => !env[k]);
+  if (missing.length) {
+    return Response.json({ ok: false, missing, verdict: `Hiányzó secret/var: ${missing.join(", ")}` });
+  }
+  const sandbox = url.searchParams.get("sandbox") === "1";
+  const keyId = cleanId(env.APNS_KEY_ID);
+  const teamId = cleanId(env.TEAM_ID);
+  // Friss aláírás kell: egy korábbi kör cache-elt (esetleg rossz) JWT-je
+  // félrevezető eredményt adna.
+  jwtCache = { token: null, at: 0 };
+  const out = await sendPush(env, sandbox ? APNS_SANDBOX : APNS_PROD, "0".repeat(64), {
+    contentState: { selftest: 1 },
+  });
+  return Response.json({
+    ok: true,
+    env: sandbox ? "sandbox" : "prod",
+    keyId,
+    teamId,
+    topic: `${cleanId(env.BUNDLE_ID)}.push-type.liveactivity`,
+    // 10-nek kell lennie mindkettőnek; ha raw > clean, whitespace ragadt bele.
+    lengths: {
+      keyId: keyId.length, keyIdRaw: String(env.APNS_KEY_ID).length,
+      teamId: teamId.length, teamIdRaw: String(env.TEAM_ID).length,
+    },
+    apns: { status: out.status, body: out.body },
+    verdict: selfTestVerdict(out),
+  });
+}
+
+export { ecdsaSigToRaw, handleCron, handlePlan, handleSelfTest, handleStatus };
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "POST" && url.pathname === "/plan") return handlePlan(request, env);
     if (request.method === "GET" && url.pathname === "/status") return handleStatus(url, env);
-    return Response.json({ ok: true, service: "summit-liveactivity-push", version: "2026-09-16" });
+    if (request.method === "GET" && url.pathname === "/selftest") return handleSelfTest(url, env);
+    return Response.json({ ok: true, service: "summit-liveactivity-push", version: "2026-09-18" });
   },
   async scheduled(_event, env, _ctx) {
     if (!env.APNS_KEY || !env.APNS_KEY_ID || !env.TEAM_ID || !env.BUNDLE_ID) {

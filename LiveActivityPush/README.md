@@ -54,12 +54,30 @@ Live Activity ettől még működik.)
   csereszabatos — a worker terven tárolja, melyik hova tartozik.
 - Bejövő terv ellenőrzése: a worker logban (Observability → Logs) látszik
   minden küldés; `400/410` = halott token (a worker leveszi a listáról),
-  más hiba = következő percben újrapróbálja (max ~10x).
-- Health: https://calm-leaf-ff15.gaborcsabusz.workers.dev/ → `{"ok":true,"service":"summit-liveactivity-push","version":"2026-09-16"}`
-  (ha a `version` hiányzik, a dashboardon még a régi kód fut — újra kell deployolni).
+  más hiba = következő percben újrapróbálja (max ~10x). A 403 és a
+  JWT-hiba kivétel: ezek konfigurációs gondok, nem fogyasztják a 10 próbát,
+  így a secret javítása után a nap hátralévő határai maguktól kimennek.
+- Health: https://calm-leaf-ff15.gaborcsabusz.workers.dev/ → `{"ok":true,"service":"summit-liveactivity-push","version":"2026-09-18"}`
+  (ha a `version` régebbi, a dashboardon még a korábbi kód fut — újra kell deployolni).
+- **ELSŐ LÉPÉS push-hiba esetén — kulcs-ellenőrzés telefon nélkül:**
+  `GET /selftest` (vagy `/selftest?sandbox=1`). Csupa-nulla device tokennel
+  bekopogtat az APNs-nél, tehát senkinek semmi nem megy ki, de a válaszban
+  ott van a használt `keyId`/`teamId`/`topic`, a nyers vs. trimmelt hossz
+  (ha `keyIdRaw` > `keyId`, whitespace ragadt a secretbe), és egy magyar
+  `verdict`. `400 BadDeviceToken` = a kulcs-oldal rendben, a hibát az app
+  oldalán kell keresni; `403 InvalidProviderToken` = a Key ID / Team ID /
+  .p8 hármas nem áll össze. Ez a végpont szűri ki azt az esetet, amikor a
+  feltöltés és a cron is hibátlan, csak az Apple dobja el minden pusht.
+- A `.p8` külön, a workertől függetlenül is ellenőrizhető — ez mondja meg,
+  hogy magával a kulcsfájllal van gond, vagy csak azzal, ami a dashboardba
+  be van írva:
+  `node apns_keycheck.mjs <kulcs.p8> <KEY_ID> <TEAM_ID> hu.flint prod`
+  (`400 BadDeviceToken` = ez a hármas jó, ezt írd a secretekbe).
 - Státusz egy tervről: `GET /status?userId=<KRÉTA-userId>.<identifierForVendor első 8>&dayKey=YYYY-MM-DD[&tag=preview]`
   → entrynként `fireAt / sent / attempts / last{status, body}`. `last.status`
-  403 = kulcs/csapat gond (TEAM_ID, .p8), 400 BadDeviceToken vagy
+  403 = kulcs/csapat gond (TEAM_ID, .p8) → futtasd a `/selftest`-et,
+  `-1` = az APNS_KEY nem értelmezhető .p8 (a JWT-aláírás dőlt el),
+  400 BadDeviceToken vagy
   DeviceTokenNotForTopic = sandbox/prod keveredés vagy rossz BUNDLE_ID,
   `indexNext: "NOT-IN-INDEX"` = 5 percen belül a LIST-egyeztetés beteszi.
 - Az utolsó óra végére az app `end: true` entryt küld → a worker
