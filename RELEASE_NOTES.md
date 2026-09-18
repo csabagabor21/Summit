@@ -1,5 +1,16 @@
 # Summit release notes
 
+## Build 15
+- Locked-phone lesson flips finally work end to end: the day plan actually reaches the server now, so the next lesson lands on your Lock Screen on its own — app closed, phone in your pocket.
+- Diagnostics stopped hiding the problem: the push row shows how long the channel is and how it ends, and says outright when it can't be used — a perfectly good channel can no longer look like a missing one.
+- New opt-in usage stats: after login a consent screen spells out exactly what is collected (and what never is); off by default, one tap to turn off in Settings. It powers the school map on the website.
+- The school map got real: pins are truly geocoded (Mathiász lands in Balatonboglár, not Siófok), and small schools show only their town until at least 6 students join.
+- The Lock Screen card keeps flipping: midday opens also refresh the server plan, an empty timetable no longer kills the day, and the subject list loads again where KRÉTA rejects wide date ranges.
+- Messages actually load now (correct mailboxes, Hungarian dates, readable note types), and PDFs open from homework and messages alike.
+- Notifications calm down: one refresh, one banner at most — a digest instead of a stack. The inbox moved into the bell on the home screen, with an unread dot.
+- Fresh absences without a verdict count as unjustified, not justified; animations are unified and quieter across the app.
+- The consent screen no longer ghosts the home screen behind it on Mac.
+
 ## Build 14
 - The Lock Screen card now flips lessons even with the phone locked in your pocket — the long fight with the server is over, handoffs just arrive.
 - The progress bar fills up during lessons and drains during breaks, so you can see at a glance which one is running out.
