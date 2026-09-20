@@ -54,23 +54,42 @@ struct NotesView: View {
                             .transition(.opacity.combined(with: .scale(scale: 0.98)))
                     }
                 } else {
-                    Section {
+                    // Napra bontott szekciók — nem ömlesztett lista.
+                    Group {
                         if filter == 1 {
-                            ForEach(filteredExams, id: \.id) { exam in
-                                examRow(exam, isFlash: flashedID == exam.id)
+                            ForEach(examDayGroups, id: \.day) { g in
+                                Section {
+                                    ForEach(g.items, id: \.id) { exam in
+                                        examRow(exam, isFlash: flashedID == exam.id)
+                                    }
+                                } header: {
+                                    dayHeader(day: g.day, count: g.items.count)
+                                }
                             }
                         } else if filter == 2 {
-                            ForEach(doneEntries) { entry in
-                                switch entry {
-                                case .homework(let hw):
-                                    homeworkRow(hw, isFlash: flashedID == hw.id)
-                                case .exam(let exam):
-                                    examRow(exam, isFlash: flashedID == exam.id)
+                            ForEach(doneDayGroups, id: \.day) { g in
+                                Section {
+                                    ForEach(g.items) { entry in
+                                        switch entry {
+                                        case .homework(let hw):
+                                            homeworkRow(hw, isFlash: flashedID == hw.id)
+                                        case .exam(let exam):
+                                            examRow(exam, isFlash: flashedID == exam.id)
+                                        }
+                                    }
+                                } header: {
+                                    dayHeader(day: g.day, count: g.items.count)
                                 }
                             }
                         } else {
-                            ForEach(filteredHomeworks, id: \.id) { hw in
-                                homeworkRow(hw, isFlash: flashedID == hw.id)
+                            ForEach(homeworkDayGroups, id: \.day) { g in
+                                Section {
+                                    ForEach(g.items, id: \.id) { hw in
+                                        homeworkRow(hw, isFlash: flashedID == hw.id)
+                                    }
+                                } header: {
+                                    dayHeader(day: g.day, count: g.items.count)
+                                }
                             }
                         }
                     }
@@ -163,6 +182,36 @@ struct NotesView: View {
     // Élő dolgozat: csak a mai és jövőbeli — a lejárt a Készbe kerül
     var filteredExams: [ExamItem] {
         exams.filter { !ExamExpiry.isExpired($0) }.sorted { $0.date < $1.date }
+    }
+    // MARK: - Napra bontás (Feladatok, Dolgozatok, Kész — mindhárom)
+    private func groupByDay<T>(_ items: [T], date: (T) -> Date) -> [(day: Date, items: [T])] {
+        let cal = Calendar.current
+        let grouped = Dictionary(grouping: items) { cal.startOfDay(for: date($0)) }
+        return grouped.keys.sorted().map { day in
+            (day: day, items: grouped[day]!.sorted { date($0) < date($1) })
+        }
+    }
+    var homeworkDayGroups: [(day: Date, items: [HomeworkItem])] {
+        groupByDay(filteredHomeworks) { $0.deadline }
+    }
+    var examDayGroups: [(day: Date, items: [ExamItem])] {
+        groupByDay(filteredExams) { $0.date }
+    }
+    var doneDayGroups: [(day: Date, items: [DoneEntry])] {
+        groupByDay(doneEntries) { $0.date }
+    }
+    /// Napcím: Ma / Holnap / Tegnap, különben "szept. 22., hétfő" + darabszám.
+    private func dayHeader(day: Date, count: Int) -> some View {
+        let cal = Calendar.current
+        let title: String
+        if cal.isDateInToday(day) { title = "Ma" }
+        else if cal.isDateInTomorrow(day) { title = "Holnap" }
+        else if cal.isDateInYesterday(day) { title = "Tegnap" }
+        else {
+            let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "MMM d., EEEE"
+            title = f.string(from: day).capitalized
+        }
+        return Text("\(title) • \(count) db")
     }
     private var currentIsEmpty: Bool {
         if filter == 1 { return filteredExams.isEmpty }
