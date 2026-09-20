@@ -70,6 +70,26 @@ enum TimetableWidgetStore {
         return snap
     }
 
+    /// Jövőbeli órák beolvasztása: a múlt kidobva, újak duplikálás nélkül.
+    /// Snapshot nélkül is létrehoz (van benne valós adat) — üreset sosem ír.
+    @discardableResult
+    static func mergeFuture(lessons: [Lesson], accentHex: Int, now: Date, calendar: Calendar = .current) -> Bool {
+        let today = calendar.startOfDay(for: now)
+        let base = load()
+        var existing = base?.lessons ?? []
+        existing.removeAll { $0.end < today }
+        var ids = Set(existing.map(\.id))
+        for l in lessons where ids.insert(l.id).inserted { existing.append(l) }
+        existing.sort { $0.start < $1.start }
+        guard !existing.isEmpty else { return false }
+        save(Snapshot(
+            savedAt: Date(), accentHex: accentHex, lessons: existing,
+            previewActive: base?.previewActive ?? false,
+            previewMinutes: base?.previewMinutes ?? 540
+        ))
+        return true
+    }
+
     /// Egy nap óráinak cseréje a snapshotban (háttér-ébresztés: csak a mai
     /// napot húzza le, a hét többi napja marad). Nincs snapshot → false.
     @discardableResult

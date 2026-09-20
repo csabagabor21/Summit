@@ -212,6 +212,9 @@ enum LiveActivityBackgroundRefresh {
         // óráit mergeljük a cache-elt heti snapshotba — a widget így
         // háttér-ébresztésből is frissül, nem csak Órarend-nyitásra.
         TimetableWidgetPublish.mergeToday(lessons, now: now)
+        // Heti cache kimerülve (pl. péntek este)? A következő 7 nap
+        // egyben — a widget holnap is mutat, nem "Mára vége"-t.
+        await TimetableWidgetPublish.prefetchUpcomingIfExhausted(now: now, kreta: kreta, iss: iss)
         // Napi-egy-activity: ez háttérből is csak UPDATE (engedélyezett),
         // új request csak akkor, ha még nincs mai activity.
         let updated = await mgr.syncDay(lessons: lessons, now: now, accentHex: accent)
