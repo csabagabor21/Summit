@@ -105,7 +105,7 @@ struct SettingsView: View {
                 summitRow { LiveActivitySettingsRow() }
             }
 
-            summitIsland(header: "Iskolai események", footer: "Egyszer kell importálni (.ics) — utána a beállítás-szinkron viszi a többi eszközödre is. Az órarend tetején, 0. óraként jelennek meg.") {
+            summitIsland(header: "Iskolai események", footer: "Egyszer kell bevinni (link, szöveg vagy .ics fájl) — utána a beállítás-szinkron viszi a többi eszközödre is. Az órarend tetején, 0. óraként jelennek meg.") {
                 summitRow { SchoolEventsSection() }
             }
 
