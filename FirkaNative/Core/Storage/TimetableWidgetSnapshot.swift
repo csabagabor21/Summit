@@ -29,6 +29,28 @@ enum TimetableWidgetStore {
         var accentHex: Int
         /// A betöltött hét órái, időrendben (a widget választ napot belőle).
         var lessons: [Lesson]
+        /// Dev idő-eltolás csúszka (Beállítások → Fejlesztői): ha aktív,
+        /// a widget is az eltolt idő szerint rajzol.
+        var previewActive: Bool = false
+        var previewMinutes: Double = 540
+
+        // Régi snapshotokban még nincs preview-kulcs — decodeIfPresent,
+        // különben egy frissítés után az első appnyitásig üres lenne a widget.
+        enum CodingKeys: String, CodingKey {
+            case savedAt, accentHex, lessons, previewActive, previewMinutes
+        }
+        init(savedAt: Date, accentHex: Int, lessons: [Lesson], previewActive: Bool = false, previewMinutes: Double = 540) {
+            self.savedAt = savedAt; self.accentHex = accentHex; self.lessons = lessons
+            self.previewActive = previewActive; self.previewMinutes = previewMinutes
+        }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            savedAt = try c.decode(Date.self, forKey: .savedAt)
+            accentHex = try c.decode(Int.self, forKey: .accentHex)
+            lessons = try c.decode([Lesson].self, forKey: .lessons)
+            previewActive = try c.decodeIfPresent(Bool.self, forKey: .previewActive) ?? false
+            previewMinutes = try c.decodeIfPresent(Double.self, forKey: .previewMinutes) ?? 540
+        }
     }
 
     private static var defaults: UserDefaults? {

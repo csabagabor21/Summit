@@ -394,6 +394,10 @@ struct TimetableView: View {
             .animation(SummitMotion.page, value: selectedDay)
             .animation(SummitMotion.page, value: weekOffset)
             .refreshable { await load() }
+            // Dev idő-csúszka: a widget is kövesse az eltolt időt —
+            // ehhez elég újrapublikálni (hálózat nem kell hozzá).
+            .onChange(of: previewMinutes) { _, _ in publishWidgetSnapshot() }
+            .onChange(of: isPreviewActive) { _, _ in publishWidgetSnapshot() }
             .navigationTitle("Órarend")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.visible, for: .navigationBar)

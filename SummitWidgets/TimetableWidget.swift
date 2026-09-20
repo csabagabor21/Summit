@@ -10,10 +10,7 @@ struct TimetableWidget: Widget {
         StaticConfiguration(kind: TimetableWidgetStore.kind, provider: TimetableWidgetProvider()) { entry in
             TimetableWidgetView(entry: entry)
                 .containerBackground(for: .widget) {
-                    LinearGradient(
-                        colors: [Color(white: 0.12), Color(white: 0.05)],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
-                    )
+                    WidgetBackground()
                 }
         }
         .configurationDisplayName("Órarend")
@@ -27,6 +24,8 @@ struct TimetableWidget: Widget {
 
 struct TimetableWidgetEntry: TimelineEntry {
     var date: Date
+    /// Amivel rajzolunk: valós idő, vagy a dev idő-csúszka eltolt ideje.
+    var effectiveNow: Date
     var dayLessons: [TimetableWidgetStore.Lesson]
     var dayDate: Date
     var accentHex: Int
@@ -35,9 +34,10 @@ struct TimetableWidgetEntry: TimelineEntry {
 
 struct TimetableWidgetProvider: TimelineProvider {
     func placeholder(in context: Context) -> TimetableWidgetEntry {
-        TimetableWidgetEntry(
-            date: Date(), dayLessons: Self.sampleLessons(),
-            dayDate: Date(), accentHex: 0x4A90E2, hasSnapshot: false
+        let now = Date()
+        return TimetableWidgetEntry(
+            date: now, effectiveNow: now, dayLessons: Self.sampleLessons(),
+            dayDate: now, accentHex: 0x4A90E2, hasSnapshot: false
         )
     }
 
@@ -47,7 +47,7 @@ struct TimetableWidgetProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TimetableWidgetEntry>) -> Void) {
         let entry = makeEntry(preview: false)
-        let refresh = Self.nextRefresh(after: entry.date, lessons: entry.dayLessons)
+        let refresh = Self.nextRefresh(now: entry.date, effectiveNow: entry.effectiveNow, lessons: entry.dayLessons)
         completion(Timeline(entries: [entry], policy: .after(refresh)))
     }
 
@@ -55,13 +55,22 @@ struct TimetableWidgetProvider: TimelineProvider {
         let now = Date()
         guard let snap = TimetableWidgetStore.load(), !snap.lessons.isEmpty else {
             return TimetableWidgetEntry(
-                date: now, dayLessons: preview ? Self.sampleLessons() : [],
+                date: now, effectiveNow: now, dayLessons: preview ? Self.sampleLessons() : [],
                 dayDate: now, accentHex: 0x4A90E2, hasSnapshot: false
             )
         }
         let (day, lessons) = Self.pickDay(now: now, lessons: snap.lessons)
+        // Idő-eltolás: a csúszka a mutatott napon belüli időpont —
+        // a napválasztás marad valós idejű, az állapot már eltolt.
+        let effective: Date
+        if snap.previewActive {
+            let base = Calendar.current.startOfDay(for: day)
+            effective = base.addingTimeInterval(snap.previewMinutes * 60)
+        } else {
+            effective = now
+        }
         return TimetableWidgetEntry(
-            date: now, dayLessons: lessons, dayDate: day,
+            date: now, effectiveNow: effective, dayLessons: lessons, dayDate: day,
             accentHex: snap.accentHex == 0 ? 0x4A90E2 : snap.accentHex,
             hasSnapshot: true
         )
@@ -82,12 +91,15 @@ struct TimetableWidgetProvider: TimelineProvider {
         return (cal.startOfDay(for: now), todays)
     }
 
-    /// Következő órakezdés / óravég, de legkésőbb +8 óra (WidgetKit büdzsé).
-    static func nextRefresh(after now: Date, lessons: [TimetableWidgetStore.Lesson]) -> Date {
-        let bounds = lessons.flatMap { [$0.start, $0.end] }.filter { $0 > now }.sorted()
+    /// Következő órakezdés / óravég az ELTOLT órához mérve, valós időre
+    /// visszaszámolva (így a csúszkás preview sem pörgeti a timeline-t),
+    /// de legkésőbb +8 óra (WidgetKit büdzsé).
+    static func nextRefresh(now: Date, effectiveNow: Date, lessons: [TimetableWidgetStore.Lesson]) -> Date {
         let cap = now.addingTimeInterval(8 * 3600)
-        if let next = bounds.first { return min(next.addingTimeInterval(60), cap) }
-        return cap
+        let bounds = lessons.flatMap { [$0.start, $0.end] }.filter { $0 > effectiveNow }.sorted()
+        guard let next = bounds.first else { return cap }
+        let refresh = now.addingTimeInterval(next.timeIntervalSince(effectiveNow) + 60)
+        return min(max(refresh, now.addingTimeInterval(60)), cap)
     }
 
     static func sampleLessons() -> [TimetableWidgetStore.Lesson] {
@@ -107,12 +119,36 @@ struct TimetableWidgetProvider: TimelineProvider {
 
 // MARK: - Nézet
 
+/// Sémához igazodó háttér — a fix sötét gradiens világos módban
+/// olvashatatlanná tette a fekete szöveget.
+private struct WidgetBackground: View {
+    @Environment(\.colorScheme) private var scheme
+    var body: some View {
+        if scheme == .dark {
+            LinearGradient(
+                colors: [Color(white: 0.12), Color(white: 0.05)],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+        } else {
+            LinearGradient(
+                colors: [Color(white: 0.99), Color(white: 0.90)],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+        }
+    }
+}
+
 private struct TimetableWidgetView: View {
     let entry: TimetableWidgetEntry
     @Environment(\.widgetFamily) private var family
+    @Environment(\.colorScheme) private var scheme
 
     private var accent: Color { Color(widgetHex: UInt(entry.accentHex)) }
-    private var now: Date { entry.date }
+    private var now: Date { entry.effectiveNow }
+    /// Halvány töltet / hajszálvonal a számkörökhöz — sémánként,
+    /// hogy világos módban se tűnjön el és ne is üssön.
+    private var faintFill: Color { scheme == .dark ? .white.opacity(0.14) : .black.opacity(0.07) }
+    private var hairline: Color { scheme == .dark ? .white.opacity(0.12) : .black.opacity(0.12) }
 
     private var currentID: String? {
         entry.dayLessons.first(where: { $0.start <= now && $0.end >= now })?.id
@@ -189,7 +225,7 @@ private struct TimetableWidgetView: View {
             HStack(spacing: 5) {
                 Text(l.room).font(.caption2.weight(.bold).monospacedDigit())
                     .padding(.horizontal, 6).padding(.vertical, 3)
-                    .background(RoundedRectangle(cornerRadius: 5).fill(.white.opacity(0.14)))
+                    .background(RoundedRectangle(cornerRadius: 5).fill(faintFill))
                     .lineLimit(1)
                 Text(timeRange(l)).font(.caption2.weight(.semibold).monospacedDigit())
                     .foregroundStyle(.secondary).lineLimit(1)
@@ -241,7 +277,7 @@ private struct TimetableWidgetView: View {
                     .frame(width: 26, height: 26)
                     .background(Circle().fill(statusColor(l).opacity(isCurrent(l) ? 0.28 : 0.14)))
                 if !isLast {
-                    Rectangle().fill(.white.opacity(0.12)).frame(width: 1.2, height: 8)
+                    Rectangle().fill(hairline).frame(width: 1.2, height: 8)
                         .padding(.vertical, 1)
                 }
             }
@@ -345,7 +381,7 @@ private extension Color {
     TimetableWidget()
 } timeline: {
     TimetableWidgetEntry(
-        date: Date(), dayLessons: TimetableWidgetProvider.sampleLessons(),
+        date: Date(), effectiveNow: Date(), dayLessons: TimetableWidgetProvider.sampleLessons(),
         dayDate: Date(), accentHex: 0x4A90E2, hasSnapshot: true
     )
 }

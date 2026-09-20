@@ -19,12 +19,27 @@ enum TimetableWidgetPublish {
         UserDefaults.standard.object(forKey: "theme.accentHex") as? Int ?? 0x4A90E2
     }
 
+    /// Dev idő-eltolás csúszka állása (csak eszköz-helyi preview, sosem szinkron).
+    static func previewState() -> (active: Bool, minutes: Double) {
+        let dev = UserDefaults.standard.bool(forKey: "developer.enabled")
+        let active = dev && UserDefaults.standard.bool(forKey: "home.demoPreviewActive")
+        let minutes: Double
+        if let v = UserDefaults.standard.object(forKey: "home.demoPreviewMinutes") as? Double {
+            minutes = v
+        } else {
+            minutes = 540
+        }
+        return (active, minutes)
+    }
+
     /// Teljes heti snapshot írása (TimetableView.load() végéről).
     static func publishWeek(_ lessons: [LessonItem]) {
         guard !lessons.isEmpty else { return }
+        let preview = previewState()
         TimetableWidgetStore.save(TimetableWidgetStore.Snapshot(
             savedAt: Date(), accentHex: currentAccentHex(),
-            lessons: fromLessons(lessons)
+            lessons: fromLessons(lessons),
+            previewActive: preview.active, previewMinutes: preview.minutes
         ))
         WidgetCenter.shared.reloadTimelines(ofKind: TimetableWidgetStore.kind)
     }
