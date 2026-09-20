@@ -1233,9 +1233,9 @@ enum DemoData {
     ]
 
     /// A demo-sablon csempézése egy tetszőleges [from, to) tartomány
-    /// minden hétköznapjára. Hétfőnként a 3. óra elmarad, a 4.
-    /// helyettesítés — mint eddig. Ezzel a heti lapozás is a normál
-    /// fetchTimetable-úton megy, nézet-oldali demo-ág nélkül.
+    /// MINDEN napjára — hétvégén is van tanítás (demo). Hétfőnként a 3. óra
+    /// elmarad, a 4. helyettesítés — mint eddig. Ezzel a heti lapozás is a
+    /// normál fetchTimetable-úton megy, nézet-oldali demo-ág nélkül.
     static func lessons(from: Date, to: Date) -> [LessonItem] {
         let cal = Calendar.current
         let keyFmt = DateFormatter()
@@ -1245,18 +1245,16 @@ enum DemoData {
         var day = cal.startOfDay(for: from)
         while day < to {
             let wd = cal.component(.weekday, from: day)
-            if wd >= 2 && wd <= 6 {
-                let isMonday = wd == 2
-                let key = keyFmt.string(from: day)
-                for (idx, d) in lessonDefs.enumerated() {
-                    let s = cal.date(byAdding: .hour, value: d.4, to: day)!.addingTimeInterval(Double(d.5 * 60))
-                    let e = s.addingTimeInterval(45 * 60)
-                    let isCancelled = isMonday && idx == 2
-                    let isSubstituted = isMonday && idx == 3
-                    let teacher = isSubstituted ? "Helyettes Tanár" : d.2
-                    let original: String? = isSubstituted ? d.2 : (isCancelled ? d.2 : nil)
-                    all.append(LessonItem(id: "lt\(idx)-\(key)", subject: d.0, room: d.1, start: s, end: e, teacher: teacher, index: d.3, isSubstituted: isSubstituted, isCancelled: isCancelled, originalTeacher: original))
-                }
+            let isMonday = wd == 2
+            let key = keyFmt.string(from: day)
+            for (idx, d) in lessonDefs.enumerated() {
+                let s = cal.date(byAdding: .hour, value: d.4, to: day)!.addingTimeInterval(Double(d.5 * 60))
+                let e = s.addingTimeInterval(45 * 60)
+                let isCancelled = isMonday && idx == 2
+                let isSubstituted = isMonday && idx == 3
+                let teacher = isSubstituted ? "Helyettes Tanár" : d.2
+                let original: String? = isSubstituted ? d.2 : (isCancelled ? d.2 : nil)
+                all.append(LessonItem(id: "lt\(idx)-\(key)", subject: d.0, room: d.1, start: s, end: e, teacher: teacher, index: d.3, isSubstituted: isSubstituted, isCancelled: isCancelled, originalTeacher: original))
             }
             guard let nxt = cal.date(byAdding: .day, value: 1, to: day) else { break }
             day = nxt
