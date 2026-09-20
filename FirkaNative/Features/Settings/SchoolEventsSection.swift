@@ -81,7 +81,7 @@ struct SchoolEventsSection: View {
                         .font(.subheadline.monospaced())
                         .frame(minHeight: 110, maxHeight: 200)
                         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.12)))
-                    Text("Soronként: dátum + cím. Pl.\n2026.09.01. Tanévnyitó 8:00\nokt 26-28. Őszi szünet\n01.15. Félévi értesítők")
+                    Text("Soronként: dátum + cím. Pl.\n2026.09.01. Tanévnyitó 8:00\nokt 26-28. Őszi szünet\nNyers ICS-tartalom is mehet egyben.")
                         .font(.caption2).foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 16) {
@@ -184,8 +184,7 @@ struct SchoolEventsSection: View {
             }
             // ICS-t várunk, de ha sima listát ad a lap, a szöveg-olvasóval
             // is megpróbáljuk — az egyiket úgyis megfogja.
-            var parsed = SchoolEventsICS.parse(text)
-            if parsed.isEmpty { parsed = SchoolEventsText.parse(text) }
+            let parsed = SchoolEventsStore.parseAny(text)
             guard !parsed.isEmpty else {
                 message = "Nincs benne felismerhető esemény."
                 return
@@ -199,11 +198,12 @@ struct SchoolEventsSection: View {
         }
     }
 
-    /// Beillesztett szabad szöveg feldolgozása.
+    /// Beillesztett szöveg feldolgozása — nyers ICS-tartalom is mehet
+    /// egyben (azt a szabványos olvasó fogja meg, nem a szöveges).
     private func importText() {
-        let parsed = SchoolEventsText.parse(pastedText)
+        let parsed = SchoolEventsStore.parseAny(pastedText)
         guard !parsed.isEmpty else {
-            message = "Nincs benne felismerhető dátum. Soronként: dátum + cím (pl. „2026.09.01. Tanévnyitó”)."
+            message = "Nincs benne felismerhető dátum. Soronként: dátum + cím (pl. „2026.09.01. Tanévnyitó”) — vagy nyers ICS-tartalom egyben."
             return
         }
         SchoolEventsStore.replaceAll(parsed, sourceName: "beillesztett szöveg")

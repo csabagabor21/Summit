@@ -102,6 +102,14 @@ enum SchoolEventsStore {
         return s
     }
 
+    /// Beillesztett/letöltött tartalom mindenevője: előbb ICS-ként
+    /// (szabványos, ha nyers ICS-t másoltak be), aztán szabad szövegként.
+    static func parseAny(_ text: String, now: Date = Date()) -> [SchoolEvent] {
+        let ics = SchoolEventsICS.parse(text)
+        if !ics.isEmpty { return ics }
+        return SchoolEventsText.parse(text, now: now)
+    }
+
     /// Üres string = tudatos törlés (`[]`); érvénytelen JSON = nil (a helyi marad).
     static func decodeSync(_ s: String) -> [SchoolEvent]? {
         if s.isEmpty { return [] }
