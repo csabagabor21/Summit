@@ -208,6 +208,10 @@ enum LiveActivityBackgroundRefresh {
             absences: bgAbsences, userId: user.id
         )
         let accent = UserDefaults.standard.object(forKey: "theme.accentHex") as? Int ?? 0x4A90E2
+        // Órarend widget életben tartása push nélkül: a mai nap friss
+        // óráit mergeljük a cache-elt heti snapshotba — a widget így
+        // háttér-ébresztésből is frissül, nem csak Órarend-nyitásra.
+        TimetableWidgetPublish.mergeToday(lessons, now: now)
         // Napi-egy-activity: ez háttérből is csak UPDATE (engedélyezett),
         // új request csak akkor, ha még nincs mai activity.
         let updated = await mgr.syncDay(lessons: lessons, now: now, accentHex: accent)

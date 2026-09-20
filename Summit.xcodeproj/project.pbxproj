@@ -68,6 +68,7 @@
 		C0F24198AE153BA7213BED6C /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1D92783AAF33901FDCC0CB3B /* LaunchScreen.storyboard */; };
 		C938C8B4A79AFC320ACA93DB /* SummitSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22EC4A8863AF602ECCB0A304 /* SummitSync.swift */; };
 		7A1B2C3D4E5F60718293A4B6 /* TimetableWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F60718293A4B5 /* TimetableWidgetSnapshot.swift */; };
+		6A5B4C3D2E1F00182293A4B6 /* TimetableWidgetPublish.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5B4C3D2E1F00182293A4B5 /* TimetableWidgetPublish.swift */; };
 		D98770305ADBCA9B0CCC1D6D /* GradingLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E84D5228585755250AA0D05 /* GradingLogic.swift */; };
 		DA9FAB3C3C4BCED9B3B83028 /* AnalyticsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 403733D1E79BF3F0BDF3A215 /* AnalyticsStore.swift */; };
 		DF031CE0F1D65920D1D003E7 /* LiveCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F94AC888464350A05C1090C /* LiveCardView.swift */; };
@@ -117,6 +118,7 @@
 		225D81CC5A3BF3C9D730B87F /* ic_splash.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_splash.png; sourceTree = "<group>"; };
 		22EC4A8863AF602ECCB0A304 /* SummitSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitSync.swift; sourceTree = "<group>"; };
 		7A1B2C3D4E5F60718293A4B5 /* TimetableWidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableWidgetSnapshot.swift; sourceTree = "<group>"; };
+		6A5B4C3D2E1F00182293A4B5 /* TimetableWidgetPublish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableWidgetPublish.swift; sourceTree = "<group>"; };
 		22EE35060AC05385D57607A4 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		290841CB6CF37C571738D5D8 /* Student.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Student.swift; sourceTree = "<group>"; };
 		326A7165235AF080CF90FB8D /* ExemptedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExemptedStore.swift; sourceTree = "<group>"; };
@@ -423,6 +425,7 @@
 				58236DD34EB1ADABB1A9F254 /* SessionStore.swift */,
 				22EC4A8863AF602ECCB0A304 /* SummitSync.swift */,
 				7A1B2C3D4E5F60718293A4B5 /* TimetableWidgetSnapshot.swift */,
+				6A5B4C3D2E1F00182293A4B5 /* TimetableWidgetPublish.swift */,
 			);
 			path = Storage;
 			sourceTree = "<group>";
@@ -628,6 +631,7 @@
 				48330717AF388A44702AC30C /* TeacherRoundingView.swift in Sources */,
 				AAC678B01A46579284937183 /* ThemeStore.swift in Sources */,
 				7A1B2C3D4E5F60718293A4B6 /* TimetableWidgetSnapshot.swift in Sources */,
+				6A5B4C3D2E1F00182293A4B6 /* TimetableWidgetPublish.swift in Sources */,
 				94AD1980D99DE0FB7EEC9EC4 /* TimetableView.swift in Sources */,
 				FFA61B0FDD4305EDABC7DE2A /* User.swift in Sources */,
 			);

@@ -1,5 +1,4 @@
 import SwiftUI
-import WidgetKit
 
 // MARK: - Editorial Timetable — liquid glass számozás + spine timeline
 // - Baloldalt: minden óra 1,2,3... liquid glass körben (az üveg a szám háttere)
@@ -597,24 +596,12 @@ struct TimetableView: View {
         isLoading = false
     }
 
-    /// Widget-egykezesség: csak innen íródik az órarend-snapshot az App Groupba.
+    /// Widget-egykezesség: a heti snapshot csak innen íródik az App Groupba.
     /// A widget ebből rajzolja a mai / következő tanítási napot.
+    /// (A mapping + reload a TimetableWidgetPublish-ban; a BG-ébresztés
+    /// ugyanoda mergeli a mai napot.)
     private func publishWidgetSnapshot() {
-        guard !lessons.isEmpty else { return }
-        let accent = UserDefaults.standard.object(forKey: "theme.accentHex") as? Int ?? 0x4A90E2
-        let snap = TimetableWidgetStore.Snapshot(
-            savedAt: Date(),
-            accentHex: accent,
-            lessons: lessons.sorted { $0.start < $1.start }.map {
-                TimetableWidgetStore.Lesson(
-                    id: $0.id, subject: $0.subject, room: $0.room, teacher: $0.teacher,
-                    index: $0.index, start: $0.start, end: $0.end,
-                    isCancelled: $0.isCancelled, isSubstituted: $0.isSubstituted
-                )
-            }
-        )
-        TimetableWidgetStore.save(snap)
-        WidgetCenter.shared.reloadTimelines(ofKind: TimetableWidgetStore.kind)
+        TimetableWidgetPublish.publishWeek(lessons)
     }
 
     /// Az aktuális weekOffset hetének lehúzása (KRÉTA: hétfő–vasárnap).

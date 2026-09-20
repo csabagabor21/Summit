@@ -47,4 +47,18 @@ enum TimetableWidgetStore {
               let snap = try? JSONDecoder().decode(Snapshot.self, from: data) else { return nil }
         return snap
     }
+
+    /// Egy nap óráinak cseréje a snapshotban (háttér-ébresztés: csak a mai
+    /// napot húzza le, a hét többi napja marad). Nincs snapshot → false.
+    @discardableResult
+    static func mergeDay(lessons: [Lesson], day: Date, accentHex: Int, calendar: Calendar = .current) -> Bool {
+        guard var snap = load() else { return false }
+        snap.lessons.removeAll { calendar.isDate($0.start, inSameDayAs: day) }
+        snap.lessons.append(contentsOf: lessons)
+        snap.lessons.sort { $0.start < $1.start }
+        snap.accentHex = accentHex
+        snap.savedAt = Date()
+        save(snap)
+        return true
+    }
 }
