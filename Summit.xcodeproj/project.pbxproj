@@ -39,6 +39,8 @@
 		616093231CBFBBE90164AAA2 /* CompletedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 092823FDC89EDC54BE31739D /* CompletedStore.swift */; };
 		640B370AF5466C1D7A216A0D /* DeveloperView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E3BE3B35F7AD238DA07178B /* DeveloperView.swift */; };
 		674CE5979E8C603D02423427 /* SummitLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16DF003F0DB021C460B7EF92 /* SummitLiveActivityAttributes.swift */; };
+		7A1B2C3D4E5F60718293A4B7 /* TimetableWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F60718293A4B5 /* TimetableWidgetSnapshot.swift */; };
+		8B2C3D4E5F60718293A4B5C7 /* TimetableWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B2C3D4E5F60718293A4B5C6 /* TimetableWidget.swift */; };
 		696ADDAD7F531A0DED44E8CC /* ic_rounded.png in Resources */ = {isa = PBXBuildFile; fileRef = BD41B4ED9508F804D6940D5E /* ic_rounded.png */; };
 		6A78B5223C6737939601214B /* RootViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B97ACEA310D6F1D6FC56F2 /* RootViewModel.swift */; };
 		6FD6D376BF8C8537963C516F /* GradeCircle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19DFC7C10A0189809286952D /* GradeCircle.swift */; };
@@ -65,6 +67,7 @@
 		C026E62584894F948EB60943 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 60D2939ED79D4FB99E8D8A22 /* GoogleService-Info.plist */; };
 		C0F24198AE153BA7213BED6C /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1D92783AAF33901FDCC0CB3B /* LaunchScreen.storyboard */; };
 		C938C8B4A79AFC320ACA93DB /* SummitSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22EC4A8863AF602ECCB0A304 /* SummitSync.swift */; };
+		7A1B2C3D4E5F60718293A4B6 /* TimetableWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F60718293A4B5 /* TimetableWidgetSnapshot.swift */; };
 		D98770305ADBCA9B0CCC1D6D /* GradingLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E84D5228585755250AA0D05 /* GradingLogic.swift */; };
 		DA9FAB3C3C4BCED9B3B83028 /* AnalyticsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 403733D1E79BF3F0BDF3A215 /* AnalyticsStore.swift */; };
 		DF031CE0F1D65920D1D003E7 /* LiveCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F94AC888464350A05C1090C /* LiveCardView.swift */; };
@@ -113,6 +116,7 @@
 		1E84D5228585755250AA0D05 /* GradingLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradingLogic.swift; sourceTree = "<group>"; };
 		225D81CC5A3BF3C9D730B87F /* ic_splash.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_splash.png; sourceTree = "<group>"; };
 		22EC4A8863AF602ECCB0A304 /* SummitSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitSync.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F60718293A4B5 /* TimetableWidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableWidgetSnapshot.swift; sourceTree = "<group>"; };
 		22EE35060AC05385D57607A4 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		290841CB6CF37C571738D5D8 /* Student.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Student.swift; sourceTree = "<group>"; };
 		326A7165235AF080CF90FB8D /* ExemptedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExemptedStore.swift; sourceTree = "<group>"; };
@@ -145,6 +149,7 @@
 		74E818A1B6A970A1BB821FA5 /* GradeCelebrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCelebrationView.swift; sourceTree = "<group>"; };
 		7CE0368F13109AD5B0C8D790 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		8039D6CB6607F635046C9DF5 /* SummitLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityWidget.swift; sourceTree = "<group>"; };
+		8B2C3D4E5F60718293A4B5C6 /* TimetableWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableWidget.swift; sourceTree = "<group>"; };
 		83B9022E76AD6AB32842452B /* FilterBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBarView.swift; sourceTree = "<group>"; };
 		89E8B5ED4F9208BE53619044 /* showcase1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase1.png; sourceTree = "<group>"; };
 		952A77C87AE801894AD9FA0F /* SummitLiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityManager.swift; sourceTree = "<group>"; };
@@ -230,6 +235,7 @@
 				F129BF98BF502D69E561BE08 /* Info.plist */,
 				8039D6CB6607F635046C9DF5 /* SummitLiveActivityWidget.swift */,
 				95654B92402375A7D376E636 /* SummitWidgetsBundle.swift */,
+				8B2C3D4E5F60718293A4B5C6 /* TimetableWidget.swift */,
 			);
 			path = SummitWidgets;
 			sourceTree = "<group>";
@@ -416,6 +422,7 @@
 				510DB597EF2AEFBA9384D46D /* ProfileImageStore.swift */,
 				58236DD34EB1ADABB1A9F254 /* SessionStore.swift */,
 				22EC4A8863AF602ECCB0A304 /* SummitSync.swift */,
+				7A1B2C3D4E5F60718293A4B5 /* TimetableWidgetSnapshot.swift */,
 			);
 			path = Storage;
 			sourceTree = "<group>";
@@ -561,6 +568,8 @@
 				674CE5979E8C603D02423427 /* SummitLiveActivityAttributes.swift in Sources */,
 				4B568FDB3CC82699DBA1D8F0 /* SummitLiveActivityWidget.swift in Sources */,
 				A07B170986E9E0FA04EB2CD2 /* SummitWidgetsBundle.swift in Sources */,
+				7A1B2C3D4E5F60718293A4B7 /* TimetableWidgetSnapshot.swift in Sources */,
+				8B2C3D4E5F60718293A4B5C7 /* TimetableWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -618,6 +627,7 @@
 				C938C8B4A79AFC320ACA93DB /* SummitSync.swift in Sources */,
 				48330717AF388A44702AC30C /* TeacherRoundingView.swift in Sources */,
 				AAC678B01A46579284937183 /* ThemeStore.swift in Sources */,
+				7A1B2C3D4E5F60718293A4B6 /* TimetableWidgetSnapshot.swift in Sources */,
 				94AD1980D99DE0FB7EEC9EC4 /* TimetableView.swift in Sources */,
 				FFA61B0FDD4305EDABC7DE2A /* User.swift in Sources */,
 			);
@@ -701,6 +711,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_ENTITLEMENTS = SummitWidgets.entitlements;
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = "";
@@ -729,6 +740,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_ENTITLEMENTS = SummitWidgets.entitlements;
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = "";

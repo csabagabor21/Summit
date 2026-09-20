@@ -5,6 +5,12 @@ options:
     iOS: "26.0"
   xcodeVersion: "15.0"
   generateEmptyDirectories: true
+# Realtime szinkron: FirebaseFirestore SPM-csomag (rest-pull helyett
+# snapshot-listener a sync docra). Exact pin — reprodukálható build.
+packages:
+  firebase-ios-sdk:
+    url: https://github.com/firebase/firebase-ios-sdk
+    version: 12.19.2
 targets:
   Summit:
     type: application
@@ -41,6 +47,9 @@ targets:
         SWIFT_EMIT_LOC_STRINGS: YES
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "10"
+        # Firebase SPM statikus linkelés: az ObjC-kategóriákat a linker
+        # különben leszedheti → runtime crash. (Ld. pbxproj OTHER_LDFLAGS.)
+        OTHER_LDFLAGS: "$(inherited) -ObjC"
         # Kézi aláírás a pbxproj-val egyezően (TestFlight: csabav3 profil).
         # Az [sdk=iphoneos*] kulcs csak eszköz-builden él — szimulátoron üres.
         CODE_SIGN_STYLE: Manual
@@ -78,6 +87,9 @@ targets:
           CODE_SIGN_ENTITLEMENTS: SummitRelease.entitlements
     dependencies:
       - target: SummitWidgets
+      # Csak a Firestore-product (a tranzitív függőségeket az SPM hozza).
+      - package: firebase-ios-sdk
+        products: [FirebaseFirestore]
   SummitWidgets:
     type: app-extension
     platform: iOS
@@ -94,12 +106,14 @@ targets:
     sources:
       - SummitWidgets
       - path: FirkaNative/LiveActivity/SummitLiveActivityAttributes.swift
+      - path: FirkaNative/Core/Storage/TimetableWidgetSnapshot.swift
     settings:
       base:
         SWIFT_VERSION: "5.0"
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: 38DAVMRN66
         PRODUCT_BUNDLE_IDENTIFIER: hu.flint.Widgets
+        CODE_SIGN_ENTITLEMENTS: SummitWidgets.entitlements
         GENERATE_INFOPLIST_FILE: YES
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "10"

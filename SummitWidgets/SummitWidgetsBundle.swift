@@ -7,5 +7,6 @@ struct SummitWidgetsBundle: WidgetBundle {
         SummitLiveActivityWidget()
         // Legacy fallback nem kell regisztrálni külön — az ActivityConfiguration
         // az iOS verzió alapján választ.
+        TimetableWidget()
     }
 }
