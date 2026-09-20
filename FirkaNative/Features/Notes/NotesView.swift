@@ -7,6 +7,8 @@ struct NotesView: View {
     @EnvironmentObject var completed: CompletedStore
     @State private var homeworks: [HomeworkItem] = []
     @State private var exams: [ExamItem] = []
+    /// Órarendi órák az óraszám-pillekhez (a csatolmány-lehúzás mellékterméke).
+    @State private var lessons: [LessonItem] = []
     @State private var isLoading = true
     @State private var filter = 0 // 0 = Feladatok, 1 = Dolgozatok, 2 = Kész
     @State private var expandedIDs: Set<String> = []
@@ -229,10 +231,11 @@ struct NotesView: View {
         let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "yyyy. MMM d. HH:mm"
         return f.string(from: d)
     }
-    /// Fejléc-pill: dátum + hányadik óra (pl. "2026. szept. 15. (1. óra)")
-    private func examDatePill(_ exam: ExamItem) -> String {
-        if let n = exam.lessonIndex { return "\(huDate(exam.date)) (\(n). óra)" }
-        return huDate(exam.date)
+    /// Házipill: nem a dátum (az a szekciófejlécben van), hanem hogy
+    /// hányadik órára van feladva (tárgy + határidő-nap illesztéssel).
+    private func lessonIndexText(for hw: HomeworkItem) -> String? {
+        guard let lesson = HomeworkMatcher.lesson(for: hw, in: lessons) else { return nil }
+        return "\(lesson.index). óra"
     }
     /// Részletező dátumsor: időpont (ha van) + hányadik óra
     private func examDateLine(_ exam: ExamItem) -> String {
@@ -260,7 +263,7 @@ struct NotesView: View {
             VStack(alignment: .leading, spacing: 6) {
                 // Csak a fejléc és az előnézet nyit-csuk — a kinyitott
                 // részletező blokkban a gombok önállóan működnek
-                HStack { Text(hw.subject).font(.subheadline.weight(.semibold)); Spacer(); if !hw.attachments.isEmpty { HStack(spacing: 3) { Image(systemName: "paperclip"); if hw.attachments.count > 1 { Text("\(hw.attachments.count)") } }.font(.caption2.weight(.semibold)).foregroundStyle(.secondary).accessibilityLabel("\(hw.attachments.count) csatolmány") }; Text(hw.deadline.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.primary.opacity(0.06))) }
+                HStack { Text(hw.subject).font(.subheadline.weight(.semibold)); Spacer(); if !hw.attachments.isEmpty { HStack(spacing: 3) { Image(systemName: "paperclip"); if hw.attachments.count > 1 { Text("\(hw.attachments.count)") } }.font(.caption2.weight(.semibold)).foregroundStyle(.secondary).accessibilityLabel("\(hw.attachments.count) csatolmány") }; if let idx = lessonIndexText(for: hw) { Text(idx).font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.primary.opacity(0.06))) } }
                     .contentShape(Rectangle())
                     .onTapGesture { toggleExpanded(hw.id, expanded: expanded) }
                 if expanded {
@@ -332,7 +335,7 @@ struct NotesView: View {
             .buttonStyle(.plain)
             .padding(.top, 2)
             VStack(alignment: .leading, spacing: 6) {
-                HStack { Text(exam.subject).font(.subheadline.weight(.semibold)); Spacer(); Text(examDatePill(exam)).font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.orange.opacity(0.14))) }
+                HStack { Text(exam.subject).font(.subheadline.weight(.semibold)); Spacer(); if let n = exam.lessonIndex { Text("\(n). óra").font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.orange.opacity(0.14))) } }
                     .contentShape(Rectangle())
                     .onTapGesture { toggleExpanded(exam.id, expanded: expanded) }
                 if expanded {
@@ -414,7 +417,8 @@ struct NotesView: View {
         if hwR.isEmpty && exR.isEmpty && hadData {
             homeworks = prevHW; exams = prevEx
         } else {
-            homeworks = await lessonAttachments(hwR, kreta: kreta, iss: iss); exams = exR
+            let (mergedHW, fetchedLessons) = await lessonAttachments(hwR, kreta: kreta, iss: iss)
+            homeworks = mergedHW; exams = exR; lessons = fetchedLessons
         }
         isLoading=false
     }
@@ -425,14 +429,14 @@ struct NotesView: View {
     /// nem csak a határidő napján — ezért a teljes listaablakot (-35 nap)
     /// plusz a határidőket nézzük át, heti darabokban, párhuzamosan.
     /// Üres/sikertelen órarendnél a házi-lista változatlanul marad.
-    private func lessonAttachments(_ hwR: [HomeworkItem], kreta: KretaClient, iss: String) async -> [HomeworkItem] {
-        guard !hwR.isEmpty else { return hwR }
+    private func lessonAttachments(_ hwR: [HomeworkItem], kreta: KretaClient, iss: String) async -> ([HomeworkItem], [LessonItem]) {
+        guard !hwR.isEmpty else { return (hwR, []) }
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
         let deadlines = hwR.map(\.deadline)
         guard let from = cal.date(byAdding: .day, value: -35, to: today),
               let to = cal.date(byAdding: .day, value: 2, to: cal.startOfDay(for: max(deadlines.max() ?? today, today))),
-              to > from else { return hwR }
+              to > from else { return (hwR, []) }
         // Heti darabolás (nagy ablakra az órarend-végpont megbízhatatlan),
         // max ~3 hónap — a listaablak és a tipikus határidők beleférnek.
         var chunks: [(Date, Date)] = []
@@ -452,11 +456,11 @@ struct NotesView: View {
         }
         // Ami órarendből sem jött meg (vagy üres volt az órarend),
         // annak a részlet-végpont adhat fájlt.
-        if lessons.isEmpty { return await kreta.fetchHomeworkDetails(hwR, iss: iss) }
+        if lessons.isEmpty { return (await kreta.fetchHomeworkDetails(hwR, iss: iss), []) }
         let merged = HomeworkLessonAttachments.merged(hwR, lessons: lessons)
         let hits = merged.filter { !$0.attachments.isEmpty }.count
         kreta.diag("feladat-csatolmány: \(hits)/\(hwR.count) házihoz van fájl (\(lessons.count) óra átnézve)")
-        return await kreta.fetchHomeworkDetails(merged, iss: iss)
+        return (await kreta.fetchHomeworkDetails(merged, iss: iss), lessons)
     }
 }
 
