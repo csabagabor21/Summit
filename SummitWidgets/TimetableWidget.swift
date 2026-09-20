@@ -9,14 +9,10 @@ struct TimetableWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: TimetableWidgetStore.kind, provider: TimetableWidgetProvider()) { entry in
             TimetableWidgetView(entry: entry)
-                .containerBackground(for: .widget) {
-                    WidgetBackground()
-                }
         }
         .configurationDisplayName("Órarend")
         .description("A mai / következő tanítási nap órái az app órarend-nézetéből.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .accessoryRectangular])
-        .contentMarginsDisabled()
     }
 }
 
@@ -119,36 +115,15 @@ struct TimetableWidgetProvider: TimelineProvider {
 
 // MARK: - Nézet
 
-/// Sémához igazodó háttér — a fix sötét gradiens világos módban
-/// olvashatatlanná tette a fekete szöveget.
-private struct WidgetBackground: View {
-    @Environment(\.colorScheme) private var scheme
-    var body: some View {
-        if scheme == .dark {
-            LinearGradient(
-                colors: [Color(white: 0.12), Color(white: 0.05)],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            )
-        } else {
-            LinearGradient(
-                colors: [Color(white: 0.99), Color(white: 0.90)],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            )
-        }
-    }
-}
-
+// Natív átlátszó liquid glass: nincs saját háttér, a rendszer adja az
+// üveget (sötét/világos módban is). Az állapotot CSAK a színek mutatják:
+// aktuális = accent, elmarad = piros, helyettesítés = narancs.
 private struct TimetableWidgetView: View {
     let entry: TimetableWidgetEntry
     @Environment(\.widgetFamily) private var family
-    @Environment(\.colorScheme) private var scheme
 
     private var accent: Color { Color(widgetHex: UInt(entry.accentHex)) }
     private var now: Date { entry.effectiveNow }
-    /// Halvány töltet / hajszálvonal a számkörökhöz — sémánként,
-    /// hogy világos módban se tűnjön el és ne is üssön.
-    private var faintFill: Color { scheme == .dark ? .white.opacity(0.14) : .black.opacity(0.07) }
-    private var hairline: Color { scheme == .dark ? .white.opacity(0.12) : .black.opacity(0.12) }
 
     private var currentID: String? {
         entry.dayLessons.first(where: { $0.start <= now && $0.end >= now })?.id
@@ -193,126 +168,80 @@ private struct TimetableWidgetView: View {
         }
     }
 
-    // MARK: Small — MOST / KÖVETKEZŐ hero
+    // MARK: Small — csak a lényeg: státusz színnel, tárgy, idő
     private var smallView: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(headerLine).font(.caption2.weight(.bold)).tracking(0.8)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(headerLine).font(.caption.weight(.medium))
                 .foregroundStyle(.secondary).lineLimit(1)
             Spacer(minLength: 0)
             if entry.dayLessons.isEmpty {
                 emptyView
             } else if let cur = entry.dayLessons.first(where: { $0.id == currentID }) {
-                heroLesson(cur, label: "MOST • \(cur.index). ÓRA")
-                ProgressView(value: progress(of: cur)).tint(statusColor(cur))
+                Text("Most").font(.caption.weight(.semibold)).foregroundStyle(statusColor(cur))
+                Text(cur.subject).font(.title2.weight(.bold)).lineLimit(2).minimumScaleFactor(0.8)
+                Text(timeRange(cur)).font(.callout.monospacedDigit()).foregroundStyle(.secondary)
             } else if let nxt = nextLesson {
-                heroLesson(nxt, label: "KÖVETKEZŐ • \(nxt.start.formatted(date: .omitted, time: .shortened))")
-                Text(dayCountLine).font(.caption2.weight(.medium)).foregroundStyle(.tertiary)
+                Text("Következő • \(nxt.start.formatted(date: .omitted, time: .shortened))")
+                    .font(.caption.weight(.semibold)).foregroundStyle(statusColor(nxt))
+                Text(nxt.subject).font(.title2.weight(.bold)).lineLimit(2).minimumScaleFactor(0.8)
+                Text(timeRange(nxt)).font(.callout.monospacedDigit()).foregroundStyle(.secondary)
             } else {
-                Text("Mára vége").font(.system(.title3, design: .rounded).weight(.bold))
-                Text(dayCountLine).font(.caption2.weight(.medium)).foregroundStyle(.tertiary)
+                Text("Mára vége").font(.title2.weight(.bold))
             }
             Spacer(minLength: 0)
         }
-        .padding(14)
     }
 
-    private func heroLesson(_ l: TimetableWidgetStore.Lesson, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(label).font(.caption2.weight(.bold)).tracking(0.6)
-                .foregroundStyle(statusColor(l)).lineLimit(1)
-            Text(l.subject).font(.system(size: 19, weight: .bold, design: .rounded))
-                .lineLimit(2).minimumScaleFactor(0.8)
-            HStack(spacing: 5) {
-                Text(l.room).font(.caption2.weight(.bold).monospacedDigit())
-                    .padding(.horizontal, 6).padding(.vertical, 3)
-                    .background(RoundedRectangle(cornerRadius: 5).fill(faintFill))
-                    .lineLimit(1)
-                Text(timeRange(l)).font(.caption2.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(.secondary).lineLimit(1)
-            }
-        }
-    }
-
-    // MARK: Medium / Large — spine lista, mint az appban
+    // MARK: Medium / Large — natív lista: szám + tárgy + idő, semmi króm
     private func listView(maxRows: Int) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .lastTextBaseline) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(headerLine).font(.caption2.weight(.bold)).tracking(0.8)
-                        .foregroundStyle(.secondary).lineLimit(1)
-                    Text("\(entry.dayLessons.count) óra")
-                        .font(.system(size: 20, weight: .bold, design: .rounded)).monospacedDigit()
-                }
+                Text(headerLine).font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary).lineLimit(1)
                 Spacer(minLength: 6)
                 if let first = entry.dayLessons.first, let last = entry.dayLessons.last {
-                    Text("\(first.start.formatted(date: .omitted, time: .shortened)) – \(last.end.formatted(date: .omitted, time: .shortened))")
-                        .font(.caption2.weight(.semibold).monospacedDigit())
+                    Text("\(first.start.formatted(date: .omitted, time: .shortened))–\(last.end.formatted(date: .omitted, time: .shortened))")
+                        .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary).lineLimit(1)
                 }
             }
-            .padding(.bottom, 8)
+            .padding(.bottom, 6)
             if entry.dayLessons.isEmpty {
                 emptyView.padding(.top, 4)
             } else {
-                ForEach(Array(entry.dayLessons.prefix(maxRows).enumerated()), id: \.element.id) { idx, l in
-                    row(l, isLast: idx == min(maxRows, entry.dayLessons.count) - 1)
+                ForEach(entry.dayLessons.prefix(maxRows), id: \.id) { l in
+                    row(l)
                 }
                 if entry.dayLessons.count > maxRows {
                     Text("+\(entry.dayLessons.count - maxRows) további óra")
-                        .font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
+                        .font(.caption).foregroundStyle(.tertiary)
                         .padding(.top, 4)
                 }
             }
             Spacer(minLength: 0)
         }
-        .padding(14)
     }
 
-    private func row(_ l: TimetableWidgetStore.Lesson, isLast: Bool) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            VStack(spacing: 0) {
-                Text(l.index)
-                    .font(.system(size: 12, weight: .bold, design: .rounded)).monospacedDigit()
-                    .foregroundStyle(numberColor(l))
-                    .frame(width: 26, height: 26)
-                    .background(Circle().fill(statusColor(l).opacity(isCurrent(l) ? 0.28 : 0.14)))
-                if !isLast {
-                    Rectangle().fill(hairline).frame(width: 1.2, height: 8)
-                        .padding(.vertical, 1)
-                }
-            }
-            .frame(width: 26)
-            VStack(alignment: .leading, spacing: 1) {
+    private func row(_ l: TimetableWidgetStore.Lesson) -> some View {
+        HStack(spacing: 10) {
+            Text(l.index)
+                .font(.headline.monospacedDigit())
+                .foregroundStyle(numberColor(l))
+                .frame(width: 22, alignment: .trailing)
+            VStack(alignment: .leading, spacing: 0) {
                 Text(l.subject)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(.subheadline.weight(.semibold))
                     .strikethrough(l.isCancelled, color: .secondary)
                     .foregroundStyle(l.isCancelled ? .secondary : .primary)
                     .lineLimit(1)
-                HStack(spacing: 4) {
-                    Text(l.room).font(.caption2.weight(.bold).monospacedDigit())
-                        .foregroundStyle(.secondary).lineLimit(1)
-                    Text("•").font(.caption2).foregroundStyle(.tertiary)
-                    Text(timeRange(l)).font(.caption2.weight(.medium).monospacedDigit())
-                        .foregroundStyle(isCurrent(l) ? statusColor(l) : .secondary)
-                        .lineLimit(1)
-                }
+                Text("\(l.room) • \(timeRange(l))")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
-            Spacer(minLength: 4)
-            if l.isCancelled {
-                badge("Elmarad", .red)
-            } else if l.isSubstituted {
-                badge("Hely.", .orange)
-            } else if isCurrent(l) {
-                badge(remainingMinutes(l), accent)
-            }
+            Spacer(minLength: 0)
         }
-        .padding(.vertical, 2)
-    }
-
-    private func badge(_ text: String, _ color: Color) -> some View {
-        Text(text.uppercased()).font(.caption2.weight(.bold))
-            .foregroundStyle(.white).padding(.horizontal, 6).padding(.vertical, 3)
-            .background(Capsule().fill(color)).lineLimit(1)
+        .padding(.vertical, 3)
     }
 
     private var emptyView: some View {
