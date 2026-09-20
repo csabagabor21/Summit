@@ -50,33 +50,17 @@ struct TimetableWidgetProvider: TimelineProvider {
             completion(Timeline(entries: [entry], policy: .after(refresh)))
             return
         }
-        let cal = Calendar.current
-        let todays = snap.lessons.filter { cal.isDate($0.start, inSameDayAs: now) }.sorted { $0.start < $1.start }
-        // Előre számolt belépők minden hátra lévő órahatárra: a widget
-        // magától továbbmegy (pl. a 3. óra végén a 4.-re / "Mára vége"-re),
-        // késleltetett rendszer-újratöltés mellett is — egy határ már nem
-        // egy budgeted reloadba kerül.
-        var moments = Set<Date>()
-        for l in todays {
-            if l.start > now { moments.insert(l.start) }
-            if l.end > now { moments.insert(l.end) }
-        }
-        // Élő visszaszámlálás: a tartó / következő óra végéig 5 percenként.
-        if let anchor = todays.first(where: { $0.end > now }) {
-            var t = now.addingTimeInterval(5 * 60)
-            while t < anchor.end, moments.count < 60 {
-                moments.insert(t)
-                t = t.addingTimeInterval(5 * 60)
-            }
-        }
-        guard !moments.isEmpty else {
+        // Előre számolt belépők (TimetableWidgetLogic): a widget magától
+        // továbbmegy órahatárokon át, késleltetett rendszer-újratöltés
+        // mellett is — egy határ már nem egy budgeted reloadba kerül.
+        let dates = TimetableWidgetLogic.timelineMoments(now: now, lessons: snap.lessons)
+        guard !dates.isEmpty else {
             // Ma már nincs hátra határ (pl. este): egy belépő + éjszakai újratöltés.
             let entry = makeEntry(at: now, preview: false)
             let refresh = Self.nextRefresh(now: now, effectiveNow: entry.effectiveNow, lessons: entry.dayLessons)
             completion(Timeline(entries: [entry], policy: .after(refresh)))
             return
         }
-        let dates = [now] + Array(moments.sorted().prefix(60))
         completion(Timeline(entries: dates.map { makeEntry(at: $0, preview: false) }, policy: .atEnd))
     }
 
@@ -88,7 +72,7 @@ struct TimetableWidgetProvider: TimelineProvider {
                 dayDate: now, accentHex: 0x4A90E2, hasSnapshot: false
             )
         }
-        let (day, lessons) = Self.pickDay(now: now, lessons: snap.lessons)
+        let (day, lessons) = TimetableWidgetLogic.pickDay(now: now, lessons: snap.lessons)
         // Idő-eltolás: a csúszka a mutatott napon belüli időpont —
         // a napválasztás marad valós idejű, az állapot már eltolt.
         let effective: Date
@@ -105,30 +89,14 @@ struct TimetableWidgetProvider: TimelineProvider {
         )
     }
 
-    /// Ma, ha van még hátra / tartó óra — különben a következő órás nap.
+    /// A tiszta logika a TimetableWidgetLogic-ban él (próba is hajtja);
+    /// itt csak a preview-minta marad.
     static func pickDay(now: Date, lessons: [TimetableWidgetStore.Lesson]) -> (Date, [TimetableWidgetStore.Lesson]) {
-        let cal = Calendar.current
-        let todays = lessons.filter { cal.isDate($0.start, inSameDayAs: now) }.sorted { $0.start < $1.start }
-        if todays.contains(where: { $0.end > now }) {
-            return (cal.startOfDay(for: now), todays)
-        }
-        let upcoming = lessons.filter { $0.start > now }.sorted { $0.start < $1.start }
-        if let first = upcoming.first {
-            let day = cal.startOfDay(for: first.start)
-            return (day, lessons.filter { cal.isDate($0.start, inSameDayAs: day) }.sorted { $0.start < $1.start })
-        }
-        return (cal.startOfDay(for: now), todays)
+        TimetableWidgetLogic.pickDay(now: now, lessons: lessons)
     }
 
-    /// Következő órakezdés / óravég az ELTOLT órához mérve, valós időre
-    /// visszaszámolva (így a csúszkás preview sem pörgeti a timeline-t),
-    /// de legkésőbb +8 óra (WidgetKit büdzsé).
     static func nextRefresh(now: Date, effectiveNow: Date, lessons: [TimetableWidgetStore.Lesson]) -> Date {
-        let cap = now.addingTimeInterval(8 * 3600)
-        let bounds = lessons.flatMap { [$0.start, $0.end] }.filter { $0 > effectiveNow }.sorted()
-        guard let next = bounds.first else { return cap }
-        let refresh = now.addingTimeInterval(next.timeIntervalSince(effectiveNow) + 60)
-        return min(max(refresh, now.addingTimeInterval(60)), cap)
+        TimetableWidgetLogic.nextRefresh(now: now, effectiveNow: effectiveNow, lessons: lessons)
     }
 
     static func sampleLessons() -> [TimetableWidgetStore.Lesson] {

@@ -107,6 +107,7 @@ targets:
       - SummitWidgets
       - path: FirkaNative/LiveActivity/SummitLiveActivityAttributes.swift
       - path: FirkaNative/Core/Storage/TimetableWidgetSnapshot.swift
+      - path: FirkaNative/Core/Storage/TimetableWidgetLogic.swift
     settings:
       base:
         SWIFT_VERSION: "5.0"

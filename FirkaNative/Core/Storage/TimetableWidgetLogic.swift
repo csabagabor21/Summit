@@ -1,0 +1,68 @@
+import Foundation
+
+// MARK: - Widget timeline-logika — tiszta, UI-független számítások
+// A Widget Extension ÉS a /tmp-s próbák is ezt fordítják (csak Foundation),
+// így a provider viselkedése a szállított kóddal ellenőrizhető.
+// A provider (TimetableWidget.swift) kizárólag ezeket hívja.
+enum TimetableWidgetLogic {
+    /// Napválasztás adott időpontra: ma, ha van még hátra / tartó óra —
+    /// különben a következő órás nap a snapshotból.
+    static func pickDay(now: Date, lessons: [TimetableWidgetStore.Lesson], calendar: Calendar = .current) -> (Date, [TimetableWidgetStore.Lesson]) {
+        let cal = calendar
+        let todays = lessons.filter { cal.isDate($0.start, inSameDayAs: now) }.sorted { $0.start < $1.start }
+        if todays.contains(where: { $0.end > now }) {
+            return (cal.startOfDay(for: now), todays)
+        }
+        let upcoming = lessons.filter { $0.start > now }.sorted { $0.start < $1.start }
+        if let first = upcoming.first {
+            let day = cal.startOfDay(for: first.start)
+            return (day, lessons.filter { cal.isDate($0.start, inSameDayAs: day) }.sorted { $0.start < $1.start })
+        }
+        return (cal.startOfDay(for: now), todays)
+    }
+
+    /// Timeline-pillanatok: most + minden hátra lévő órahatár (kezdés/vég),
+    /// plusz a tartó / következő óra végéig 5 percenként (élő visszaszámlálás).
+    /// A lista így magától továbbmegy órahatárokon át, késleltetett
+    /// rendszer-újratöltés mellett is. Max `cap` elem, időrendben.
+    static func timelineMoments(now: Date, lessons: [TimetableWidgetStore.Lesson], calendar: Calendar = .current, cap: Int = 61) -> [Date] {
+        let cal = calendar
+        let todays = lessons.filter { cal.isDate($0.start, inSameDayAs: now) }.sorted { $0.start < $1.start }
+        var moments = Set<Date>()
+        for l in todays {
+            if l.start > now { moments.insert(l.start) }
+            if l.end > now { moments.insert(l.end) }
+        }
+        if let anchor = todays.first(where: { $0.end > now }) {
+            var t = now.addingTimeInterval(5 * 60)
+            while t < anchor.end, moments.count < cap - 1 {
+                moments.insert(t)
+                t = t.addingTimeInterval(5 * 60)
+            }
+        }
+        guard !moments.isEmpty else { return [] }
+        return [now] + Array(moments.sorted().prefix(cap - 1))
+    }
+
+    /// Egy belépő felbontása: tartó és következő óra az adott időpontban.
+    /// (A small nézet ebből dönt: tartó → "Most", következő → "Következő",
+    /// egyik sem → "Mára vége"; a medium lista ugyanígy emel ki.)
+    static func resolve(at now: Date, lessons: [TimetableWidgetStore.Lesson]) -> (current: TimetableWidgetStore.Lesson?, next: TimetableWidgetStore.Lesson?) {
+        let sorted = lessons.sorted { $0.start < $1.start }
+        let current = sorted.first(where: { $0.start <= now && $0.end >= now })
+        let next = sorted.first(where: { $0.start > now })
+        return (current, next)
+    }
+
+    /// Következő órakezdés / óravég az ELTOLT órához mérve, valós időre
+    /// visszaszámolva (így a csúszkás preview sem pörgeti a timeline-t),
+    /// de legkésőbb +8 óra (WidgetKit büdzsé). Az egy-belépős
+    /// fallback-úthoz (nincs adat / üres nap / dev csúszka).
+    static func nextRefresh(now: Date, effectiveNow: Date, lessons: [TimetableWidgetStore.Lesson]) -> Date {
+        let cap = now.addingTimeInterval(8 * 3600)
+        let bounds = lessons.flatMap { [$0.start, $0.end] }.filter { $0 > effectiveNow }.sorted()
+        guard let next = bounds.first else { return cap }
+        let refresh = now.addingTimeInterval(next.timeIntervalSince(effectiveNow) + 60)
+        return min(max(refresh, now.addingTimeInterval(60)), cap)
+    }
+}
