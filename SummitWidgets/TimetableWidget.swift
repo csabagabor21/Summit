@@ -177,14 +177,16 @@ private struct TimetableWidgetView: View {
             if entry.dayLessons.isEmpty {
                 emptyView
             } else if let cur = entry.dayLessons.first(where: { $0.id == currentID }) {
-                Text("Most").font(.caption.weight(.semibold)).foregroundStyle(statusColor(cur))
+                Text("Most • \(remainingMinutes(cur))").font(.caption.weight(.semibold)).foregroundStyle(statusColor(cur))
                 Text(cur.subject).font(.title2.weight(.bold)).lineLimit(2).minimumScaleFactor(0.8)
-                Text(timeRange(cur)).font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+                Text("\(cur.index). óra • \(cur.room) • \(timeRange(cur))")
+                    .font(.callout.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
             } else if let nxt = nextLesson {
                 Text("Következő • \(nxt.start.formatted(date: .omitted, time: .shortened))")
                     .font(.caption.weight(.semibold)).foregroundStyle(statusColor(nxt))
                 Text(nxt.subject).font(.title2.weight(.bold)).lineLimit(2).minimumScaleFactor(0.8)
-                Text(timeRange(nxt)).font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+                Text("\(nxt.index). óra • \(nxt.room) • \(timeRange(nxt))")
+                    .font(.callout.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
             } else {
                 Text("Mára vége").font(.title2.weight(.bold))
             }
@@ -200,7 +202,7 @@ private struct TimetableWidgetView: View {
                     .foregroundStyle(.secondary).lineLimit(1)
                 Spacer(minLength: 6)
                 if let first = entry.dayLessons.first, let last = entry.dayLessons.last {
-                    Text("\(first.start.formatted(date: .omitted, time: .shortened))–\(last.end.formatted(date: .omitted, time: .shortened))")
+                    Text("\(entry.dayLessons.count) óra • \(first.start.formatted(date: .omitted, time: .shortened))–\(last.end.formatted(date: .omitted, time: .shortened))")
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary).lineLimit(1)
                 }
@@ -232,7 +234,7 @@ private struct TimetableWidgetView: View {
                 Text(l.subject)
                     .font(.subheadline.weight(.semibold))
                     .strikethrough(l.isCancelled, color: .secondary)
-                    .foregroundStyle(l.isCancelled ? .secondary : .primary)
+                    .foregroundStyle(subjectColor(l))
                     .lineLimit(1)
                 Text("\(l.room) • \(timeRange(l))")
                     .font(.caption.monospacedDigit())
@@ -240,8 +242,22 @@ private struct TimetableWidgetView: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
+            if l.isCancelled {
+                Text("elmarad").font(.caption.weight(.medium)).foregroundStyle(.red)
+            } else if l.isSubstituted {
+                Text("helyettesítés").font(.caption.weight(.medium)).foregroundStyle(.orange)
+            } else if isCurrent(l) {
+                Text(remainingMinutes(l)).font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(accent)
+            }
         }
         .padding(.vertical, 3)
+    }
+
+    private func subjectColor(_ l: TimetableWidgetStore.Lesson) -> Color {
+        if l.isCancelled { return .secondary }
+        if isCurrent(l) { return accent }
+        return .primary
     }
 
     private var emptyView: some View {
@@ -263,7 +279,10 @@ private struct TimetableWidgetView: View {
     private var headerLine: String {
         if !entry.hasSnapshot && entry.dayLessons.isEmpty { return "ÓRAREND" }
         let cal = Calendar.current
-        let prefix = cal.isDateInToday(entry.dayDate) ? "MA" : dayTitle.uppercased()
+        let prefix: String
+        if cal.isDateInToday(entry.dayDate) { prefix = "MA" }
+        else if cal.isDateInTomorrow(entry.dayDate) { prefix = "HOLNAP" }
+        else { prefix = dayTitle.uppercased() }
         return "ÓRAREND • \(prefix)"
     }
     private var dayCountLine: String {
