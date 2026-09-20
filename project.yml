@@ -23,15 +23,21 @@ targets:
         script: |
           # A BGAppRefreshTask két tömb típusú plist-kulcsot igényel, amit az
           # INFOPLIST_KEY_* build settingek nem tudnak (csak stringet) — ezért
-          # injektáljuk a legenerált Info.plist-be. Az aláírás ezután történik,
-          # így az App Store / TestFlight buildeken is érvényes marad.
+          # injektáljuk a legenerált Info.plist-be. plutil -insert atomi: mindig
+          # a pontos típust írja. A PlistBuddy Delete/Add páros TILOS (egyszer
+          # már Dict-té fajult a kulcs: Dict{0=fetch} → App Store upload-hiba).
+          # Az aláírás ezután történik, így App Store / TestFlight buildeken
+          # is érvényes marad.
           PLIST="${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
-          /usr/libexec/PlistBuddy -c "Delete :UIBackgroundModes" "$PLIST" 2>/dev/null || true
-          /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes array" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes:0 string fetch" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Delete :BGTaskSchedulerPermittedIdentifiers" "$PLIST" 2>/dev/null || true
-          /usr/libexec/PlistBuddy -c "Add :BGTaskSchedulerPermittedIdentifiers array" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :BGTaskSchedulerPermittedIdentifiers:0 string hu.flint.app.Flint.liveactivity-refresh" "$PLIST"
+          /usr/bin/plutil -remove UIBackgroundModes "$PLIST" 2>/dev/null || true
+          /usr/bin/plutil -insert UIBackgroundModes -json '["fetch"]' "$PLIST"
+          /usr/bin/plutil -remove BGTaskSchedulerPermittedIdentifiers "$PLIST" 2>/dev/null || true
+          /usr/bin/plutil -insert BGTaskSchedulerPermittedIdentifiers -json '["hu.flint.app.Flint.liveactivity-refresh"]' "$PLIST"
+          # Hangos ellenőrzés: rossz típus már a buildet buktassa, ne az uploadot.
+          if ! /usr/libexec/PlistBuddy -c "Print :UIBackgroundModes" "$PLIST" 2>/dev/null | head -1 | grep -q "^Array"; then
+            echo "error: UIBackgroundModes nem array a generált Info.plist-ben ($PLIST)"
+            exit 1
+          fi
     sources:
       - path: FirkaNative
         excludes:
