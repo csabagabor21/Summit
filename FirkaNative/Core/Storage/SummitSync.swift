@@ -21,6 +21,8 @@ enum SummitSyncField: String, CaseIterable {
     case notifyTasks
     case notifyAbsences
     case liveActivity
+    case schoolEvents
+    case schoolEventsShow
 
     /// A mező verzióbélyege a docban (`ts_theme` …). Régi docokban
     /// hiányozhat — olyankor az `updatedAt` a helyettese.
@@ -44,7 +46,7 @@ enum SummitSyncField: String, CaseIterable {
 ///
 /// Szinkronizált tartalom: téma (mode), kiemelőszín, szövegméret, profilkép,
 /// kerekítés, felmentések, házi/dolgozat pipák, értesítési kapcsolók,
-/// Live Activity kapcsoló.
+/// Live Activity kapcsoló, iskolai események (+ mutatás-kapcsoló).
 @MainActor
 final class SummitSync: ObservableObject {
     @Published var isEnabled: Bool {
@@ -73,6 +75,9 @@ final class SummitSync: ObservableObject {
     /// Fotó-base64 plafon (karakter): 256 px jpeg mellé bőséges, 1 MiB
     /// doc-limittől messze van. A rules ugyanezt kényszeríti.
     static let maxPhotoChars = 100_000
+    /// Iskolai esemény JSON-plafon (karakter): ~500 esemény fér bele.
+    /// A rules 50 000-et enged (régi kliensek felé opcionális mező).
+    static let maxSchoolEventsChars = 48_000
 
     /// Piszkos (feltöltésre váró) mezők — memóriában + perzisztálva, hogy
     /// egy újraindulás se nyelje el a még fel nem töltött szerkesztést.
@@ -189,6 +194,8 @@ final class SummitSync: ObservableObject {
         var notifyTasks: Bool
         var notifyAbsences: Bool
         var liveActivity: Bool
+        var schoolEvents: String
+        var schoolEventsShow: Bool
     }
 
     private func localValues() -> LocalValues? {
@@ -206,7 +213,9 @@ final class SummitSync: ObservableObject {
             notifyGrades: Self.flag("notify.grades", default: true),
             notifyTasks: Self.flag("notify.tasks", default: true),
             notifyAbsences: Self.flag("notify.absences", default: true),
-            liveActivity: Self.flag("liveActivity.enabled", default: true)
+            liveActivity: Self.flag("liveActivity.enabled", default: true),
+            schoolEvents: SchoolEventsStore.syncString(SchoolEventsStore.load()),
+            schoolEventsShow: SchoolEventsStore.isVisible()
         )
     }
 
@@ -261,6 +270,18 @@ final class SummitSync: ObservableObject {
         let (ntV, ntTs) = pick(.notifyTasks, local: local.notifyTasks, remote: remote?.notifyTasks)
         let (naV, naTs) = pick(.notifyAbsences, local: local.notifyAbsences, remote: remote?.notifyAbsences)
         let (laV, laTs) = pick(.liveActivity, local: local.liveActivity, remote: remote?.liveActivity)
+        // Iskolai események: a régi docban még hiányozhat (nil) — olyankor a
+        // helyi érték a régi bélyegével megy (nem töröljük a frisset üresre).
+        let (seV, seTs): (String, Date) = {
+            if pending.contains(SummitSyncField.schoolEvents.rawValue) { return (local.schoolEvents, now) }
+            if let r = remote?.schoolEventsRaw { return (r, remoteDate(for: .schoolEvents)) }
+            return (local.schoolEvents, fieldTimestamps[SummitSyncField.schoolEvents.rawValue] ?? now)
+        }()
+        let (seShowV, seShowTs): (Bool, Date) = {
+            if pending.contains(SummitSyncField.schoolEventsShow.rawValue) { return (local.schoolEventsShow, now) }
+            if let r = remote?.schoolEventsShow { return (r, remoteDate(for: .schoolEventsShow)) }
+            return (local.schoolEventsShow, fieldTimestamps[SummitSyncField.schoolEventsShow.rawValue] ?? now)
+        }()
         // Fotó: túl nagy helyi képnél (nil) a távoli marad — sosem küldünk
         // rá üreset, mert az a szerver-oldali kép törlését jelentené.
         let photoPair: (String, Date)
@@ -289,12 +310,15 @@ final class SummitSync: ObservableObject {
             "notifyTasks": bool(ntV),
             "notifyAbsences": bool(naV),
             "liveActivity": bool(laV),
+            "schoolEvents": str(seV),
+            "schoolEventsShow": bool(seShowV),
         ]
         let tsPairs: [(SummitSyncField, Date)] = [
             (.theme, themeTs), (.accentHex, accentTs), (.sizeKey, sizeTs),
             (.photo, photoPair.1), (.rounding, roundingTs), (.exempted, exemptedTs),
             (.completedHw, hwTs), (.completedEx, exTs), (.notifyGrades, ngTs),
             (.notifyTasks, ntTs), (.notifyAbsences, naTs), (.liveActivity, laTs),
+            (.schoolEvents, seTs), (.schoolEventsShow, seShowTs),
         ]
         for (f, d) in tsPairs { fields[f.tsKey] = ts(d) }
 
@@ -313,10 +337,13 @@ final class SummitSync: ObservableObject {
         let code = await patch(fields)
         if code == 403 {
             // Átmeneti védelem: a szerveren még a régi szabály élhet
-            // (`ts_*` nélkül) — ilyenkor egyszer visszalépünk a régi
-            // sémára, hogy a szinkron ne haljon meg a szabály-deployig.
+            // (`ts_*` és iskolai események nélkül) — ilyenkor egyszer
+            // visszalépünk a régi sémára, hogy a szinkron ne haljon meg
+            // a szabály-deployig (az események a deploy után mennek).
             var legacy = fields
             for f in SummitSyncField.allCases { legacy.removeValue(forKey: f.tsKey) }
+            legacy.removeValue(forKey: "schoolEvents")
+            legacy.removeValue(forKey: "schoolEventsShow")
             guard await patch(legacy) == 200 else {
                 status = "feltöltés hiba"
                 return false
@@ -411,6 +438,11 @@ final class SummitSync: ObservableObject {
         let notifyTasks: Bool
         let notifyAbsences: Bool
         let liveActivity: Bool
+        /// Iskolai esemény JSON (`nil` = a régi docban még nincs mező —
+        /// ilyenkor a helyi állapot marad, nem törlünk).
+        let schoolEventsRaw: String?
+        /// Mutatás-kapcsoló (`nil` = régi doc, marad a helyi).
+        let schoolEventsShow: Bool?
         /// Mezőnkénti bélyeg (`ts_*`, régi docban az `updatedAt`).
         let fieldDates: [String: Date]
     }
@@ -475,6 +507,15 @@ final class SummitSync: ObservableObject {
               let notifyTasks = data["notifyTasks"] as? Bool,
               let notifyAbsences = data["notifyAbsences"] as? Bool,
               let liveActivity = data["liveActivity"] as? Bool else { return nil }
+        // Iskolai események: régi docban hiányozhatnak (nil = helyi marad).
+        // Sérült (túl nagy / nem string) mezőnél szintén a helyi marad —
+        // csak az ép string (az üres is: az tudatos törlés) alkalmazható.
+        let schoolEventsRaw: String? = {
+            guard let raw = data["schoolEvents"] as? String,
+                  raw.count <= maxSchoolEventsChars else { return nil }
+            return raw
+        }()
+        let schoolEventsShow = data["schoolEventsShow"] as? Bool
         return Payload(updatedAt: isoPlain.string(from: date), updatedAtDate: date,
                        theme: theme, accentHex: accent, sizeKey: sizeKey,
                        photoRaw: photoRaw, photo: photo, photoDecodeFailed: photoDecodeFailed,
@@ -484,6 +525,7 @@ final class SummitSync: ObservableObject {
                        completedEx: completedEx, completedExRaw: completedExRaw,
                        notifyGrades: notifyGrades, notifyTasks: notifyTasks,
                        notifyAbsences: notifyAbsences, liveActivity: liveActivity,
+                       schoolEventsRaw: schoolEventsRaw, schoolEventsShow: schoolEventsShow,
                        fieldDates: fieldDates)
     }
 
@@ -557,6 +599,11 @@ final class SummitSync: ObservableObject {
               let completedEx = decodeStringArray(completedExRaw, maxChars: 12_000, maxCount: 256),
               let notifyGrades = b("notifyGrades"), let notifyTasks = b("notifyTasks"),
               let notifyAbsences = b("notifyAbsences"), let liveActivity = b("liveActivity") else { return nil }
+        // REST-út: ugyanaz az opcionális szemantika, mint a snapshotnál.
+        let schoolEventsRaw: String? = {
+            guard let raw = s("schoolEvents"), raw.count <= maxSchoolEventsChars else { return nil }
+            return raw
+        }()
         return Payload(updatedAt: updatedAt, updatedAtDate: updatedAtDate,
                        theme: theme, accentHex: accent, sizeKey: sizeKey,
                        photoRaw: photoRaw, photo: photo, photoDecodeFailed: photoDecodeFailed,
@@ -566,6 +613,7 @@ final class SummitSync: ObservableObject {
                        completedEx: completedEx, completedExRaw: completedExRaw,
                        notifyGrades: notifyGrades, notifyTasks: notifyTasks,
                        notifyAbsences: notifyAbsences, liveActivity: liveActivity,
+                       schoolEventsRaw: schoolEventsRaw, schoolEventsShow: b("schoolEventsShow"),
                        fieldDates: fieldDates)
     }
 
@@ -634,6 +682,17 @@ final class SummitSync: ObservableObject {
             SummitLiveActivityManager.shared.setAppEnabled(p.liveActivity)
             applied.append(.liveActivity)
         }
+        // Iskolai események: `nil` nyers mező = régi doc, a helyi marad.
+        // Üres string = tudatos törlés. Sérült JSON-nál a helyi marad.
+        if newer(.schoolEvents), let raw = p.schoolEventsRaw,
+           let events = SchoolEventsStore.decodeSync(raw) {
+            SchoolEventsStore.replaceAll(events, sourceName: nil)
+            applied.append(.schoolEvents)
+        }
+        if newer(.schoolEventsShow), let show = p.schoolEventsShow {
+            SchoolEventsStore.setVisible(show)
+            applied.append(.schoolEventsShow)
+        }
         guard !applied.isEmpty else { return false }
         for f in applied {
             // A fenti mentések (fotó, kerekítés, felmentés) dirty-értesítést
@@ -679,6 +738,9 @@ final class SummitSync: ObservableObject {
             (ExemptedStore.changedNotification, [.exempted]),
             (CompletedStore.changedNotification, [.completedHw, .completedEx]),
             (ProfileImageStore.changedNotification, [.photo]),
+            // A kapcsolgatást (`schoolEventsShow`) a Beállítások jelöli
+            // expliciten — különben minden kapcsolás újra feltöltené a blobot.
+            (SchoolEventsStore.changedNotification, [.schoolEvents]),
         ]
         for (name, fields) in map {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in

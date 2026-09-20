@@ -7,6 +7,7 @@ https://github.com/csabagabor21/Summit
 ## Funkciók
 - Valós idejű jegyek, átlagok, súlyozás, tanári kerekítés per-tárgy
 - Órarend, házi feladatok, dolgozatok, hiányzások, üzenetek
+- Iskolai események (tannaptár ICS-importtal, eszközök között szinkronizálva, az órarend tetején 0. óraként)
 - Élő órakártya TimelineView-val, következő óra + rögzített dolgozat/házi
 - Helyi értesítések új jegyekről, házikról, dolgozatokról, hiányzásokról (polling-alapú diff — a KRÉTA-nak nincs push API-ja; demo módban tesztgombokkal)
 - Profilkép per-felhasználó (fotókönyvtár, 512px, Documents tárolás)

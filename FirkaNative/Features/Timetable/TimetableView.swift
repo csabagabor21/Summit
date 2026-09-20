@@ -25,6 +25,10 @@ struct TimetableView: View {
     @State private var flashPulse = false
     @State private var scrollProxy: ScrollViewProxy?
     @State private var exemptedTick = 0
+    // Iskolai események (tannaptár): a Beállításokban importált ICS,
+    // SummitSync-kel jön át a többi eszközről is.
+    @State private var schoolEvents: [SchoolEvent] = SchoolEventsStore.load()
+    @AppStorage("schoolevents.show.v1") private var schoolEventsVisible = true
     private let switchToTimetable = Notification.Name("summit.switchToTimetable")
     @Environment(\.colorScheme) var scheme
     @Environment(\.horizontalSizeClass) private var hSize
@@ -300,6 +304,16 @@ struct TimetableView: View {
                         }
                     }
                 } else if filtered.isEmpty {
+                    // Óra nélküli napon is látszik a tannaptár (pl. tanítás
+                    // nélküli munkanap programja) — az üres-állapot alatta marad.
+                    if !dayEvents.isEmpty {
+                        Section {
+                            schoolEventCards
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 12))
+                        }
+                    }
                     Section {
                         ContentUnavailableView("Nincs óra", systemImage: "moon.zzz.fill", description: Text("Pihenőnap — nincs rögzített óra erre a napra."))
                             .frame(maxWidth: .infinity, minHeight: 220)
@@ -348,8 +362,16 @@ struct TimetableView: View {
                     // MARK: Timeline — liquid glass körök + spine (egy list row)
                     // GlassEffectContainer nélkül: a konténer az üveg-passzt a számok
                     // fölé rántaná, a számok szellemként látszanának az üveg mögött.
+                    // Az iskolai események 0. óraként, full-width kártyákon
+                    // állnak a timeline fölött (számozott kör nélkül).
                     Section {
-                        VStack(spacing: 0) { timelineContent }
+                        VStack(spacing: 0) {
+                            if !dayEvents.isEmpty {
+                                schoolEventCards
+                                .padding(.bottom, 10)
+                            }
+                            timelineContent
+                        }
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 12))
@@ -412,6 +434,8 @@ struct TimetableView: View {
             }
             .onAppear {
                 scrollProxy = proxy
+                // Másik eszközről szinkronizált tannaptár is itt érkezik meg.
+                schoolEvents = SchoolEventsStore.load()
                 // Órarend tabra koppintáskor: ha az utolsó mai óra már lement
                 // vagy hétvége van, a következő tanítási napot mutassa —
                 // DE csak ha a user nem lapozott kézzel máshova.
@@ -425,6 +449,7 @@ struct TimetableView: View {
             // Két író (Home + Timetable eltérő nap locked lessons-szel) egymást ütötte:
             // csúszkánál az egyik indított, a másik endAll-ozott → villogó/blank Island.
             .onReceive(NotificationCenter.default.publisher(for: ExemptedStore.changedNotification)) { _ in exemptedTick += 1 }
+            .onReceive(NotificationCenter.default.publisher(for: SchoolEventsStore.changedNotification)) { _ in schoolEvents = SchoolEventsStore.load() }
             .id(exemptedTick)
             .onReceive(NotificationCenter.default.publisher(for: switchToTimetable)) { notif in
                 guard let info = notif.userInfo,
@@ -527,6 +552,18 @@ struct TimetableView: View {
         }
     }
 
+    /// 0. óra-sáv: full-width eseménykártyák (a számozott kör sávját
+    /// is kitöltik — ott kezdődnek, ahol a kör, és ott végződnek, ahol
+    /// az órakártya).
+    @ViewBuilder
+    private var schoolEventCards: some View {
+        VStack(spacing: 8) {
+            ForEach(dayEvents) { event in
+                SchoolEventCard(event: event, colors: colors, scheme: scheme)
+            }
+        }
+    }
+
     private func dayLabel(for tag: Int) -> String {
         guard let i = dayTags.firstIndex(of: tag) else { return "" }
         return days[i]
@@ -537,9 +574,19 @@ struct TimetableView: View {
         // Nap-pontos szűrés (nem csak hétköznap): ha a lessons-ben két hét anyaga
         // vagy duplikált KRÉTA-sorok vannak, a hétfő nem duplázódhat 14-re.
         let cal = Calendar.current
-        guard let dayIdx = dayTags.firstIndex(of: selectedDay),
-              let dayDate = cal.date(byAdding: .day, value: dayIdx, to: currentMonday) else { return [] }
+        guard let dayDate = selectedDate else { return [] }
         return lessons.filter { cal.isDate($0.start, inSameDayAs: dayDate) }.sorted { $0.start < $1.start }
+    }
+    /// A kiválasztott nap dátuma (az eseménykártyák nap-szűréséhez is).
+    private var selectedDate: Date? {
+        let cal = Calendar.current
+        guard let dayIdx = dayTags.firstIndex(of: selectedDay) else { return nil }
+        return cal.date(byAdding: .day, value: dayIdx, to: currentMonday)
+    }
+    /// Az adott nap iskolai eseményei — 0. óraként, full-width kártyákon.
+    private var dayEvents: [SchoolEvent] {
+        guard schoolEventsVisible, let d = selectedDate else { return [] }
+        return SchoolEventsStore.events(on: d, from: schoolEvents)
     }
     /// KRÉTA néha ugyanazt az órát kétszer adja (pl. csoportbontás) — tárgy+időpont kulccsal irtjuk.
     private func deduped(_ items: [LessonItem]) -> [LessonItem] {
@@ -623,6 +670,49 @@ struct TimetableView: View {
         lessons = deduped(ttR)
         homeworks = hwR
         exams = exR
+    }
+}
+
+// MARK: - 0. óra — full-width iskolai esemény (számozott kör nélkül)
+private struct SchoolEventCard: View {
+    let event: SchoolEvent
+    let colors: AppColors
+    let scheme: ColorScheme
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "calendar.badge.clock")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(colors.accent)
+                .padding(.top, 3)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("ISKOLAI ESEMÉNY")
+                    .font(.caption2.weight(.bold))
+                    .tracking(0.6)
+                    .foregroundStyle(.secondary)
+                Text(event.title)
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if !event.subtitle.isEmpty {
+                    Text(event.subtitle)
+                        .font(.caption.weight(.medium).monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            Spacer(minLength: 8)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(colors.accent.opacity(scheme == .dark ? 0.14 : 0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(colors.accent.opacity(scheme == .dark ? 0.30 : 0.22), lineWidth: 1)
+                )
+                .shadow(color: colors.shadow.opacity(scheme == .dark ? 0.20 : 0.06), radius: 8, y: 3)
+        )
     }
 }
 

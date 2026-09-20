@@ -62,7 +62,7 @@ Firestore-collection, Blaze-mentes). Kivétel csak az alábbi listán szerepelhe
 minden más szinkronizálandó:
 - Szinkronizálandó minta: téma, kiemelőszín, szövegméret, profilkép,
   tanári kerekítés, felmentések, házi/dolgozat pipák, értesítési kapcsolók,
-  Live Activity kapcsoló.
+  Live Activity kapcsoló, iskolai események (+ mutatás-kapcsoló).
 - SOHA nem szinkronizálunk: hozzájárulás/analitika (`AnalyticsStore`,
   install-ID), belépési adatok (tokenek, `StoredUsers`, fiók-ID),
   fejlesztői/teszt flagok (`developer.enabled`, demo-preview),

@@ -105,6 +105,10 @@ struct SettingsView: View {
                 summitRow { LiveActivitySettingsRow() }
             }
 
+            summitIsland(header: "Iskolai események", footer: "Egyszer kell importálni (.ics) — utána a beállítás-szinkron viszi a többi eszközödre is. Az órarend tetején, 0. óraként jelennek meg.") {
+                summitRow { SchoolEventsSection() }
+            }
+
             summitIsland(header: "Értesítések", footer: "A KRÉTA nem küld push-t, ezért az app minden adatfrissítéskor (megnyitás, lehúzás, háttér-ébresztés) megnézi, mi az új, és arra küld helyi értesítést.") {
                 summitRow {
                     Toggle(isOn: $notifyGrades) {
@@ -297,7 +301,7 @@ struct SettingsView: View {
             }
 
             // Adatvédelem — a lista legeslegalján.
-            summitIsland(header: "Adatvédelem", footer: "Statisztika: csak az iskola nevét, egy véletlen telepítés-azonosítót, a verziót és a napot küldi — napi max egyszer. Szinkron (külön kapcsoló): jelmondattal védett lenyomat alatt témát, színt, szövegméretet, kerekítést, felmentéseket, pipákat, értesítési kapcsolókat és profilképet tárol az eszközeid között. Név, jelszó, jegy, hely, eszköz-ID sosem.") {
+            summitIsland(header: "Adatvédelem", footer: "Statisztika: csak az iskola nevét, egy véletlen telepítés-azonosítót, a verziót és a napot küldi — napi max egyszer. Szinkron (külön kapcsoló): jelmondattal védett lenyomat alatt témát, színt, szövegméretet, kerekítést, felmentéseket, pipákat, értesítési kapcsolókat, profilképet és iskolai eseményeket tárol az eszközeid között. Név, jelszó, jegy, hely, eszköz-ID sosem.") {
                 summitRow {
                     Toggle(isOn: Binding(
                         get: { analytics.isEnabled },
