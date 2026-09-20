@@ -1,5 +1,12 @@
 # Summit release notes
 
+## Build 16
+- New timetable widget for the Home Screen (small, medium, large, plus Lock Screen): it always shows the current or next lesson, steps forward on its own when a lesson ends, and the medium list starts at the current lesson instead of the first one.
+- New school events calendar: add your school's calendar once — a share link (Google Calendar links work too), pasted text, raw ICS or an .ics file — and it syncs to all your devices, appearing above the timetable as full-width cards.
+- Homework and exam pills now show the lesson number they belong to.
+- The default theme now follows the system instead of forcing dark.
+- The profile photo cropper's buttons no longer slide under the notch.
+
 ## Build 15
 - Locked-phone lesson flips finally work end to end: the day plan actually reaches the server now, so the next lesson lands on your Lock Screen on its own — app closed, phone in your pocket.
 - Diagnostics stopped hiding the problem: the push row shows how long the channel is and how it ends, and says outright when it can't be used — a perfectly good channel can no longer look like a missing one.
