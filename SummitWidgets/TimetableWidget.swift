@@ -212,11 +212,19 @@ private struct TimetableWidgetView: View {
             if entry.dayLessons.isEmpty {
                 emptyView.padding(.top, 4)
             } else {
-                ForEach(entry.dayLessons.prefix(maxRows), id: \.id) { l in
+                // Ablakos lista: legfelül a tartó (vagy a következő) óra,
+                // alatta a rákövetkezők — az 5. óra alatt az 5–6–7. látszik.
+                let vis = TimetableWidgetLogic.window(lessons: entry.dayLessons, now: now, maxRows: maxRows)
+                if vis.earlier > 0 {
+                    Text("↑ \(vis.earlier) korábbi óra")
+                        .font(.caption).foregroundStyle(.tertiary)
+                        .padding(.bottom, 2)
+                }
+                ForEach(vis.rows, id: \.id) { l in
                     row(l)
                 }
-                if entry.dayLessons.count > maxRows {
-                    Text("+\(entry.dayLessons.count - maxRows) további óra")
+                if vis.later > 0 {
+                    Text("+\(vis.later) további óra")
                         .font(.caption).foregroundStyle(.tertiary)
                         .padding(.top, 4)
                 }
