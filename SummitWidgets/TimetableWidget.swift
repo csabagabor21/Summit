@@ -38,17 +38,50 @@ struct TimetableWidgetProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (TimetableWidgetEntry) -> Void) {
-        completion(makeEntry(preview: context.isPreview))
+        completion(makeEntry(at: Date(), preview: context.isPreview))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TimetableWidgetEntry>) -> Void) {
-        let entry = makeEntry(preview: false)
-        let refresh = Self.nextRefresh(now: entry.date, effectiveNow: entry.effectiveNow, lessons: entry.dayLessons)
-        completion(Timeline(entries: [entry], policy: .after(refresh)))
+        let now = Date()
+        guard let snap = TimetableWidgetStore.load(), !snap.lessons.isEmpty, !snap.previewActive else {
+            // Nincs adat vagy dev idő-csúszka: egy belépő + rendszer-frissítés.
+            let entry = makeEntry(at: now, preview: false)
+            let refresh = Self.nextRefresh(now: now, effectiveNow: entry.effectiveNow, lessons: entry.dayLessons)
+            completion(Timeline(entries: [entry], policy: .after(refresh)))
+            return
+        }
+        let cal = Calendar.current
+        let todays = snap.lessons.filter { cal.isDate($0.start, inSameDayAs: now) }.sorted { $0.start < $1.start }
+        // Előre számolt belépők minden hátra lévő órahatárra: a widget
+        // magától továbbmegy (pl. a 3. óra végén a 4.-re / "Mára vége"-re),
+        // késleltetett rendszer-újratöltés mellett is — egy határ már nem
+        // egy budgeted reloadba kerül.
+        var moments = Set<Date>()
+        for l in todays {
+            if l.start > now { moments.insert(l.start) }
+            if l.end > now { moments.insert(l.end) }
+        }
+        // Élő visszaszámlálás: a tartó / következő óra végéig 5 percenként.
+        if let anchor = todays.first(where: { $0.end > now }) {
+            var t = now.addingTimeInterval(5 * 60)
+            while t < anchor.end, moments.count < 60 {
+                moments.insert(t)
+                t = t.addingTimeInterval(5 * 60)
+            }
+        }
+        guard !moments.isEmpty else {
+            // Ma már nincs hátra határ (pl. este): egy belépő + éjszakai újratöltés.
+            let entry = makeEntry(at: now, preview: false)
+            let refresh = Self.nextRefresh(now: now, effectiveNow: entry.effectiveNow, lessons: entry.dayLessons)
+            completion(Timeline(entries: [entry], policy: .after(refresh)))
+            return
+        }
+        let dates = [now] + Array(moments.sorted().prefix(60))
+        completion(Timeline(entries: dates.map { makeEntry(at: $0, preview: false) }, policy: .atEnd))
     }
 
-    private func makeEntry(preview: Bool) -> TimetableWidgetEntry {
-        let now = Date()
+    private func makeEntry(at date: Date, preview: Bool) -> TimetableWidgetEntry {
+        let now = date
         guard let snap = TimetableWidgetStore.load(), !snap.lessons.isEmpty else {
             return TimetableWidgetEntry(
                 date: now, effectiveNow: now, dayLessons: preview ? Self.sampleLessons() : [],
