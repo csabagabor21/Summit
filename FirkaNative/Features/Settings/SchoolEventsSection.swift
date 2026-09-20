@@ -53,7 +53,7 @@ struct SchoolEventsSection: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Linkből").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 HStack {
-                    TextField("https://… .ics link", text: $linkText)
+                    TextField("Naptár-link (Google-megosztás is jó)", text: $linkText)
                         .font(.subheadline.monospaced())
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -165,12 +165,11 @@ struct SchoolEventsSection: View {
         if linkText.isEmpty { linkText = savedLink ?? "" }
     }
 
-    /// Linkről lehúzott ICS — letölteni nem kell, az app intézi.
+    /// Linkről lehúzott naptár — Google-megosztólinkből (`?cid=`) és
+    /// `webcal://`-ból is közvetlen ICS-címet csinál, letölteni nem kell.
     private func download(_ raw: String) async {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: trimmed),
-              ["http", "https"].contains(url.scheme?.lowercased() ?? "") else {
-            message = "Ez nem tűnik webcímnek (http/https kell)."
+        guard let url = SchoolEventsStore.directDownloadURL(fromLink: raw) else {
+            message = "Ez nem tűnik naptár-linknek (webcím, Google-megosztólink vagy webcal kell)."
             return
         }
         downloading = true
@@ -190,7 +189,8 @@ struct SchoolEventsSection: View {
                 return
             }
             SchoolEventsStore.replaceAll(parsed, sourceName: url.host ?? "link")
-            SchoolEventsStore.saveURL(trimmed)
+            // Az eredeti (megosztó)linket mentjük — a frissítés újrafeloldja.
+            SchoolEventsStore.saveURL(raw.trimmingCharacters(in: .whitespacesAndNewlines))
             refresh()
             message = syncedMessage("\(parsed.count) esemény letöltve linkről")
         } catch {

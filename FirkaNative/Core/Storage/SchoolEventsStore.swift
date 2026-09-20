@@ -110,6 +110,53 @@ enum SchoolEventsStore {
         return SchoolEventsText.parse(text, now: now)
     }
 
+    /// Linkből közvetlen letöltési cím: `webcal://` → https, Google
+    /// Naptár-megosztólink (`calendar.google.com?...cid=`) → nyilvános
+    /// ICS (`.../public/basic.ics`), sima http(s) változatlanul.
+    /// `nil` = ebből nem lesz letöltés.
+    static func directDownloadURL(fromLink raw: String) -> URL? {
+        var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if s.lowercased().hasPrefix("webcal://") {
+            s = "https://" + s.dropFirst("webcal://".count)
+        }
+        guard let url = URL(string: s),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https" else { return nil }
+        if let host = url.host?.lowercased(), host.contains("calendar.google.com"),
+           let ical = googleICalURL(from: url) {
+            return ical
+        }
+        return url
+    }
+
+    /// Google-megosztólink `cid`-jéből nyilvános ICS-cím. A `cid` többnyire
+    /// base64-kódolt naptár-azonosító (`xxx@group.calendar.google.com`).
+    private static func googleICalURL(from url: URL) -> URL? {
+        guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let cid = comps.queryItems?.first(where: { $0.name == "cid" })?.value,
+              !cid.isEmpty else { return nil }
+        var calID = cid
+        if let data = base64Loose(cid),
+           let s = String(data: data, encoding: .utf8), s.contains("@") {
+            calID = s
+        }
+        // Az azonosító mehet az útvonalba — a fenntartott karaktereket
+        // (`@` is) százalék-kódolva, ahogy a Google dokumentálja.
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "-._~")
+        guard let enc = calID.addingPercentEncoding(withAllowedCharacters: allowed) else { return nil }
+        return URL(string: "https://calendar.google.com/calendar/ical/\(enc)/public/basic.ics")
+    }
+
+    /// base64, a webes (url-biztos) variánst és a hiányzó paddingot is tűrve.
+    private static func base64Loose(_ s: String) -> Data? {
+        var b = s.replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        while b.count % 4 != 0 { b += "=" }
+        return Data(base64Encoded: b)
+    }
+
     /// Üres string = tudatos törlés (`[]`); érvénytelen JSON = nil (a helyi marad).
     static func decodeSync(_ s: String) -> [SchoolEvent]? {
         if s.isEmpty { return [] }
