@@ -108,12 +108,14 @@ struct ProfileCropView: View {
                         .foregroundStyle(.white)
                     }
                     .padding(.horizontal, 20)
-                    .padding(.top, 12)
+                    // fullScreenCover a notch / óra alá is benyúlik —
+                    // enélkül a Mégse/Kész gombok a státuszsáv alá szorulnak.
+                    .padding(.top, geo.safeAreaInsets.top + 12)
                     Spacer()
                     Text("Húzd és csippentsd a megfelelő részlethez")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.white.opacity(0.75))
-                        .padding(.bottom, 24)
+                        .padding(.bottom, geo.safeAreaInsets.bottom + 24)
                 }
             }
         }

@@ -24,7 +24,7 @@ enum AppThemeMode: String, CaseIterable, Identifiable {
 
 @MainActor
 final class ThemeStore: ObservableObject {
-    @AppStorage("theme.mode") var modeRaw: String = AppThemeMode.dark.rawValue {
+    @AppStorage("theme.mode") var modeRaw: String = AppThemeMode.system.rawValue {
         didSet { objectWillChange.send() }
     }
     @AppStorage("theme.accentHex") var accentHex: Int = 0x4A90E2 {
@@ -66,7 +66,7 @@ final class ThemeStore: ObservableObject {
     }
 
     var mode: AppThemeMode {
-        get { AppThemeMode(rawValue: modeRaw) ?? .dark }
+        get { AppThemeMode(rawValue: modeRaw) ?? .system }
         set { modeRaw = newValue.rawValue }
     }
     var accent: Color { Color(hex: UInt(accentHex)) }
