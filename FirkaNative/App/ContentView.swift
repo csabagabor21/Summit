@@ -4,7 +4,6 @@ struct ContentView: View {
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var theme: ThemeStore
     @EnvironmentObject var analytics: AnalyticsStore
-    @AppStorage("onboarding.seen.v1") private var onboardingSeen = false
 
     var body: some View {
         Group {
@@ -31,9 +30,6 @@ struct ContentView: View {
                         AnalyticsConsentView()
                             .environmentObject(analytics)
                     }
-            } else if !onboardingSeen {
-                OnboardingView()
-                    .transition(.opacity)
             } else {
                 LoginView()
                     .transition(.opacity)

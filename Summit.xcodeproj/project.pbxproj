@@ -24,7 +24,7 @@
 		39C60F238B9CE1643D4D00FB /* ExemptedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 326A7165235AF080CF90FB8D /* ExemptedStore.swift */; };
 		3DD981EF753741F402A6F479 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0BD3D0BD4C28044F95ED458 /* HomeView.swift */; };
 		3E46C09489740EF31AAF0E51 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CE0368F13109AD5B0C8D790 /* LoginView.swift */; };
-		7A1B2C3D4E5F60718293A4B61 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F60718293A4B60 /* OnboardingView.swift */; };
+		8B2C3D4E5F60718293A4B71 /* SettingsTour.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B2C3D4E5F60718293A4B70 /* SettingsTour.swift */; };
 		42F61C8AFE8009002E272540 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22EE35060AC05385D57607A4 /* SettingsView.swift */; };
 		4307013EF2822F600C935AB2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B418024E2E5AE953F6E3E66 /* ContentView.swift */; };
 		48330717AF388A44702AC30C /* TeacherRoundingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCD612738202004C2155D62E /* TeacherRoundingView.swift */; };
@@ -154,7 +154,7 @@
 		74E818A1B6A970A1BB821FA5 /* GradeCelebrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCelebrationView.swift; sourceTree = "<group>"; };
 		78B42AF416D1AF896EB02267 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		7CE0368F13109AD5B0C8D790 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
-		7A1B2C3D4E5F60718293A4B60 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		8B2C3D4E5F60718293A4B70 /* SettingsTour.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTour.swift; sourceTree = "<group>"; };
 		8039D6CB6607F635046C9DF5 /* SummitLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityWidget.swift; sourceTree = "<group>"; };
 		83B9022E76AD6AB32842452B /* FilterBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBarView.swift; sourceTree = "<group>"; };
 		87CB81576E6649048EBD2FCA /* SummitSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitSync.swift; sourceTree = "<group>"; };
@@ -207,7 +207,6 @@
 				4CC0B40D99CA71E14A82E1AF /* AuthViewModel.swift */,
 				66A280F65EA8973C9BD6A643 /* KretaWebView.swift */,
 				7CE0368F13109AD5B0C8D790 /* LoginView.swift */,
-				7A1B2C3D4E5F60718293A4B60 /* OnboardingView.swift */,
 			);
 			path = Auth;
 			sourceTree = "<group>";
@@ -220,6 +219,7 @@
 				EF1C976816869424CEBF8461 /* ProfileCropView.swift */,
 				0F5EC6EB282C3C33E5FB6F00 /* RoundingDetailView.swift */,
 				AA71684B6DF0CFB5982A110F /* SchoolEventsSection.swift */,
+				8B2C3D4E5F60718293A4B70 /* SettingsTour.swift */,
 				22EE35060AC05385D57607A4 /* SettingsView.swift */,
 				FCD612738202004C2155D62E /* TeacherRoundingView.swift */,
 			);
@@ -630,8 +630,8 @@
 				2DD85531BC25CEBDE94C9DEC /* LiveActivityBackgroundRefresh.swift in Sources */,
 				DF031CE0F1D65920D1D003E7 /* LiveCardView.swift in Sources */,
 				3E46C09489740EF31AAF0E51 /* LoginView.swift in Sources */,
-				7A1B2C3D4E5F60718293A4B61 /* OnboardingView.swift in Sources */,
 				BFD4B5425FC95BBEC6575868 /* MainTabView.swift in Sources */,
+				8B2C3D4E5F60718293A4B71 /* SettingsTour.swift in Sources */,
 				51445194496F9216C84299A8 /* MessagesView.swift in Sources */,
 				8C6140AB017826BDF110FABD /* NotesView.swift in Sources */,
 				C0193DFFC067EF63923C0A7E /* NotificationManager.swift in Sources */,

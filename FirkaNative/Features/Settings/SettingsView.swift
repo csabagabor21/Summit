@@ -33,9 +33,18 @@ struct SettingsView: View {
     @State private var summitSyncPassphrase = ""
     @State private var summitSyncBusy = false
     @State private var scrollOffset: CGFloat = 0 // parallax háttérhez (onScrollGeometryChange)
+    @AppStorage("tour.settings.seen.v1") private var tourSeen = false
+    @State private var tourStep: Int?
     var colors: AppColors { theme.colors(for: scheme) }
 
+    /// Az épp magyarázott sziget-e a túra fókusza.
+    private func tourIs(_ anchor: SettingsTour.Anchor) -> Bool {
+        guard let i = tourStep, SettingsTour.steps.indices.contains(i) else { return false }
+        return SettingsTour.steps[i].anchor == anchor
+    }
+
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             // Közös glass-konténer: az egy- és többsoros szigetek üvege
             // ugyanabban a mintavételi térben renderelődik, így az átlátszóság
@@ -69,6 +78,8 @@ struct SettingsView: View {
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .summitGlassRow(cornerRadius: 20)
+            .id(AnyHashable(SettingsTour.Anchor.profile))
+            .tourHighlight(active: tourIs(.profile), accent: colors.accent)
             .confirmationDialog("Profilkép", isPresented: $showPhotoOptions, titleVisibility: .visible) {
                 // PhotosPicker is already in row; dialog for remove
                 // (a törlés SummitSync-értesítést postol → a `photo` mező
@@ -81,7 +92,7 @@ struct SettingsView: View {
                 Button("Mégse", role: .cancel) {}
                 } message: { Text("Új kép a Módosítással, vagy töröld a jelenlegit.") }
 
-            summitIsland(header: "Tanári kerekítés", footer: "Tantárgyanként külön állítható.") {
+            summitIsland(header: "Tanári kerekítés", footer: "Tantárgyanként külön állítható.", tour: .rounding, tourActive: tourIs(.rounding)) {
                 summitRow {
                     NavigationLink { TeacherRoundingView() } label: {
                         HStack {
@@ -101,15 +112,15 @@ struct SettingsView: View {
                 }
             }
 
-            summitIsland(header: "Live Activity", footer: "Lock Screen + Dynamic Island.") {
+            summitIsland(header: "Live Activity", footer: "Lock Screen + Dynamic Island.", tour: .live, tourActive: tourIs(.live)) {
                 summitRow { LiveActivitySettingsRow() }
             }
 
-            summitIsland(header: "Iskolai események", footer: "0. óraként az órarend tetején. A kézi beállításod sosem íródik felül.") {
+            summitIsland(header: "Iskolai események", footer: "0. óraként az órarend tetején. A kézi beállításod sosem íródik felül.", tour: .events, tourActive: tourIs(.events)) {
                 summitRow { SchoolEventsSection() }
             }
 
-            summitIsland(header: "Értesítések", footer: "Helyi értesítés adatfrissítéskor — a KRÉTA nem küld push-t.") {
+            summitIsland(header: "Értesítések", footer: "Helyi értesítés adatfrissítéskor — a KRÉTA nem küld push-t.", tour: .notifications, tourActive: tourIs(.notifications)) {
                 summitRow {
                     Toggle(isOn: $notifyGrades) {
                         Label("Új jegy", systemImage: "star.fill").font(.subheadline.weight(.medium))
@@ -146,7 +157,7 @@ struct SettingsView: View {
                 // Fejlesztői módban élnek — Beállítások alján feloldható.
             }
 
-            summitIsland(header: "Megjelenés") {
+            summitIsland(header: "Megjelenés", tour: .appearance, tourActive: tourIs(.appearance)) {
                 summitRow {
                     Picker("Téma", selection: Binding(get: { theme.mode }, set: { theme.mode = $0 })) {
                         ForEach(AppThemeMode.allCases) { m in
@@ -196,7 +207,7 @@ struct SettingsView: View {
                 }
             }
 
-            summitIsland(header: "Fiók") {
+            summitIsland(header: "Fiók", tour: .account, tourActive: tourIs(.account)) {
                 summitRow {
                     Button("Kijelentkezés", role: .destructive) { session.logout() }
                 }
@@ -267,7 +278,7 @@ struct SettingsView: View {
                 }
             }
 
-            summitIsland(header: "Diagnosztika") {
+            summitIsland(header: "Diagnosztika", tour: .diagnostics, tourActive: tourIs(.diagnostics)) {
                 summitRow {
                     NavigationLink { DiagnosticsView() } label: {
                         HStack {
@@ -303,7 +314,7 @@ struct SettingsView: View {
             }
 
             // Adatvédelem — a lista legeslegalján.
-            summitIsland(header: "Adatvédelem", footer: "Névtelen statisztika + jelmondattal védett szinkron. Név, jegy, jelszó sosem megy fel.") {
+            summitIsland(header: "Adatvédelem", footer: "Névtelen statisztika + jelmondattal védett szinkron. Név, jegy, jelszó sosem megy fel.", tour: .sync, tourActive: tourIs(.sync)) {
                 summitRow {
                     Toggle(isOn: Binding(
                         get: { analytics.isEnabled },
@@ -348,12 +359,28 @@ struct SettingsView: View {
         .navigationTitle("Beállítások")
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { startTour() } label: {
+                    Image(systemName: "questionmark.circle")
+                }
+                .accessibilityLabel("Beállítások túra")
+            }
+        }
         .task { await loadSubjects() }
         .refreshable { await loadSubjects(force: true) }
         .onAppear {
             thresholds = GradingLogic.loadThresholds()
             if draftIss.isEmpty { draftIss = session.selectedUser?.instituteCode ?? "" }
             if draftSchoolName.isEmpty { draftSchoolName = session.selectedUser?.schoolNameOverride ?? "" }
+            // Első megnyitáskor magától indul a túra — utána csak a ? gombról.
+            if !tourSeen, tourStep == nil {
+                Task {
+                    try? await Task.sleep(nanoseconds: 800_000_000)
+                    guard !tourSeen else { return }
+                    tourStep = 0
+                }
+            }
         }
         .alert("Fejlesztői mód bekapcsolva", isPresented: $showDevAlert) {
             Button("OK", role: .cancel) {}
@@ -369,6 +396,23 @@ struct SettingsView: View {
         .onChange(of: theme.mode) { _, _ in summitSync.markDirty(.theme) }
         .onChange(of: theme.accentHex) { _, _ in summitSync.markDirty(.accentHex) }
         .onChange(of: theme.sizeCategoryKey) { _, _ in summitSync.markDirty(.sizeKey) }
+        .onChange(of: tourStep) { _, new in
+            guard let n = new, SettingsTour.steps.indices.contains(n) else { return }
+            withAnimation(SummitMotion.gentle) {
+                proxy.scrollTo(AnyHashable(SettingsTour.steps[n].anchor), anchor: .center)
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            SettingsTourCard(step: $tourStep, accent: colors.accent) {
+                tourSeen = true
+            }
+        }
+        } // ScrollViewReader
+    }
+
+    /// Túra indítása a ? gombról — a `seen` flaget nem bántja.
+    private func startTour() {
+        tourStep = 0
     }
 
     /// Fejlesztői mód feloldása: 10 tap a "Summit • Gábor Csaba" láblécre
@@ -394,7 +438,8 @@ struct SettingsView: View {
     /// Üveg sziget-szekció: fejléc + egybefüggő liquid glass kártya + lábléc —
     /// mint az insetGrouped lista, csak az EGÉSZ sziget egy üveg,
     /// nem soronkénti csíkok. Mögötte átlátszik a SummitBackdrop.
-    private func summitIsland<Content: View>(header: String? = nil, footer: String? = nil, @ViewBuilder content: () -> Content) -> some View {
+    /// `tour` horgonnyal a Beállítások-túra tud rágörgetni és highlightolni.
+    private func summitIsland<Content: View>(header: String? = nil, footer: String? = nil, tour anchor: SettingsTour.Anchor? = nil, tourActive: Bool = false, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             if let header {
                 Text(header).font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
@@ -409,6 +454,8 @@ struct SettingsView: View {
                     .padding(.horizontal, 4)
             }
         }
+        .id(anchor.map(AnyHashable.init))
+        .tourHighlight(active: tourActive, accent: colors.accent)
     }
 
     /// Egykoppintásos institut-javítás a beragadt (rövid kódos) userhez:
