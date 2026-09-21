@@ -44,7 +44,7 @@ struct SchoolEventsSection: View {
             }
 
             if events.isEmpty {
-                Text("Még nincs tannaptár — linkből, beillesztett szövegből vagy .ics fájlból viheted be (pl. a suli honlapjáról kimásolva).")
+                Text("Még nincs tannaptár — linkből, szövegből vagy .ics fájlból.")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
@@ -70,11 +70,11 @@ struct SchoolEventsSection: View {
                         .disabled(adminBusy || downloading)
                     }
                     if savedLink == admin.calendarURL {
-                        Text("Ezt használod. Ha alább más linket adsz meg, az lesz a saját felülírásod.")
+                        Text("Ezt használod.")
                             .font(.caption2).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     } else if !events.isEmpty {
-                        Text("Van saját beállításod — az marad; csak ha kéred, töltjük le az iskola naptárát.")
+                        Text("Saját beállításod van — az marad.")
                             .font(.caption2).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -84,12 +84,13 @@ struct SchoolEventsSection: View {
             // 1) Link: a suli naptárjának webcíme (suli honlap, Google Naptár
             // nyilvános ICS-linkje) — letölteni nem kell, az app lehúzza.
             VStack(alignment: .leading, spacing: 6) {
-                Text("Linkből (saját felülírás)").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Text("Linkből").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 HStack {
-                    TextField("Naptár-link (Google-megosztás is jó)", text: $linkText)
-                        .font(.subheadline.monospaced())
+                    TextField("Naptár-link beillesztése", text: $linkText)
+                        .font(.subheadline)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .summitInput()
                         .disabled(downloading)
                     Button(downloading ? "…" : "Letöltés") {
                         Task { await download(linkText) }
@@ -111,10 +112,12 @@ struct SchoolEventsSection: View {
                 Text("Szövegből").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 if showPaste {
                     TextEditor(text: $pastedText)
-                        .font(.subheadline.monospaced())
+                        .font(.subheadline)
                         .frame(minHeight: 110, maxHeight: 200)
-                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.12)))
-                    Text("Soronként: dátum + cím. Pl.\n2026.09.01. Tanévnyitó 8:00\nokt 26-28. Őszi szünet\nNyers ICS-tartalom is mehet egyben.")
+                        .padding(6)
+                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
+                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.22)))
+                    Text("Soronként: dátum + cím. Nyers ICS is mehet.")
                         .font(.caption2).foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 16) {
@@ -274,9 +277,9 @@ struct SchoolEventsSection: View {
 
     private func syncedMessage(_ base: String) -> String {
         if summitSync.isEnabled {
-            return base + " — szinkronizálódik a többi eszközre."
+            return base + " — szinkronizálva a többi eszközre."
         } else {
-            return base + " ezen az eszközön. Ha bekapcsolod a szinkront, átmegy a többire is."
+            return base + " ezen az eszközön."
         }
     }
 
@@ -298,9 +301,9 @@ struct SchoolEventsSection: View {
         SchoolEventsStore.replaceAll(parsed, sourceName: url.lastPathComponent)
         refresh()
         if summitSync.isEnabled {
-            message = "\(parsed.count) esemény importálva — szinkronizálódik a többi eszközre."
+            message = "\(parsed.count) esemény importálva — szinkronizálva."
         } else {
-            message = "\(parsed.count) esemény importálva ezen az eszközön. Ha bekapcsolod a szinkront, átmegy a többire is."
+            message = "\(parsed.count) esemény importálva."
         }
     }
 }

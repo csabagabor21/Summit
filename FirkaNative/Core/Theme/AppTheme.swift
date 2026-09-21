@@ -68,6 +68,17 @@ extension View {
         colors.background.ignoresSafeArea()
     }
 
+    /// Beviteli mező látható dobozzal: a csupasz TextField nem jelzi,
+    /// hogy oda szöveget kell írni — ez ad neki hátteret + keretet.
+    /// Világos és sötét módban is olvasható, kontrasztot nem tör meg.
+    func summitInput() -> some View {
+        self
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.22)))
+    }
+
     /// Lista-sor liquid glass háttérrel a SummitBackdrop fölé: a sor mögött
     /// átlátszik a háttérkép (valós idejű mintavétel + blur), nem tömör kártya.
     /// Használat: a Section kap `.listRowBackground(Color.clear)`-t (különben

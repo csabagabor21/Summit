@@ -79,9 +79,9 @@ struct SettingsView: View {
                     }
                 }
                 Button("Mégse", role: .cancel) {}
-                } message: { Text("Válassz új képet a Módosítás gombbal, vagy töröld a jelenlegit.") }
+                } message: { Text("Új kép a Módosítással, vagy töröld a jelenlegit.") }
 
-            summitIsland(header: "Tanári kerekítés", footer: "Tantárgyanként állítható, hogy a tanár mikortól kerekít fel — külön menüben.") {
+            summitIsland(header: "Tanári kerekítés", footer: "Tantárgyanként külön állítható.") {
                 summitRow {
                     NavigationLink { TeacherRoundingView() } label: {
                         HStack {
@@ -101,15 +101,15 @@ struct SettingsView: View {
                 }
             }
 
-            summitIsland(header: "Live Activity", footer: "Lock Screen + Dynamic Island — szünetben a következőt mutatja. Rendszer tiltás esetén a Beállításokban engedélyezd.") {
+            summitIsland(header: "Live Activity", footer: "Lock Screen + Dynamic Island.") {
                 summitRow { LiveActivitySettingsRow() }
             }
 
-            summitIsland(header: "Iskolai események", footer: "Ha az iskolád megadta a központi naptárat, belépéskor automatikusan lejön — a kézi beállításod (link, szöveg, .ics) ezt sosem írja felül. A beállítás-szinkron viszi a többi eszközödre is. Az órarend tetején, 0. óraként jelennek meg.") {
+            summitIsland(header: "Iskolai események", footer: "0. óraként az órarend tetején. A kézi beállításod sosem íródik felül.") {
                 summitRow { SchoolEventsSection() }
             }
 
-            summitIsland(header: "Értesítések", footer: "A KRÉTA nem küld push-t, ezért az app minden adatfrissítéskor (megnyitás, lehúzás, háttér-ébresztés) megnézi, mi az új, és arra küld helyi értesítést.") {
+            summitIsland(header: "Értesítések", footer: "Helyi értesítés adatfrissítéskor — a KRÉTA nem küld push-t.") {
                 summitRow {
                     Toggle(isOn: $notifyGrades) {
                         Label("Új jegy", systemImage: "star.fill").font(.subheadline.weight(.medium))
@@ -219,6 +219,7 @@ struct SettingsView: View {
                                     .font(.subheadline.monospaced())
                                     .textInputAutocapitalization(.never)
                                     .autocorrectionDisabled()
+                                    .summitInput()
                                 Button("Mentés") {
                                     session.updateInstitute(draftIss)
                                     kreta.instituteCode = session.selectedUser?.instituteCode
@@ -227,7 +228,7 @@ struct SettingsView: View {
                                 }
                                 .font(.subheadline.weight(.bold))
                             }
-                            Text("Ha minden üres, ez a kód a rossz — utána húzd le a listákat a frissítéshez.")
+                            Text("Ha minden üres, ez a kód rossz — utána frissíts lehúzással.")
                                 .font(.caption2).foregroundStyle(.tertiary)
                             HStack {
                                 Button("Automatikus javítás") {
@@ -249,6 +250,7 @@ struct SettingsView: View {
                             HStack {
                                 TextField("pl. Siófoki SZC Mathiász János Technikum", text: $draftSchoolName)
                                     .font(.subheadline)
+                                    .summitInput()
                                 Button("Mentés") {
                                     session.setSchoolOverride(draftSchoolName)
                                     Task {
@@ -258,7 +260,7 @@ struct SettingsView: View {
                                 }
                                 .font(.subheadline.weight(.bold))
                             }
-                            Text("Csak akkor kell, ha a Diagnosztika szerint nincs iskolanév. A hivatalos, városos nevet írd be — ebből lesz a térkép-pötty.")
+                            Text("Csak ha a Diagnosztika szerint nincs név. Hivatalos, városos név kell.")
                                 .font(.caption2).foregroundStyle(.tertiary)
                         }
                     }
@@ -301,7 +303,7 @@ struct SettingsView: View {
             }
 
             // Adatvédelem — a lista legeslegalján.
-            summitIsland(header: "Adatvédelem", footer: "Statisztika: csak az iskola nevét, egy véletlen telepítés-azonosítót, a verziót és a napot küldi — napi max egyszer. Szinkron (külön kapcsoló): jelmondattal védett lenyomat alatt témát, színt, szövegméretet, kerekítést, felmentéseket, pipákat, értesítési kapcsolókat, profilképet és iskolai eseményeket tárol az eszközeid között. Név, jelszó, jegy, hely, eszköz-ID sosem.") {
+            summitIsland(header: "Adatvédelem", footer: "Névtelen statisztika + jelmondattal védett szinkron. Név, jegy, jelszó sosem megy fel.") {
                 summitRow {
                     Toggle(isOn: Binding(
                         get: { analytics.isEnabled },
@@ -529,7 +531,7 @@ struct SettingsView: View {
             }
             .tint(colors.accent)
             .disabled(summitSyncBusy || session.selectedUser?.isDemo == true)
-            Text("A jelmondat köti össze az eszközeidet — mindenhol ugyanaz kell. Azonosító és jelmondat csak ezen a telefonon van, a szerverre csak a beállítások és a kép kerül.")
+            Text("Egy jelmondat köti össze az eszközeidet. A jelmondat csak ezen a telefonon van.")
                 .font(.caption2).foregroundStyle(.tertiary)
             if session.selectedUser?.isDemo == true {
                 Text("Demo módban nem elérhető.")
@@ -538,6 +540,7 @@ struct SettingsView: View {
                 SecureField("Szinkron-jelmondat (min. 8 karakter)", text: $summitSyncPassphrase)
                     .font(.subheadline)
                     .textContentType(.newPassword)
+                    .summitInput()
                     .disabled(summitSyncBusy)
             }
             HStack(spacing: 12) {
