@@ -31,6 +31,20 @@ rules_version = '2';
 // updated}); bárki olvashatja, senki nem írhatja (írást service account
 // végez konzolból/scriptből).
 //
+// Collection: school_calendars — admin iskolai naptár-adatbázis.
+// Document ID: normalizált institut-kód, kisbetűsen (pl. "siszc-mathiasz").
+// Fields:
+//   - calendarUrl: string (kötelező, 1-2000 char; a suli nyilvános naptár-
+//                  linkje — Google-megosztólink vagy közvetlen ICS; az app
+//                  a SchoolEventsStore.directDownloadURL-lel oldja fel)
+//   - name: string (opcionális, max 120 char; az iskola megjelenő neve)
+//   - updatedAt: timestamp (opcionális)
+// Bárki olvashatja (belépéskor az app ez alapján tölti le az iskola
+// naptárát), kliensből senki nem írhatja (írást admin végez konzolból —
+// lásd school_calendars.seed.json). Kézi beállítás sosem íródik felül:
+// ha az eszközön már van esemény vagy mentett link, az admin-kérés némán
+// kihagy (SchoolCalendarDirectory).
+//
 // Collection: sync — Blaze-mentes beállítás-szinkron (Spark).
 // Document ID: SHA256-hex (64 kar.) az eszközön képzett kulcsból
 // ("summit-sync-v1" + JWT sub/email + user jelmondat). A jelmondat sehova
@@ -56,6 +70,8 @@ rules_version = '2';
 //   - schoolEvents: string (opcionális, kompakt esemény-JSON ≤ 50 000 kar.,
 //     "[]" = tudatos törlés; hiánya = régi kliens, a helyi állapot marad)
 //   - schoolEventsShow: bool (opcionális; hiánya = régi kliens)
+//   - schoolEventsURL: string (opcionális, mentett naptár-link ≤ 2000 kar.,
+//     "" = nincs mentett link; hiánya = régi kliens, a helyi link marad)
 //   - ts_theme / ts_accentHex / ts_sizeKey / ts_photo / ts_rounding /
 //     ts_exempted / ts_completedHw / ts_completedEx / ts_notifyGrades /
 //     ts_notifyTasks / ts_notifyAbsences / ts_liveActivity: timestamp
@@ -107,11 +123,11 @@ function isValidSyncDoc() {
   return hasOnlyAllowedFields(['v', 'updatedAt', 'theme', 'accentHex', 'sizeKey', 'photo',
       'rounding', 'exempted', 'completedHw', 'completedEx',
       'notifyGrades', 'notifyTasks', 'notifyAbsences', 'liveActivity',
-      'schoolEvents', 'schoolEventsShow',
+      'schoolEvents', 'schoolEventsShow', 'schoolEventsURL',
       'ts_theme', 'ts_accentHex', 'ts_sizeKey', 'ts_photo', 'ts_rounding',
       'ts_exempted', 'ts_completedHw', 'ts_completedEx', 'ts_notifyGrades',
       'ts_notifyTasks', 'ts_notifyAbsences', 'ts_liveActivity',
-      'ts_schoolEvents', 'ts_schoolEventsShow'])
+      'ts_schoolEvents', 'ts_schoolEventsShow', 'ts_schoolEventsURL'])
     && request.resource.data.v is int && request.resource.data.v == 1
     && request.resource.data.updatedAt is timestamp
     && request.resource.data.updatedAt <= request.time + duration.value(5, 'm')
@@ -154,7 +170,10 @@ function isValidSyncDoc() {
     && (!('ts_notifyAbsences' in request.resource.data) || request.resource.data.ts_notifyAbsences is timestamp)
     && (!('ts_liveActivity' in request.resource.data) || request.resource.data.ts_liveActivity is timestamp)
     && (!('ts_schoolEvents' in request.resource.data) || request.resource.data.ts_schoolEvents is timestamp)
-    && (!('ts_schoolEventsShow' in request.resource.data) || request.resource.data.ts_schoolEventsShow is timestamp);
+    && (!('ts_schoolEventsShow' in request.resource.data) || request.resource.data.ts_schoolEventsShow is timestamp)
+    && (!('schoolEventsURL' in request.resource.data) || (request.resource.data.schoolEventsURL is string
+      && request.resource.data.schoolEventsURL.size() <= 2000))
+    && (!('ts_schoolEventsURL' in request.resource.data) || request.resource.data.ts_schoolEventsURL is timestamp);
 }
 
 service cloud.firestore {
@@ -175,6 +194,13 @@ service cloud.firestore {
     }
 
     match /public/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /school_calendars/{code} {
+      // Publikus olvasás: belépéskor az app institut-kód alapján lehúzza
+      // az iskola naptár-linkjét. Írás kliensből tiltott (admin-konzol).
       allow read: if true;
       allow write: if false;
     }

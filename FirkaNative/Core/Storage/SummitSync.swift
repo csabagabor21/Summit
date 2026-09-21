@@ -23,6 +23,7 @@ enum SummitSyncField: String, CaseIterable {
     case liveActivity
     case schoolEvents
     case schoolEventsShow
+    case schoolEventsURL
 
     /// A mező verzióbélyege a docban (`ts_theme` …). Régi docokban
     /// hiányozhat — olyankor az `updatedAt` a helyettese.
@@ -46,7 +47,8 @@ enum SummitSyncField: String, CaseIterable {
 ///
 /// Szinkronizált tartalom: téma (mode), kiemelőszín, szövegméret, profilkép,
 /// kerekítés, felmentések, házi/dolgozat pipák, értesítési kapcsolók,
-/// Live Activity kapcsoló, iskolai események (+ mutatás-kapcsoló).
+/// Live Activity kapcsoló, iskolai események (+ mutatás-kapcsoló és a
+/// mentett naptár-link, hogy a kézi felülírás linkje is átmenjen).
 @MainActor
 final class SummitSync: ObservableObject {
     @Published var isEnabled: Bool {
@@ -78,6 +80,8 @@ final class SummitSync: ObservableObject {
     /// Iskolai esemény JSON-plafon (karakter): ~500 esemény fér bele.
     /// A rules 50 000-et enged (régi kliensek felé opcionális mező).
     static let maxSchoolEventsChars = 48_000
+    /// Mentett naptár-link plafon (karakter). A rules ugyanezt kényszeríti.
+    static let maxSchoolEventsURLChars = 2_000
 
     /// Piszkos (feltöltésre váró) mezők — memóriában + perzisztálva, hogy
     /// egy újraindulás se nyelje el a még fel nem töltött szerkesztést.
@@ -196,6 +200,7 @@ final class SummitSync: ObservableObject {
         var liveActivity: Bool
         var schoolEvents: String
         var schoolEventsShow: Bool
+        var schoolEventsURL: String
     }
 
     private func localValues() -> LocalValues? {
@@ -215,7 +220,8 @@ final class SummitSync: ObservableObject {
             notifyAbsences: Self.flag("notify.absences", default: true),
             liveActivity: Self.flag("liveActivity.enabled", default: true),
             schoolEvents: SchoolEventsStore.syncString(SchoolEventsStore.load()),
-            schoolEventsShow: SchoolEventsStore.isVisible()
+            schoolEventsShow: SchoolEventsStore.isVisible(),
+            schoolEventsURL: SchoolEventsStore.savedURL() ?? ""
         )
     }
 
@@ -282,6 +288,13 @@ final class SummitSync: ObservableObject {
             if let r = remote?.schoolEventsShow { return (r, remoteDate(for: .schoolEventsShow)) }
             return (local.schoolEventsShow, fieldTimestamps[SummitSyncField.schoolEventsShow.rawValue] ?? now)
         }()
+        // Mentett link: a régi docban még hiányozhat (nil) — olyankor a
+        // helyi link a régi bélyegével megy (nem töröljük a frisset üresre).
+        let (seURLV, seURLTs): (String, Date) = {
+            if pending.contains(SummitSyncField.schoolEventsURL.rawValue) { return (local.schoolEventsURL, now) }
+            if let r = remote?.schoolEventsURLRaw { return (r, remoteDate(for: .schoolEventsURL)) }
+            return (local.schoolEventsURL, fieldTimestamps[SummitSyncField.schoolEventsURL.rawValue] ?? now)
+        }()
         // Fotó: túl nagy helyi képnél (nil) a távoli marad — sosem küldünk
         // rá üreset, mert az a szerver-oldali kép törlését jelentené.
         let photoPair: (String, Date)
@@ -312,6 +325,7 @@ final class SummitSync: ObservableObject {
             "liveActivity": bool(laV),
             "schoolEvents": str(seV),
             "schoolEventsShow": bool(seShowV),
+            "schoolEventsURL": str(seURLV),
         ]
         let tsPairs: [(SummitSyncField, Date)] = [
             (.theme, themeTs), (.accentHex, accentTs), (.sizeKey, sizeTs),
@@ -319,6 +333,7 @@ final class SummitSync: ObservableObject {
             (.completedHw, hwTs), (.completedEx, exTs), (.notifyGrades, ngTs),
             (.notifyTasks, ntTs), (.notifyAbsences, naTs), (.liveActivity, laTs),
             (.schoolEvents, seTs), (.schoolEventsShow, seShowTs),
+            (.schoolEventsURL, seURLTs),
         ]
         for (f, d) in tsPairs { fields[f.tsKey] = ts(d) }
 
@@ -344,6 +359,7 @@ final class SummitSync: ObservableObject {
             for f in SummitSyncField.allCases { legacy.removeValue(forKey: f.tsKey) }
             legacy.removeValue(forKey: "schoolEvents")
             legacy.removeValue(forKey: "schoolEventsShow")
+            legacy.removeValue(forKey: "schoolEventsURL")
             guard await patch(legacy) == 200 else {
                 status = "feltöltés hiba"
                 return false
@@ -443,6 +459,9 @@ final class SummitSync: ObservableObject {
         let schoolEventsRaw: String?
         /// Mutatás-kapcsoló (`nil` = régi doc, marad a helyi).
         let schoolEventsShow: Bool?
+        /// Mentett naptár-link (`nil` = a régi docban még nincs mező —
+        /// ilyenkor a helyi link marad, nem törlünk).
+        let schoolEventsURLRaw: String?
         /// Mezőnkénti bélyeg (`ts_*`, régi docban az `updatedAt`).
         let fieldDates: [String: Date]
     }
@@ -516,6 +535,14 @@ final class SummitSync: ObservableObject {
             return raw
         }()
         let schoolEventsShow = data["schoolEventsShow"] as? Bool
+        // Mentett link: régi docban hiányozhat (nil = helyi marad).
+        // Sérült (túl nagy / nem string) mezőnél szintén a helyi marad —
+        // csak az ép string (az üres is: az a link törlése) alkalmazható.
+        let schoolEventsURLRaw: String? = {
+            guard let raw = data["schoolEventsURL"] as? String,
+                  raw.count <= maxSchoolEventsURLChars else { return nil }
+            return raw
+        }()
         return Payload(updatedAt: isoPlain.string(from: date), updatedAtDate: date,
                        theme: theme, accentHex: accent, sizeKey: sizeKey,
                        photoRaw: photoRaw, photo: photo, photoDecodeFailed: photoDecodeFailed,
@@ -526,6 +553,7 @@ final class SummitSync: ObservableObject {
                        notifyGrades: notifyGrades, notifyTasks: notifyTasks,
                        notifyAbsences: notifyAbsences, liveActivity: liveActivity,
                        schoolEventsRaw: schoolEventsRaw, schoolEventsShow: schoolEventsShow,
+                       schoolEventsURLRaw: schoolEventsURLRaw,
                        fieldDates: fieldDates)
     }
 
@@ -604,6 +632,10 @@ final class SummitSync: ObservableObject {
             guard let raw = s("schoolEvents"), raw.count <= maxSchoolEventsChars else { return nil }
             return raw
         }()
+        let schoolEventsURLRaw: String? = {
+            guard let raw = s("schoolEventsURL"), raw.count <= maxSchoolEventsURLChars else { return nil }
+            return raw
+        }()
         return Payload(updatedAt: updatedAt, updatedAtDate: updatedAtDate,
                        theme: theme, accentHex: accent, sizeKey: sizeKey,
                        photoRaw: photoRaw, photo: photo, photoDecodeFailed: photoDecodeFailed,
@@ -614,6 +646,7 @@ final class SummitSync: ObservableObject {
                        notifyGrades: notifyGrades, notifyTasks: notifyTasks,
                        notifyAbsences: notifyAbsences, liveActivity: liveActivity,
                        schoolEventsRaw: schoolEventsRaw, schoolEventsShow: b("schoolEventsShow"),
+                       schoolEventsURLRaw: schoolEventsURLRaw,
                        fieldDates: fieldDates)
     }
 
@@ -693,6 +726,13 @@ final class SummitSync: ObservableObject {
             SchoolEventsStore.setVisible(show)
             applied.append(.schoolEventsShow)
         }
+        // Mentett link: `nil` nyers mező = régi doc, a helyi marad.
+        // Üres string = nincs mentett link. A saját mentés értesítése itt
+        // is eldobjuk (lásd a ciklust lejjebb), mint a többi mezőnél.
+        if newer(.schoolEventsURL), let raw = p.schoolEventsURLRaw {
+            SchoolEventsStore.saveURL(raw.isEmpty ? nil : raw)
+            applied.append(.schoolEventsURL)
+        }
         guard !applied.isEmpty else { return false }
         for f in applied {
             // A fenti mentések (fotó, kerekítés, felmentés) dirty-értesítést
@@ -741,6 +781,9 @@ final class SummitSync: ObservableObject {
             // A kapcsolgatást (`schoolEventsShow`) a Beállítások jelöli
             // expliciten — különben minden kapcsolás újra feltöltené a blobot.
             (SchoolEventsStore.changedNotification, [.schoolEvents]),
+            // A mentett naptár-linket (kézi felülírás vagy admin-alap) a
+            // store postolja minden mentéskor/törléskor.
+            (SchoolEventsStore.urlChangedNotification, [.schoolEventsURL]),
         ]
         for (name, fields) in map {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in

@@ -129,3 +129,28 @@ GDPR k-anonimitás: 6 főtől az iskola a saját nevével kerül ki, 5 fő és a
 csak a (geokódolt) város neve jelenik meg, összevont létszámmal és a város
 koordinátájával — az iskola neve ilyenkor a nyilvános `public/map` dokba sem
 kerül be.
+
+## Iskolai naptár admin-adatbázis (`school_calendars`)
+
+Belépéskor az app az institut-kód alapján (kisbetűsen, pl. `siszc-mathiasz`)
+megnézi ezt a collectiont, és ha talál bejegyzést, **csak akkor** tölti le
+automatikusan az iskola naptár-linkjét, ha az eszközön még nincs kézi
+beállítás (nincs esemény és nincs mentett link) — a kézi felülírás mindig
+nyer, az admin sosem tapossa el. Ha nincs bejegyzés, marad a kézi bevitel
+(link / szöveg / .ics), ami a SummitSync-kel átmegy a többi eszközre is.
+
+Felvitel (kliensből írni tilos — a rules `read: true, write: false`):
+
+1. Firebase Console → Firestore Database → `school_calendars` → Add document.
+2. Document ID = a kisbetűs institut-kód (az app a Beállítások → Fiók sorban
+   mutatja az `e-KRÉTA • <kód>` értéket — azt kell ide kisbetűsen).
+3. Mezők: `calendarUrl` (string — Google-megosztólink vagy ICS-link),
+   `name` (string — az iskola megjelenő neve).
+4. Minta-bejegyzések: [`school_calendars.seed.json`](school_calendars.seed.json)
+   (első: `siszc-mathiasz`).
+
+Rules-deploy a módosított [`firestore.rules`](firestore.rules) után:
+
+```bash
+npx -y firebase-tools@latest deploy --only firestore:rules --project summit-14b74
+```

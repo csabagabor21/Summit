@@ -20,6 +20,17 @@ struct SummitApp: App {
         SummitSync.configureIfNeeded()
     }
 
+    /// Admin iskolai naptár: belépéskor / iskolakód-váltáskor automatikus
+    /// letöltés az iskola kódja alapján — de csak ha az eszközön még nincs
+    /// kézi beállítás (esemény vagy mentett link); az mindig nyer, az admin
+    /// sosem írja felül (SchoolCalendarDirectory).
+    private func resolveSchoolCalendar() {
+        let code = session.selectedUser?.instituteCode
+        Task {
+            await SchoolCalendarDirectory.resolveAfterLogin(instituteCode: code)
+        }
+    }
+
     /// Heartbeat egy helyről: ha az iskolanév üres vagy szűrt (pl. belépéskor
     /// nem jött meg az adatlap), a KRÉTA-adatlapból pótolja, csak utána küld.
     /// - Parameter event: nil = napi (előtér), különben azonnali esemény
@@ -83,6 +94,7 @@ struct SummitApp: App {
                     // semmi nem triggerelne heartbeatet.
                     if session.selectedUser != nil {
                         Task { await sendHeartbeat(event: "login") }
+                        resolveSchoolCalendar()
                     }
                 }
                 .onChange(of: session.selectedUser?.accessToken) { _, new in
@@ -94,6 +106,10 @@ struct SummitApp: App {
                 .onChange(of: session.selectedUser?.instituteCode) { _, new in
                     kreta.instituteCode = new
                     Task { await sendHeartbeat(event: "login") }
+                    // Kézi iskolakód-javítás (Beállítások → Fiók) után is:
+                    // ha ehhez a kódhoz van admin-naptár és nincs kézi
+                    // beállítás, az töltődik be alapértelmezettként.
+                    resolveSchoolCalendar()
                 }
                 // Beleegyezés pillanatában azonnal menjen ki az első jelzés —
                 // különben csak a következő előtérbe hozáskor küldene.

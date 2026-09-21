@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 /// átmennek (újra bevinni sehol nem kell).
 struct SchoolEventsSection: View {
     @EnvironmentObject var summitSync: SummitSync
+    @EnvironmentObject var session: SessionStore
     @Environment(\.colorScheme) var scheme
     @AppStorage(SchoolEventsStore.showKey) private var showInTimetable = true
     @State private var events: [SchoolEvent] = SchoolEventsStore.load()
@@ -18,6 +19,9 @@ struct SchoolEventsSection: View {
     @State private var downloading = false
     @State private var showPaste = false
     @State private var pastedText = ""
+    @State private var adminEntry: SchoolCalendarDirectory.Entry?
+    @State private var adminChecked = false
+    @State private var adminBusy = false
 
     private var icsTypes: [UTType] {
         if let ics = UTType(filenameExtension: "ics") { return [ics, .plainText] }
@@ -48,10 +52,39 @@ struct SchoolEventsSection: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            // 0) Iskolai alapértelmezés (admin adatbázis): ha az iskola
+            // megadta a központi naptárat, egy gombnyomás — a kézi
+            // beállítás alább bármikor felülírhatja (az is szinkronizálódik).
+            if let admin = adminEntry {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Iskolai alapértelmezés").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    HStack {
+                        Text(admin.name ?? "Központi naptár")
+                            .font(.subheadline.weight(.medium))
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer()
+                        Button(adminBusy || downloading ? "…" : (savedLink == admin.calendarURL ? "Frissítés" : "Betöltés")) {
+                            Task { await downloadAdmin() }
+                        }
+                        .font(.caption.weight(.bold))
+                        .disabled(adminBusy || downloading)
+                    }
+                    if savedLink == admin.calendarURL {
+                        Text("Ezt használod. Ha alább más linket adsz meg, az lesz a saját felülírásod.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else if !events.isEmpty {
+                        Text("Van saját beállításod — az marad; csak ha kéred, töltjük le az iskola naptárát.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+
             // 1) Link: a suli naptárjának webcíme (suli honlap, Google Naptár
             // nyilvános ICS-linkje) — letölteni nem kell, az app lehúzza.
             VStack(alignment: .leading, spacing: 6) {
-                Text("Linkből").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Text("Linkből (saját felülírás)").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 HStack {
                     TextField("Naptár-link (Google-megosztás is jó)", text: $linkText)
                         .font(.subheadline.monospaced())
@@ -136,7 +169,33 @@ struct SchoolEventsSection: View {
         .onReceive(NotificationCenter.default.publisher(for: SchoolEventsStore.changedNotification)) { _ in
             refresh()
         }
-        .onAppear { refresh() }
+        .onAppear {
+            refresh()
+            checkAdmin()
+        }
+    }
+
+    /// Admin-bejegyzés az aktuális iskola kódjához (csak olvasás, nincs
+    /// letöltés — a gomb / a belépéskori automatika tölt le).
+    private func checkAdmin() {
+        guard let code = session.selectedUser?.instituteCode,
+              SchoolCalendarDirectory.key(forInstituteCode: code) != nil else {
+            adminChecked = true
+            return
+        }
+        Task {
+            adminEntry = await SchoolCalendarDirectory.fetchEntry(instituteCode: code)
+            adminChecked = true
+        }
+    }
+
+    /// Iskolai alapértelmezés letöltése — ugyanaz az út, mint a kézi link:
+    /// mentés után a SummitSync viszi a többi eszközre.
+    private func downloadAdmin() async {
+        guard let entry = adminEntry else { return }
+        adminBusy = true
+        defer { adminBusy = false }
+        await download(entry.calendarURL)
     }
 
     private var summaryText: String {
@@ -176,7 +235,7 @@ struct SchoolEventsSection: View {
         defer { downloading = false }
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
-            guard let text = decode(data),
+            guard let text = SchoolEventsStore.decodeData(data),
                   !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 message = "Üres vagy olvashatatlan a link tartalma."
                 return
@@ -225,7 +284,7 @@ struct SchoolEventsSection: View {
         let didStart = url.startAccessingSecurityScopedResource()
         defer { if didStart { url.stopAccessingSecurityScopedResource() } }
         guard let data = try? Data(contentsOf: url),
-              let text = decode(data),
+              let text = SchoolEventsStore.decodeData(data),
               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             message = "Üres vagy olvashatatlan fájl."
             return
@@ -243,12 +302,5 @@ struct SchoolEventsSection: View {
         } else {
             message = "\(parsed.count) esemény importálva ezen az eszközön. Ha bekapcsolod a szinkront, átmegy a többire is."
         }
-    }
-
-    /// Magyar ékezetek miatt: UTF-8, aztán közép-európai kódlapok.
-    private func decode(_ data: Data) -> String? {
-        if let s = String(data: data, encoding: .utf8) { return s }
-        if let s = String(data: data, encoding: .windowsCP1250) { return s }
-        return String(data: data, encoding: .isoLatin1)
     }
 }

@@ -13,6 +13,9 @@ enum SchoolEventsStore {
     /// helyen történik, az eredménye pedig átmegy a szinkronnal).
     static let urlKey = "schoolevents.url.v1"
     static let changedNotification = Notification.Name("summit.schoolEventsChanged")
+    /// Mentett link változása — a SummitSync ezen át viszi fel a
+    /// `schoolEventsURL` mezőt (a kézi felülírás linkje is szinkronizálódik).
+    static let urlChangedNotification = Notification.Name("summit.schoolEventsURLChanged")
 
     /// Ennyi esemény / karakter utazik a sync docban (a Firestore 1 MiB-es
     /// doc-limittől és a rules 50 000-es plafonjától messze van).
@@ -43,6 +46,14 @@ enum SchoolEventsStore {
         } else {
             UserDefaults.standard.removeObject(forKey: urlKey)
         }
+        NotificationCenter.default.post(name: urlChangedNotification, object: nil)
+    }
+
+    /// Magyar ékezetek miatt: UTF-8, aztán közép-európai kódlapok.
+    static func decodeData(_ data: Data) -> String? {
+        if let s = String(data: data, encoding: .utf8) { return s }
+        if let s = String(data: data, encoding: .windowsCP1250) { return s }
+        return String(data: data, encoding: .isoLatin1)
     }
 
     /// Teljes csere (import vagy távoli pull). Mindig postol — a SummitSync

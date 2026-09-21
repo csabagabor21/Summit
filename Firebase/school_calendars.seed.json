@@ -1,0 +1,10 @@
+{
+  "_comment": "Admin iskolai naptár-adatbázis (Firestore, collection: school_calendars). Felvitel kézzel, Firebase Console-ból (a kliens csak olvashatja): Firestore Database -> school_calendars -> Add document, Document ID = a kisbetűs institut-kód, mezők: calendarUrl (string), name (string). Ez a fájl csak dokumentálja a bejegyzéseket.",
+  "documents": [
+    {
+      "id": "siszc-mathiasz",
+      "calendarUrl": "https://calendar.google.com/calendar/u/0?cid=MGYwNDg5NTU4NTFjNjc4YTQ2NzliNDA0MmY4MzZmN2E3ZTQ1OWNiMGEzMDczYWZhMTExODgxOWFiNWFiOWFkOEBncm91cC5jYWxlbmRhci5nb29nbGUuY29t",
+      "name": "Siófoki SZC Mathiász János Technikum, Gimnázium és Kollégium"
+    }
+  ]
+}
