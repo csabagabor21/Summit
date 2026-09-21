@@ -449,13 +449,15 @@ struct SettingsView: View {
                 content()
             }
             .summitGlassRow(cornerRadius: 20)
+            // A túra-kiemelés csak az üvegkártyát keretezi — a fejléc/
+            // lábléc körbebekerítése lógott a levegőben, furán nézett ki.
+            .tourHighlight(active: tourActive, accent: colors.accent)
             if let footer {
                 Text(footer).font(.caption2).foregroundStyle(.secondary)
                     .padding(.horizontal, 4)
             }
         }
         .id(anchor.map(AnyHashable.init))
-        .tourHighlight(active: tourActive, accent: colors.accent)
     }
 
     /// Egykoppintásos institut-javítás a beragadt (rövid kódos) userhez:
