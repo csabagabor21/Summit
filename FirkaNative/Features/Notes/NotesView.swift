@@ -7,6 +7,11 @@ struct NotesView: View {
     @EnvironmentObject var completed: CompletedStore
     @State private var homeworks: [HomeworkItem] = []
     @State private var exams: [ExamItem] = []
+    /// Saját (kézzel felvett) tételek — a KRÉTA-listákkal összefésülve jelennek meg.
+    @State private var customTasks: [CustomTask] = []
+    /// Létező tantárgyak (Jegyek-tab köre): a sheet csak ezekből enged választani.
+    @State private var subjects: [String] = []
+    @State private var showingAdd = false
     /// Órarendi órák az óraszám-pillekhez (a csatolmány-lehúzás mellékterméke).
     @State private var lessons: [LessonItem] = []
     @State private var isLoading = true
@@ -109,6 +114,24 @@ struct NotesView: View {
             .navigationTitle("Feladatok")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showingAdd = true } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel(filter == 1 ? "Saját dolgozat hozzáadása" : "Saját feladat hozzáadása")
+                }
+            }
+            .sheet(isPresented: $showingAdd) {
+                AddCustomTaskSheet(
+                    kind: filter == 1 ? .exam : .homework,
+                    subjects: subjects,
+                    onSave: { customTasks = CustomTasksStore.load() }
+                )
+            }
+            .onReceive(NotificationCenter.default.publisher(for: CustomTasksStore.changedNotification)) { _ in
+                customTasks = CustomTasksStore.load()
+            }
             .task { await load() }
             .refreshable { await load() }
             // Órarend-pillből érkezve a megfelelő szegmensre ugrik + kiemeli a sort
@@ -148,7 +171,9 @@ struct NotesView: View {
     // Élő házi: kipipált és lejárt nem jelenik meg (a Készbe kerül),
     // Home-on a kipipált zölden marad
     var filteredHomeworks: [HomeworkItem] {
-        homeworks.filter { !completed.isHomeworkDone($0.id) && !HomeworkExpiry.isExpired($0) }.sorted { $0.deadline < $1.deadline }
+        (homeworks + CustomTasksStore.homeworkItems(from: customTasks))
+            .filter { !completed.isHomeworkDone($0.id) && !HomeworkExpiry.isExpired($0) }
+            .sorted { $0.deadline < $1.deadline }
     }
     /// Kész szegmens: kipipált + lejárt házi és lejárt dolgozat, időrendben.
     /// A kipipálás innen vissza is vonható; a lejárt csak történet.
@@ -173,17 +198,19 @@ struct NotesView: View {
         // A dolgozat-történet nem nőhet végtelenre: az elmúlt 30 nap lejártjai
         // (a házi-lista amúgy is -30 napos ablakból jön).
         let examCutoff = Calendar.current.date(byAdding: .day, value: -30, to: today)!
-        var out: [DoneEntry] = homeworks
+        var out: [DoneEntry] = (homeworks + CustomTasksStore.homeworkItems(from: customTasks))
             .filter { completed.isHomeworkDone($0.id) || $0.isDone || HomeworkExpiry.isExpired($0) }
             .map { .homework($0) }
-        out += exams
+        out += (exams + CustomTasksStore.examItems(from: customTasks))
             .filter { ExamExpiry.isExpired($0) && $0.date >= examCutoff }
             .map { .exam($0) }
         return out.sorted { $0.date < $1.date }
     }
     // Élő dolgozat: csak a mai és jövőbeli — a lejárt a Készbe kerül
     var filteredExams: [ExamItem] {
-        exams.filter { !ExamExpiry.isExpired($0) }.sorted { $0.date < $1.date }
+        (exams + CustomTasksStore.examItems(from: customTasks))
+            .filter { !ExamExpiry.isExpired($0) }
+            .sorted { $0.date < $1.date }
     }
     // MARK: - Napra bontás (Feladatok, Dolgozatok, Kész — mindhárom)
     private func groupByDay<T>(_ items: [T], date: (T) -> Date) -> [(day: Date, items: [T])] {
@@ -263,7 +290,7 @@ struct NotesView: View {
             VStack(alignment: .leading, spacing: 6) {
                 // Csak a fejléc és az előnézet nyit-csuk — a kinyitott
                 // részletező blokkban a gombok önállóan működnek
-                HStack { Text(hw.subject).font(.subheadline.weight(.semibold)); Spacer(); if !hw.attachments.isEmpty { HStack(spacing: 3) { Image(systemName: "paperclip"); if hw.attachments.count > 1 { Text("\(hw.attachments.count)") } }.font(.caption2.weight(.semibold)).foregroundStyle(.secondary).accessibilityLabel("\(hw.attachments.count) csatolmány") }; if let idx = lessonIndexText(for: hw) { Text(idx).font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.primary.opacity(0.06))) } }
+                HStack { Text(hw.subject).font(.subheadline.weight(.semibold)); if CustomTasksStore.isCustomId(hw.id) { Text("Saját").font(.caption2.weight(.bold)).foregroundStyle(colors.accent).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(colors.accent.opacity(0.12))) }; Spacer(); if !hw.attachments.isEmpty { HStack(spacing: 3) { Image(systemName: "paperclip"); if hw.attachments.count > 1 { Text("\(hw.attachments.count)") } }.font(.caption2.weight(.semibold)).foregroundStyle(.secondary).accessibilityLabel("\(hw.attachments.count) csatolmány") }; if let idx = lessonIndexText(for: hw) { Text(idx).font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.primary.opacity(0.06))) } }
                     .contentShape(Rectangle())
                     .onTapGesture { toggleExpanded(hw.id, expanded: expanded) }
                 if expanded {
@@ -319,6 +346,13 @@ struct NotesView: View {
                 .fill(colors.accent.opacity(isFlash ? (flashPulse ? 0.16 : 0.04) : 0))
         )
         .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            if CustomTasksStore.isCustomId(hw.id) {
+                Button(role: .destructive) { CustomTasksStore.remove(id: hw.id) } label: {
+                    Label("Törlés", systemImage: "trash")
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -335,7 +369,7 @@ struct NotesView: View {
             .buttonStyle(.plain)
             .padding(.top, 2)
             VStack(alignment: .leading, spacing: 6) {
-                HStack { Text(exam.subject).font(.subheadline.weight(.semibold)); Spacer(); if let n = exam.lessonIndex { Text("\(n). óra").font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.orange.opacity(0.14))) } }
+                HStack { Text(exam.subject).font(.subheadline.weight(.semibold)); if CustomTasksStore.isCustomId(exam.id) { Text("Saját").font(.caption2.weight(.bold)).foregroundStyle(colors.accent).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(colors.accent.opacity(0.12))) }; Spacer(); if let n = exam.lessonIndex { Text("\(n). óra").font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.orange.opacity(0.14))) } }
                     .contentShape(Rectangle())
                     .onTapGesture { toggleExpanded(exam.id, expanded: expanded) }
                 if expanded {
@@ -401,9 +435,18 @@ struct NotesView: View {
                 .fill(colors.accent.opacity(isFlash ? (flashPulse ? 0.16 : 0.04) : 0))
         )
         .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            if CustomTasksStore.isCustomId(exam.id) {
+                Button(role: .destructive) { CustomTasksStore.remove(id: exam.id) } label: {
+                    Label("Törlés", systemImage: "trash")
+                }
+            }
+        }
     }
 
     func load() async {
+        // Saját tételek helyből jönnek — hálózati hibától függetlenül vannak.
+        customTasks = CustomTasksStore.load()
         // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből.
         guard let user = session.selectedUser else { isLoading = false; return }
         isLoading=true; let iss=user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
@@ -411,7 +454,9 @@ struct NotesView: View {
         let prevHW = homeworks, prevEx = exams
         async let hw = kreta.fetchHomework(iss: iss)
         async let ex = kreta.fetchExams(iss: iss)
-        let (hwR, exR) = await (hw, ex)
+        async let subj = kreta.fetchAllSubjectNames(iss: iss)
+        async let gr = kreta.fetchGrades(iss: iss)
+        let (hwR, exR, subjR, grR) = await (hw, ex, subj, gr)
         // Totális fetch-hiba (lejárt token, offline): a legutóbbi lista marad,
         // nem ürül ki a Feladatok tab egy sikertelen refresh-től.
         if hwR.isEmpty && exR.isEmpty && hadData {
@@ -420,6 +465,10 @@ struct NotesView: View {
             let (mergedHW, fetchedLessons) = await lessonAttachments(hwR, kreta: kreta, iss: iss)
             homeworks = mergedHW; exams = exR; lessons = fetchedLessons
         }
+        // Tantárgy-univerzum a hozzáadó sheetnek: a Jegyek-tab köre
+        // (hálózati tárgyak + cache + jegyekből látott tárgyak).
+        let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1") ?? []
+        subjects = Array(Set(subjR).union(cached).union(grR.map(\.subject))).sorted()
         isLoading=false
     }
 
@@ -461,6 +510,102 @@ struct NotesView: View {
         let hits = merged.filter { !$0.attachments.isEmpty }.count
         kreta.diag("feladat-csatolmány: \(hits)/\(hwR.count) házihoz van fájl (\(lessons.count) óra átnézve)")
         return (await kreta.fetchHomeworkDetails(merged, iss: iss), lessons)
+    }
+}
+
+/// Saját feladat / dolgozat felvétele: típus, tantárgy (CSAK a meglévő,
+/// Jegyeknél is látható tárgyakból), megnevezés, naptár-nap + aznapi óra.
+struct AddCustomTaskSheet: View {
+    let kind: CustomTaskKind
+    let subjects: [String]
+    let onSave: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedKind: CustomTaskKind
+    @State private var subject = ""
+    @State private var title = ""
+    @State private var day: Date
+    @State private var time = Date()
+
+    init(kind: CustomTaskKind, subjects: [String], onSave: @escaping () -> Void) {
+        self.kind = kind
+        self.subjects = subjects
+        self.onSave = onSave
+        _selectedKind = State(initialValue: kind)
+        _day = State(initialValue: Calendar.current.startOfDay(for: Date()))
+        if let first = subjects.first { _subject = State(initialValue: first) }
+    }
+
+    private var isExam: Bool { selectedKind == .exam }
+    private var canSave: Bool {
+        !subject.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        && !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Picker("", selection: $selectedKind) {
+                        Text("Feladat").tag(CustomTaskKind.homework)
+                        Text("Dolgozat").tag(CustomTaskKind.exam)
+                    }
+                    .pickerStyle(.segmented)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                }
+                Section("Tantárgy") {
+                    if subjects.isEmpty {
+                        Text("Még nincs tantárgy — húzd le a Jegyek tabot.")
+                            .font(.callout).foregroundStyle(.secondary)
+                    } else {
+                        Picker("Tantárgy", selection: $subject) {
+                            ForEach(subjects, id: \.self) { s in
+                                Text(s).tag(s)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+                }
+                Section(isExam ? "Megnevezés" : "Leírás") {
+                    TextField(isExam ? "Pl. Témazáró – Egyenletek" : "Pl. 5-ös fejezet vázlat",
+                              text: $title, axis: .vertical)
+                }
+                Section("Nap") {
+                    DatePicker("Nap", selection: $day,
+                               in: Calendar.current.startOfDay(for: Date())...Date.distantFuture,
+                               displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .labelsHidden()
+                }
+                Section(isExam ? "Kezdés órája" : "Határidő órája") {
+                    DatePicker(isExam ? "Kezdés" : "Határidő", selection: $time,
+                               displayedComponents: .hourAndMinute)
+                }
+            }
+            .navigationTitle(isExam ? "Saját dolgozat" : "Saját feladat")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Mégse") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Mentés") {
+                        let cal = Calendar.current
+                        let dc = cal.dateComponents([.year, .month, .day], from: day)
+                        let tc = cal.dateComponents([.hour, .minute], from: time)
+                        var merged = DateComponents()
+                        merged.year = dc.year; merged.month = dc.month; merged.day = dc.day
+                        merged.hour = tc.hour; merged.minute = tc.minute
+                        let date = cal.date(from: merged) ?? day
+                        CustomTasksStore.add(kind: selectedKind, subject: subject,
+                                             title: title, date: date)
+                        onSave()
+                        dismiss()
+                    }
+                    .disabled(!canSave || subjects.isEmpty)
+                }
+            }
+        }
     }
 }
 

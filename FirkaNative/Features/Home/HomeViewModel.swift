@@ -69,14 +69,17 @@ final class HomeViewModel: ObservableObject {
             return
         }
         self.grades = gradesR
+        // Saját (kézzel felvett) tételek is a főoldalra kerülnek — ugyanazokkal
+        // a lejárt-szabályokkal, mint a KRÉTA-tételek.
+        let custom = CustomTasksStore.load()
         // Lejárt határidejű házi nem kerül a főoldalra (a Feladatok tabon
         // és az értesítési diffben megmarad) — demóra is ugyanez vonatkozik,
         // mint egy valós userre.
-        self.homeworks = hwR.filter { !HomeworkExpiry.isExpired($0) }
+        self.homeworks = (hwR + CustomTasksStore.homeworkItems(from: custom)).filter { !HomeworkExpiry.isExpired($0) }
         self.absences = abR
         // Lejárt dolgozat a főoldalra sem kerül (a Feladatok tab Kész
         // szegmensében és az értesítési diffben megmarad).
-        self.exams = exR.filter { !ExamExpiry.isExpired($0) }
+        self.exams = (exR + CustomTasksStore.examItems(from: custom)).filter { !ExamExpiry.isExpired($0) }
         self.messages = msgR
         self.lessonsToday = ttR
         // Helyi értesítés-diff az újakról (KRÉTA push nincs, ez polling-alapú)

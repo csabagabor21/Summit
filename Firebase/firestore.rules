@@ -123,11 +123,11 @@ function isValidSyncDoc() {
   return hasOnlyAllowedFields(['v', 'updatedAt', 'theme', 'accentHex', 'sizeKey', 'photo',
       'rounding', 'exempted', 'completedHw', 'completedEx',
       'notifyGrades', 'notifyTasks', 'notifyAbsences', 'liveActivity',
-      'schoolEvents', 'schoolEventsShow', 'schoolEventsURL',
+      'schoolEvents', 'schoolEventsShow', 'schoolEventsURL', 'customTasks',
       'ts_theme', 'ts_accentHex', 'ts_sizeKey', 'ts_photo', 'ts_rounding',
       'ts_exempted', 'ts_completedHw', 'ts_completedEx', 'ts_notifyGrades',
       'ts_notifyTasks', 'ts_notifyAbsences', 'ts_liveActivity',
-      'ts_schoolEvents', 'ts_schoolEventsShow', 'ts_schoolEventsURL'])
+      'ts_schoolEvents', 'ts_schoolEventsShow', 'ts_schoolEventsURL', 'ts_customTasks'])
     && request.resource.data.v is int && request.resource.data.v == 1
     && request.resource.data.updatedAt is timestamp
     && request.resource.data.updatedAt <= request.time + duration.value(5, 'm')
@@ -173,7 +173,12 @@ function isValidSyncDoc() {
     && (!('ts_schoolEventsShow' in request.resource.data) || request.resource.data.ts_schoolEventsShow is timestamp)
     && (!('schoolEventsURL' in request.resource.data) || (request.resource.data.schoolEventsURL is string
       && request.resource.data.schoolEventsURL.size() <= 2000))
-    && (!('ts_schoolEventsURL' in request.resource.data) || request.resource.data.ts_schoolEventsURL is timestamp);
+    && (!('ts_schoolEventsURL' in request.resource.data) || request.resource.data.ts_schoolEventsURL is timestamp)
+    // Saját feladatok/dolgozatok: opcionálisak (régi kliens ezek nélkül is
+    // írhat), de ha vannak: kompakt JSON (üres = tudatos törlés).
+    && (!('customTasks' in request.resource.data) || (request.resource.data.customTasks is string
+      && request.resource.data.customTasks.size() <= 48000))
+    && (!('ts_customTasks' in request.resource.data) || request.resource.data.ts_customTasks is timestamp);
 }
 
 service cloud.firestore {

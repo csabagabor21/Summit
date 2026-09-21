@@ -42,6 +42,7 @@
 		5C24A893E84C2752AE05C4C9 /* SummitLiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 952A77C87AE801894AD9FA0F /* SummitLiveActivityManager.swift */; };
 		5F20AD0975C509783B0C6515 /* KretaClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 749530AC3E1096307CE8ED24 /* KretaClient.swift */; };
 		616093231CBFBBE90164AAA2 /* CompletedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 092823FDC89EDC54BE31739D /* CompletedStore.swift */; };
+		1BA7BAAED9C34806A96B2F7E1874046D /* CustomTasksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDE72B393C9A4D79B85A421B1CB46E4C /* CustomTasksStore.swift */; };
 		62285EDFA42DC38C9AD54781 /* SchoolEventsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9939DF2786F6305BF0BB6407 /* SchoolEventsStore.swift */; };
 		A1B2C3D4E5F60718293A4B5C /* SchoolCalendarDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A60718293A4B5C /* SchoolCalendarDirectory.swift */; };
 		640B370AF5466C1D7A216A0D /* DeveloperView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E3BE3B35F7AD238DA07178B /* DeveloperView.swift */; };
@@ -114,6 +115,7 @@
 		01B840F52C3466DB1B0AF667 /* AbsencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbsencesView.swift; sourceTree = "<group>"; };
 		038E0AFC6C033CBCCCA58205 /* TimetableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableView.swift; sourceTree = "<group>"; };
 		092823FDC89EDC54BE31739D /* CompletedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompletedStore.swift; sourceTree = "<group>"; };
+		CDE72B393C9A4D79B85A421B1CB46E4C /* CustomTasksStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomTasksStore.swift; sourceTree = "<group>"; };
 		0BAE871D50553D3FF30F87AD /* Summit.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Summit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0F5EC6EB282C3C33E5FB6F00 /* RoundingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundingDetailView.swift; sourceTree = "<group>"; };
 		16DF003F0DB021C460B7EF92 /* SummitLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityAttributes.swift; sourceTree = "<group>"; };
@@ -431,6 +433,7 @@
 			children = (
 				403733D1E79BF3F0BDF3A215 /* AnalyticsStore.swift */,
 				092823FDC89EDC54BE31739D /* CompletedStore.swift */,
+				CDE72B393C9A4D79B85A421B1CB46E4C /* CustomTasksStore.swift */,
 				326A7165235AF080CF90FB8D /* ExemptedStore.swift */,
 				E04476DB51EA8A9629DBF660 /* KeychainHelper.swift */,
 				FBFE1FE503B9522FABFD9105 /* NotificationManager.swift */,
@@ -609,6 +612,7 @@
 				8FA20E049E51FE3A80FA29EF /* AttachmentViewer.swift in Sources */,
 				595775BF1AE585D948E4CA9B /* AuthViewModel.swift in Sources */,
 				616093231CBFBBE90164AAA2 /* CompletedStore.swift in Sources */,
+				1BA7BAAED9C34806A96B2F7E1874046D /* CustomTasksStore.swift in Sources */,
 				4307013EF2822F600C935AB2 /* ContentView.swift in Sources */,
 				640B370AF5466C1D7A216A0D /* DeveloperView.swift in Sources */,
 				5018989BC909CC553E5C5ECA /* DiagnosticsView.swift in Sources */,
