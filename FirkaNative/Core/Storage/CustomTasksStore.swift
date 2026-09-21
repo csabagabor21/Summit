@@ -18,18 +18,22 @@ struct CustomTask: Codable, Identifiable, Hashable {
     var subject: String
     /// Házi szövege / dolgozat megnevezése (pl. "Témazáró – Egyenletek").
     var title: String
-    /// Határidő (házi) / időpont (dolgozat) — nap + óra egyben.
+    /// Melyik nap (mindig az adott nap éjféli kezdete — az órát nem
+    /// falióra-idő, hanem a `lessonIndex` szerinti tanóra adja).
     var date: Date
+    /// Hányadik tanóra aznap (1., 2., 3. …) — nem 17:00-szerű időpont.
+    var lessonIndex: Int?
     var createdAt: Date
 
     init(id: String = "custom-" + UUID().uuidString,
          kind: CustomTaskKind, subject: String, title: String,
-         date: Date, createdAt: Date = Date()) {
+         date: Date, lessonIndex: Int? = nil, createdAt: Date = Date()) {
         self.id = id
         self.kind = kind
         self.subject = subject
         self.title = title
         self.date = date
+        self.lessonIndex = lessonIndex
         self.createdAt = createdAt
     }
 }
@@ -51,13 +55,16 @@ enum CustomTasksStore {
         return arr.sorted { $0.date < $1.date }
     }
 
-    static func add(kind: CustomTaskKind, subject: String, title: String, date: Date) {
+    static func add(kind: CustomTaskKind, subject: String, title: String, date: Date, lessonIndex: Int? = nil) {
         let subject = subject.trimmingCharacters(in: .whitespacesAndNewlines)
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !subject.isEmpty, !title.isEmpty else { return }
+        // Csak értelmes óraszám megy el (1–15); a többi "egész napos".
+        let period = lessonIndex.flatMap { (1...15).contains($0) ? $0 : nil }
         var all = load()
         all.append(CustomTask(kind: kind, subject: String(subject.prefix(120)),
-                              title: String(title.prefix(maxTitleChars)), date: date))
+                              title: String(title.prefix(maxTitleChars)),
+                              date: date, lessonIndex: period))
         save(all)
     }
 
@@ -90,7 +97,7 @@ enum CustomTasksStore {
     static func examItems(from tasks: [CustomTask]? = nil) -> [ExamItem] {
         (tasks ?? load()).filter { $0.kind == .exam }.map {
             ExamItem(id: $0.id, subject: $0.subject, date: $0.date,
-                     mode: $0.title, description: "")
+                     mode: $0.title, description: "", lessonIndex: $0.lessonIndex)
         }
     }
 
@@ -113,7 +120,14 @@ enum CustomTasksStore {
         guard s.count <= maxSyncChars,
               let data = s.data(using: .utf8),
               var arr = try? JSONDecoder().decode([CustomTask].self, from: data) else { return nil }
-        arr = arr.filter {
+        arr = arr.map { task -> CustomTask in
+            // Hibás óraszám nem dobja az egész tételt — csak "egész napos" lesz.
+            guard let li = task.lessonIndex, !(1...15).contains(li) else { return task }
+            var clean = task
+            clean.lessonIndex = nil
+            return clean
+        }
+        .filter {
             $0.id.hasPrefix("custom-") && !$0.subject.isEmpty && $0.subject.count <= 120
             && !$0.title.isEmpty && $0.title.count <= maxTitleChars
         }

@@ -9,6 +9,8 @@ struct NotesView: View {
     @State private var exams: [ExamItem] = []
     /// Saját (kézzel felvett) tételek — a KRÉTA-listákkal összefésülve jelennek meg.
     @State private var customTasks: [CustomTask] = []
+    /// Saját tétel ID → hányadik tanóra (a házi-sorok óraszám-pilljéhez).
+    @State private var customPeriods: [String: Int] = [:]
     /// Létező tantárgyak (Jegyek-tab köre): a sheet csak ezekből enged választani.
     @State private var subjects: [String] = []
     @State private var showingAdd = false
@@ -126,11 +128,11 @@ struct NotesView: View {
                 AddCustomTaskSheet(
                     kind: filter == 1 ? .exam : .homework,
                     subjects: subjects,
-                    onSave: { customTasks = CustomTasksStore.load() }
+                    onSave: { reloadCustom() }
                 )
             }
             .onReceive(NotificationCenter.default.publisher(for: CustomTasksStore.changedNotification)) { _ in
-                customTasks = CustomTasksStore.load()
+                reloadCustom()
             }
             .task { await load() }
             .refreshable { await load() }
@@ -259,10 +261,21 @@ struct NotesView: View {
         return f.string(from: d)
     }
     /// Házipill: nem a dátum (az a szekciófejlécben van), hanem hogy
-    /// hányadik órára van feladva (tárgy + határidő-nap illesztéssel).
+    /// hányadik órára van feladva. Saját tételnél a felvételkor választott
+    /// tanóra nyer (tárgy + határidő-nap illesztéssel csak a KRÉTA-tételek).
     private func lessonIndexText(for hw: HomeworkItem) -> String? {
+        if let p = customPeriods[hw.id] { return "\(p). óra" }
         guard let lesson = HomeworkMatcher.lesson(for: hw, in: lessons) else { return nil }
         return "\(lesson.index). óra"
+    }
+
+    /// Saját tételek újratöltése az óraszám-térképpel együtt.
+    private func reloadCustom() {
+        let all = CustomTasksStore.load()
+        customTasks = all
+        customPeriods = Dictionary(uniqueKeysWithValues: all.compactMap { t in
+            t.lessonIndex.map { (t.id, $0) }
+        })
     }
     /// Részletező dátumsor: időpont (ha van) + hányadik óra
     private func examDateLine(_ exam: ExamItem) -> String {
@@ -299,9 +312,15 @@ struct NotesView: View {
                     Text(HomeworkHTML.formatted(hw.title))
                         .font(.callout)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    // Határidő időponttal — ebből látszik, melyik nap órájára csatolódik
-                    Label(hw.deadline.formatted(date: .abbreviated, time: .shortened), systemImage: "clock")
-                        .font(.caption).foregroundStyle(.secondary)
+                    // Határidő: saját tételnél a választott tanóra + nap
+                    // (nincs falióra-idő), KRÉTA-tételnél a megszokott időpont.
+                    if let p = customPeriods[hw.id] {
+                        Label("\(p). óra • \(huDate(hw.deadline))", systemImage: "clock")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Label(hw.deadline.formatted(date: .abbreviated, time: .shortened), systemImage: "clock")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     if !hw.teacher.isEmpty {
                         Label(hw.teacher, systemImage: "person.fill")
                             .font(.caption).foregroundStyle(.secondary)
@@ -446,7 +465,7 @@ struct NotesView: View {
 
     func load() async {
         // Saját tételek helyből jönnek — hálózati hibától függetlenül vannak.
-        customTasks = CustomTasksStore.load()
+        reloadCustom()
         // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből.
         guard let user = session.selectedUser else { isLoading = false; return }
         isLoading=true; let iss=user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
@@ -524,7 +543,8 @@ struct AddCustomTaskSheet: View {
     @State private var subject = ""
     @State private var title = ""
     @State private var day: Date
-    @State private var time = Date()
+    /// Hányadik tanóra aznap (1., 2., 3. …) — nem falióra-időpont.
+    @State private var period = 1
 
     init(kind: CustomTaskKind, subjects: [String], onSave: @escaping () -> Void) {
         self.kind = kind
@@ -577,9 +597,8 @@ struct AddCustomTaskSheet: View {
                     .datePickerStyle(.graphical)
                     .labelsHidden()
                 }
-                Section(isExam ? "Kezdés órája" : "Határidő órája") {
-                    DatePicker(isExam ? "Kezdés" : "Határidő", selection: $time,
-                               displayedComponents: .hourAndMinute)
+                Section(isExam ? "Hányadik órában" : "Hányadik órára") {
+                    Stepper("\(period). óra", value: $period, in: 1...10)
                 }
             }
             .navigationTitle(isExam ? "Saját dolgozat" : "Saját feladat")
@@ -590,15 +609,10 @@ struct AddCustomTaskSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Mentés") {
-                        let cal = Calendar.current
-                        let dc = cal.dateComponents([.year, .month, .day], from: day)
-                        let tc = cal.dateComponents([.hour, .minute], from: time)
-                        var merged = DateComponents()
-                        merged.year = dc.year; merged.month = dc.month; merged.day = dc.day
-                        merged.hour = tc.hour; merged.minute = tc.minute
-                        let date = cal.date(from: merged) ?? day
+                        // A nap éjféli kezdete + választott tanóra-sorszám.
+                        let date = Calendar.current.startOfDay(for: day)
                         CustomTasksStore.add(kind: selectedKind, subject: subject,
-                                             title: title, date: date)
+                                             title: title, date: date, lessonIndex: period)
                         onSave()
                         dismiss()
                     }
