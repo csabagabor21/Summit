@@ -28,6 +28,11 @@ struct TimetableView: View {
     // Iskolai események (tannaptár): a Beállításokban importált ICS,
     // SummitSync-kel jön át a többi eszközről is.
     @State private var schoolEvents: [SchoolEvent] = SchoolEventsStore.load()
+    /// Tantárgy-univerzum a sajátfeladat-sheetnek (KRÉTA + cache).
+    @State private var subjects: [String] = []
+    /// Melyik órához vesz fel a user saját feladatot (órarend szerinti
+    /// hozzárendelés: nem naptárt tallóz, hanem az órára koppint).
+    @State private var addSheetLesson: LessonItem?
     @AppStorage("schoolevents.show.v1") private var schoolEventsVisible = true
     private let switchToTimetable = Notification.Name("summit.switchToTimetable")
     @Environment(\.colorScheme) var scheme
@@ -416,6 +421,24 @@ struct TimetableView: View {
             .animation(SummitMotion.page, value: selectedDay)
             .animation(SummitMotion.page, value: weekOffset)
             .refreshable { await load() }
+            // Órára koppintott plusz: saját feladat/dolgozat az adott órához
+            // előtöltve (tárgy + nap + óraszám) — nem naptár szerint.
+            .sheet(item: $addSheetLesson) { lesson in
+                let list = subjects.contains(lesson.subject) ? subjects : [lesson.subject] + subjects
+                AddCustomTaskSheet(
+                    kind: .homework,
+                    subjects: list,
+                    onSave: { mergeCustomTasks() },
+                    prefillSubject: lesson.subject,
+                    prefillDay: lesson.start,
+                    prefillPeriod: Int(lesson.index)
+                )
+            }
+            // Máshol (Feladatok tab, másik eszköz sync-kel) felvett/törölt
+            // saját tétel az órarenden is azonnal látszódjon.
+            .onReceive(NotificationCenter.default.publisher(for: CustomTasksStore.changedNotification)) { _ in
+                mergeCustomTasks()
+            }
             // Dev idő-csúszka: a widget is kövesse az eltolt időt —
             // ehhez elég újrapublikálni (hálózat nem kell hozzá).
             .onChange(of: previewMinutes) { _, _ in publishWidgetSnapshot() }
@@ -515,7 +538,8 @@ struct TimetableView: View {
                         homework: homework(for: lesson),
                         exam: exam(for: lesson),
                         isFlashing: isFlash,
-                        flashPulse: flashPulse
+                        flashPulse: flashPulse,
+                        onAdd: { addSheetLesson = lesson }
                     )
                     .id(lesson.id)
                     .padding(.vertical, 5)
@@ -541,7 +565,8 @@ struct TimetableView: View {
                             homework: homework(for: lesson),
                             exam: exam(for: lesson),
                             isFlashing: isFlash,
-                            flashPulse: flashPulse
+                            flashPulse: flashPulse,
+                            onAdd: { addSheetLesson = lesson }
                         )
                         .id(lesson.id)
                         .padding(.vertical, 5)
@@ -627,9 +652,15 @@ struct TimetableView: View {
         if entryOffset == 0, !userHasNavigated, applySmartDay(), weekOffset != entryOffset {
             await fetchWeek()
         }
-        if lessons.isEmpty && homeworks.isEmpty && exams.isEmpty {
+        // A hibaág a KRÉTA-adatokon dönt (a saját tételek helyből mindig
+        // megvannak, azok nem takarhatják el a sikertelen lehúzást).
+        let kretaEmpty = lessons.isEmpty
+            && homeworks.allSatisfy { CustomTasksStore.isCustomId($0.id) }
+            && exams.allSatisfy { CustomTasksStore.isCustomId($0.id) }
+        if kretaEmpty {
             if hadData && weekOffset == entryOffset {
                 lessons = prevLessons; homeworks = prevHW; exams = prevEx
+                mergeCustomTasks()
                 loadError = kreta.sessionExpired
                     ? "A KRÉTA-munkamenet lejárt — jelentkezz be újra."
                     : "Nem sikerült frissíteni — a legutóbbi adatokat mutatjuk."
@@ -655,6 +686,18 @@ struct TimetableView: View {
         TimetableWidgetPublish.publishWeek(lessons)
     }
 
+    /// Saját tételek bekeverése a KRÉTA-listákba (mindig a store-ból,
+    /// duplázás nélkül) — így a Feladatok tabon felvett saját házi/dolgozat
+    /// az órarend megfelelő óráján is megjelenik (tárgy + nap egyezéssel,
+    /// dolgozatnál óraszám-tűzéssel).
+    private func mergeCustomTasks() {
+        let custom = CustomTasksStore.load()
+        homeworks = homeworks.filter { !CustomTasksStore.isCustomId($0.id) }
+            + CustomTasksStore.homeworkItems(from: custom)
+        exams = exams.filter { !CustomTasksStore.isCustomId($0.id) }
+            + CustomTasksStore.examItems(from: custom)
+    }
+
     /// Az aktuális weekOffset hetének lehúzása (KRÉTA: hétfő–vasárnap).
     private func fetchWeek() async {
         guard let user = session.selectedUser else { return }
@@ -670,6 +713,16 @@ struct TimetableView: View {
         lessons = deduped(ttR)
         homeworks = hwR
         exams = exR
+        mergeCustomTasks()
+        // Tantárgy-univerzum a sajátfeladat-sheetnek: egyszer elég
+        // (a Feladatok tabbal közös cache-ből is építkezik).
+        if subjects.isEmpty {
+            let subjR = await kreta.fetchAllSubjectNames(iss: iss)
+            let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1") ?? []
+            let merged = Array(Set(subjR).union(cached)).sorted()
+            if !merged.isEmpty { subjects = merged }
+            if !subjR.isEmpty { UserDefaults.standard.set(subjR.sorted(), forKey: "firka.cachedSubjects.v1") }
+        }
     }
 }
 
@@ -730,6 +783,9 @@ private struct TimetableRow: View {
     var exam: ExamItem? = nil
     var isFlashing: Bool = false
     var flashPulse: Bool = false
+    /// Saját feladat felvétele ehhez az órához (órarend szerinti
+    /// hozzárendelés) — nil-nél nincs plusz gomb a soron.
+    var onAdd: (() -> Void)? = nil
 
     private var isCancelled: Bool { lesson.isCancelled }
     private var isSubstituted: Bool { lesson.isSubstituted }
@@ -906,7 +962,7 @@ private struct TimetableRow: View {
                         }
                     }
                     Spacer(minLength: 8)
-                    // Time — editorial stacked
+                    // Time — editorial stacked + sajátfeladat-plusz
                     VStack(alignment: .trailing, spacing: 1) {
                         Text(lesson.start.formatted(date: .omitted, time: .shortened))
                             .font(.system(size: 13, weight: .semibold, design: .rounded).monospacedDigit())
@@ -914,6 +970,16 @@ private struct TimetableRow: View {
                         Text(lesson.end.formatted(date: .omitted, time: .shortened))
                             .font(.caption2.weight(.medium).monospacedDigit())
                             .foregroundStyle(.tertiary)
+                        if let onAdd {
+                            Button(action: onAdd) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 20))
+                                    .foregroundStyle(colors.accent.opacity(0.8))
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.top, 6)
+                            .accessibilityLabel("Saját feladat ehhez az órához")
+                        }
                     }
                 }
 

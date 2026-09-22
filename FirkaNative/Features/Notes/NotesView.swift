@@ -540,6 +540,8 @@ struct NotesView: View {
 
 /// Saját feladat / dolgozat felvétele: típus, tantárgy (CSAK a meglévő,
 /// Jegyeknél is látható tárgyakból), megnevezés, naptár-nap + aznapi óra.
+/// Órarendből nyitva az óra előtöltődik (tárgy + nap + óraszám), így nem
+/// naptár szerint kell kitallózni, hanem órarend szerint rákoppintva megy.
 struct AddCustomTaskSheet: View {
     let kind: CustomTaskKind
     let subjects: [String]
@@ -550,15 +552,21 @@ struct AddCustomTaskSheet: View {
     @State private var title = ""
     @State private var day: Date
     /// Hányadik tanóra aznap (1., 2., 3. …) — nem falióra-időpont.
-    @State private var period = 1
+    @State private var period: Int
 
-    init(kind: CustomTaskKind, subjects: [String], onSave: @escaping () -> Void) {
+    init(kind: CustomTaskKind, subjects: [String], onSave: @escaping () -> Void,
+         prefillSubject: String? = nil, prefillDay: Date? = nil, prefillPeriod: Int? = nil) {
         self.kind = kind
         self.subjects = subjects
         self.onSave = onSave
         _selectedKind = State(initialValue: kind)
-        _day = State(initialValue: Calendar.current.startOfDay(for: Date()))
-        if let first = subjects.first { _subject = State(initialValue: first) }
+        _day = State(initialValue: prefillDay.map { Calendar.current.startOfDay(for: $0) } ?? Calendar.current.startOfDay(for: Date()))
+        if let p = prefillSubject, !p.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            _subject = State(initialValue: p)
+        } else if let first = subjects.first {
+            _subject = State(initialValue: first)
+        }
+        _period = State(initialValue: prefillPeriod.flatMap { (1...15).contains($0) ? $0 : nil } ?? 1)
     }
 
     private var isExam: Bool { selectedKind == .exam }
