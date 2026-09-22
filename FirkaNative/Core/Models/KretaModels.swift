@@ -14,6 +14,30 @@ struct GradeItem: Identifiable, Hashable {
     /// A Tema is hordozhat nyers HTML-t — kijelzéshez a tisztított változat.
     var plainTopic: String { HomeworkPlain.text(from: topic) }
 }
+
+/// Valós százalék a jegy szövegeiből: a tanár gyakran beleírja
+/// ("85%", "Témazáró 72%"). Nincs kitalált érték — ha egyik mezőben
+/// sincs explicit %, nil (a kártya ilyenkor nem mutat %sort a jegy
+/// értékéből számolt kamuszám helyett).
+enum GradePercent {
+    static func parse(valueText: String, topic: String, type: String) -> Int? {
+        for field in [valueText, topic, type] {
+            if let p = firstPercent(in: field) { return p }
+        }
+        return nil
+    }
+
+    private static func firstPercent(in s: String) -> Int? {
+        guard let rx = try? NSRegularExpression(pattern: "(\\d{1,3})\\s*%") else { return nil }
+        let ns = s as NSString
+        for m in rx.matches(in: s, range: NSRange(location: 0, length: ns.length)) {
+            if m.numberOfRanges > 1, let v = Int(ns.substring(with: m.range(at: 1))), (0...100).contains(v) {
+                return v
+            }
+        }
+        return nil
+    }
+}
 struct LessonItem: Identifiable, Hashable {
     let id: String
     let subject: String

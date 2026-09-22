@@ -3,7 +3,9 @@ import UIKit
 
 // MARK: - Új jegy ünneplő kártya (fullscreen)
 // - Középen nagyban: liquid glass kör a jeggyel (mint a Jegyek tabon)
-// - Alatta menő helyen a százalék (5 → 100%)
+// - Alatta nagyban a VALÓS százalék, de csak ha a tanár beleírta a jegy
+//   szövegébe (pl. "85%") — a jegyértékből szorzott kamuszám (4-es → 80%)
+//   helyett ilyenkor nincs %sor.
 // - Alatta balra zárva: tantárgy, mire kapta (téma), típus • tanár • dátum • súly
 struct GradeCelebrationView: View {
     let grade: GradeItem
@@ -16,7 +18,9 @@ struct GradeCelebrationView: View {
 
     var colors: AppColors { theme.colors(for: scheme) }
     private var gradeColor: Color { colors.gradeColor(for: grade.value) }
-    private var percent: Int { grade.value * 20 }
+    private var percent: Int? {
+        GradePercent.parse(valueText: grade.valueText, topic: grade.plainTopic, type: grade.type)
+    }
     private var topicLine: String { grade.plainTopic.isEmpty ? grade.type : grade.plainTopic }
     private var dateText: String {
         let f = DateFormatter()
@@ -89,14 +93,17 @@ struct GradeCelebrationView: View {
                 .scaleEffect(appeared ? 1 : 0.6)
                 .opacity(appeared ? 1 : 0)
 
-                // Százalék nagyban a szám alatt — 0-ról pörög fel
-                Text("\(shownPct)%")
-                    .font(.system(size: 52, weight: .bold, design: .rounded))
-                    .foregroundStyle(gradeColor)
-                    .monospacedDigit()
-                    .contentTransition(.numericText())
-                    .padding(.top, 10)
-                    .opacity(appeared ? 1 : 0)
+                // Valós százalék nagyban a szám alatt — 0-ról pörög fel.
+                // Ha a jegyhez nincs beírva % (a gyakori eset), nincs sor.
+                if percent != nil {
+                    Text("\(shownPct)%")
+                        .font(.system(size: 52, weight: .bold, design: .rounded))
+                        .foregroundStyle(gradeColor)
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                        .padding(.top, 10)
+                        .opacity(appeared ? 1 : 0)
+                }
 
                 Spacer(minLength: 16)
 
@@ -150,13 +157,14 @@ struct GradeCelebrationView: View {
             withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { pulse = true }
         }
         .task {
-            // Százalék felpörgetése 0-ról a célra
+            // Százalék felpörgetése 0-ról a célra (ha nincs valós %, nincs animáció sem)
+            guard let target = percent else { return }
             try? await Task.sleep(nanoseconds: 400_000_000)
             let steps = 24
             for i in 1...steps {
                 try? await Task.sleep(nanoseconds: 1_300_000_000 / UInt64(steps))
                 if Task.isCancelled { return }
-                shownPct = percent * i / steps
+                shownPct = target * i / steps
             }
         }
     }
