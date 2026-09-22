@@ -25,24 +25,6 @@ struct HomeView: View {
 
         NavigationStack {
             List {
-                // Summit sync sáv — CSAK töltéskor úszik be egy vékony sorban
-                // (lehúzásra / betöltéskor), készre teljesen eltűnik: helyet
-                // sem tart, mintha ott sem lett volna.
-                if vm.isRefreshing {
-                    Section {
-                        SummitSyncBar(
-                            phase: vm.syncPhase,
-                            progress: vm.syncProgress,
-                            colors: colors,
-                            scheme: scheme
-                        )
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 0, trailing: 16))
-                        .listRowSeparator(.hidden)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                    }
-                }
-
                 // Greeting — egyetlen finom belépés képernyőnként, nem soronként
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
@@ -248,6 +230,23 @@ struct HomeView: View {
             .background(colors.background)
             .refreshable { await vm.refresh(kreta: kreta, user: session.selectedUser) }
             .animation(SummitMotion.snappy, value: vm.isRefreshing)
+            // Sync sáv lebegő rétegként a lista FELETT — nem Section, mert
+            // annak beszúrása minden lehúzáskor feljebb lökte a tartalmat.
+            .overlay(alignment: .top) {
+                if vm.isRefreshing {
+                    SummitSyncBar(
+                        phase: vm.syncPhase,
+                        progress: vm.syncProgress,
+                        colors: colors,
+                        scheme: scheme
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .shadow(color: Color.black.opacity(scheme == .dark ? 0.3 : 0.12), radius: 10, y: 3)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .allowsHitTesting(false)
+                }
+            }
             .task {
                 // első indításkor a previewMinutes legyen a mostani idő (ne fix 09:00)
                 if UserDefaults.standard.object(forKey: "home.demoPreviewMinutes") == nil {
