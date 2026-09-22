@@ -127,7 +127,7 @@ struct HomeView: View {
                                             withAnimation(SummitMotion.snappy) { completed.toggleExam(e.id) }
                                         }
                                     }
-                                    if vm.exams.count > 3 { NavigationLink("Összes dolgozat (\(vm.exams.count))") { NotesView() }.font(.caption.weight(.semibold)).tint(colors.accent) }
+                                    if vm.exams.count > 3 { NavigationLink("Összes dolgozat (\(vm.exams.count))") { NotesView(initialFilter: 1) }.font(.caption.weight(.semibold)).tint(colors.accent) }
                                 }
                             }.frame(maxWidth: .infinity, alignment: .topLeading)
                             // Jobb: feladatok
@@ -179,7 +179,7 @@ struct HomeView: View {
                             )
                         }
                         if sorted.count > 3 {
-                            NavigationLink { NotesView() } label: {
+                            NavigationLink { NotesView(initialFilter: 1) } label: {
                                 Text("Összes dolgozat (\(sorted.count))")
                             }
                         }

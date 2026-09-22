@@ -17,7 +17,13 @@ struct NotesView: View {
     /// Órarendi órák az óraszám-pillekhez (a csatolmány-lehúzás mellékterméke).
     @State private var lessons: [LessonItem] = []
     @State private var isLoading = true
-    @State private var filter = 0 // 0 = Feladatok, 1 = Dolgozatok, 2 = Kész
+    @State private var filter: Int // 0 = Feladatok, 1 = Dolgozatok, 2 = Kész
+
+    /// Főoldali "Összes dolgozat" deeplink: 1-gyel nyitva egyből a
+    /// Dolgozatok szegmens jön (a tab és az értesítés-koppintás marad 0).
+    init(initialFilter: Int = 0) {
+        _filter = State(initialValue: initialFilter)
+    }
     @State private var expandedIDs: Set<String> = []
     @State private var flashedID: String?
     @State private var flashPulse = false
