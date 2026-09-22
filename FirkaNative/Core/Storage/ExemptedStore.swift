@@ -33,4 +33,14 @@ enum ExemptedStore {
     static func isExemptedCanonical(_ canonical: String) -> Bool {
         load().contains(where: { SubjectMatcher.canonical($0) == canonical })
     }
+    /// Záró felmentett órák levágása időrendben: ha a nap vége felmentett
+    /// tárgy(ak)ból áll, azok nem részei a napnak (Live Activity-terv,
+    /// MOST-kártya, óraszám) — utánuk már nem kell az activitynek élnie.
+    /// Köztes felmentett óra marad (ott még tart a tanítás).
+    static func trimmingTrailingExempted(_ lessons: [LessonItem]) -> [LessonItem] {
+        let sorted = lessons.sorted { $0.start < $1.start }
+        var end = sorted.count
+        while end > 0, isExempted(sorted[end - 1].subject) { end -= 1 }
+        return Array(sorted.prefix(end))
+    }
 }

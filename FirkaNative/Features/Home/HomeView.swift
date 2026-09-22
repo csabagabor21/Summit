@@ -25,6 +25,22 @@ struct HomeView: View {
 
         NavigationStack {
             List {
+                // Summit sync sáv — lehúzáskor többlépcsős töltésjelző
+                // (melyik KRÉTA-sáv jön), nyugalomban az utolsó sync ideje.
+                Section {
+                    SummitSyncBar(
+                        isSyncing: vm.isRefreshing,
+                        phase: vm.syncPhase,
+                        progress: vm.syncProgress,
+                        lastSync: vm.lastSync,
+                        colors: colors,
+                        scheme: scheme
+                    )
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 0, trailing: 16))
+                    .listRowSeparator(.hidden)
+                }
+
                 // Greeting — egyetlen finom belépés képernyőnként, nem soronként
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
@@ -256,6 +272,10 @@ struct HomeView: View {
                 Task { await syncLiveActivity() }
             }
             .onReceive(NotificationCenter.default.publisher(for: ExemptedStore.changedNotification)) { _ in exemptedTick += 1 }
+            // Felmentés-váltáskor a Live Activity is azonnal újraszámol
+            // (a lessonsToday-tömb ilyenkor nem változik, így az onChange
+            // nem tüzelne — csak a percenkénti sync futna le).
+            .onChange(of: exemptedTick) { _, _ in Task { await syncLiveActivity() } }
             // Dolgozat-pótlás kapcsoló/elvetés — hálózat nélkül újraszámol.
             .onReceive(NotificationCenter.default.publisher(for: ExamRollover.changedNotification)) { _ in vm.applyRollover() }
             .onChange(of: vm.lessonsToday) { _, _ in Task { await syncLiveActivity() } }
@@ -698,12 +718,15 @@ private struct LiveCalc {
     var progress: Double = 0
     var remainingText: String = ""
 
-    // Csak az adott nap órái — holnap órája ne szivárogjon be (600 perc hiba)
+    // Csak az adott nap órái — holnap órája ne szivárogjon be (600 perc hiba).
+    // A záró felmentett órák nem részei a napnak (mint a Live Activity-ben):
+    // utánuk "Ma nincs több órád" jön, nem szünet egy felmentett órára.
     private static func todayLessons(_ lessons: [LessonItem], now: Date) -> [LessonItem] {
         let cal = Calendar.current
-        return lessons.filter { cal.isDate($0.start, inSameDayAs: now) || cal.isDate($0.end, inSameDayAs: now) }
+        let day = lessons.filter { cal.isDate($0.start, inSameDayAs: now) || cal.isDate($0.end, inSameDayAs: now) }
             .filter { !$0.subject.trimmingCharacters(in: .whitespaces).isEmpty }
             .sorted { $0.start < $1.start }
+        return ExemptedStore.trimmingTrailingExempted(day)
     }
 
     private static func formatRemaining(_ minutes: Int, past: Bool = false) -> String {
@@ -783,5 +806,74 @@ private struct HomeLiquidProgress: View {
                 .animation(SummitMotion.progress, value: progress)
             Text(remainingText).font(.caption2.weight(.medium)).foregroundStyle(.secondary).monospacedDigit().contentTransition(.numericText())
         }
+    }
+}
+
+// MARK: - Summit sync sáv — többlépcsős töltésjelző a pörgő karika helyett
+private struct SummitSyncBar: View {
+    var isSyncing: Bool
+    var phase: String
+    var progress: Double
+    var lastSync: Date?
+    var colors: AppColors
+    var scheme: ColorScheme
+    private let steps = 6
+
+    private var doneSteps: Int { min(steps, max(0, Int((progress * Double(steps)).rounded(.down)))) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: isSyncing ? "arrow.triangle.2.circlepath" : "checkmark.circle.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(isSyncing ? colors.accent : Color.green)
+                    .rotationEffect(isSyncing ? .degrees(360) : .zero)
+                    .animation(isSyncing ? .linear(duration: 1.2).repeatForever(autoreverses: false) : .default, value: isSyncing)
+                Text("Summit sync")
+                    .font(.caption2.weight(.bold))
+                    .tracking(1.0)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if isSyncing {
+                    Text(phase.isEmpty ? "Szinkronizálás…" : phase)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .contentTransition(.numericText())
+                } else if let last = lastSync {
+                    Text("Szinkronizálva • \(last.formatted(date: .omitted, time: .shortened))")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.tertiary)
+                        .monospacedDigit()
+                } else {
+                    Text("Lehúzásra frissül")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            if isSyncing {
+                HStack(spacing: 4) {
+                    ForEach(0..<steps, id: \.self) { i in
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(i < doneSteps ? colors.accent : Color.primary.opacity(scheme == .dark ? 0.14 : 0.10))
+                            .frame(height: 6)
+                            .opacity(i == doneSteps ? 0.55 : 1.0)
+                            .animation(SummitMotion.snappy, value: progress)
+                    }
+                }
+                .transition(.opacity)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(colors.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(scheme == .dark ? 0.08 : 0.06), lineWidth: 1)
+                )
+        )
+        .animation(SummitMotion.gentle, value: isSyncing)
     }
 }

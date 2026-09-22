@@ -413,9 +413,12 @@ final class SummitLiveActivityManager: ObservableObject {
             return false
         }
         let cal = Calendar.current
-        let today = lessons
+        let rawToday = lessons
             .filter { cal.isDate($0.start, inSameDayAs: now) }
             .sorted { $0.start < $1.start }
+        // Záró felmentett órák nem részei a napnak: se terv, se számlálás,
+        // se határ — az activity az utolsó NEM felmentett óra végén lezár.
+        let today = ExemptedStore.trimmingTrailingExempted(rawToday)
         let cur = today.first { $0.start <= now && $0.end >= now }
         let nxt = today.first { $0.start > now }
         // Ma már nincs több óra (vagy ma nincs iskola): a futót zárjuk,
@@ -435,12 +438,13 @@ final class SummitLiveActivityManager: ObservableObject {
             // nélküli rekord maradt fent), és az órák közti szerver-push soha
             // nem indult be. A valódi nap-vége ág lentebb: today NEM üres, de
             // minden óra a múltban van.
-            if today.isEmpty {
+            if today.isEmpty, rawToday.isEmpty {
                 lastAction = "Nincs betöltött órarend → változatlan"
                 return !Activity<SummitLiveActivityAttributes>.activities.isEmpty
             }
             demoTestActiveUntil = nil
-            lastAction = "Mai órák vége → lezárva"
+            // Minden mai óra felmentett: nincs mit mutatni, a napnak vége.
+            lastAction = today.isEmpty ? "Minden mai óra felmentett → lezárva" : "Mai órák vége → lezárva"
             await endAllImpl(dismissalPolicy: .default)
             return false
         }

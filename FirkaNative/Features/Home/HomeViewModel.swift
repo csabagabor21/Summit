@@ -20,6 +20,12 @@ final class HomeViewModel: ObservableObject {
     @Published var rolledExamIDs: Set<String> = []
     @Published var originalExamDates: [String: Date] = [:]
     @Published var error: String?
+    /// Többlépcsős szinkron-állapot a Summit sync sávnak: épp melyik
+    /// adatsáv töltődik + hol tart a 6 párhuzamos lehúzás (0...1).
+    @Published var syncPhase: String = ""
+    @Published var syncProgress: Double = 0
+    /// Utolsó sikeres frissítés — a sáv nyugalmi felirata.
+    @Published var lastSync: Date?
 
     /// Nyers dolgozatok + pótló-kereséshez használt órák (hálózat nélkül
     /// újraszámolható a kapcsoló/elvetés után).
@@ -43,7 +49,13 @@ final class HomeViewModel: ObservableObject {
             return
         }
         isRefreshing = true
-        defer { isRefreshing = false }
+        syncPhase = "Kapcsolódás a KRÉTÁ-hoz…"
+        syncProgress = 0
+        defer {
+            isRefreshing = false
+            syncPhase = ""
+            syncProgress = 0
+        }
 
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         if iss.isEmpty || iss == "unknown" {
@@ -53,17 +65,43 @@ final class HomeViewModel: ObservableObject {
             return
         }
 
-        async let g = kreta.fetchGrades(iss: iss)
-        async let hw = kreta.fetchHomework(iss: iss)
-        async let ab = kreta.fetchAbsences(iss: iss)
-        async let ex = kreta.fetchExams(iss: iss)
-        async let msg = kreta.fetchMessages()
-
+        // A 6 adatsáv párhuzamosan jön (mint eddig), de a sáv mindegyik
+        // érkezését külön lépcsőként mutatja — nem csak egy pörgő karika.
+        _ = await kreta.ensureValidToken()
         let hadData = !(grades.isEmpty && homeworks.isEmpty && absences.isEmpty && exams.isEmpty && messages.isEmpty && lessonsToday.isEmpty)
         let start = Calendar.current.startOfDay(for: Date())
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start)!
-        async let tt = kreta.fetchTimetable(iss: iss, from: start, to: end)
-        let (gradesR, hwR, abR, exR, msgR, ttR) = await (g, hw, ab, ex, msg, tt)
+        var gradesR: [GradeItem] = []
+        var hwR: [HomeworkItem] = []
+        var abR: [AbsenceItem] = []
+        var exR: [ExamItem] = []
+        var msgR: [MessageItem] = []
+        var ttR: [LessonItem] = []
+        let stepLabels = ["Órarend", "Jegyek", "Házi feladatok", "Dolgozatok", "Hiányzások", "Üzenetek"]
+        var doneSteps = 0
+        await withTaskGroup(of: SyncPart.self) { group in
+            group.addTask { .timetable(await kreta.fetchTimetable(iss: iss, from: start, to: end)) }
+            group.addTask { .grades(await kreta.fetchGrades(iss: iss)) }
+            group.addTask { .homework(await kreta.fetchHomework(iss: iss)) }
+            group.addTask { .exams(await kreta.fetchExams(iss: iss)) }
+            group.addTask { .absences(await kreta.fetchAbsences(iss: iss)) }
+            group.addTask { .messages(await kreta.fetchMessages()) }
+            for await part in group {
+                switch part {
+                case .timetable(let v): ttR = v
+                case .grades(let v): gradesR = v
+                case .homework(let v): hwR = v
+                case .exams(let v): exR = v
+                case .absences(let v): abR = v
+                case .messages(let v): msgR = v
+                }
+                // A címke a soron következő sávot mutatja, a csík a kész hányadot.
+                syncPhase = doneSteps < stepLabels.count ? "\(stepLabels[doneSteps]) betöltése…" : "Rendezés…"
+                doneSteps += 1
+                syncProgress = Double(doneSteps) / Double(stepLabels.count)
+            }
+        }
+        syncPhase = "Rendezés…"
         if gradesR.isEmpty && hwR.isEmpty && abR.isEmpty && exR.isEmpty && msgR.isEmpty && ttR.isEmpty {
             if hadData {
                 // Totális fetch-hiba (lejárt token, offline): a legutóbbi adat
@@ -103,6 +141,7 @@ final class HomeViewModel: ObservableObject {
             grades: gradesR, homeworks: hwR, exams: exR, absences: abR, userId: user.id
         )
         error = nil
+        lastSync = Date()
         updateLiveState()
         return
     }
@@ -175,4 +214,15 @@ final class HomeViewModel: ObservableObject {
         let now = Date()
         return lessonsToday.first(where: { $0.start <= now && $0.end >= now })
     }
+}
+
+/// A 6 párhuzamos KRÉTA-lehúzás címkézett eredménye — a sync sáv
+/// lépcsőnként tudja mutatni, melyik adatsáv érkezett meg.
+private enum SyncPart {
+    case timetable([LessonItem])
+    case grades([GradeItem])
+    case homework([HomeworkItem])
+    case exams([ExamItem])
+    case absences([AbsenceItem])
+    case messages([MessageItem])
 }

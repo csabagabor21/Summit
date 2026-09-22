@@ -116,6 +116,22 @@ struct TimetableView: View {
         Task { await load() }
     }
 
+    /// Tabra lépéskor MINDIG a mai napra áll (a kézi lapozás nem marad meg
+    /// tabváltáson át). A load() végi okos ugrás finomít a következő
+    /// tanítási napra (hétvége / nap vége). Házi-deeplink alatt nem nyúl
+    /// semmihez — a jumpToLesson intézi a pozíciót.
+    private func enterTimetable() {
+        guard !isLoading else { return }
+        guard Date() > suppressAutoJumpUntil else { return }
+        let wd = Calendar.current.component(.weekday, from: Date())
+        withAnimation(SummitMotion.page) {
+            weekOffset = 0
+            selectedDay = min(6, max(2, wd))
+            userHasNavigated = false
+        }
+        Task { await load() }
+    }
+
     /// Deeplink-cél hét/nap a határidőből (a lapozó ±8 hetéhez igazítva).
     /// Hétvégi határidő → péntek (a házi órája jellemzően ott van).
     private func deeplinkTarget(for deadline: Date) -> (weekOffset: Int, weekday: Int) {
@@ -329,6 +345,8 @@ struct TimetableView: View {
                     }
                 } else {
                     // MARK: Day meta — editorial header (mint Grades "ÖSSZÁTLAG" stílus)
+                    // Az óraszám és az idősáv a záró felmentett órák nélkül értendő
+                    // (7 órából az utolsó felmentett → "6 óra", a 6. végéig).
                     Section {
                         HStack(alignment: .lastTextBaseline, spacing: 12) {
                             VStack(alignment: .leading, spacing: 2) {
@@ -337,10 +355,10 @@ struct TimetableView: View {
                                     .foregroundStyle(.secondary)
                                     .tracking(1.1)
                                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                    Text("\(filtered.count)")
+                                    Text("\(effectiveFiltered.count)")
                                         .font(.system(size: 30, weight: .bold, design: .rounded))
                                         .monospacedDigit()
-                                    Text(filtered.count == 1 ? "óra" : "óra")
+                                    Text(effectiveFiltered.count == 1 ? "óra" : "óra")
                                         .font(.subheadline.weight(.semibold))
                                         .foregroundStyle(.secondary)
                                 }
@@ -351,7 +369,7 @@ struct TimetableView: View {
                                     .font(.caption2.weight(.bold))
                                     .foregroundStyle(.secondary)
                                     .tracking(1.0)
-                                if let first = filtered.first, let last = filtered.last {
+                                if let first = effectiveFiltered.first, let last = effectiveFiltered.last {
                                     Text("\(first.start.formatted(date: .omitted, time: .shortened)) – \(last.end.formatted(date: .omitted, time: .shortened))")
                                         .font(.caption.weight(.semibold).monospacedDigit())
                                         .foregroundStyle(.secondary)
@@ -454,14 +472,10 @@ struct TimetableView: View {
                 scrollProxy = proxy
                 // Másik eszközről szinkronizált tannaptár is itt érkezik meg.
                 schoolEvents = SchoolEventsStore.load()
-                // Órarend tabra koppintáskor: ha az utolsó mai óra már lement
-                // vagy hétvége van, a következő tanítási napot mutassa —
-                // DE csak ha a user nem lapozott kézzel máshova.
-                // (Első betöltés alatt a load() intézi az okos ugrást.)
-                guard !isLoading, !userHasNavigated else { return }
-                if applySmartDay() {
-                    Task { await load() }
-                }
+                // Tabra lépéskor mindig a mai nap (első betöltés alatt a
+                // load() intézi az okos ugrást — az enterTimetable olyankor
+                // korán visszatér).
+                enterTimetable()
             }
             // Live Activity sync EGYKEZES: csak a HomeView írja (ugyanaz az AppStorage kulcs!).
             // Két író (Home + Timetable eltérő nap locked lessons-szel) egymást ütötte:
@@ -608,6 +622,10 @@ struct TimetableView: View {
         guard let dayDate = selectedDate else { return [] }
         return lessons.filter { cal.isDate($0.start, inSameDayAs: dayDate) }.sorted { $0.start < $1.start }
     }
+    /// A nap érdemi órái: a záró felmentett órák nem számítanak bele az
+    /// óraszámba és az idősávba sem (mint a Live Activity-ben) — a sorok
+    /// persze továbbra is látszanak, zöld "Felmentett" jelöléssel.
+    var effectiveFiltered: [LessonItem] { ExemptedStore.trimmingTrailingExempted(filtered) }
     /// A kiválasztott nap dátuma (az eseménykártyák nap-szűréséhez is).
     private var selectedDate: Date? {
         let cal = Calendar.current
