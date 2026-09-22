@@ -193,6 +193,8 @@ private struct TimetableWidgetView: View {
             }
             Spacer(minLength: 0)
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
     }
 
     // MARK: Medium / Large — natív lista: szám + tárgy + idő, semmi króm
@@ -208,7 +210,7 @@ private struct TimetableWidgetView: View {
                         .foregroundStyle(.secondary).lineLimit(1)
                 }
             }
-            .padding(.bottom, 6)
+            .padding(.bottom, 4)
             if entry.dayLessons.isEmpty {
                 emptyView.padding(.top, 4)
             } else {
@@ -218,7 +220,6 @@ private struct TimetableWidgetView: View {
                 if vis.earlier > 0 {
                     Text("↑ \(vis.earlier) korábbi óra")
                         .font(.caption).foregroundStyle(.tertiary)
-                        .padding(.bottom, 2)
                 }
                 ForEach(vis.rows, id: \.id) { l in
                     row(l)
@@ -226,11 +227,14 @@ private struct TimetableWidgetView: View {
                 if vis.later > 0 {
                     Text("+\(vis.later) további óra")
                         .font(.caption).foregroundStyle(.tertiary)
-                        .padding(.top, 4)
+                        .padding(.top, 2)
                 }
             }
             Spacer(minLength: 0)
         }
+        // Rendes belső margó, hogy semmi ne tapadjon az üveg széléhez.
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
     }
 
     private func row(_ l: TimetableWidgetStore.Lesson) -> some View {
@@ -260,7 +264,7 @@ private struct TimetableWidgetView: View {
                     .foregroundStyle(accent)
             }
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, 2)
     }
 
     private func subjectColor(_ l: TimetableWidgetStore.Lesson) -> Color {
