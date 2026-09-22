@@ -31,6 +31,20 @@ struct SummitApp: App {
         }
     }
 
+    /// Frissítőknek: aki már be van lépve (update után), annál a belépéskori
+    /// automatika sosem futott le — indításkor és előtérbe hozáskor (napi max
+    /// egyszer) is megpróbáljuk az admin-alapértelmezést, kérdés nélkül.
+    /// Ha már van kézi beállítás vagy alkalmazott naptár, a resolve úgysem
+    /// nyúl semmihez (hálózat nélkül tér vissza).
+    private func resolveSchoolCalendarForUpdater() {
+        guard session.selectedUser != nil else { return }
+        let key = "schoolcalendar.lastAutoResolve.v1"
+        let last = UserDefaults.standard.double(forKey: key)
+        guard Date().timeIntervalSince1970 - last > 24 * 3600 else { return }
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: key)
+        resolveSchoolCalendar()
+    }
+
     /// Heartbeat egy helyről: ha az iskolanév üres vagy szűrt (pl. belépéskor
     /// nem jött meg az adatlap), a KRÉTA-adatlapból pótolja, csak utána küld.
     /// - Parameter event: nil = napi (előtér), különben azonnali esemény
@@ -78,6 +92,11 @@ struct SummitApp: App {
                     }
                     // takarítás: régi hardcoded flag már nem használt
                     UserDefaults.standard.removeObject(forKey: "timetable.useHardcoded")
+                    // Frissítő (már belépett user) indításkor: ha nincs semmi
+                    // beállítva, az admin iskolai naptár legyen a default.
+                    if session.selectedUser != nil {
+                        resolveSchoolCalendar()
+                    }
                 }
                 .onChange(of: session.selectedId) { _, _ in
                     // A szinkron fiókonkénti opt-in: váltáskor kikapcsol
@@ -170,6 +189,9 @@ struct SummitApp: App {
                         // különben a szerver-oldali óraváltás nem indul be, ha
                         // a user csak napközben nyitja meg az appot.
                         Task { await SummitLiveActivityManager.shared.ensurePlanUploaded() }
+                        // Frissítő, akinek nincs semmi beállítva: napi max
+                        // egyszer az admin-naptár defaultolódik kérdés nélkül.
+                        resolveSchoolCalendarForUpdater()
                     }
                 }
         }
