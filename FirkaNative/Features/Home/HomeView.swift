@@ -229,24 +229,6 @@ struct HomeView: View {
             .scrollContentBackground(.hidden)
             .background(colors.background)
             .refreshable { await vm.refresh(kreta: kreta, user: session.selectedUser) }
-            .animation(SummitMotion.snappy, value: vm.isRefreshing)
-            // Sync sáv lebegő rétegként a lista FELETT — nem Section, mert
-            // annak beszúrása minden lehúzáskor feljebb lökte a tartalmat.
-            .overlay(alignment: .top) {
-                if vm.isRefreshing {
-                    SummitSyncBar(
-                        phase: vm.syncPhase,
-                        progress: vm.syncProgress,
-                        colors: colors,
-                        scheme: scheme
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    .shadow(color: Color.black.opacity(scheme == .dark ? 0.3 : 0.12), radius: 10, y: 3)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .allowsHitTesting(false)
-                }
-            }
             .task {
                 // első indításkor a previewMinutes legyen a mostani idő (ne fix 09:00)
                 if UserDefaults.standard.object(forKey: "home.demoPreviewMinutes") == nil {
@@ -811,38 +793,4 @@ private struct HomeLiquidProgress: View {
     }
 }
 
-// MARK: - Summit sync sáv — egyetlen vékony sor: a töltés a kapszula
-// hátterében kúszik, elöl a fázis + százalék. Csak töltéskor él.
-private struct SummitSyncBar: View {
-    var phase: String
-    var progress: Double
-    var colors: AppColors
-    var scheme: ColorScheme
 
-    var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule().fill(colors.surface)
-                Capsule()
-                    .fill(colors.accent.opacity(scheme == .dark ? 0.35 : 0.28))
-                    .frame(width: max(0, geo.size.width * progress))
-                    .animation(SummitMotion.snappy, value: progress)
-                HStack(spacing: 6) {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(colors.accent)
-                    Text(phase.isEmpty ? "Szinkronizálás…" : phase)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    Spacer(minLength: 4)
-                    Text("\(Int((progress * 100).rounded()))%")
-                        .font(.caption2.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, 12)
-            }
-        }
-        .frame(height: 32)
-    }
-}
