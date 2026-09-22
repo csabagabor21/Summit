@@ -25,20 +25,22 @@ struct HomeView: View {
 
         NavigationStack {
             List {
-                // Summit sync sáv — lehúzáskor többlépcsős töltésjelző
-                // (melyik KRÉTA-sáv jön), nyugalomban az utolsó sync ideje.
-                Section {
-                    SummitSyncBar(
-                        isSyncing: vm.isRefreshing,
-                        phase: vm.syncPhase,
-                        progress: vm.syncProgress,
-                        lastSync: vm.lastSync,
-                        colors: colors,
-                        scheme: scheme
-                    )
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 0, trailing: 16))
-                    .listRowSeparator(.hidden)
+                // Summit sync sáv — CSAK töltéskor úszik be egy vékony sorban
+                // (lehúzásra / betöltéskor), készre teljesen eltűnik: helyet
+                // sem tart, mintha ott sem lett volna.
+                if vm.isRefreshing {
+                    Section {
+                        SummitSyncBar(
+                            phase: vm.syncPhase,
+                            progress: vm.syncProgress,
+                            colors: colors,
+                            scheme: scheme
+                        )
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 0, trailing: 16))
+                        .listRowSeparator(.hidden)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                 }
 
                 // Greeting — egyetlen finom belépés képernyőnként, nem soronként
@@ -245,6 +247,7 @@ struct HomeView: View {
             .scrollContentBackground(.hidden)
             .background(colors.background)
             .refreshable { await vm.refresh(kreta: kreta, user: session.selectedUser) }
+            .animation(SummitMotion.snappy, value: vm.isRefreshing)
             .task {
                 // első indításkor a previewMinutes legyen a mostani idő (ne fix 09:00)
                 if UserDefaults.standard.object(forKey: "home.demoPreviewMinutes") == nil {
@@ -809,71 +812,38 @@ private struct HomeLiquidProgress: View {
     }
 }
 
-// MARK: - Summit sync sáv — többlépcsős töltésjelző a pörgő karika helyett
+// MARK: - Summit sync sáv — egyetlen vékony sor: a töltés a kapszula
+// hátterében kúszik, elöl a fázis + százalék. Csak töltéskor él.
 private struct SummitSyncBar: View {
-    var isSyncing: Bool
     var phase: String
     var progress: Double
-    var lastSync: Date?
     var colors: AppColors
     var scheme: ColorScheme
-    private let steps = 6
-
-    private var doneSteps: Int { min(steps, max(0, Int((progress * Double(steps)).rounded(.down)))) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Image(systemName: isSyncing ? "arrow.triangle.2.circlepath" : "checkmark.circle.fill")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(isSyncing ? colors.accent : Color.green)
-                    .rotationEffect(isSyncing ? .degrees(360) : .zero)
-                    .animation(isSyncing ? .linear(duration: 1.2).repeatForever(autoreverses: false) : .default, value: isSyncing)
-                Text("Summit sync")
-                    .font(.caption2.weight(.bold))
-                    .tracking(1.0)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                if isSyncing {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(colors.surface)
+                Capsule()
+                    .fill(colors.accent.opacity(scheme == .dark ? 0.35 : 0.28))
+                    .frame(width: max(0, geo.size.width * progress))
+                    .animation(SummitMotion.snappy, value: progress)
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(colors.accent)
                     Text(phase.isEmpty ? "Szinkronizálás…" : phase)
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.secondary)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
-                        .contentTransition(.numericText())
-                } else if let last = lastSync {
-                    Text("Szinkronizálva • \(last.formatted(date: .omitted, time: .shortened))")
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.tertiary)
-                        .monospacedDigit()
-                } else {
-                    Text("Lehúzásra frissül")
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.tertiary)
+                    Spacer(minLength: 4)
+                    Text("\(Int((progress * 100).rounded()))%")
+                        .font(.caption2.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(.secondary)
                 }
-            }
-            if isSyncing {
-                HStack(spacing: 4) {
-                    ForEach(0..<steps, id: \.self) { i in
-                        RoundedRectangle(cornerRadius: 3, style: .continuous)
-                            .fill(i < doneSteps ? colors.accent : Color.primary.opacity(scheme == .dark ? 0.14 : 0.10))
-                            .frame(height: 6)
-                            .opacity(i == doneSteps ? 0.55 : 1.0)
-                            .animation(SummitMotion.snappy, value: progress)
-                    }
-                }
-                .transition(.opacity)
+                .padding(.horizontal, 12)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(colors.surface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(scheme == .dark ? 0.08 : 0.06), lineWidth: 1)
-                )
-        )
-        .animation(SummitMotion.gentle, value: isSyncing)
+        .frame(height: 32)
     }
 }
