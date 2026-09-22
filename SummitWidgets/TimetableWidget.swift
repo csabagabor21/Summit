@@ -179,17 +179,17 @@ private struct TimetableWidgetView: View {
                 emptyView
             } else if let cur = entry.dayLessons.first(where: { $0.id == currentID }) {
                 Text("Most • \(remainingMinutes(cur))").font(.caption.weight(.semibold)).foregroundStyle(statusColor(cur))
-                Text(cur.subject).font(.title2.weight(.bold)).lineLimit(2).minimumScaleFactor(0.8)
+                Text(cur.subject).font(.title3.weight(.bold)).lineLimit(2).minimumScaleFactor(0.8)
                 Text("\(cur.index). óra • \(cur.room) • \(timeRange(cur))")
-                    .font(.callout.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+                    .font(.footnote.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
             } else if let nxt = nextLesson {
                 Text("Következő • \(nxt.start.formatted(date: .omitted, time: .shortened))")
                     .font(.caption.weight(.semibold)).foregroundStyle(statusColor(nxt))
-                Text(nxt.subject).font(.title2.weight(.bold)).lineLimit(2).minimumScaleFactor(0.8)
+                Text(nxt.subject).font(.title3.weight(.bold)).lineLimit(2).minimumScaleFactor(0.8)
                 Text("\(nxt.index). óra • \(nxt.room) • \(timeRange(nxt))")
-                    .font(.callout.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+                    .font(.footnote.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
             } else {
-                Text("Mára vége").font(.title2.weight(.bold))
+                Text("Mára vége").font(.title3.weight(.bold))
             }
             Spacer(minLength: 0)
         }
@@ -197,74 +197,87 @@ private struct TimetableWidgetView: View {
         .padding(.vertical, 8)
     }
 
-    // MARK: Medium / Large — natív lista: szám + tárgy + idő, semmi króm
+    // MARK: Medium / Large — kompakt editorial lista: visszafogott fejléc,
+    // karcsú sorok (szám + tárgy + meta), az aktuális óra halvány
+    // accent-hátteret kap — így nem egyforma súlyú minden sor.
     private func listView(maxRows: Int) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .lastTextBaseline) {
-                Text(headerLine).font(.caption.weight(.medium))
+                Text(headerLine).font(.caption2.weight(.bold)).tracking(0.6)
                     .foregroundStyle(.secondary).lineLimit(1)
                 Spacer(minLength: 6)
                 if let first = entry.dayLessons.first, let last = entry.dayLessons.last {
                     Text("\(entry.dayLessons.count) óra • \(first.start.formatted(date: .omitted, time: .shortened))–\(last.end.formatted(date: .omitted, time: .shortened))")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary).lineLimit(1)
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.tertiary).lineLimit(1)
                 }
             }
-            .padding(.bottom, 4)
+            .padding(.bottom, 6)
             if entry.dayLessons.isEmpty {
                 emptyView.padding(.top, 4)
             } else {
                 // Ablakos lista: legfelül a tartó (vagy a következő) óra,
                 // alatta a rákövetkezők — az 5. óra alatt az 5–6–7. látszik.
                 let vis = TimetableWidgetLogic.window(lessons: entry.dayLessons, now: now, maxRows: maxRows)
-                if vis.earlier > 0 {
-                    Text("↑ \(vis.earlier) korábbi óra")
-                        .font(.caption).foregroundStyle(.tertiary)
-                }
-                ForEach(vis.rows, id: \.id) { l in
-                    row(l)
-                }
-                if vis.later > 0 {
-                    Text("+\(vis.later) további óra")
-                        .font(.caption).foregroundStyle(.tertiary)
-                        .padding(.top, 2)
+                VStack(alignment: .leading, spacing: 2) {
+                    if vis.earlier > 0 {
+                        Text("↑ \(vis.earlier) korábbi óra")
+                            .font(.caption2).foregroundStyle(.tertiary)
+                            .padding(.horizontal, 8)
+                    }
+                    ForEach(vis.rows, id: \.id) { l in
+                        row(l)
+                    }
+                    if vis.later > 0 {
+                        Text("+\(vis.later) további óra")
+                            .font(.caption2).foregroundStyle(.tertiary)
+                            .padding(.horizontal, 8)
+                            .padding(.top, 2)
+                    }
                 }
             }
             Spacer(minLength: 0)
         }
         // Rendes belső margó, hogy semmi ne tapadjon az üveg széléhez.
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
     }
 
     private func row(_ l: TimetableWidgetStore.Lesson) -> some View {
         HStack(spacing: 10) {
             Text(l.index)
-                .font(.headline.monospacedDigit())
+                .font(.callout.weight(.bold).monospacedDigit())
                 .foregroundStyle(numberColor(l))
-                .frame(width: 22, alignment: .trailing)
-            VStack(alignment: .leading, spacing: 0) {
+                .frame(width: 20, alignment: .trailing)
+            VStack(alignment: .leading, spacing: 1) {
                 Text(l.subject)
                     .font(.subheadline.weight(.semibold))
                     .strikethrough(l.isCancelled, color: .secondary)
                     .foregroundStyle(subjectColor(l))
                     .lineLimit(1)
                 Text("\(l.room) • \(timeRange(l))")
-                    .font(.caption.monospacedDigit())
+                    .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
-            Spacer(minLength: 0)
+            Spacer(minLength: 4)
             if l.isCancelled {
-                Text("elmarad").font(.caption.weight(.medium)).foregroundStyle(.red)
+                Text("elmarad").font(.caption2.weight(.medium)).foregroundStyle(.red)
             } else if l.isSubstituted {
-                Text("helyettesítés").font(.caption.weight(.medium)).foregroundStyle(.orange)
+                Text("helyettesítés").font(.caption2.weight(.medium)).foregroundStyle(.orange)
             } else if isCurrent(l) {
-                Text(remainingMinutes(l)).font(.caption.weight(.semibold).monospacedDigit())
+                Text(remainingMinutes(l)).font(.caption2.weight(.semibold).monospacedDigit())
                     .foregroundStyle(accent)
             }
         }
+        .padding(.horizontal, 8)
         .padding(.vertical, 2)
+        .background {
+            if isCurrent(l) {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(accent.opacity(0.14))
+            }
+        }
     }
 
     private func subjectColor(_ l: TimetableWidgetStore.Lesson) -> Color {
