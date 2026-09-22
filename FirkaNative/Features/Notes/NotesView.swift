@@ -14,6 +14,11 @@ struct NotesView: View {
     /// Létező tantárgyak (Jegyek-tab köre): a sheet csak ezekből enged választani.
     @State private var subjects: [String] = []
     @State private var showingAdd = false
+    /// Óraválasztó a felvételhez: a pluszra előbb az órarend jön (nem naptár),
+    /// a kiválasztott óra töltődik elő a felvevő lapon.
+    @State private var showingPicker = false
+    @State private var pendingLesson: LessonItem?
+    @State private var openAddAfterPicker = false
     /// Órarendi órák az óraszám-pillekhez (a csatolmány-lehúzás mellékterméke).
     @State private var lessons: [LessonItem] = []
     /// Hiányzások a dolgozat-pótláshoz (ugyanabban a körben jön, mint a többi).
@@ -132,17 +137,37 @@ struct NotesView: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showingAdd = true } label: {
+                    Button { pendingLesson = nil; showingPicker = true } label: {
                         Image(systemName: "plus")
                     }
                     .accessibilityLabel(filter == 1 ? "Saját dolgozat hozzáadása" : "Saját feladat hozzáadása")
                 }
             }
+            // 1) Óraválasztó (órarend szerint, nem naptár szerint).
+            .sheet(isPresented: $showingPicker, onDismiss: openAddIfNeeded) {
+                LessonPickerSheet(
+                    lessons: lessons,
+                    onPick: { lesson in
+                        pendingLesson = lesson
+                        openAddAfterPicker = true
+                        showingPicker = false
+                    },
+                    onSkip: {
+                        pendingLesson = nil
+                        openAddAfterPicker = true
+                        showingPicker = false
+                    }
+                )
+            }
+            // 2) Felvevő lap — óraválasztás után előtöltve, különben naptárral.
             .sheet(isPresented: $showingAdd) {
                 AddCustomTaskSheet(
                     kind: filter == 1 ? .exam : .homework,
-                    subjects: subjects,
-                    onSave: { reloadCustom() }
+                    subjects: addSubjects,
+                    onSave: { reloadCustom() },
+                    prefillSubject: pendingLesson?.subject,
+                    prefillDay: pendingLesson?.start,
+                    prefillPeriod: pendingLesson.flatMap { Int($0.index) }
                 )
             }
             .onReceive(NotificationCenter.default.publisher(for: CustomTasksStore.changedNotification)) { _ in
@@ -294,6 +319,22 @@ struct NotesView: View {
         if let p = customPeriods[hw.id] { return "\(p). óra" }
         guard let lesson = HomeworkMatcher.lesson(for: hw, in: lessons) else { return nil }
         return "\(lesson.index). óra"
+    }
+
+    /// A felvevő lap tantárgy-listája: az óraválasztott tárgy akkor is
+    /// választható, ha épp nincs a KRÉTA-univerzumban.
+    private var addSubjects: [String] {
+        guard let s = pendingLesson?.subject, !subjects.contains(s) else { return subjects }
+        return [s] + subjects
+    }
+
+    /// Óraválasztó bezárása után (választással vagy "Naptár szerint"-tel)
+    /// nyílik a felvevő lap — kézi becsukásnál nem.
+    private func openAddIfNeeded() {
+        if openAddAfterPicker {
+            openAddAfterPicker = false
+            showingAdd = true
+        }
     }
 
     /// Saját tételek újratöltése az óraszám-térképpel együtt.
@@ -577,10 +618,103 @@ struct NotesView: View {
     }
 }
 
+/// Óraválasztó a saját feladat felvételéhez: a pluszra nem naptár jön,
+/// hanem az órarend — a koppintott óra tárgya, napja és óraszáma töltődik
+/// elő a felvevő lapon. A "Naptár szerint" úttal marad a kézi dátumozás.
+struct LessonPickerSheet: View {
+    let lessons: [LessonItem]
+    let onPick: (LessonItem) -> Void
+    let onSkip: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var day: Date
+
+    init(lessons: [LessonItem], onPick: @escaping (LessonItem) -> Void, onSkip: @escaping () -> Void) {
+        self.lessons = lessons
+        self.onPick = onPick
+        self.onSkip = onSkip
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let ds = Array(Set(lessons.map { cal.startOfDay(for: $0.start) })).sorted()
+        if let first = ds.first, let last = ds.last {
+            _day = State(initialValue: min(max(today, first), last))
+        } else {
+            _day = State(initialValue: today)
+        }
+    }
+
+    private var days: [Date] {
+        let cal = Calendar.current
+        return Array(Set(lessons.map { cal.startOfDay(for: $0.start) })).sorted()
+    }
+
+    private var dayLessons: [LessonItem] {
+        lessons.filter { Calendar.current.isDate($0.start, inSameDayAs: day) }
+            .sorted { $0.start < $1.start }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if days.isEmpty {
+                    ContentUnavailableView(
+                        "Nincs betöltött óra",
+                        systemImage: "calendar.badge.exclamationmark",
+                        description: Text("Húzd le a Feladatok tabot a frissítéshez, vagy vidd fel naptár szerint.")
+                    )
+                } else {
+                    Section("Nap") {
+                        DatePicker("Nap", selection: $day, in: days.first!...days.last!, displayedComponents: .date)
+                            .datePickerStyle(.graphical)
+                            .labelsHidden()
+                    }
+                    Section("Órák") {
+                        if dayLessons.isEmpty {
+                            Text("Ezen a napon nincs óra.").foregroundStyle(.secondary)
+                        } else {
+                            ForEach(dayLessons) { lesson in
+                                Button { onPick(lesson) } label: {
+                                    HStack(spacing: 10) {
+                                        Text(lesson.index)
+                                            .font(.subheadline.weight(.bold).monospacedDigit())
+                                            .frame(width: 28, height: 28)
+                                            .background(Circle().fill(Color.primary.opacity(0.08)))
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(lesson.subject)
+                                                .font(.subheadline.weight(.semibold))
+                                                .foregroundStyle(.primary)
+                                            Text("\(lesson.start.formatted(date: .omitted, time: .shortened)) • \(lesson.room)")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption2.weight(.semibold))
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+                Section {
+                    Button("Naptár szerint viszem fel") { onSkip() }
+                }
+            }
+            .navigationTitle("Melyik órához?")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Mégse") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
 /// Saját feladat / dolgozat felvétele: típus, tantárgy (CSAK a meglévő,
 /// Jegyeknél is látható tárgyakból), megnevezés, naptár-nap + aznapi óra.
-/// Órarendből nyitva az óra előtöltődik (tárgy + nap + óraszám), így nem
-/// naptár szerint kell kitallózni, hanem órarend szerint rákoppintva megy.
+/// Óraválasztóból nyitva az óra előtöltődik (tárgy + nap + óraszám).
 struct AddCustomTaskSheet: View {
     let kind: CustomTaskKind
     let subjects: [String]

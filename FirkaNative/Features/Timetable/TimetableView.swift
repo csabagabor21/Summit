@@ -28,11 +28,6 @@ struct TimetableView: View {
     // Iskolai események (tannaptár): a Beállításokban importált ICS,
     // SummitSync-kel jön át a többi eszközről is.
     @State private var schoolEvents: [SchoolEvent] = SchoolEventsStore.load()
-    /// Tantárgy-univerzum a sajátfeladat-sheetnek (KRÉTA + cache).
-    @State private var subjects: [String] = []
-    /// Melyik órához vesz fel a user saját feladatot (órarend szerinti
-    /// hozzárendelés: nem naptárt tallóz, hanem az órára koppint).
-    @State private var addSheetLesson: LessonItem?
     /// Hiányzások a dolgozat-pótláshoz (egyszer húzzuk, a hétlapozás
     /// újrahasznosítja; pull-to-refresh nullázza).
     @State private var cachedAbsences: [AbsenceItem]?
@@ -430,19 +425,6 @@ struct TimetableView: View {
                 cachedAbsences = nil
                 await load()
             }
-            // Órára koppintott plusz: saját feladat/dolgozat az adott órához
-            // előtöltve (tárgy + nap + óraszám) — nem naptár szerint.
-            .sheet(item: $addSheetLesson) { lesson in
-                let list = subjects.contains(lesson.subject) ? subjects : [lesson.subject] + subjects
-                AddCustomTaskSheet(
-                    kind: .homework,
-                    subjects: list,
-                    onSave: { mergeCustomTasks() },
-                    prefillSubject: lesson.subject,
-                    prefillDay: lesson.start,
-                    prefillPeriod: Int(lesson.index)
-                )
-            }
             // Máshol (Feladatok tab, másik eszköz sync-kel) felvett/törölt
             // saját tétel az órarenden is azonnal látszódjon.
             .onReceive(NotificationCenter.default.publisher(for: CustomTasksStore.changedNotification)) { _ in
@@ -563,7 +545,6 @@ struct TimetableView: View {
                         exam: exam(for: lesson),
                         isFlashing: isFlash,
                         flashPulse: flashPulse,
-                        onAdd: { addSheetLesson = lesson },
                         examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false
                     )
                     .id(lesson.id)
@@ -591,7 +572,6 @@ struct TimetableView: View {
                             exam: exam(for: lesson),
                             isFlashing: isFlash,
                             flashPulse: flashPulse,
-                            onAdd: { addSheetLesson = lesson },
                             examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false
                         )
                         .id(lesson.id)
@@ -744,15 +724,6 @@ struct TimetableView: View {
             cachedAbsences = await kreta.fetchAbsences(iss: iss)
         }
         mergeCustomTasks()
-        // Tantárgy-univerzum a sajátfeladat-sheetnek: egyszer elég
-        // (a Feladatok tabbal közös cache-ből is építkezik).
-        if subjects.isEmpty {
-            let subjR = await kreta.fetchAllSubjectNames(iss: iss)
-            let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1") ?? []
-            let merged = Array(Set(subjR).union(cached)).sorted()
-            if !merged.isEmpty { subjects = merged }
-            if !subjR.isEmpty { UserDefaults.standard.set(subjR.sorted(), forKey: "firka.cachedSubjects.v1") }
-        }
     }
 }
 
@@ -813,9 +784,6 @@ private struct TimetableRow: View {
     var exam: ExamItem? = nil
     var isFlashing: Bool = false
     var flashPulse: Bool = false
-    /// Saját feladat felvétele ehhez az órához (órarend szerinti
-    /// hozzárendelés) — nil-nél nincs plusz gomb a soron.
-    var onAdd: (() -> Void)? = nil
     /// Hiányzás miatt átütemezett (pótló) dolgozat — piros a pill háttere.
     var examRolled: Bool = false
 
@@ -994,7 +962,7 @@ private struct TimetableRow: View {
                         }
                     }
                     Spacer(minLength: 8)
-                    // Time — editorial stacked + sajátfeladat-plusz
+                    // Time — editorial stacked
                     VStack(alignment: .trailing, spacing: 1) {
                         Text(lesson.start.formatted(date: .omitted, time: .shortened))
                             .font(.system(size: 13, weight: .semibold, design: .rounded).monospacedDigit())
@@ -1002,16 +970,6 @@ private struct TimetableRow: View {
                         Text(lesson.end.formatted(date: .omitted, time: .shortened))
                             .font(.caption2.weight(.medium).monospacedDigit())
                             .foregroundStyle(.tertiary)
-                        if let onAdd {
-                            Button(action: onAdd) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 20))
-                                    .foregroundStyle(colors.accent.opacity(0.8))
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.top, 6)
-                            .accessibilityLabel("Saját feladat ehhez az órához")
-                        }
                     }
                 }
 
