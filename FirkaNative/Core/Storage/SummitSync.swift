@@ -25,6 +25,7 @@ enum SummitSyncField: String, CaseIterable {
     case schoolEventsShow
     case schoolEventsURL
     case customTasks
+    case examRollover
 
     /// A mező verzióbélyege a docban (`ts_theme` …). Régi docokban
     /// hiányozhat — olyankor az `updatedAt` a helyettese.
@@ -50,7 +51,7 @@ enum SummitSyncField: String, CaseIterable {
 /// kerekítés, felmentések, házi/dolgozat pipák, értesítési kapcsolók,
 /// Live Activity kapcsoló, iskolai események (+ mutatás-kapcsoló és a
 /// mentett naptár-link, hogy a kézi felülírás linkje is átmenjen),
-/// saját feladatok/dolgozatok.
+/// saját feladatok/dolgozatok, dolgozat-pótlás kapcsoló.
 @MainActor
 final class SummitSync: ObservableObject {
     @Published var isEnabled: Bool {
@@ -207,6 +208,7 @@ final class SummitSync: ObservableObject {
         var schoolEventsShow: Bool
         var schoolEventsURL: String
         var customTasks: String
+        var examRollover: Bool
     }
 
     private func localValues() -> LocalValues? {
@@ -228,7 +230,8 @@ final class SummitSync: ObservableObject {
             schoolEvents: SchoolEventsStore.syncString(SchoolEventsStore.load()),
             schoolEventsShow: SchoolEventsStore.isVisible(),
             schoolEventsURL: SchoolEventsStore.savedURL() ?? "",
-            customTasks: CustomTasksStore.syncString(CustomTasksStore.load())
+            customTasks: CustomTasksStore.syncString(CustomTasksStore.load()),
+            examRollover: Self.flag("exams.rolloverOnAbsence", default: true)
         )
     }
 
@@ -283,6 +286,7 @@ final class SummitSync: ObservableObject {
         let (ntV, ntTs) = pick(.notifyTasks, local: local.notifyTasks, remote: remote?.notifyTasks)
         let (naV, naTs) = pick(.notifyAbsences, local: local.notifyAbsences, remote: remote?.notifyAbsences)
         let (laV, laTs) = pick(.liveActivity, local: local.liveActivity, remote: remote?.liveActivity)
+        let (erV, erTs) = pick(.examRollover, local: local.examRollover, remote: remote?.examRollover)
         // Iskolai események: a régi docban még hiányozhat (nil) — olyankor a
         // helyi érték a régi bélyegével megy (nem töröljük a frisset üresre).
         let (seV, seTs): (String, Date) = {
@@ -341,6 +345,7 @@ final class SummitSync: ObservableObject {
             "schoolEventsShow": bool(seShowV),
             "schoolEventsURL": str(seURLV),
             "customTasks": str(ctV),
+            "examRollover": bool(erV),
         ]
         let tsPairs: [(SummitSyncField, Date)] = [
             (.theme, themeTs), (.accentHex, accentTs), (.sizeKey, sizeTs),
@@ -349,6 +354,7 @@ final class SummitSync: ObservableObject {
             (.notifyTasks, ntTs), (.notifyAbsences, naTs), (.liveActivity, laTs),
             (.schoolEvents, seTs), (.schoolEventsShow, seShowTs),
             (.schoolEventsURL, seURLTs), (.customTasks, ctTs),
+            (.examRollover, erTs),
         ]
         for (f, d) in tsPairs { fields[f.tsKey] = ts(d) }
 
@@ -376,6 +382,7 @@ final class SummitSync: ObservableObject {
             legacy.removeValue(forKey: "schoolEventsShow")
             legacy.removeValue(forKey: "schoolEventsURL")
             legacy.removeValue(forKey: "customTasks")
+            legacy.removeValue(forKey: "examRollover")
             guard await patch(legacy) == 200 else {
                 status = "feltöltés hiba"
                 return false
@@ -470,6 +477,9 @@ final class SummitSync: ObservableObject {
         let notifyTasks: Bool
         let notifyAbsences: Bool
         let liveActivity: Bool
+        /// Dolgozat-pótlás kapcsoló (`nil` = a régi docban még nincs mező —
+        /// ilyenkor a helyi állapot marad, nem írunk felül).
+        let examRollover: Bool?
         /// Iskolai esemény JSON (`nil` = a régi docban még nincs mező —
         /// ilyenkor a helyi állapot marad, nem törlünk).
         let schoolEventsRaw: String?
@@ -570,6 +580,8 @@ final class SummitSync: ObservableObject {
                   raw.count <= maxCustomTasksChars else { return nil }
             return raw
         }()
+        // Dolgozat-pótlás kapcsoló: régi docban hiányozhat (nil = helyi marad).
+        let examRollover = data["examRollover"] as? Bool
         return Payload(updatedAt: isoPlain.string(from: date), updatedAtDate: date,
                        theme: theme, accentHex: accent, sizeKey: sizeKey,
                        photoRaw: photoRaw, photo: photo, photoDecodeFailed: photoDecodeFailed,
@@ -579,6 +591,7 @@ final class SummitSync: ObservableObject {
                        completedEx: completedEx, completedExRaw: completedExRaw,
                        notifyGrades: notifyGrades, notifyTasks: notifyTasks,
                        notifyAbsences: notifyAbsences, liveActivity: liveActivity,
+                       examRollover: examRollover,
                        schoolEventsRaw: schoolEventsRaw, schoolEventsShow: schoolEventsShow,
                        schoolEventsURLRaw: schoolEventsURLRaw,
                        customTasksRaw: customTasksRaw,
@@ -678,6 +691,7 @@ final class SummitSync: ObservableObject {
                        completedEx: completedEx, completedExRaw: completedExRaw,
                        notifyGrades: notifyGrades, notifyTasks: notifyTasks,
                        notifyAbsences: notifyAbsences, liveActivity: liveActivity,
+                       examRollover: b("examRollover"),
                        schoolEventsRaw: schoolEventsRaw, schoolEventsShow: b("schoolEventsShow"),
                        schoolEventsURLRaw: schoolEventsURLRaw,
                        customTasksRaw: customTasksRaw,
@@ -748,6 +762,12 @@ final class SummitSync: ObservableObject {
             d.set(p.liveActivity, forKey: "liveActivity.enabled")
             SummitLiveActivityManager.shared.setAppEnabled(p.liveActivity)
             applied.append(.liveActivity)
+        }
+        // Dolgozat-pótlás kapcsoló: `nil` = régi doc, a helyi marad.
+        if newer(.examRollover), let v = p.examRollover {
+            d.set(v, forKey: ExamRollover.enabledKey)
+            NotificationCenter.default.post(name: ExamRollover.changedNotification, object: nil)
+            applied.append(.examRollover)
         }
         // Iskolai események: `nil` nyers mező = régi doc, a helyi marad.
         // Üres string = tudatos törlés. Sérült JSON-nál a helyi marad.

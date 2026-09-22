@@ -21,6 +21,7 @@ struct SettingsView: View {
     @AppStorage("notify.grades") private var notifyGrades = true
     @AppStorage("notify.tasks") private var notifyTasks = true
     @AppStorage("notify.absences") private var notifyAbsences = true
+    @AppStorage("exams.rolloverOnAbsence") private var examRollover = true
     @AppStorage("developer.enabled") private var devEnabled = false
     @AppStorage("home.demoPreviewActive") private var isPreviewOn = false
     @State private var devTaps = 0
@@ -155,6 +156,22 @@ struct SettingsView: View {
                 }
                 // A tesztelőeszközök (értesítés-tesztek, szimulált jegy) a
                 // Fejlesztői módban élnek — Beállítások alján feloldható.
+            }
+
+            summitIsland(header: "Dolgozat-pótlás", footer: "Ha a dolgozat napján hiányzol, a dolgozat a következő ilyen órára kerül, piros kerettel. Ha arról is hiányzol, továbbmegy. Swipe-pal elvethető.") {
+                summitRow {
+                    Toggle(isOn: $examRollover) {
+                        Label("Átütemezés hiányzáskor", systemImage: "calendar.badge.exclamationmark").font(.subheadline.weight(.medium))
+                    }
+                    .tint(colors.accent)
+                    .onChange(of: examRollover) { _, _ in
+                        // A store postolja a frissítő értesítést; a kapcsolgatás
+                        // külön dirty-jelölést kap (mint a schoolEventsShow),
+                        // hogy a blobok újraküldése nélkül menjen fel a syncbe.
+                        ExamRollover.setEnabled(examRollover)
+                        summitSync.markDirty(.examRollover)
+                    }
+                }
             }
 
             summitIsland(header: "Megjelenés", tour: .appearance, tourActive: tourIs(.appearance)) {

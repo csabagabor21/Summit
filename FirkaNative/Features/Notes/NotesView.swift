@@ -16,6 +16,10 @@ struct NotesView: View {
     @State private var showingAdd = false
     /// Órarendi órák az óraszám-pillekhez (a csatolmány-lehúzás mellékterméke).
     @State private var lessons: [LessonItem] = []
+    /// Hiányzások a dolgozat-pótláshoz (ugyanabban a körben jön, mint a többi).
+    @State private var absences: [AbsenceItem] = []
+    /// Dolgozat-pótlás kapcsoló/elvetés — újraszámolja a kijelzett dátumokat.
+    @State private var rolloverTick = 0
     @State private var isLoading = true
     @State private var filter: Int // 0 = Feladatok, 1 = Dolgozatok, 2 = Kész
 
@@ -75,7 +79,9 @@ struct NotesView: View {
                             ForEach(examDayGroups, id: \.day) { g in
                                 Section {
                                     ForEach(g.items, id: \.id) { exam in
-                                        examRow(exam, isFlash: flashedID == exam.id)
+                                        examRow(exam, isFlash: flashedID == exam.id,
+                                                rolled: resolvedExams.rolledIDs.contains(exam.id),
+                                                originalDate: resolvedExams.originalDates[exam.id])
                                     }
                                 } header: {
                                     dayHeader(day: g.day, count: g.items.count)
@@ -89,7 +95,9 @@ struct NotesView: View {
                                         case .homework(let hw):
                                             homeworkRow(hw, isFlash: flashedID == hw.id)
                                         case .exam(let exam):
-                                            examRow(exam, isFlash: flashedID == exam.id)
+                                            examRow(exam, isFlash: flashedID == exam.id,
+                                                    rolled: resolvedExams.rolledIDs.contains(exam.id),
+                                                    originalDate: resolvedExams.originalDates[exam.id])
                                         }
                                     }
                                 } header: {
@@ -139,6 +147,10 @@ struct NotesView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: CustomTasksStore.changedNotification)) { _ in
                 reloadCustom()
+            }
+            // Dolgozat-pótlás kapcsoló/elvetés — a kijelzett dátumok újraszámolódnak.
+            .onReceive(NotificationCenter.default.publisher(for: ExamRollover.changedNotification)) { _ in
+                rolloverTick += 1
             }
             .task { await load() }
             .refreshable { await load() }
@@ -209,14 +221,23 @@ struct NotesView: View {
         var out: [DoneEntry] = (homeworks + CustomTasksStore.homeworkItems(from: customTasks))
             .filter { completed.isHomeworkDone($0.id) || $0.isDone || HomeworkExpiry.isExpired($0) }
             .map { .homework($0) }
-        out += (exams + CustomTasksStore.examItems(from: customTasks))
+        out += resolvedExams.items
             .filter { ExamExpiry.isExpired($0) && $0.date >= examCutoff }
             .map { .exam($0) }
         return out.sorted { $0.date < $1.date }
     }
-    // Élő dolgozat: csak a mai és jövőbeli — a lejárt a Készbe kerül
+    /// Dolgozatok átütemezéssel: ha a dolgozat napján hiányoztál, a
+    /// következő olyan órán jelenik meg (piros kerettel) — swipe-pal elvethető.
+    private var resolvedExams: (items: [ExamItem], rolledIDs: Set<String>, originalDates: [String: Date]) {
+        _ = rolloverTick
+        return ExamRollover.displayItems(
+            exams: exams + CustomTasksStore.examItems(from: customTasks),
+            absences: absences, lessons: lessons)
+    }
+    // Élő dolgozat: csak a mai és jövőbeli — a lejárt a Készbe kerül.
+    // A határ a KIJELZETT (pótolt) dátumon dől el.
     var filteredExams: [ExamItem] {
-        (exams + CustomTasksStore.examItems(from: customTasks))
+        resolvedExams.items
             .filter { !ExamExpiry.isExpired($0) }
             .sorted { $0.date < $1.date }
     }
@@ -381,7 +402,7 @@ struct NotesView: View {
     }
 
     @ViewBuilder
-    private func examRow(_ exam: ExamItem, isFlash: Bool = false) -> some View {
+    private func examRow(_ exam: ExamItem, isFlash: Bool = false, rolled: Bool = false, originalDate: Date? = nil) -> some View {
         let expanded = expandedIDs.contains(exam.id)
         // Kipipálható (ready vagy-e), de a listában marad — nem tűnik el, mint a házi
         let ready = completed.isExamDone(exam.id)
@@ -394,7 +415,7 @@ struct NotesView: View {
             .buttonStyle(.plain)
             .padding(.top, 2)
             VStack(alignment: .leading, spacing: 6) {
-                HStack { Text(exam.subject).font(.subheadline.weight(.semibold)); if CustomTasksStore.isCustomId(exam.id) { Text("Saját").font(.caption2.weight(.bold)).foregroundStyle(colors.accent).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(colors.accent.opacity(0.12))) }; Spacer(); if let n = exam.lessonIndex { Text("\(n). óra").font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.orange.opacity(0.14))) } }
+                HStack { Text(exam.subject).font(.subheadline.weight(.semibold)); if CustomTasksStore.isCustomId(exam.id) { Text("Saját").font(.caption2.weight(.bold)).foregroundStyle(colors.accent).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(colors.accent.opacity(0.12))) }; Spacer(); if rolled { Text("Pótló").font(.caption2.weight(.bold)).foregroundStyle(.red).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.red.opacity(0.12))) }; if let n = exam.lessonIndex { Text("\(n). óra").font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.orange.opacity(0.14))) } }
                     .contentShape(Rectangle())
                     .onTapGesture { toggleExpanded(exam.id, expanded: expanded) }
                 if expanded {
@@ -414,6 +435,11 @@ struct NotesView: View {
                     // app is írja: "2026. szeptember 15., kedd (1. óra)"
                     Label(examDateLine(exam), systemImage: "clock")
                         .font(.caption).foregroundStyle(.secondary)
+                    // Pótló dolgozatnál az eredeti nap is látszik
+                    if rolled, let orig = originalDate {
+                        Label("Eredeti: \(huDate(orig))", systemImage: "calendar.badge.exclamationmark")
+                            .font(.caption.weight(.medium)).foregroundStyle(.red)
+                    }
                     if let announced = exam.announcedDate {
                         Label("Bejelentve: \(huDate(announced))", systemImage: "megaphone")
                             .font(.caption).foregroundStyle(.secondary)
@@ -455,12 +481,24 @@ struct NotesView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(colors.accent.opacity(isFlash ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlash ? 2.2 : 0)
         )
+        // Pótló dolgozat piros körvonala (hiányzás miatti átütemezés)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.red.opacity(rolled ? (scheme == .dark ? 0.75 : 0.6) : 0), lineWidth: rolled ? 1.8 : 0)
+        )
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(colors.accent.opacity(isFlash ? (flashPulse ? 0.16 : 0.04) : 0))
         )
         .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            // Pótló átütemezés elvetése — az eredeti dátum marad
+            if rolled {
+                Button { ExamRollover.dismiss(exam.id) } label: {
+                    Label("Elvetés", systemImage: "xmark")
+                }
+                .tint(.orange)
+            }
             if CustomTasksStore.isCustomId(exam.id) {
                 Button(role: .destructive) { CustomTasksStore.remove(id: exam.id) } label: {
                     Label("Törlés", systemImage: "trash")
@@ -476,19 +514,21 @@ struct NotesView: View {
         guard let user = session.selectedUser else { isLoading = false; return }
         isLoading=true; let iss=user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         let hadData = !(homeworks.isEmpty && exams.isEmpty)
-        let prevHW = homeworks, prevEx = exams
+        let prevHW = homeworks, prevEx = exams, prevAb = absences
         async let hw = kreta.fetchHomework(iss: iss)
         async let ex = kreta.fetchExams(iss: iss)
+        async let ab = kreta.fetchAbsences(iss: iss)
         async let subj = kreta.fetchAllSubjectNames(iss: iss)
         async let gr = kreta.fetchGrades(iss: iss)
-        let (hwR, exR, subjR, grR) = await (hw, ex, subj, gr)
+        let (hwR, exR, abR, subjR, grR) = await (hw, ex, ab, subj, gr)
         // Totális fetch-hiba (lejárt token, offline): a legutóbbi lista marad,
         // nem ürül ki a Feladatok tab egy sikertelen refresh-től.
         if hwR.isEmpty && exR.isEmpty && hadData {
-            homeworks = prevHW; exams = prevEx
+            homeworks = prevHW; exams = prevEx; absences = prevAb
         } else {
-            let (mergedHW, fetchedLessons) = await lessonAttachments(hwR, kreta: kreta, iss: iss)
+            let (mergedHW, fetchedLessons) = await lessonAttachments(hwR, exams: exR, kreta: kreta, iss: iss)
             homeworks = mergedHW; exams = exR; lessons = fetchedLessons
+            absences = abR
         }
         // Tantárgy-univerzum a hozzáadó sheetnek: a Jegyek-tab köre
         // (hálózati tárgyak + cache + jegyekből látott tárgyak).
@@ -503,11 +543,13 @@ struct NotesView: View {
     /// nem csak a határidő napján — ezért a teljes listaablakot (-35 nap)
     /// plusz a határidőket nézzük át, heti darabokban, párhuzamosan.
     /// Üres/sikertelen órarendnél a házi-lista változatlanul marad.
-    private func lessonAttachments(_ hwR: [HomeworkItem], kreta: KretaClient, iss: String) async -> ([HomeworkItem], [LessonItem]) {
-        guard !hwR.isEmpty else { return (hwR, []) }
+    private func lessonAttachments(_ hwR: [HomeworkItem], exams exR: [ExamItem], kreta: KretaClient, iss: String) async -> ([HomeworkItem], [LessonItem]) {
+        guard !hwR.isEmpty || !exR.isEmpty else { return (hwR, []) }
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
-        let deadlines = hwR.map(\.deadline)
+        // A dolgozat-dátumok is tágítják az ablakot: a pótló-óra kereséséhez
+        // a jövőbeli órák is kellenek, nem csak a házi-határidők.
+        let deadlines = hwR.map(\.deadline) + exR.map(\.date)
         guard let from = cal.date(byAdding: .day, value: -35, to: today),
               let to = cal.date(byAdding: .day, value: 2, to: cal.startOfDay(for: max(deadlines.max() ?? today, today))),
               to > from else { return (hwR, []) }

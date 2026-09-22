@@ -13,8 +13,18 @@ final class HomeViewModel: ObservableObject {
     @Published var homeworks: [HomeworkItem] = []
     @Published var absences: [AbsenceItem] = []
     @Published var messages: [MessageItem] = []
+    /// Kijelzett dolgozatok (átütemezéssel: a hiányzás napján lévő dolgozat
+    /// a következő olyan órán, azonos ID-val).
     @Published var exams: [ExamItem] = []
+    /// Piros kerethez: átütemezett dolgozat-ID-k + eredeti dátumok.
+    @Published var rolledExamIDs: Set<String> = []
+    @Published var originalExamDates: [String: Date] = [:]
     @Published var error: String?
+
+    /// Nyers dolgozatok + pótló-kereséshez használt órák (hálózat nélkül
+    /// újraszámolható a kapcsoló/elvetés után).
+    private var rawExamsAll: [ExamItem] = []
+    private var rolloverLessons: [LessonItem] = []
 
     var greeting: String {
         let h = Calendar.current.component(.hour, from: Date())
@@ -77,11 +87,17 @@ final class HomeViewModel: ObservableObject {
         // mint egy valós userre.
         self.homeworks = (hwR + CustomTasksStore.homeworkItems(from: custom)).filter { !HomeworkExpiry.isExpired($0) }
         self.absences = abR
-        // Lejárt dolgozat a főoldalra sem kerül (a Feladatok tab Kész
-        // szegmensében és az értesítési diffben megmarad).
-        self.exams = (exR + CustomTasksStore.examItems(from: custom)).filter { !ExamExpiry.isExpired($0) }
         self.messages = msgR
         self.lessonsToday = ttR
+        // Dolgozat-pótlás: ha valamelyik dolgozat napján hiányzás van, a
+        // pontos pótló-órához tágabb órarend kell — de csak ilyenkor húzunk
+        // plusz 3 hetet (egyébként a mai órák is elégnek a döntéshez).
+        rawExamsAll = exR + CustomTasksStore.examItems(from: custom)
+        rolloverLessons = ttR
+        if Self.hasExamAbsenceOverlap(exams: rawExamsAll, absences: abR) {
+            rolloverLessons += await Self.extraRolloverLessons(kreta: kreta, iss: iss)
+        }
+        applyRollover()
         // Helyi értesítés-diff az újakról (KRÉTA push nincs, ez polling-alapú)
         NotificationManager.shared.checkAll(
             grades: gradesR, homeworks: hwR, exams: exR, absences: abR, userId: user.id
@@ -112,6 +128,42 @@ final class HomeViewModel: ObservableObject {
             liveState = .morning
         } else {
             liveState = .empty
+        }
+    }
+
+    /// Átütemezés újraszámolása hálózat nélkül (kapcsoló/elvetés után a
+    /// HomeView hívja) — a lejárt-határ a kijelzett (pótolt) dátumon dől el.
+    func applyRollover() {
+        let r = ExamRollover.displayItems(exams: rawExamsAll, absences: absences, lessons: rolloverLessons)
+        // Lejárt dolgozat a főoldalra sem kerül (a Feladatok tab Kész
+        // szegmensében és az értesítési diffben megmarad).
+        self.exams = r.items.filter { !ExamExpiry.isExpired($0) }
+        self.rolledExamIDs = r.rolledIDs
+        self.originalExamDates = r.originalDates
+    }
+
+    /// Van-e dolgozat olyan napon, amikor hiányzás is van.
+    private static func hasExamAbsenceOverlap(exams: [ExamItem], absences: [AbsenceItem]) -> Bool {
+        let cal = Calendar.current
+        let days = Set(absences.map { cal.startOfDay(for: $0.date) })
+        return exams.contains { days.contains(cal.startOfDay(for: $0.date)) }
+    }
+
+    /// Plusz 3 hét órarendje a pontos pótló-órához (csak átfedéskor).
+    private static func extraRolloverLessons(kreta: KretaClient, iss: String) async -> [LessonItem] {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        return await withTaskGroup(of: [LessonItem].self) { group in
+            for w in 1...3 {
+                group.addTask {
+                    let s = cal.date(byAdding: .day, value: w * 7, to: today)!
+                    let e = cal.date(byAdding: .day, value: 7, to: s)!
+                    return await kreta.fetchTimetable(iss: iss, from: s, to: e)
+                }
+            }
+            var out: [LessonItem] = []
+            for await part in group { out.append(contentsOf: part) }
+            return out
         }
     }
 

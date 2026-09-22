@@ -33,6 +33,11 @@ struct TimetableView: View {
     /// Melyik órához vesz fel a user saját feladatot (órarend szerinti
     /// hozzárendelés: nem naptárt tallóz, hanem az órára koppint).
     @State private var addSheetLesson: LessonItem?
+    /// Hiányzások a dolgozat-pótláshoz (egyszer húzzuk, a hétlapozás
+    /// újrahasznosítja; pull-to-refresh nullázza).
+    @State private var cachedAbsences: [AbsenceItem]?
+    /// Dolgozat-pótlás kapcsoló/elvetés — újraszámolja a kijelzett dátumokat.
+    @State private var rolloverTick = 0
     @AppStorage("schoolevents.show.v1") private var schoolEventsVisible = true
     private let switchToTimetable = Notification.Name("summit.switchToTimetable")
     @Environment(\.colorScheme) var scheme
@@ -420,7 +425,11 @@ struct TimetableView: View {
             )
             .animation(SummitMotion.page, value: selectedDay)
             .animation(SummitMotion.page, value: weekOffset)
-            .refreshable { await load() }
+            .refreshable {
+                // Lehúzáskor a hiányzások is frissen jönnek (a pótláshoz).
+                cachedAbsences = nil
+                await load()
+            }
             // Órára koppintott plusz: saját feladat/dolgozat az adott órához
             // előtöltve (tárgy + nap + óraszám) — nem naptár szerint.
             .sheet(item: $addSheetLesson) { lesson in
@@ -438,6 +447,10 @@ struct TimetableView: View {
             // saját tétel az órarenden is azonnal látszódjon.
             .onReceive(NotificationCenter.default.publisher(for: CustomTasksStore.changedNotification)) { _ in
                 mergeCustomTasks()
+            }
+            // Dolgozat-pótlás kapcsoló/elvetés — a kijelzett dátumok újraszámolódnak.
+            .onReceive(NotificationCenter.default.publisher(for: ExamRollover.changedNotification)) { _ in
+                rolloverTick += 1
             }
             // Dev idő-csúszka: a widget is kövesse az eltolt időt —
             // ehhez elég újrapublikálni (hálózat nem kell hozzá).
@@ -492,10 +505,21 @@ struct TimetableView: View {
         // különben egy házi minden órára ráíródna (HomeworkMatcher)
         HomeworkMatcher.homework(for: lesson, in: homeworks)
     }
+    /// Dolgozatok átütemezéssel: a hiányzás napján lévő dolgozat a
+    /// következő olyan órán jelenik meg (piros kerettel) — a csatolás a
+    /// kijelzett dátumon történik, az eredeti napról eltűnik.
+    private var displayExams: [ExamItem] {
+        _ = rolloverTick
+        return ExamRollover.displayItems(exams: exams, absences: cachedAbsences ?? [], lessons: lessons).items
+    }
+    private var rolledExamIDs: Set<String> {
+        _ = rolloverTick
+        return ExamRollover.displayItems(exams: exams, absences: cachedAbsences ?? [], lessons: lessons).rolledIDs
+    }
     private func exam(for lesson: LessonItem) -> ExamItem? {
         // Óraszámos dolgozat csak a saját órájára kerül (ExamMatcher),
         // óraszám nélkül marad a nap-alapú csatolás.
-        ExamMatcher.exam(for: lesson, in: exams)
+        ExamMatcher.exam(for: lesson, in: displayExams)
     }
     private func hasAssignment(for lesson: LessonItem) -> Bool {
         let cal = Calendar.current
@@ -505,7 +529,7 @@ struct TimetableView: View {
         if sameDayHW || sameDayExam { return true }
         // Kanonikus fallback: ha van bármilyen hw/ex ugyanarra a tárgyra, jelezzük
         let anyHW = homeworks.contains { SubjectMatcher.same($0.subject, lesson.subject) }
-        let anyEx = exams.contains { SubjectMatcher.same($0.subject, lesson.subject) }
+        let anyEx = displayExams.contains { SubjectMatcher.same($0.subject, lesson.subject) }
         // Csak akkor fehér, ha nincs elmarad/helyettesítés és van csatolt feladat
         if anyHW || anyEx {
             // Ne legyen túl agresszív: csak akkor, ha az adott napi leckék között tényleg kevés hw van
@@ -539,7 +563,8 @@ struct TimetableView: View {
                         exam: exam(for: lesson),
                         isFlashing: isFlash,
                         flashPulse: flashPulse,
-                        onAdd: { addSheetLesson = lesson }
+                        onAdd: { addSheetLesson = lesson },
+                        examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false
                     )
                     .id(lesson.id)
                     .padding(.vertical, 5)
@@ -566,7 +591,8 @@ struct TimetableView: View {
                             exam: exam(for: lesson),
                             isFlashing: isFlash,
                             flashPulse: flashPulse,
-                            onAdd: { addSheetLesson = lesson }
+                            onAdd: { addSheetLesson = lesson },
+                            examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false
                         )
                         .id(lesson.id)
                         .padding(.vertical, 5)
@@ -713,6 +739,10 @@ struct TimetableView: View {
         lessons = deduped(ttR)
         homeworks = hwR
         exams = exR
+        // Hiányzások a dolgozat-pótláshoz: hetet lapozva nem húzzuk újra.
+        if cachedAbsences == nil {
+            cachedAbsences = await kreta.fetchAbsences(iss: iss)
+        }
         mergeCustomTasks()
         // Tantárgy-univerzum a sajátfeladat-sheetnek: egyszer elég
         // (a Feladatok tabbal közös cache-ből is építkezik).
@@ -786,6 +816,8 @@ private struct TimetableRow: View {
     /// Saját feladat felvétele ehhez az órához (órarend szerinti
     /// hozzárendelés) — nil-nél nincs plusz gomb a soron.
     var onAdd: (() -> Void)? = nil
+    /// Hiányzás miatt átütemezett (pótló) dolgozat — piros körvonal a pillen.
+    var examRolled: Bool = false
 
     private var isCancelled: Bool { lesson.isCancelled }
     private var isSubstituted: Bool { lesson.isSubstituted }
@@ -953,8 +985,8 @@ private struct TimetableRow: View {
                                 .padding(.horizontal, 8).padding(.vertical, 5)
                                 .background(
                                     Capsule()
-                                        .fill(Color.orange.opacity(scheme == .dark ? 0.22 : 0.14))
-                                        .overlay(Capsule().strokeBorder(Color.orange.opacity(scheme == .dark ? 0.35 : 0.25), lineWidth: 1))
+                                        .fill((examRolled ? Color.red : Color.orange).opacity(scheme == .dark ? 0.22 : 0.14))
+                                        .overlay(Capsule().strokeBorder((examRolled ? Color.red : Color.orange).opacity(scheme == .dark ? (examRolled ? 0.75 : 0.35) : (examRolled ? 0.6 : 0.25)), lineWidth: examRolled ? 2 : 1))
                                 )
                             }
                             .buttonStyle(.plain)

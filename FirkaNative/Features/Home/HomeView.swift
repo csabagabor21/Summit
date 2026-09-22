@@ -123,7 +123,7 @@ struct HomeView: View {
                                     Text("Nincs dolgozat").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(RoundedRectangle(cornerRadius: 12).fill(colors.surface))
                                 } else {
                                     ForEach(Array(examsSorted), id: \.id) { e in
-                                        PadExamRow(exam: e, done: completed.isExamDone(e.id), colors: colors, scheme: scheme) {
+                                        PadExamRow(exam: e, done: completed.isExamDone(e.id), colors: colors, scheme: scheme, rolled: vm.rolledExamIDs.contains(e.id)) {
                                             withAnimation(SummitMotion.snappy) { completed.toggleExam(e.id) }
                                         }
                                     }
@@ -172,6 +172,7 @@ struct HomeView: View {
                                 done: completed.isExamDone(e.id),
                                 colors: colors,
                                 scheme: scheme,
+                                rolled: vm.rolledExamIDs.contains(e.id),
                                 onToggle: { withAnimation(SummitMotion.snappy) { completed.toggleExam(e.id) } },
                                 onTap: {
                                     NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": e.subject, "deadline": e.date.timeIntervalSince1970])
@@ -255,6 +256,8 @@ struct HomeView: View {
                 Task { await syncLiveActivity() }
             }
             .onReceive(NotificationCenter.default.publisher(for: ExemptedStore.changedNotification)) { _ in exemptedTick += 1 }
+            // Dolgozat-pótlás kapcsoló/elvetés — hálózat nélkül újraszámol.
+            .onReceive(NotificationCenter.default.publisher(for: ExamRollover.changedNotification)) { _ in vm.applyRollover() }
             .onChange(of: vm.lessonsToday) { _, _ in Task { await syncLiveActivity() } }
             .onChange(of: session.selectedId) { _, _ in Task { await vm.refresh(kreta: kreta, user: session.selectedUser); await syncLiveActivity() } }
             .onChange(of: previewMinutes) { _, _ in
@@ -356,6 +359,7 @@ private struct PadExamRow: View {
     var done: Bool
     var colors: AppColors
     var scheme: ColorScheme
+    var rolled: Bool = false
     var onToggle: () -> Void
     var body: some View {
         HStack(spacing: 10) {
@@ -375,6 +379,11 @@ private struct PadExamRow: View {
             NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": exam.subject, "deadline": exam.date.timeIntervalSince1970])
         }
         .padding(10).background(cardBackground)
+        // Pótló dolgozat piros körvonala (hiányzás miatti átütemezés)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Color.red.opacity(rolled ? (scheme == .dark ? 0.75 : 0.6) : 0), lineWidth: rolled ? 1.8 : 0)
+        )
     }
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: 12)
@@ -432,6 +441,7 @@ private struct HomeAssignmentRow: View {
     var done: Bool
     var colors: AppColors
     var scheme: ColorScheme
+    var rolled: Bool = false
     var onToggle: () -> Void
     var onTap: () -> Void
 
@@ -456,12 +466,22 @@ private struct HomeAssignmentRow: View {
                     } else if let n = lessonIndexFallback {
                         Text("(\(n). óra)").font(.caption2).foregroundStyle(.secondary)
                     }
+                    if rolled {
+                        Text("Pótló").font(.caption2.weight(.bold)).foregroundStyle(.red)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Capsule().fill(Color.red.opacity(0.12)))
+                    }
                 }
             }
             Spacer()
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
+        // Pótló dolgozat piros körvonala (hiányzás miatti átütemezés)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.red.opacity(rolled ? (scheme == .dark ? 0.75 : 0.6) : 0), lineWidth: rolled ? 1.8 : 0)
+        )
         .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
         .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] + 16 }
         .listRowBackground(
