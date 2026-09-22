@@ -11,16 +11,29 @@ Ne várj a userre, ne gyűjtögess több promptot egy commitba — egy feladat =
 A commit előtt `xcodebuild ... build` sikerrel kell futhasson (Simulator, Debug).
 
 ## Környezet
-A gépen Xcode **beta** van: `/Applications/Xcode-beta.app`. Az `xcode-select`
-a Command Line Tools-ra mutat, ezért az `xcodebuild` hívások elé MINDIG
-`DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer` kell
-(vagy `sudo xcode-select -s` egyszer — de azt csak a user állítsa át).
+A gépen már NEM beta, hanem rendes Xcode van: `/Applications/Xcode.app`
+(Xcode 27), az `xcode-select` is oda mutat — az `xcodebuild` hívások elé
+SEMILYEN `DEVELOPER_DIR` nem kell, sima `xcodebuild ...` megy közvetlenül.
+(Régi parancsokban még szerepelhet `DEVELOPER_DIR=...Xcode-beta...` — az
+halott, törlendő.)
+
+## Kötelező Firebase-deploy (minden AI-asszisztensre vonatkozik)
+Ha BÁRMIT változtatsz a `Firebase/` könyvtárban (`firestore.rules`,
+`functions/`, `firestore.indexes.json`, `firebase.json`), a commit + push
+MELLÉ KÖTELEZŐ az éles deploy is ugyanabban a körben, kérdés nélkül:
+`firebase deploy --only firestore:rules --project summit-14b74`
+(illetve az adott cél: `--only functions`, `--only firestore:indexes`).
+Szabály-/function-változtatás deploy nélkül HALOTT: az app az új mezőket
+nem tudja szinkronizálni (a kliens legfeljebb legacy-visszalépéssel
+túlél, de az új feature szerver-oldala nem él). A deploy sikerét a
+terminál-kimenetben ellenőrizd (`Deploy complete!`), és a commit-üzenetben
+jelezd, hogy deploy is volt.
 
 ## Release-flow (TestFlight) — "mehet" szóra, kérdés nélkül
 Ha a user kiadja a `mehet` (vagy `mehet tovább`, `told ki`) parancsot, az
 alábbi teljes flow-t végig kell vinni, köztes kérdések nélkül:
-1. `DEVELOPER_DIR=...xcodebuild archive` (Release, `generic/platform=iOS`).
-2. Organizer (Xcode-beta) → legfrissebb Summit archive → Distribute App →
+1. `xcodebuild archive` (Release, `generic/platform=iOS`).
+2. Organizer (Xcode) → legfrissebb Summit archive → Distribute App →
    Custom → App Store Connect → Upload (Manage version and build number:
    BE, symbols: BE, internal-only: KI) → Next.
 3. Provisionok: fent (Summit.app) `csabav3`, lent (SummitWidgets.appex)
