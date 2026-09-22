@@ -506,7 +506,7 @@ struct TimetableView: View {
         HomeworkMatcher.homework(for: lesson, in: homeworks)
     }
     /// Dolgozatok átütemezéssel: a hiányzás napján lévő dolgozat a
-    /// következő olyan órán jelenik meg (piros kerettel) — a csatolás a
+    /// következő olyan órán jelenik meg (piros háttérrel) — a csatolás a
     /// kijelzett dátumon történik, az eredeti napról eltűnik.
     private var displayExams: [ExamItem] {
         _ = rolloverTick
@@ -816,7 +816,7 @@ private struct TimetableRow: View {
     /// Saját feladat felvétele ehhez az órához (órarend szerinti
     /// hozzárendelés) — nil-nél nincs plusz gomb a soron.
     var onAdd: (() -> Void)? = nil
-    /// Hiányzás miatt átütemezett (pótló) dolgozat — piros körvonal a pillen.
+    /// Hiányzás miatt átütemezett (pótló) dolgozat — piros a pill háttere.
     var examRolled: Bool = false
 
     private var isCancelled: Bool { lesson.isCancelled }
@@ -986,7 +986,7 @@ private struct TimetableRow: View {
                                 .background(
                                     Capsule()
                                         .fill((examRolled ? Color.red : Color.orange).opacity(scheme == .dark ? 0.22 : 0.14))
-                                        .overlay(Capsule().strokeBorder((examRolled ? Color.red : Color.orange).opacity(scheme == .dark ? (examRolled ? 0.75 : 0.35) : (examRolled ? 0.6 : 0.25)), lineWidth: examRolled ? 2 : 1))
+                                        .overlay(Capsule().strokeBorder((examRolled ? Color.red : Color.orange).opacity(scheme == .dark ? 0.35 : 0.25), lineWidth: 1))
                                 )
                             }
                             .buttonStyle(.plain)

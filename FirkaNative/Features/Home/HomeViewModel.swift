@@ -16,7 +16,7 @@ final class HomeViewModel: ObservableObject {
     /// Kijelzett dolgozatok (átütemezéssel: a hiányzás napján lévő dolgozat
     /// a következő olyan órán, azonos ID-val).
     @Published var exams: [ExamItem] = []
-    /// Piros kerethez: átütemezett dolgozat-ID-k + eredeti dátumok.
+    /// Piros háttérhez: átütemezett dolgozat-ID-k + eredeti dátumok.
     @Published var rolledExamIDs: Set<String> = []
     @Published var originalExamDates: [String: Date] = [:]
     @Published var error: String?

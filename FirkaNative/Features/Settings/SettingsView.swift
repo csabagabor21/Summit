@@ -158,7 +158,7 @@ struct SettingsView: View {
                 // Fejlesztői módban élnek — Beállítások alján feloldható.
             }
 
-            summitIsland(header: "Dolgozat-pótlás", footer: "Ha a dolgozat napján hiányzol, a dolgozat a következő ilyen órára kerül, piros kerettel. Ha arról is hiányzol, továbbmegy. Swipe-pal elvethető.") {
+            summitIsland(header: "Dolgozat-pótlás", footer: "Ha a dolgozat napján hiányzol, a dolgozat a következő ilyen órára kerül, piros háttérrel. Ha arról is hiányzol, továbbmegy. Swipe-pal elvethető.") {
                 summitRow {
                     Toggle(isOn: $examRollover) {
                         Label("Átütemezés hiányzáskor", systemImage: "calendar.badge.exclamationmark").font(.subheadline.weight(.medium))

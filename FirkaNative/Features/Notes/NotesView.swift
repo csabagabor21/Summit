@@ -227,7 +227,7 @@ struct NotesView: View {
         return out.sorted { $0.date < $1.date }
     }
     /// Dolgozatok átütemezéssel: ha a dolgozat napján hiányoztál, a
-    /// következő olyan órán jelenik meg (piros kerettel) — swipe-pal elvethető.
+    /// következő olyan órán jelenik meg (piros háttérrel) — swipe-pal elvethető.
     private var resolvedExams: (items: [ExamItem], rolledIDs: Set<String>, originalDates: [String: Date]) {
         _ = rolloverTick
         return ExamRollover.displayItems(
@@ -476,15 +476,12 @@ struct NotesView: View {
             }
             .buttonStyle(.plain)
         }
-        .listRowBackground(ready ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface)
+        // Pótló dolgozat piros háttere (mint a kipipált zöld, csak piros) —
+        // a kész (zöld) állapot nyer, ha mindkettő igaz.
+        .listRowBackground(ready ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : rolled ? Color.red.opacity(scheme == .dark ? 0.16 : 0.10) : colors.surface)
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(colors.accent.opacity(isFlash ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlash ? 2.2 : 0)
-        )
-        // Pótló dolgozat piros körvonala (hiányzás miatti átütemezés)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color.red.opacity(rolled ? (scheme == .dark ? 0.75 : 0.6) : 0), lineWidth: rolled ? 1.8 : 0)
         )
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)

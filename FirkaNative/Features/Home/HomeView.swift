@@ -379,15 +379,10 @@ private struct PadExamRow: View {
             NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": exam.subject, "deadline": exam.date.timeIntervalSince1970])
         }
         .padding(10).background(cardBackground)
-        // Pótló dolgozat piros körvonala (hiányzás miatti átütemezés)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Color.red.opacity(rolled ? (scheme == .dark ? 0.75 : 0.6) : 0), lineWidth: rolled ? 1.8 : 0)
-        )
     }
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: 12)
-            .fill(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface)
+            .fill(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : rolled ? Color.red.opacity(scheme == .dark ? 0.16 : 0.10) : colors.surface)
             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
     }
 }
@@ -477,16 +472,13 @@ private struct HomeAssignmentRow: View {
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
-        // Pótló dolgozat piros körvonala (hiányzás miatti átütemezés)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(Color.red.opacity(rolled ? (scheme == .dark ? 0.75 : 0.6) : 0), lineWidth: rolled ? 1.8 : 0)
-        )
         .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
         .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] + 16 }
+        // Pótló dolgozat piros háttere (mint a kipipált zöld, csak piros)
         .listRowBackground(
             done
             ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07)
+            : rolled ? Color.red.opacity(scheme == .dark ? 0.16 : 0.10)
             : colors.surface
         )
     }

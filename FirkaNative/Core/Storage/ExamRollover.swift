@@ -2,13 +2,13 @@ import Foundation
 
 /// Dolgozat-pótlás hiányzáskor (kapcsolható feature):
 /// ha a dolgozat napján hiányoztál, a dolgozat átkerül a következő olyan
-/// órára és piros körvonalat kap; ha arról az óráról is hiányzol, továbbmegy.
+/// órára és piros hátteret kap; ha arról az óráról is hiányzol, továbbmegy.
 /// Swipe-pal elvethető (olyankor az eredeti dátumon marad).
 ///
 /// Megjelenítési minta: a nézetek a `displayItems`-szel dolgoznak (az
 /// átütemezett dolgozat új dátummal, de azonos ID-val jön — a pipák,
 /// csatolmányok és az óracsatolás így megmaradnak), a `rolledIDs` alapján
-/// rajzolják a piros keretet.
+/// rajzolják a piros hátteret.
 enum ExamRollover {
     /// Kapcsoló (hiányzó kulcs = BE, mint az értesítési kapcsolóknál).
     static let enabledKey = "exams.rolloverOnAbsence"
@@ -87,7 +87,7 @@ enum ExamRollover {
     }
 
     /// Megjelenítési lista a nézeteknek: átütemezett dolgozat új dátummal
-    /// (ID marad), a piros kerethez ID-halmaz, a részletezőhöz eredeti dátum.
+    /// (ID marad), a piros háttérhez ID-halmaz, a részletezőhöz eredeti dátum.
     static func displayItems(exams: [ExamItem], absences: [AbsenceItem], lessons: [LessonItem],
                              now: Date = Date(), calendar: Calendar = .current)
     -> (items: [ExamItem], rolledIDs: Set<String>, originalDates: [String: Date]) {
