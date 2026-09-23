@@ -25,6 +25,9 @@ struct NotesView: View {
     @State private var absences: [AbsenceItem] = []
     /// Dolgozat-pótlás kapcsoló/elvetés — újraszámolja a kijelzett dátumokat.
     @State private var rolloverTick = 0
+    /// Percenkénti újraértékelés: az órához tűzött dolgozat az óra végén
+    /// magától átkerül a Dolgozatokból a Készbe (frissítés nélkül is).
+    @State private var nowTick = Date()
     @State private var isLoading = true
     @State private var filter: Int // 0 = Feladatok, 1 = Dolgozatok, 2 = Kész
 
@@ -177,6 +180,9 @@ struct NotesView: View {
             .onReceive(NotificationCenter.default.publisher(for: ExamRollover.changedNotification)) { _ in
                 rolloverTick += 1
             }
+            // Percenkénti jel: az óra végén lejárt dolgozat magától átkerül
+            // a Készbe (a lejárt-határ a nowTick-től függ).
+            .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { nowTick = $0 }
             .task { await load() }
             .refreshable { await load() }
             // Órarend-pillből érkezve a megfelelő szegmensre ugrik + kiemeli a sort
@@ -247,7 +253,7 @@ struct NotesView: View {
             .filter { completed.isHomeworkDone($0.id) || $0.isDone || HomeworkExpiry.isExpired($0) }
             .map { .homework($0) }
         out += resolvedExams.items
-            .filter { ExamExpiry.isExpired($0) && $0.date >= examCutoff }
+            .filter { ExamExpiry.isExpired($0, now: nowTick, lessons: lessons) && $0.date >= examCutoff }
             .map { .exam($0) }
         return out.sorted { $0.date < $1.date }
     }
@@ -259,11 +265,12 @@ struct NotesView: View {
             exams: exams + CustomTasksStore.examItems(from: customTasks),
             absences: absences, lessons: lessons)
     }
-    // Élő dolgozat: csak a mai és jövőbeli — a lejárt a Készbe kerül.
-    // A határ a KIJELZETT (pótolt) dátumon dől el.
+    // Élő dolgozat: csak a még nem lejárt — a lejárt a Készbe kerül.
+    // A határ a KIJELZETT (pótolt) dátumon dől el; az órához tűzött aznapi
+    // dolgozat az óra végén jár le (nem éjfélkor).
     var filteredExams: [ExamItem] {
         resolvedExams.items
-            .filter { !ExamExpiry.isExpired($0) }
+            .filter { !ExamExpiry.isExpired($0, now: nowTick, lessons: lessons) }
             .sorted { $0.date < $1.date }
     }
     // MARK: - Napra bontás (Feladatok, Dolgozatok, Kész — mindhárom)

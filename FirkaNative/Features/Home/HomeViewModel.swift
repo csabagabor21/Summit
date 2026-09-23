@@ -137,8 +137,9 @@ final class HomeViewModel: ObservableObject {
     func applyRollover() {
         let r = ExamRollover.displayItems(exams: rawExamsAll, absences: absences, lessons: rolloverLessons)
         // Lejárt dolgozat a főoldalra sem kerül (a Feladatok tab Kész
-        // szegmensében és az értesítési diffben megmarad).
-        self.exams = r.items.filter { !ExamExpiry.isExpired($0) }
+        // szegmensében és az értesítési diffben megmarad). Az órához tűzött
+        // aznapi dolgozat az óra végén jár le (nem éjfélkor).
+        self.exams = r.items.filter { !ExamExpiry.isExpired($0, lessons: rolloverLessons) }
         self.rolledExamIDs = r.rolledIDs
         self.originalExamDates = r.originalDates
     }

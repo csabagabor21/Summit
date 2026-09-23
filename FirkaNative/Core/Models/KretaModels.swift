@@ -347,12 +347,25 @@ enum HomeworkExpiry {
     }
 }
 
-/// Lejárt dolgozat: a napja már elmúlt (ma éjfélnél korábbi).
-/// A mai dolgozat egész nap élő — csak a tegnapi és régebbi számít lejártnak,
-/// az ilyen a Dolgozatok szegmensből a Készbe kerül.
+/// Lejárt dolgozat: a napja már elmúlt (ma éjfélnél korábbi) — vagy aznapra
+/// konkrét tanórára tűzött (óraszámos KRÉTA-dolgozat, saját órához vett vagy
+/// hiányzás miatt előrevetített/pótolt), és az az óra már véget ért.
+/// Az ilyen a Dolgozatok szegmensből a Készbe kerül.
+/// Órához nem köthető aznapi dolgozat egész nap élő (régi viselkedés).
 enum ExamExpiry {
-    static func isExpired(_ e: ExamItem, now: Date = Date(), calendar: Calendar = .current) -> Bool {
-        e.date < calendar.startOfDay(for: now)
+    static func isExpired(_ e: ExamItem, now: Date = Date(), calendar: Calendar = .current,
+                          lessons: [LessonItem] = []) -> Bool {
+        let startOfToday = calendar.startOfDay(for: now)
+        // Elmúlt nap: lejárt (naptári viselkedés, változatlan).
+        if e.date < startOfToday { return true }
+        // Jövőbeli nap: élő.
+        guard calendar.isDate(e.date, inSameDayAs: now) else { return false }
+        // Azonos nap: ha az óra véget ért, amire a dolgozat tűzve volt,
+        // a dolgozat lekerül a Dolgozatok szegmensből.
+        if let lesson = ExamMatcher.lesson(for: e, in: lessons, calendar: calendar) {
+            return lesson.end <= now
+        }
+        return false
     }
 }
 
@@ -381,6 +394,32 @@ enum ExamMatcher {
         if sameDay.count == 1 { return sameDay[0] }
         if Int(lesson.index) == nil { return sameDay.first }
         return nil
+    }
+
+    /// Fordított irány: melyik tanórára van tűzve a dolgozat (a lejárt-
+    /// határhoz). Csak biztos találat jöhet vissza, különben nil:
+    /// - óraszámos dolgozat → az aznapi, azonos tárgyú, azonos sorszámú óra;
+    /// - időpontos (pl. hiányzás miatt előrevetített, az óra kezdetére tett)
+    ///   dátum → az aznapi, azonos tárgyú, időben legközelebbi óra.
+    /// Óraszám nélküli, éjféli dátumú dolgozatra nil (nap-alapú, régi viselkedés).
+    static func lesson(for exam: ExamItem, in lessons: [LessonItem], calendar: Calendar = .current) -> LessonItem? {
+        let sameDay = lessons.filter {
+            SubjectMatcher.same($0.subject, exam.subject)
+            && calendar.isDate($0.start, inSameDayAs: exam.date)
+        }
+        guard !sameDay.isEmpty else { return nil }
+        if let n = exam.lessonIndex {
+            return sameDay.first { Int($0.index) == n }
+        }
+        guard !isMidnight(exam.date, calendar: calendar) else { return nil }
+        return sameDay.min {
+            abs($0.start.timeIntervalSince(exam.date)) < abs($1.start.timeIntervalSince(exam.date))
+        }
+    }
+
+    private static func isMidnight(_ d: Date, calendar: Calendar) -> Bool {
+        let c = calendar.dateComponents([.hour, .minute], from: d)
+        return (c.hour ?? 0) == 0 && (c.minute ?? 0) == 0
     }
 }
 
