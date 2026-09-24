@@ -191,3 +191,12 @@ targets:
         # az Info.plist fájl WK-kulcsait a GENERATE_INFOPLIST_FILE
         # elnyomja, enélkül a telepítés elutasítja a beágyazott órát.
         INFOPLIST_KEY_WKCompanionAppBundleIdentifier: hu.flint
+# Megosztott scheme az óra-app közvetlen futtatásához (Xcode Run az
+# órára — a scheme a repó része, nem user-lokális).
+schemes:
+  SummitWatch:
+    build:
+      targets:
+        SummitWatch: all
+    run:
+      config: Debug
