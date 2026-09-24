@@ -579,6 +579,15 @@ struct NotesView: View {
         // (hálózati tárgyak + cache + jegyekből látott tárgyak).
         let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1") ?? []
         subjects = Array(Set(subjR).union(cached).union(grR.map(\.subject))).sorted()
+        // Apple Watch: az aktív feladatok mennek az órára is (csak sikeres
+        // lehúzáskor — totális hiba esetén az órai lista változatlan marad).
+        if !hwR.isEmpty || !exR.isEmpty {
+            let active = WatchSyncSender.activeTasks(
+                homeworks: homeworks, custom: customTasks, exams: exams,
+                lessons: lessons, completed: completed
+            )
+            WatchSyncSender.pushTasks(homeworks: active.hw, exams: active.ex)
+        }
         isLoading=false
     }
 

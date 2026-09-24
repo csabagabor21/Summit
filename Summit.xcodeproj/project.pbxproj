@@ -87,6 +87,7 @@
 		C89A1E57A1EBF70DB192B708 /* TimetableWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = F963EB973555B758C1101D65 /* TimetableWidgetSnapshot.swift */; };
 		C9A05AB06DCC8B4CAB1B14EB /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 78B42AF416D1AF896EB02267 /* GoogleService-Info.plist */; };
 		CC1BA39A72150FC1088371D3 /* TimetableWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = F963EB973555B758C1101D65 /* TimetableWidgetSnapshot.swift */; };
+		CD44E1C674E1CC83E6804A2B /* TasksWatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64D00B43D3C4A6D54B036246 /* TasksWatchView.swift */; };
 		D69D581273C97687038823EE /* SchoolCalendarDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 538B4D0DC7A588CA62E63427 /* SchoolCalendarDirectory.swift */; };
 		D98770305ADBCA9B0CCC1D6D /* GradingLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E84D5228585755250AA0D05 /* GradingLogic.swift */; };
 		DA9FAB3C3C4BCED9B3B83028 /* AnalyticsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 403733D1E79BF3F0BDF3A215 /* AnalyticsStore.swift */; };
@@ -185,6 +186,7 @@
 		58E3C021CA7F83DB9478FE33 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
 		5FE74420CE9DA6A0EA10197C /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		62D820C4CC82989E7AB176A3 /* KretaAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaAPI.swift; sourceTree = "<group>"; };
+		64D00B43D3C4A6D54B036246 /* TasksWatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksWatchView.swift; sourceTree = "<group>"; };
 		66A280F65EA8973C9BD6A643 /* KretaWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaWebView.swift; sourceTree = "<group>"; };
 		6E0E94310269FCFFF2F115AC /* AnalyticsConsentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsConsentView.swift; sourceTree = "<group>"; };
 		6F94AC888464350A05C1090C /* LiveCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCardView.swift; sourceTree = "<group>"; };
@@ -332,6 +334,7 @@
 				AFD363A0F8F101E59655A0B4 /* GradesWatchView.swift */,
 				26D362E074715FDA9A2FFBC2 /* Info.plist */,
 				897478263CC14E9677BA3955 /* SummitWatchApp.swift */,
+				64D00B43D3C4A6D54B036246 /* TasksWatchView.swift */,
 				45F417D93F92F1726B4C13A4 /* TimetableWatchView.swift */,
 				78F66BBD733EBA04C7CB0856 /* WatchSyncStore.swift */,
 			);
@@ -704,6 +707,7 @@
 				9452445D4637696EEF502A31 /* GradingLogic.swift in Sources */,
 				8F81255CB7FB5428B8AB4039 /* KretaModels.swift in Sources */,
 				2951EE64D7E813F23CB92661 /* SummitWatchApp.swift in Sources */,
+				CD44E1C674E1CC83E6804A2B /* TasksWatchView.swift in Sources */,
 				A32B70E7BA662076E86EF78E /* TimetableWatchView.swift in Sources */,
 				41298A0ADDBE2FADDA0E09E8 /* TimetableWidgetSnapshot.swift in Sources */,
 				00510505FE37B8B54818307E /* WatchPayload.swift in Sources */,

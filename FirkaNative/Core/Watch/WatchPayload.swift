@@ -10,6 +10,7 @@ import Foundation
 enum WatchPayloadKey {
     static let timetable = "watch.timetable.v1"
     static let grades = "watch.grades.v1"
+    static let tasks = "watch.tasks.v1"
 }
 
 /// Jegy az órára — a GradeItem hordozható kivonata (lásd GradesView).
@@ -48,6 +49,53 @@ struct WatchGradesSnapshot: Codable {
         subjects = try c.decodeIfPresent([String].self, forKey: .subjects) ?? []
         grades = try c.decodeIfPresent([WatchGrade].self, forKey: .grades) ?? []
         thresholds = try c.decodeIfPresent([String: Double].self, forKey: .thresholds) ?? [:]
+    }
+}
+
+/// Házi feladat az órára — a HomeworkItem hordozható kivonata (lásd
+/// NotesView). Csak az aktívak utaznak (nem kész, nem lejárt) — a
+/// szűrés az iPhone-on történik a telefonnal azonos szabállyal.
+struct WatchHomework: Codable, Hashable, Identifiable {
+    var id: String
+    var subject: String
+    var title: String
+    var deadline: Date
+    var teacher: String
+    var isCustom: Bool
+}
+
+/// Dolgozat az órára — az ExamItem hordozható kivonata. Csak az aktívak
+/// utaznak (ExamExpiry-szabály az iPhone-on).
+struct WatchExam: Codable, Hashable, Identifiable {
+    var id: String
+    var subject: String
+    var mode: String
+    var details: String
+    var date: Date
+    var lessonIndex: Int?
+    var isCustom: Bool
+}
+
+/// Feladat-snapshot: aktív házik + dolgozatok határidő-sorrendben.
+struct WatchTasksSnapshot: Codable {
+    var savedAt: Date
+    var accentHex: Int
+    var homeworks: [WatchHomework]
+    var exams: [WatchExam]
+
+    enum CodingKeys: String, CodingKey {
+        case savedAt, accentHex, homeworks, exams
+    }
+    init(savedAt: Date, accentHex: Int, homeworks: [WatchHomework], exams: [WatchExam]) {
+        self.savedAt = savedAt; self.accentHex = accentHex
+        self.homeworks = homeworks; self.exams = exams
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        savedAt = try c.decodeIfPresent(Date.self, forKey: .savedAt) ?? Date.distantPast
+        accentHex = try c.decodeIfPresent(Int.self, forKey: .accentHex) ?? 0x4A90E2
+        homeworks = try c.decodeIfPresent([WatchHomework].self, forKey: .homeworks) ?? []
+        exams = try c.decodeIfPresent([WatchExam].self, forKey: .exams) ?? []
     }
 }
 

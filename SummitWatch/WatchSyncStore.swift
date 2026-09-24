@@ -13,9 +13,11 @@ private let watchLog = Logger(subsystem: "hu.flint.summit.watch", category: "wat
 final class WatchSyncStore: NSObject, ObservableObject {
     @Published private(set) var timetable: TimetableWidgetStore.Snapshot?
     @Published private(set) var grades: WatchGradesSnapshot?
+    @Published private(set) var tasks: WatchTasksSnapshot?
 
     private let timetableKey = "watch.cache.timetable.v1"
     private let gradesKey = "watch.cache.grades.v1"
+    private let tasksKey = "watch.cache.tasks.v1"
 
     /// Accent az órára: órarend-snapshotből, különben jegyből, különben default.
     var accentHex: Int {
@@ -31,6 +33,10 @@ final class WatchSyncStore: NSObject, ObservableObject {
         if let data = UserDefaults.standard.data(forKey: gradesKey),
            let snap = try? JSONDecoder().decode(WatchGradesSnapshot.self, from: data) {
             grades = snap
+        }
+        if let data = UserDefaults.standard.data(forKey: tasksKey),
+           let snap = try? JSONDecoder().decode(WatchTasksSnapshot.self, from: data) {
+            tasks = snap
         }
         if WCSession.isSupported() {
             let session = WCSession.default
@@ -66,6 +72,7 @@ extension WatchSyncStore: WCSessionDelegate {
         watchLog.info("context érkezett, kulcsok: \(context.keys.joined(separator: ","), privacy: .public)")
         var newTimetable = timetable
         var newGrades = grades
+        var newTasks = tasks
         var changed = false
         if let data = context[WatchPayloadKey.timetable] as? Data,
            let snap = try? JSONDecoder().decode(TimetableWidgetStore.Snapshot.self, from: data) {
@@ -79,10 +86,17 @@ extension WatchSyncStore: WCSessionDelegate {
             UserDefaults.standard.set(data, forKey: gradesKey)
             changed = true
         }
+        if let data = context[WatchPayloadKey.tasks] as? Data,
+           let snap = try? JSONDecoder().decode(WatchTasksSnapshot.self, from: data) {
+            newTasks = snap
+            UserDefaults.standard.set(data, forKey: tasksKey)
+            changed = true
+        }
         guard changed else { return }
         DispatchQueue.main.async {
             self.timetable = newTimetable
             self.grades = newGrades
+            self.tasks = newTasks
         }
     }
 }

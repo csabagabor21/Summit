@@ -49,6 +49,54 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
         shared.send(key: WatchPayloadKey.timetable, data: data)
     }
 
+    /// Aktív feladatok az órára — a NotesView-val azonos szűrés után.
+    /// Üres lista is mehet (mind kész → az óra ürül).
+    static func pushTasks(homeworks: [HomeworkItem], exams: [ExamItem]) {
+        guard WCSession.isSupported() else { return }
+        let snapshot = WatchTasksSnapshot(
+            savedAt: Date(),
+            accentHex: TimetableWidgetPublish.currentAccentHex(),
+            homeworks: homeworks.map {
+                WatchHomework(
+                    id: $0.id, subject: $0.subject,
+                    title: $0.plainTitle.isEmpty ? "(nincs leírás)" : $0.plainTitle,
+                    deadline: $0.deadline, teacher: $0.teacher,
+                    isCustom: CustomTasksStore.isCustomId($0.id)
+                )
+            },
+            exams: exams.map {
+                WatchExam(
+                    id: $0.id, subject: $0.subject, mode: $0.mode,
+                    details: HomeworkPlain.text(from: $0.description),
+                    date: $0.date, lessonIndex: $0.lessonIndex,
+                    isCustom: CustomTasksStore.isCustomId($0.id)
+                )
+            }
+        )
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        shared.send(key: WatchPayloadKey.tasks, data: data)
+    }
+
+    /// Aktív házik + dolgozatok a NotesView szabályaival: saját tételek
+    /// belemergelve, kész/lejárt kiszűrve, határidő-sorrendben.
+    /// MainActor (CompletedStore-olvasás miatt) — hívói ilyenek.
+    @MainActor
+    static func activeTasks(
+        homeworks: [HomeworkItem],
+        custom: [CustomTask],
+        exams: [ExamItem],
+        lessons: [LessonItem],
+        completed: CompletedStore
+    ) -> (hw: [HomeworkItem], ex: [ExamItem]) {
+        let hw = (homeworks + CustomTasksStore.homeworkItems(from: custom))
+            .filter { !completed.isHomeworkDone($0.id) && !HomeworkExpiry.isExpired($0) }
+            .sorted { $0.deadline < $1.deadline }
+        let ex = (exams + CustomTasksStore.examItems(from: custom))
+            .filter { !ExamExpiry.isExpired($0, lessons: lessons) }
+            .sorted { $0.date < $1.date }
+        return (hw, ex)
+    }
+
     /// Jegyek + tárgyak + kerekítési küszöbök az órára.
     static func pushGrades(grades: [GradeItem], subjects: [String]) {
         guard WCSession.isSupported(), !grades.isEmpty else { return }
@@ -129,18 +177,18 @@ enum WatchAutoPush {
     private static var running = false
 
     /// Ritkított frissítés (induláskor, előtérbe hozáskor).
-    static func refreshIfNeeded(session: SessionStore, kreta: KretaClient) async {
+    static func refreshIfNeeded(session: SessionStore, kreta: KretaClient, completed: CompletedStore) async {
         let last = UserDefaults.standard.double(forKey: lastKey)
         let age = Date().timeIntervalSince1970 - last
         guard age > minInterval else {
             WatchSyncLog.log.info("ritkítva, legutóbbi \(Int(age)) mp-je volt")
             return
         }
-        await refreshNow(session: session, kreta: kreta)
+        await refreshNow(session: session, kreta: kreta, completed: completed)
     }
 
     /// Azonnali frissítés (ritkítás nélkül).
-    static func refreshNow(session: SessionStore, kreta: KretaClient) async {
+    static func refreshNow(session: SessionStore, kreta: KretaClient, completed: CompletedStore) async {
         WatchSyncLog.log.info("refreshNow indul")
         guard WCSession.isSupported() else {
             WatchSyncLog.log.error("WCSession nem támogatott ezen az eszközön")
@@ -179,8 +227,10 @@ enum WatchAutoPush {
         async let ttTask = kreta.fetchTimetable(iss: iss, from: monday, to: end)
         async let gradesTask = kreta.fetchGrades(iss: iss)
         async let subjectsTask = kreta.fetchAllSubjectNames(iss: iss)
-        let (lessons, grades, subjects) = await (ttTask, gradesTask, subjectsTask)
-        WatchSyncLog.log.info("lehúzva: \(lessons.count) óra, \(grades.count) jegy, \(subjects.count) tárgy")
+        async let hwTask = kreta.fetchHomework(iss: iss)
+        async let exTask = kreta.fetchExams(iss: iss)
+        let (lessons, grades, subjects, hwR, exR) = await (ttTask, gradesTask, subjectsTask, hwTask, exTask)
+        WatchSyncLog.log.info("lehúzva: \(lessons.count) óra, \(grades.count) jegy, \(subjects.count) tárgy, \(hwR.count) házi, \(exR.count) dolgozat")
 
         if !lessons.isEmpty {
             WatchSyncSender.pushTimetable(lessons)
@@ -194,6 +244,15 @@ enum WatchAutoPush {
             }
             WatchSyncSender.pushGrades(grades: grades, subjects: all)
         }
+        if !hwR.isEmpty || !exR.isEmpty {
+            // Saját tételek helyből — hálózati hiba esetén is vannak.
+            let custom = CustomTasksStore.load()
+            let active = WatchSyncSender.activeTasks(
+                homeworks: hwR, custom: custom, exams: exR,
+                lessons: lessons, completed: completed
+            )
+            WatchSyncSender.pushTasks(homeworks: active.hw, exams: active.ex)
+        }
     }
 }
 #else
@@ -206,10 +265,19 @@ enum WatchSyncSender {
     static func pushTimetable(_: [LessonItem]) {}
     static func pushSnapshot(_: TimetableWidgetStore.Snapshot) {}
     static func pushGrades(grades _: [GradeItem], subjects _: [String]) {}
+    static func pushTasks(homeworks _: [HomeworkItem], exams _: [ExamItem]) {}
+    @MainActor
+    static func activeTasks(
+        homeworks _: [HomeworkItem],
+        custom _: [CustomTask],
+        exams _: [ExamItem],
+        lessons _: [LessonItem],
+        completed _: CompletedStore
+    ) -> (hw: [HomeworkItem], ex: [ExamItem]) { ([], []) }
 }
 
 enum WatchAutoPush {
-    static func refreshIfNeeded(session _: SessionStore, kreta _: KretaClient) async {}
-    static func refreshNow(session _: SessionStore, kreta _: KretaClient) async {}
+    static func refreshIfNeeded(session _: SessionStore, kreta _: KretaClient, completed _: CompletedStore) async {}
+    static func refreshNow(session _: SessionStore, kreta _: KretaClient, completed _: CompletedStore) async {}
 }
 #endif

@@ -90,15 +90,18 @@ struct TimetableWatchView: View {
         let cal = Calendar.current
         let day = selectedDay ?? cal.startOfDay(for: now)
         let idx = days.firstIndex(of: day)
-        HStack {
+        HStack(spacing: 2) {
             Button {
                 if let i = idx, i > 0 { selectedDay = days[i - 1] }
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(.footnote.weight(.semibold))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(idx == nil || idx == 0 ? .tertiary : .primary)
+                    .frame(width: 28, height: 22)
             }
+            .buttonStyle(.plain)
             .disabled(idx == nil || idx == 0)
-            Spacer()
+            Spacer(minLength: 0)
             Button {
                 selectedDay = cal.startOfDay(for: now)
                 initializedForSavedAt = store.timetable?.savedAt
@@ -106,19 +109,23 @@ struct TimetableWatchView: View {
                 Text(dayTitle(day, now: now))
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(cal.isDate(day, inSameDayAs: now) ? accent : .primary)
+                    .lineLimit(1)
             }
             .buttonStyle(.plain)
-            Spacer()
+            Spacer(minLength: 0)
             Button {
                 if let i = idx, i + 1 < days.count { selectedDay = days[i + 1] }
             } label: {
                 Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(idx == nil || idx == days.count - 1 ? .tertiary : .primary)
+                    .frame(width: 28, height: 22)
             }
+            .buttonStyle(.plain)
             .disabled(idx == nil || idx == days.count - 1)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
     }
 
     private func dayTitle(_ day: Date, now: Date) -> String {
