@@ -45,7 +45,10 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
     /// hálózat nélkül is mehet az utolsó ismert hét).
     static func pushSnapshot(_ snapshot: TimetableWidgetStore.Snapshot) {
         guard WCSession.isSupported(), !snapshot.lessons.isEmpty else { return }
-        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        guard let data = try? JSONEncoder().encode(snapshot) else {
+            WatchSyncLog.log.error("órarend-kódolási hiba")
+            return
+        }
         shared.send(key: WatchPayloadKey.timetable, data: data)
     }
 
@@ -73,7 +76,10 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
                 )
             }
         )
-        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        guard let data = try? JSONEncoder().encode(snapshot) else {
+            WatchSyncLog.log.error("feladat-kódolási hiba")
+            return
+        }
         shared.send(key: WatchPayloadKey.tasks, data: data)
     }
 
@@ -113,18 +119,27 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
             subjects: subjects, grades: mapped,
             thresholds: GradingLogic.loadThresholds()
         )
-        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        guard let data = try? JSONEncoder().encode(snapshot) else {
+            WatchSyncLog.log.error("jegy-kódolási hiba")
+            return
+        }
         shared.send(key: WatchPayloadKey.grades, data: data)
     }
 
     private func send(key: String, data: Data) {
+        // Utolsó ismert snapshot perzisztálása: az óra kérésekor ebből
+        // válaszolunk azonnal, hálózat nélkül, akár háttérből is.
+        UserDefaults.standard.set(data, forKey: Self.lastKnownKeyPrefix + key)
         // WCSession-hívások főszálon (a push hívói Task-ból is jöhetnek).
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.context[key] = data
             let session = WCSession.default
             WatchSyncLog.log.info("send \(key, privacy: .public) bytes=\(data.count) state=\(String(describing: session.activationState), privacy: .public) paired=\(session.isPaired, privacy: .public) watchInstalled=\(session.isWatchAppInstalled, privacy: .public)")
-            guard session.activationState == .activated else { return }
+            guard session.activationState == .activated else {
+                WatchSyncLog.log.info("session még nem aktív — context tárolva, aktiváláskor flush")
+                return
+            }
             do {
                 try session.updateApplicationContext(self.context)
                 WatchSyncLog.log.info("context elküldve (\(key, privacy: .public))")
@@ -132,6 +147,49 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
                 WatchSyncLog.log.error("context-hiba (\(key, privacy: .public)): \(error.localizedDescription, privacy: .public)")
             }
         }
+    }
+
+    // MARK: - Óra-iniciált szinkron (pull)
+
+    /// Az óra kéréseinek értesítése — a SummitApp erre ritkítás nélkül
+    /// húz frisset a hálózatról (a gyorstáras válasz már addig is kiment).
+    static let syncRequested = Notification.Name("watch.syncRequested.v1")
+
+    private static let lastKnownKeyPrefix = "watch.last.v1."
+
+    /// Utolsó ismert snapshotok a perzisztens tárolóból — alkalmazás-
+    /// újraindítás után, háttér-ébresztéskor is elérhető.
+    static func lastKnownContext() -> [String: Any] {
+        var ctx: [String: Any] = [:]
+        for key in [WatchPayloadKey.timetable, WatchPayloadKey.grades, WatchPayloadKey.tasks] {
+            if let data = UserDefaults.standard.data(forKey: lastKnownKeyPrefix + key) {
+                ctx[key] = data
+            }
+        }
+        return ctx
+    }
+
+    /// Óra-kérés kiszolgálása: azonnal a legutóbbi snapshot (hálózat
+    /// nélkül), plusz jelzés az appnak a friss lehúzásra.
+    private func answerSyncRequest(reply: (([String: Any]) -> Void)?) {
+        let ctx = Self.lastKnownContext()
+        WatchSyncLog.log.info("óra szinkronkérés, gyorsválasz kulcsok: \(ctx.keys.joined(separator: ","), privacy: .public)")
+        if !ctx.isEmpty {
+            reply?(ctx)
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                for (k, v) in ctx { self.context[k] = v }
+                do {
+                    try WCSession.default.updateApplicationContext(self.context)
+                    WatchSyncLog.log.info("kérésre context frissítve")
+                } catch {
+                    WatchSyncLog.log.error("kérés-válasz context hiba: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        } else {
+            reply?([:])
+        }
+        NotificationCenter.default.post(name: Self.syncRequested, object: nil)
     }
 
     // MARK: WCSessionDelegate (iOS: mindhárom kötelező)
@@ -162,6 +220,27 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
     func sessionDidDeactivate(_ session: WCSession) {
         // Páros órácsere után az új sessiont aktiválni kell.
         WCSession.default.activate()
+    }
+
+    // Óra → iPhone kérések. Gyors út (üzenet + válasz), ha az iPhone
+    // elérhető; sorba állított út (userInfo), ha háttérben van — arra
+    // a rendszer felébreszti az appot, és a gyorstárból válaszolunk.
+
+    func session(
+        _ session: WCSession,
+        didReceiveMessage message: [String: Any],
+        replyHandler: @escaping ([String: Any]) -> Void
+    ) {
+        guard message[WatchPayloadKey.request] != nil else { return }
+        answerSyncRequest(reply: replyHandler)
+    }
+
+    func session(
+        _ session: WCSession,
+        didReceiveUserInfo userInfo: [String: Any] = [:]
+    ) {
+        guard userInfo[WatchPayloadKey.request] != nil else { return }
+        answerSyncRequest(reply: nil)
     }
 }
 
@@ -261,6 +340,7 @@ import Foundation
 // Mac Catalyst: nincs WatchConnectivity — a hívási helyek változatlanul
 // fordulnak, futáskor nem történik semmi.
 enum WatchSyncSender {
+    static let syncRequested = Notification.Name("watch.syncRequested.v1")
     static func activate() {}
     static func pushTimetable(_: [LessonItem]) {}
     static func pushSnapshot(_: TimetableWidgetStore.Snapshot) {}

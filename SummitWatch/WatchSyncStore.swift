@@ -6,14 +6,21 @@ import WatchConnectivity
 private let watchLog = Logger(subsystem: "hu.flint.summit.watch", category: "watchsync")
 
 // MARK: - Watch adatfogadó — CSAK óra target
-// Az iPhone tolja az órarend + jegy snapshotokat (WatchSyncSender).
+// Az iPhone tolja az órarend + jegy + feladat snapshotokat
+// (WatchSyncSender), az óra pedig megnyitáskor KÉRI is, ha az adata
+// avult vagy hiányzik — ezért nem kell az iPhone-appot megnyitni.
 // Érkezéskor dekódol + gyorsítótáraz (UserDefaults), így az óra az
-// iPhone nélkül is mutatja a legutóbbit. Kézi frissítés nincs:
-// megnyitáskor a rendszer kézbesíti a legfrissebb contextet.
+// iPhone nélkül is mutatja a legutóbbit.
 final class WatchSyncStore: NSObject, ObservableObject {
     @Published private(set) var timetable: TimetableWidgetStore.Snapshot?
     @Published private(set) var grades: WatchGradesSnapshot?
     @Published private(set) var tasks: WatchTasksSnapshot?
+
+    /// Ennél régebbi órai adattal megnyitáskor kérünk frisset.
+    private static let staleAfter: TimeInterval = 30 * 60
+    /// Kérések ritkítása (megnyitások között).
+    private static let requestGap: TimeInterval = 5 * 60
+    private var lastRequest: Date?
 
     private let timetableKey = "watch.cache.timetable.v1"
     private let gradesKey = "watch.cache.grades.v1"
@@ -59,6 +66,9 @@ extension WatchSyncStore: WCSessionDelegate {
         // Megnyitáskor a legfrissebb context is megérkezik — ami már
         // korábban megjött tárolva, azt is alkalmazzuk.
         apply(session.receivedApplicationContext)
+        if activationState == .activated {
+            requestSyncIfNeeded(session: session)
+        }
     }
 
     func session(
@@ -74,23 +84,32 @@ extension WatchSyncStore: WCSessionDelegate {
         var newGrades = grades
         var newTasks = tasks
         var changed = false
-        if let data = context[WatchPayloadKey.timetable] as? Data,
-           let snap = try? JSONDecoder().decode(TimetableWidgetStore.Snapshot.self, from: data) {
-            newTimetable = snap
-            UserDefaults.standard.set(data, forKey: timetableKey)
-            changed = true
+        if let data = context[WatchPayloadKey.timetable] as? Data {
+            if let snap = try? JSONDecoder().decode(TimetableWidgetStore.Snapshot.self, from: data) {
+                newTimetable = snap
+                UserDefaults.standard.set(data, forKey: timetableKey)
+                changed = true
+            } else {
+                watchLog.error("órarend-dekódhiba, \(data.count) bájt eldobva")
+            }
         }
-        if let data = context[WatchPayloadKey.grades] as? Data,
-           let snap = try? JSONDecoder().decode(WatchGradesSnapshot.self, from: data) {
-            newGrades = snap
-            UserDefaults.standard.set(data, forKey: gradesKey)
-            changed = true
+        if let data = context[WatchPayloadKey.grades] as? Data {
+            if let snap = try? JSONDecoder().decode(WatchGradesSnapshot.self, from: data) {
+                newGrades = snap
+                UserDefaults.standard.set(data, forKey: gradesKey)
+                changed = true
+            } else {
+                watchLog.error("jegy-dekódhiba, \(data.count) bájt eldobva")
+            }
         }
-        if let data = context[WatchPayloadKey.tasks] as? Data,
-           let snap = try? JSONDecoder().decode(WatchTasksSnapshot.self, from: data) {
-            newTasks = snap
-            UserDefaults.standard.set(data, forKey: tasksKey)
-            changed = true
+        if let data = context[WatchPayloadKey.tasks] as? Data {
+            if let snap = try? JSONDecoder().decode(WatchTasksSnapshot.self, from: data) {
+                newTasks = snap
+                UserDefaults.standard.set(data, forKey: tasksKey)
+                changed = true
+            } else {
+                watchLog.error("feladat-dekódhiba, \(data.count) bájt eldobva")
+            }
         }
         guard changed else { return }
         DispatchQueue.main.async {
@@ -98,5 +117,32 @@ extension WatchSyncStore: WCSessionDelegate {
             self.grades = newGrades
             self.tasks = newTasks
         }
+    }
+
+    // MARK: - Szinkronkérés az iPhone felé
+
+    /// Avult vagy hiányzó adattal megnyitáskor kérünk az iPhone-tól.
+    /// Gyors út: üzenet + azonnali válasz, ha az iPhone elérhető.
+    /// Lassú út: sorba állított userInfo — arra az iPhone-t a rendszer
+    /// háttérben is felébreszti, és a gyorstárból válaszol.
+    private func requestSyncIfNeeded(session: WCSession) {
+        let now = Date()
+        let savedAts = [timetable?.savedAt, grades?.savedAt, tasks?.savedAt]
+        let stale = savedAts.contains(where: { $0 == nil })
+            || savedAts.compactMap { $0 }.contains { now.timeIntervalSince($0) > Self.staleAfter }
+        guard stale else { return }
+        if let last = lastRequest, now.timeIntervalSince(last) < Self.requestGap { return }
+        lastRequest = now
+        let msg = [WatchPayloadKey.request: true]
+        watchLog.info("szinkronkérés az iPhone felé")
+        session.sendMessage(msg, replyHandler: { [weak self] reply in
+            watchLog.info("gyorsválasz érkezett az iPhone-ról")
+            self?.apply(reply)
+        }, errorHandler: { error in
+            // iPhone nem elérhető (pl. lezárva a zsebben): userInfo
+            // sorba áll — háttér-ébresztéskor megjön a válasz.
+            watchLog.info("iPhone nem elérhető, userInfo-sor: \(error.localizedDescription, privacy: .public)")
+            session.transferUserInfo(msg)
+        })
     }
 }

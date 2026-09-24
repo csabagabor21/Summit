@@ -203,6 +203,14 @@ struct SummitApp: App {
                         Task { await WatchAutoPush.refreshIfNeeded(session: session, kreta: kreta, completed: completed) }
                     }
                 }
+                // Apple Watch: az óra megnyitáskor kér frisset, ha az órai
+                // adat avult — erre ritkítás nélkül húzunk (a gyorstáras
+                // válasz már addig is kiment az órára).
+                .task {
+                    for await _ in NotificationCenter.default.notifications(named: WatchSyncSender.syncRequested) {
+                        await WatchAutoPush.refreshNow(session: session, kreta: kreta, completed: completed)
+                    }
+                }
         }
     }
 }

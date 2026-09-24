@@ -11,6 +11,9 @@ enum WatchPayloadKey {
     static let timetable = "watch.timetable.v1"
     static let grades = "watch.grades.v1"
     static let tasks = "watch.tasks.v1"
+    /// Óra → iPhone szinkronkérés (megnyitáskor, ha az órai adat avult
+    /// vagy hiányzik). Mindkét irány ugyanazt a kulcs-szótárat használja.
+    static let request = "watch.requestSync.v1"
 }
 
 /// Jegy az órára — a GradeItem hordozható kivonata (lásd GradesView).

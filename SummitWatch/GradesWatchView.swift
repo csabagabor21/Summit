@@ -27,9 +27,10 @@ struct GradesWatchView: View {
         return Dictionary(grouping: items(WatchGradeFilter.evkozi(snap.grades)), by: { $0.subject })
     }
 
+    /// Csak azok a tárgyak, amikből van is évközi jegy —
+    /// az üres tárgyak nem jelennek meg az órán.
     private var displaySubjects: [String] {
-        guard let snap = snapshot else { return [] }
-        return Set(grouped.keys).union(snap.subjects).sorted()
+        grouped.keys.sorted()
     }
 
     private var overall: Double { GradingLogic.overallAverage(grouped: grouped) }
@@ -78,25 +79,6 @@ struct GradesWatchView: View {
                                                 Text(String(format: "%.2f • %d jegy", raw, list.count))
                                                     .font(.caption2)
                                                     .foregroundStyle(.secondary)
-                                                    .lineLimit(1)
-                                            }
-                                        } else {
-                                            ZStack {
-                                                Circle()
-                                                    .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1.2)
-                                                    .frame(width: 36, height: 36)
-                                                Text("—")
-                                                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                                                    .foregroundStyle(.tertiary)
-                                            }
-                                            .frame(width: 36, height: 36)
-                                            VStack(alignment: .leading, spacing: 2) {
-                                                Text(subject)
-                                                    .font(.subheadline.weight(.semibold))
-                                                    .lineLimit(1)
-                                                Text("Nincs jegy")
-                                                    .font(.caption2)
-                                                    .foregroundStyle(.tertiary)
                                                     .lineLimit(1)
                                             }
                                         }
