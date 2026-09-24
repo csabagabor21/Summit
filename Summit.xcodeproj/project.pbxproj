@@ -88,6 +88,7 @@
 		C9A05AB06DCC8B4CAB1B14EB /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 78B42AF416D1AF896EB02267 /* GoogleService-Info.plist */; };
 		CC1BA39A72150FC1088371D3 /* TimetableWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = F963EB973555B758C1101D65 /* TimetableWidgetSnapshot.swift */; };
 		CD44E1C674E1CC83E6804A2B /* TasksWatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64D00B43D3C4A6D54B036246 /* TasksWatchView.swift */; };
+		D639B576FDABD994126E0BE6 /* WatchAppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = F680942F0CC6A6002F0C67D4 /* WatchAppIcon.icon */; };
 		D69D581273C97687038823EE /* SchoolCalendarDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 538B4D0DC7A588CA62E63427 /* SchoolCalendarDirectory.swift */; };
 		D98770305ADBCA9B0CCC1D6D /* GradingLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E84D5228585755250AA0D05 /* GradingLogic.swift */; };
 		DA9FAB3C3C4BCED9B3B83028 /* AnalyticsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 403733D1E79BF3F0BDF3A215 /* AnalyticsStore.swift */; };
@@ -230,6 +231,7 @@
 		F0BD3D0BD4C28044F95ED458 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		F129BF98BF502D69E561BE08 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		F46888F9B5AABCFE8AF91CF4 /* WatchPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchPayload.swift; sourceTree = "<group>"; };
+		F680942F0CC6A6002F0C67D4 /* WatchAppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = WatchAppIcon.icon; sourceTree = "<group>"; };
 		F963EB973555B758C1101D65 /* TimetableWidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableWidgetSnapshot.swift; sourceTree = "<group>"; };
 		FBFE1FE503B9522FABFD9105 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		FCD612738202004C2155D62E /* TeacherRoundingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeacherRoundingView.swift; sourceTree = "<group>"; };
@@ -336,6 +338,7 @@
 				897478263CC14E9677BA3955 /* SummitWatchApp.swift */,
 				64D00B43D3C4A6D54B036246 /* TasksWatchView.swift */,
 				45F417D93F92F1726B4C13A4 /* TimetableWatchView.swift */,
+				F680942F0CC6A6002F0C67D4 /* WatchAppIcon.icon */,
 				78F66BBD733EBA04C7CB0856 /* WatchSyncStore.swift */,
 			);
 			path = SummitWatch;
@@ -567,6 +570,7 @@
 			buildConfigurationList = 24C76E9A9FD79DF9DE377424 /* Build configuration list for PBXNativeTarget "SummitWatch" */;
 			buildPhases = (
 				A4AEDB011D28CB451A1DFD55 /* Sources */,
+				1B0B8F11E25ECF94371BB411 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -644,6 +648,14 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		1B0B8F11E25ECF94371BB411 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D639B576FDABD994126E0BE6 /* WatchAppIcon.icon in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		DB139E2AE54457ED270A191C /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -807,7 +819,7 @@
 		2649E3D42A3F0016DDD38ADD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = WatchAppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
@@ -927,7 +939,7 @@
 		6B4FA944A8F2EF10D2C86FE0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = WatchAppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;

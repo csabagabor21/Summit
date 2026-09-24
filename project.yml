@@ -183,6 +183,9 @@ targets:
         PROVISIONING_PROFILE_SPECIFIER: ""
         GENERATE_INFOPLIST_FILE: YES
         WATCHOS_DEPLOYMENT_TARGET: "26.0"
+        # Óra-ikon: a SummitWatch/WatchAppIcon.icon IconComposer-asset
+        # (kör-maszkhoz igazított hegy, az iPhone-ikon kistestvére).
+        ASSETCATALOG_COMPILER_APPICON_NAME: WatchAppIcon
         INFOPLIST_KEY_CFBundleDisplayName: "Summit"
         INFOPLIST_KEY_CFBundleName: "Summit"
         # Nincs nem-mentesített titkosítás (csak rendszer-HTTPS WC-n át).
