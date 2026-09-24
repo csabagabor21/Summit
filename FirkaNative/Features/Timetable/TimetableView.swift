@@ -708,6 +708,8 @@ struct TimetableView: View {
     /// ugyanoda mergeli a mai napot.)
     private func publishWidgetSnapshot() {
         TimetableWidgetPublish.publishWeek(lessons)
+        // Apple Watch: ugyanez a heti anyag megy az órára is.
+        WatchSyncSender.pushTimetable(lessons)
     }
 
     /// Saját tételek bekeverése a KRÉTA-listákba (mindig a store-ból,

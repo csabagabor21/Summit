@@ -319,6 +319,8 @@ struct GradesView: View {
         let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1") ?? []
         allSubjects = Array(Set(s).union(cached)).sorted()
         if !s.isEmpty { UserDefaults.standard.set(s.sorted(), forKey: "firka.cachedSubjects.v1") }
+        // Apple Watch: a friss jegyek + tárgyak + kerekítések mennek az órára is.
+        WatchSyncSender.pushGrades(grades: grades, subjects: allSubjects)
         isLoading=false
     }
 }

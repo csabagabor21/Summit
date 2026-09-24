@@ -15,6 +15,9 @@ struct SummitApp: App {
         // Live Activity háttér-ébresztés: óra/szünet végén az app
         // megnyitása nélkül is átkapcsol az activity.
         LiveActivityBackgroundRefresh.register()
+        // Apple Watch: órarend + jegyek továbbítása az órára
+        // (WatchConnectivity applicationContext — külön login nincs az órán).
+        WatchSyncSender.activate()
         // Realtime szinkron: csak ha a GoogleService-Info.plist a
         // bundle-ben van; nélküle néma, a REST-út marad.
         SummitSync.configureIfNeeded()

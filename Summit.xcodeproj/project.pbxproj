@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0048146EEDBAF2200F28A063 /* SummitApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E156CB119C0AA44F6ECF68 /* SummitApp.swift */; };
+		00510505FE37B8B54818307E /* WatchPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = F46888F9B5AABCFE8AF91CF4 /* WatchPayload.swift */; };
 		01061E088472CD4B58E83731 /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = B148C2CB66ADC6FEBA6C1694 /* AppColors.swift */; };
 		04D92300F2F40E2E33AE52DB /* GradeChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 343E8AF99B84335349319C56 /* GradeChartView.swift */; };
 		0AE33833A017D8CBD31CBA28 /* SettingsTour.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EAF96A3A7B5A5B2119C1537 /* SettingsTour.swift */; };
@@ -17,14 +18,17 @@
 		2318ABF5F2C7E205618489DC /* ic_splash.png in Resources */ = {isa = PBXBuildFile; fileRef = 225D81CC5A3BF3C9D730B87F /* ic_splash.png */; };
 		25F89268618A3B90B1444BDD /* KretaWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A280F65EA8973C9BD6A643 /* KretaWebView.swift */; };
 		27F5E9AF81B7091B86657B47 /* TimetableWidgetPublish.swift in Sources */ = {isa = PBXBuildFile; fileRef = CACC3C6BFC6796A0A3267897 /* TimetableWidgetPublish.swift */; };
+		2951EE64D7E813F23CB92661 /* SummitWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 897478263CC14E9677BA3955 /* SummitWatchApp.swift */; };
 		29BEF006108E9889DE878B71 /* AbsencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B840F52C3466DB1B0AF667 /* AbsencesView.swift */; };
 		2DD85531BC25CEBDE94C9DEC /* LiveActivityBackgroundRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39EBCE90E5E55CCF969EB995 /* LiveActivityBackgroundRefresh.swift */; };
+		3270693F8DAAA3900DE3F801 /* WatchPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = F46888F9B5AABCFE8AF91CF4 /* WatchPayload.swift */; };
 		333705F710AABC832AC38E7C /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 543BEB289D6EA82EDB362D7B /* HomeViewModel.swift */; };
 		3396D165DABBF9F014328390 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ECFE2CF9540E13685C2C6145 /* Assets.xcassets */; };
 		371B199FB30740EA5F3A7D25 /* showcase3.png in Resources */ = {isa = PBXBuildFile; fileRef = B7AEC13243FD70028FF077DA /* showcase3.png */; };
 		39C60F238B9CE1643D4D00FB /* ExemptedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 326A7165235AF080CF90FB8D /* ExemptedStore.swift */; };
 		3DD981EF753741F402A6F479 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0BD3D0BD4C28044F95ED458 /* HomeView.swift */; };
 		3E46C09489740EF31AAF0E51 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CE0368F13109AD5B0C8D790 /* LoginView.swift */; };
+		41298A0ADDBE2FADDA0E09E8 /* TimetableWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = F963EB973555B758C1101D65 /* TimetableWidgetSnapshot.swift */; };
 		42F61C8AFE8009002E272540 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22EE35060AC05385D57607A4 /* SettingsView.swift */; };
 		4307013EF2822F600C935AB2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B418024E2E5AE953F6E3E66 /* ContentView.swift */; };
 		48330717AF388A44702AC30C /* TeacherRoundingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCD612738202004C2155D62E /* TeacherRoundingView.swift */; };
@@ -36,6 +40,8 @@
 		5018989BC909CC553E5C5ECA /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 720F49AFD0A1A5B6C3CA9AB6 /* DiagnosticsView.swift */; };
 		51445194496F9216C84299A8 /* MessagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF41EC6F961DFC321F8FED9 /* MessagesView.swift */; };
 		5241B1427BAF33A62FB8BF40 /* GradeCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74E818A1B6A970A1BB821FA5 /* GradeCelebrationView.swift */; };
+		52B310CDA2178D044B0E409A /* GradesWatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFD363A0F8F101E59655A0B4 /* GradesWatchView.swift */; };
+		54A14C167FA2BC79CAB9266B /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = B148C2CB66ADC6FEBA6C1694 /* AppColors.swift */; };
 		58098CCBB8D9D3DB1C5A6596 /* AnalyticsConsentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E0E94310269FCFFF2F115AC /* AnalyticsConsentView.swift */; };
 		595775BF1AE585D948E4CA9B /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC0B40D99CA71E14A82E1AF /* AuthViewModel.swift */; };
 		59D0B237EE99E92BF971A0E7 /* TimetableWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F58C017E930EDD41FA3F852 /* TimetableWidget.swift */; };
@@ -55,7 +61,9 @@
 		8C2B1C9B56CDA57FDA0F1AD5 /* SummitWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3ABCF5C0C06170BB971F626E /* SummitWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		8C6140AB017826BDF110FABD /* NotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F810987AB234C214EFE198C /* NotesView.swift */; };
 		8D867F1B7783C5AA139BA81D /* showcase4.png in Resources */ = {isa = PBXBuildFile; fileRef = 38378D28718442B4059B4C78 /* showcase4.png */; };
+		8F81255CB7FB5428B8AB4039 /* KretaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBF03B396B70AF1C4B035458 /* KretaModels.swift */; };
 		8FA20E049E51FE3A80FA29EF /* AttachmentViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B927208857FCA38A9068DD6 /* AttachmentViewer.swift */; };
+		9452445D4637696EEF502A31 /* GradingLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E84D5228585755250AA0D05 /* GradingLogic.swift */; };
 		94AD1980D99DE0FB7EEC9EC4 /* TimetableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 038E0AFC6C033CBCCCA58205 /* TimetableView.swift */; };
 		952CC5EA8265073FC9C0C7BF /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = AC7D44EC5172AB0DE3C2616C /* FirebaseFirestore */; };
 		95CE7EB4304633540076C893 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 95CE7EB3304633540076C893 /* AppIcon.icon */; };
@@ -65,9 +73,12 @@
 		9F1C2EEE3787B2B981B5367E /* Student.swift in Sources */ = {isa = PBXBuildFile; fileRef = 290841CB6CF37C571738D5D8 /* Student.swift */; };
 		9F3F61CCD3F516DECF51FD51 /* SummitMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D59A6CCFD64FBB01C3CF5B5 /* SummitMotion.swift */; };
 		A07B170986E9E0FA04EB2CD2 /* SummitWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95654B92402375A7D376E636 /* SummitWidgetsBundle.swift */; };
+		A32B70E7BA662076E86EF78E /* TimetableWatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45F417D93F92F1726B4C13A4 /* TimetableWatchView.swift */; };
 		A511E3F2998EBF35A1E28CAE /* ExamRollover.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFF09C4AC767DA00D3C3CD37 /* ExamRollover.swift */; };
 		A80924E518A695C4FF3762D7 /* SummitLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16DF003F0DB021C460B7EF92 /* SummitLiveActivityAttributes.swift */; };
 		AAC678B01A46579284937183 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E3C021CA7F83DB9478FE33 /* ThemeStore.swift */; };
+		B0EB4E218DC7D25C3912A300 /* SummitWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 34FE667EA4BEEE2B005C5760 /* SummitWatch.app */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		BB5A01A3BE5D222361C468C8 /* WatchSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48DF42DD023A4B522459E31A /* WatchSync.swift */; };
 		BDFD31F2A263320EC8B6D2F2 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58236DD34EB1ADABB1A9F254 /* SessionStore.swift */; };
 		BFD4B5425FC95BBEC6575868 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE74420CE9DA6A0EA10197C /* MainTabView.swift */; };
 		C0193DFFC067EF63923C0A7E /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBFE1FE503B9522FABFD9105 /* NotificationManager.swift */; };
@@ -81,6 +92,7 @@
 		DF031CE0F1D65920D1D003E7 /* LiveCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F94AC888464350A05C1090C /* LiveCardView.swift */; };
 		E18B6A9B4FA1105E20981AF6 /* KretaAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62D820C4CC82989E7AB176A3 /* KretaAPI.swift */; };
 		E3E071A24AC9AB1AFCFB58A7 /* CustomTasksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D3E0B0FDF4604B9398AA272 /* CustomTasksStore.swift */; };
+		E9854B23F285356AEC2118E4 /* WatchSyncStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78F66BBD733EBA04C7CB0856 /* WatchSyncStore.swift */; };
 		EB0BA8A61112DF3F8C21100C /* KretaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBF03B396B70AF1C4B035458 /* KretaModels.swift */; };
 		F6711F9870E041805B9772B2 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E86A32AD2DDFC87FB138D5 /* AppTheme.swift */; };
 		F8233A954E2118EBB3EBFD56 /* GradesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58254DFECD2C7AC3611DD728 /* GradesView.swift */; };
@@ -96,9 +108,27 @@
 			remoteGlobalIDString = FC8FDBD76C8EAED05EFD9DED;
 			remoteInfo = SummitWidgets;
 		};
+		BCA94E2EA8F87E42A15D583B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6510C8A6EF4312A2F2013012 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C09D4B16983CC98E7A7BF0C3;
+			remoteInfo = SummitWatch;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		4BE404A9FBC7EEDBE1508261 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				B0EB4E218DC7D25C3912A300 /* SummitWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4F02A7F9F941C88A0AC69F36 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -125,9 +155,11 @@
 		1E84D5228585755250AA0D05 /* GradingLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradingLogic.swift; sourceTree = "<group>"; };
 		225D81CC5A3BF3C9D730B87F /* ic_splash.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_splash.png; sourceTree = "<group>"; };
 		22EE35060AC05385D57607A4 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		26D362E074715FDA9A2FFBC2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		290841CB6CF37C571738D5D8 /* Student.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Student.swift; sourceTree = "<group>"; };
 		326A7165235AF080CF90FB8D /* ExemptedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExemptedStore.swift; sourceTree = "<group>"; };
 		343E8AF99B84335349319C56 /* GradeChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeChartView.swift; sourceTree = "<group>"; };
+		34FE667EA4BEEE2B005C5760 /* SummitWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SummitWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		36B97ACEA310D6F1D6FC56F2 /* RootViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootViewModel.swift; sourceTree = "<group>"; };
 		38378D28718442B4059B4C78 /* showcase4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase4.png; sourceTree = "<group>"; };
 		39EBCE90E5E55CCF969EB995 /* LiveActivityBackgroundRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityBackgroundRefresh.swift; sourceTree = "<group>"; };
@@ -137,6 +169,8 @@
 		3F58C017E930EDD41FA3F852 /* TimetableWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableWidget.swift; sourceTree = "<group>"; };
 		403733D1E79BF3F0BDF3A215 /* AnalyticsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsStore.swift; sourceTree = "<group>"; };
 		447C41908D13C10B28E4707B /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
+		45F417D93F92F1726B4C13A4 /* TimetableWatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableWatchView.swift; sourceTree = "<group>"; };
+		48DF42DD023A4B522459E31A /* WatchSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSync.swift; sourceTree = "<group>"; };
 		496420BF202DA6E01F09EA1D /* ProfileImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileImageView.swift; sourceTree = "<group>"; };
 		4B927208857FCA38A9068DD6 /* AttachmentViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentViewer.swift; sourceTree = "<group>"; };
 		4CC0B40D99CA71E14A82E1AF /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
@@ -156,11 +190,13 @@
 		749530AC3E1096307CE8ED24 /* KretaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaClient.swift; sourceTree = "<group>"; };
 		74E818A1B6A970A1BB821FA5 /* GradeCelebrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCelebrationView.swift; sourceTree = "<group>"; };
 		78B42AF416D1AF896EB02267 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		78F66BBD733EBA04C7CB0856 /* WatchSyncStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSyncStore.swift; sourceTree = "<group>"; };
 		7CE0368F13109AD5B0C8D790 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		7D3E0B0FDF4604B9398AA272 /* CustomTasksStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomTasksStore.swift; sourceTree = "<group>"; };
 		8039D6CB6607F635046C9DF5 /* SummitLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityWidget.swift; sourceTree = "<group>"; };
 		83B9022E76AD6AB32842452B /* FilterBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBarView.swift; sourceTree = "<group>"; };
 		87CB81576E6649048EBD2FCA /* SummitSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitSync.swift; sourceTree = "<group>"; };
+		897478263CC14E9677BA3955 /* SummitWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitWatchApp.swift; sourceTree = "<group>"; };
 		89E8B5ED4F9208BE53619044 /* showcase1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase1.png; sourceTree = "<group>"; };
 		8EAF96A3A7B5A5B2119C1537 /* SettingsTour.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTour.swift; sourceTree = "<group>"; };
 		952A77C87AE801894AD9FA0F /* SummitLiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityManager.swift; sourceTree = "<group>"; };
@@ -171,6 +207,7 @@
 		A84585AABBDBE7320433B315 /* TimetableWidgetLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableWidgetLogic.swift; sourceTree = "<group>"; };
 		A861E0155EDA827AA2285902 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
 		AA71684B6DF0CFB5982A110F /* SchoolEventsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchoolEventsSection.swift; sourceTree = "<group>"; };
+		AFD363A0F8F101E59655A0B4 /* GradesWatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradesWatchView.swift; sourceTree = "<group>"; };
 		B148C2CB66ADC6FEBA6C1694 /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
 		B4E86A32AD2DDFC87FB138D5 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
 		B7AEC13243FD70028FF077DA /* showcase3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase3.png; sourceTree = "<group>"; };
@@ -187,6 +224,7 @@
 		EFF09C4AC767DA00D3C3CD37 /* ExamRollover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExamRollover.swift; sourceTree = "<group>"; };
 		F0BD3D0BD4C28044F95ED458 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		F129BF98BF502D69E561BE08 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		F46888F9B5AABCFE8AF91CF4 /* WatchPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchPayload.swift; sourceTree = "<group>"; };
 		F963EB973555B758C1101D65 /* TimetableWidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableWidgetSnapshot.swift; sourceTree = "<group>"; };
 		FBFE1FE503B9522FABFD9105 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		FCD612738202004C2155D62E /* TeacherRoundingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeacherRoundingView.swift; sourceTree = "<group>"; };
@@ -277,10 +315,23 @@
 			isa = PBXGroup;
 			children = (
 				5B560CD737C0C2BA11AB462B /* FirkaNative */,
+				376775F7630A675C4FBB5A34 /* SummitWatch */,
 				24B69D4CF1C8E2057530B073 /* SummitWidgets */,
 				95CE7EB3304633540076C893 /* AppIcon.icon */,
 				83661FDFBF33D1DB3F71AA1D /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		376775F7630A675C4FBB5A34 /* SummitWatch */ = {
+			isa = PBXGroup;
+			children = (
+				AFD363A0F8F101E59655A0B4 /* GradesWatchView.swift */,
+				26D362E074715FDA9A2FFBC2 /* Info.plist */,
+				897478263CC14E9677BA3955 /* SummitWatchApp.swift */,
+				45F417D93F92F1726B4C13A4 /* TimetableWatchView.swift */,
+				78F66BBD733EBA04C7CB0856 /* WatchSyncStore.swift */,
+			);
+			path = SummitWatch;
 			sourceTree = "<group>";
 		};
 		4393A737D8D343A80B277A26 /* Home */ = {
@@ -382,6 +433,7 @@
 			isa = PBXGroup;
 			children = (
 				0BAE871D50553D3FF30F87AD /* Summit.app */,
+				34FE667EA4BEEE2B005C5760 /* SummitWatch.app */,
 				3ABCF5C0C06170BB971F626E /* SummitWidgets.appex */,
 			);
 			name = Products;
@@ -418,8 +470,18 @@
 				543BEB68D0EDE17F433EF23B /* Networking */,
 				EB8606EEC55060B92D11CA44 /* Storage */,
 				5A389BE08D8F1CAE09827E38 /* Theme */,
+				D3B87C30F1AF1E383724ACCB /* Watch */,
 			);
 			path = Core;
+			sourceTree = "<group>";
+		};
+		D3B87C30F1AF1E383724ACCB /* Watch */ = {
+			isa = PBXGroup;
+			children = (
+				F46888F9B5AABCFE8AF91CF4 /* WatchPayload.swift */,
+				48DF42DD023A4B522459E31A /* WatchSync.swift */,
+			);
+			path = Watch;
 			sourceTree = "<group>";
 		};
 		D6FC0D642E023A1D657E8703 /* Notes */ = {
@@ -474,12 +536,14 @@
 				DB139E2AE54457ED270A191C /* Resources */,
 				B819DC522B5493DD13D46FD0 /* Frameworks */,
 				4F02A7F9F941C88A0AC69F36 /* Embed Foundation Extensions */,
+				4BE404A9FBC7EEDBE1508261 /* Embed Watch Content */,
 				1BE0609A0110A58FB875FFC1 /* Inject background refresh plist keys */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				45E71802CEF13A3C0A4EEE5C /* PBXTargetDependency */,
+				079B364F6E9AEB8BC66FF438 /* PBXTargetDependency */,
 			);
 			name = Summit;
 			packageProductDependencies = (
@@ -487,6 +551,23 @@
 			);
 			productName = Summit;
 			productReference = 0BAE871D50553D3FF30F87AD /* Summit.app */;
+			productType = "com.apple.product-type.application";
+		};
+		C09D4B16983CC98E7A7BF0C3 /* SummitWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 24C76E9A9FD79DF9DE377424 /* Build configuration list for PBXNativeTarget "SummitWatch" */;
+			buildPhases = (
+				A4AEDB011D28CB451A1DFD55 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SummitWatch;
+			packageProductDependencies = (
+			);
+			productName = SummitWatch;
+			productReference = 34FE667EA4BEEE2B005C5760 /* SummitWatch.app */;
 			productType = "com.apple.product-type.application";
 		};
 		FC8FDBD76C8EAED05EFD9DED /* SummitWidgets */ = {
@@ -519,6 +600,10 @@
 						DevelopmentTeam = "";
 						ProvisioningStyle = Manual;
 					};
+					C09D4B16983CC98E7A7BF0C3 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Manual;
+					};
 					FC8FDBD76C8EAED05EFD9DED = {
 						DevelopmentTeam = "";
 						ProvisioningStyle = Manual;
@@ -544,6 +629,7 @@
 			targets = (
 				ABA958FA185265DCF2621F4E /* Summit */,
 				FC8FDBD76C8EAED05EFD9DED /* SummitWidgets */,
+				C09D4B16983CC98E7A7BF0C3 /* SummitWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -585,7 +671,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# A BGAppRefreshTask két tömb típusú plist-kulcsot igényel, amit az\n# INFOPLIST_KEY_* build settingek nem tudnak (csak stringet) — ezért\n# injektáljuk a legenerált Info.plist-be. plutil -insert atomi: mindig\n# a pontos típust írja. A PlistBuddy Delete/Add páros TILOS (egyszer\n# már Dict-té fajult a kulcs: Dict{0=fetch} → App Store upload-hiba).\n# Az aláírás ezután történik, így App Store / TestFlight buildeken\n# is érvényes marad.\nPLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n/usr/bin/plutil -remove UIBackgroundModes \"$PLIST\" 2>/dev/null || true\n/usr/bin/plutil -insert UIBackgroundModes -json '[\"fetch\"]' \"$PLIST\"\n/usr/bin/plutil -remove BGTaskSchedulerPermittedIdentifiers \"$PLIST\" 2>/dev/null || true\n/usr/bin/plutil -insert BGTaskSchedulerPermittedIdentifiers -json '[\"hu.flint.app.Flint.liveactivity-refresh\"]' \"$PLIST\"\n# Hangos ellenőrzés: rossz típus már a buildet buktassa, ne az uploadot.\nif ! /usr/libexec/PlistBuddy -c \"Print :UIBackgroundModes\" \"$PLIST\" 2>/dev/null | head -1 | grep -q \"^Array\"; then\n  echo \"error: UIBackgroundModes nem array a generált Info.plist-ben ($PLIST)\"\n  exit 1\nfi\n";
+			shellScript = "# Mac Catalyst builden az iOS háttér-kulcsok nem kellenek — kihagyjuk.\ncase \"${EFFECTIVE_PLATFORM_NAME:-}\" in *maccatalyst*) exit 0;; esac\n# A BGAppRefreshTask két tömb típusú plist-kulcsot igényel, amit az\n# INFOPLIST_KEY_* build settingek nem tudnak (csak stringet) — ezért\n# injektáljuk a legenerált Info.plist-be. plutil -insert atomi: mindig\n# a pontos típust írja. A PlistBuddy Delete/Add páros TILOS (egyszer\n# már Dict-té fajult a kulcs: Dict{0=fetch} → App Store upload-hiba).\n# Az aláírás ezután történik, így App Store / TestFlight buildeken\n# is érvényes marad.\nPLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n/usr/bin/plutil -remove UIBackgroundModes \"$PLIST\" 2>/dev/null || true\n/usr/bin/plutil -insert UIBackgroundModes -json '[\"fetch\"]' \"$PLIST\"\n/usr/bin/plutil -remove BGTaskSchedulerPermittedIdentifiers \"$PLIST\" 2>/dev/null || true\n/usr/bin/plutil -insert BGTaskSchedulerPermittedIdentifiers -json '[\"hu.flint.app.Flint.liveactivity-refresh\"]' \"$PLIST\"\n# Hangos ellenőrzés: rossz típus már a buildet buktassa, ne az uploadot.\nif ! /usr/libexec/PlistBuddy -c \"Print :UIBackgroundModes\" \"$PLIST\" 2>/dev/null | head -1 | grep -q \"^Array\"; then\n  echo \"error: UIBackgroundModes nem array a generált Info.plist-ben ($PLIST)\"\n  exit 1\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -600,6 +686,22 @@
 				59D0B237EE99E92BF971A0E7 /* TimetableWidget.swift in Sources */,
 				1EB9A7C506BAEA92AFD144F2 /* TimetableWidgetLogic.swift in Sources */,
 				CC1BA39A72150FC1088371D3 /* TimetableWidgetSnapshot.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A4AEDB011D28CB451A1DFD55 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				54A14C167FA2BC79CAB9266B /* AppColors.swift in Sources */,
+				52B310CDA2178D044B0E409A /* GradesWatchView.swift in Sources */,
+				9452445D4637696EEF502A31 /* GradingLogic.swift in Sources */,
+				8F81255CB7FB5428B8AB4039 /* KretaModels.swift in Sources */,
+				2951EE64D7E813F23CB92661 /* SummitWatchApp.swift in Sources */,
+				A32B70E7BA662076E86EF78E /* TimetableWatchView.swift in Sources */,
+				41298A0ADDBE2FADDA0E09E8 /* TimetableWidgetSnapshot.swift in Sources */,
+				00510505FE37B8B54818307E /* WatchPayload.swift in Sources */,
+				E9854B23F285356AEC2118E4 /* WatchSyncStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -668,12 +770,20 @@
 				27F5E9AF81B7091B86657B47 /* TimetableWidgetPublish.swift in Sources */,
 				C89A1E57A1EBF70DB192B708 /* TimetableWidgetSnapshot.swift in Sources */,
 				FFA61B0FDD4305EDABC7DE2A /* User.swift in Sources */,
+				3270693F8DAAA3900DE3F801 /* WatchPayload.swift in Sources */,
+				BB5A01A3BE5D222361C468C8 /* WatchSync.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		079B364F6E9AEB8BC66FF438 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilter = ios;
+			target = C09D4B16983CC98E7A7BF0C3 /* SummitWatch */;
+			targetProxy = BCA94E2EA8F87E42A15D583B /* PBXContainerItemProxy */;
+		};
 		45E71802CEF13A3C0A4EEE5C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FC8FDBD76C8EAED05EFD9DED /* SummitWidgets */;
@@ -682,6 +792,32 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		2649E3D42A3F0016DDD38ADD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 10;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=watchos*]" = 38DAVMRN66;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SummitWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Summit;
+				INFOPLIST_KEY_CFBundleName = Summit;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.watch;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
 		268401C1D0A5FDEDE64EB1AD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -738,7 +874,6 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -774,6 +909,32 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
+		};
+		6B4FA944A8F2EF10D2C86FE0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 10;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=watchos*]" = 38DAVMRN66;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SummitWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Summit;
+				INFOPLIST_KEY_CFBundleName = Summit;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.watch;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
 		};
 		7172BC39B5DA1845D87AA38B /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -895,7 +1056,6 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -946,6 +1106,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		24C76E9A9FD79DF9DE377424 /* Build configuration list for PBXNativeTarget "SummitWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6B4FA944A8F2EF10D2C86FE0 /* Debug */,
+				2649E3D42A3F0016DDD38ADD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		872B489B4BA0BE3BFE50C194 /* Build configuration list for PBXNativeTarget "SummitWidgets" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
