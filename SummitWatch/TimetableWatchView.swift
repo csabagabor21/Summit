@@ -167,10 +167,10 @@ private struct WatchLessonRow: View {
         HStack(alignment: .top, spacing: 8) {
             // LEFT — glass óraszám-kör (mint a telefonon)
             Text(lesson.index)
-                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .font(.system(size: 12, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(numberColor)
-                .frame(width: 30, height: 30)
+                .frame(width: 28, height: 28)
                 .background {
                     Circle()
                         .fill(Color.clear)
@@ -181,26 +181,26 @@ private struct WatchLessonRow: View {
                 }
                 .padding(.top, 2)
 
-            // CENTER — editorial tartalom
-            VStack(alignment: .leading, spacing: 3) {
+            // CENTER — editorial tartalom (kompakt: meta egy sorban)
+            VStack(alignment: .leading, spacing: 2) {
                 if let lbl = badgeLabel {
                     Text(lbl.uppercased())
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 6).padding(.vertical, 2.5)
+                        .padding(.horizontal, 5).padding(.vertical, 1.5)
                         .background(Capsule().fill(badgeColor))
                 }
                 Text(lesson.subject)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundStyle(lesson.isCancelled ? .secondary : .primary)
                     .strikethrough(lesson.isCancelled, color: .secondary)
                     .lineLimit(2)
-                HStack(spacing: 5) {
+                HStack(spacing: 4) {
                     if !lesson.room.isEmpty {
                         Text(lesson.room)
                             .font(.caption2.weight(.bold).monospacedDigit())
                             .foregroundStyle(.secondary)
-                            .padding(.horizontal, 6).padding(.vertical, 3)
+                            .padding(.horizontal, 5).padding(.vertical, 2)
                             .background(
                                 RoundedRectangle(cornerRadius: 5, style: .continuous)
                                     .fill(Color.primary.opacity(0.08))
@@ -213,10 +213,12 @@ private struct WatchLessonRow: View {
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
+                    Text(timeRange)
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .layoutPriority(1)
                 }
-                Text(timeRange)
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.tertiary)
                 if isCurrent {
                     ProgressView(value: progress)
                         .tint(.blue)
@@ -224,7 +226,7 @@ private struct WatchLessonRow: View {
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 3)
     }
 
     private var timeRange: String {
