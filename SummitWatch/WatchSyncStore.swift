@@ -1,6 +1,9 @@
 import Foundation
 import Combine
+import os
 import WatchConnectivity
+
+private let watchLog = Logger(subsystem: "hu.flint.summit.watch", category: "watchsync")
 
 // MARK: - Watch adatfogadó — CSAK óra target
 // Az iPhone tolja az órarend + jegy snapshotokat (WatchSyncSender).
@@ -43,6 +46,10 @@ extension WatchSyncStore: WCSessionDelegate {
         activationDidCompleteWith activationState: WCSessionActivationState,
         error: Error?
     ) {
+        if let error {
+            watchLog.error("aktiválási hiba: \(error.localizedDescription, privacy: .public)")
+        }
+        watchLog.info("óra aktiválva: \(String(describing: activationState), privacy: .public)")
         // Megnyitáskor a legfrissebb context is megérkezik — ami már
         // korábban megjött tárolva, azt is alkalmazzuk.
         apply(session.receivedApplicationContext)
@@ -56,6 +63,7 @@ extension WatchSyncStore: WCSessionDelegate {
     }
 
     private func apply(_ context: [String: Any]) {
+        watchLog.info("context érkezett, kulcsok: \(context.keys.joined(separator: ","), privacy: .public)")
         var newTimetable = timetable
         var newGrades = grades
         var changed = false

@@ -1,6 +1,13 @@
 #if !targetEnvironment(macCatalyst)
 import Foundation
+import os
 import WatchConnectivity
+
+/// Watch-szinkron napló (Console.app / `log stream` — Diagnosztika-elv:
+/// a néma hibák helyett minden lépés látszik).
+enum WatchSyncLog {
+    static let log = Logger(subsystem: "hu.flint.summit", category: "watchsync")
+}
 
 // MARK: - Watch sync (iPhone-oldal) — CSAK fő app target
 // Az órarend és a jegyek kivonatát tolja az órára WatchConnectivity
@@ -31,6 +38,13 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
             accentHex: TimetableWidgetPublish.currentAccentHex(),
             lessons: TimetableWidgetPublish.fromLessons(lessons)
         )
+        pushSnapshot(snapshot)
+    }
+
+    /// Kész snapshot az órára (pl. a widget App Group-cache-éből —
+    /// hálózat nélkül is mehet az utolsó ismert hét).
+    static func pushSnapshot(_ snapshot: TimetableWidgetStore.Snapshot) {
+        guard WCSession.isSupported(), !snapshot.lessons.isEmpty else { return }
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
         shared.send(key: WatchPayloadKey.timetable, data: data)
     }
@@ -61,10 +75,14 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
             guard let self else { return }
             self.context[key] = data
             let session = WCSession.default
+            WatchSyncLog.log.info("send \(key, privacy: .public) bytes=\(data.count) state=\(String(describing: session.activationState), privacy: .public) paired=\(session.isPaired, privacy: .public) watchInstalled=\(session.isWatchAppInstalled, privacy: .public)")
             guard session.activationState == .activated else { return }
-            // Párosítatlan óra / telepítetlen watch-app: dobja, legközelebb
-            // úgyis a teljes context megy (aktiváláskor flush-elünk).
-            try? session.updateApplicationContext(self.context)
+            do {
+                try session.updateApplicationContext(self.context)
+                WatchSyncLog.log.info("context elküldve (\(key, privacy: .public))")
+            } catch {
+                WatchSyncLog.log.error("context-hiba (\(key, privacy: .public)): \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
@@ -75,10 +93,19 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
         activationDidCompleteWith activationState: WCSessionActivationState,
         error: Error?
     ) {
+        if let error {
+            WatchSyncLog.log.error("aktiválási hiba: \(error.localizedDescription, privacy: .public)")
+        }
+        WatchSyncLog.log.info("aktiválva: \(String(describing: activationState), privacy: .public) paired=\(session.isPaired, privacy: .public)")
         // Késett aktiválás: a load() már a session élesedése előtt
         // összerakhatta a contextet — most pótoljuk a küldést.
         if activationState == .activated, !context.isEmpty {
-            try? session.updateApplicationContext(context)
+            do {
+                try session.updateApplicationContext(context)
+                WatchSyncLog.log.info("függő context flush-elve")
+            } catch {
+                WatchSyncLog.log.error("flush-hiba: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
@@ -89,6 +116,86 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
         WCSession.default.activate()
     }
 }
+
+// MARK: - Automatikus watch-frissítés az app megnyitásakor
+// A tabok megnyitása nélkül is menjen át az adat: induláskor és előtérbe
+// hozáskor (ritkítva) lehúzzuk az aktuális hetet + a jegyeket, és toljuk
+// az órára. Hálózat nélkül / üres válasznál a meglévő órai adat marad.
+@MainActor
+enum WatchAutoPush {
+    private static let lastKey = "watch.autopush.last.v1"
+    /// Ritkítás: két automatikus frissítés között ennyi telhet el minimum.
+    private static let minInterval: TimeInterval = 10 * 60
+    private static var running = false
+
+    /// Ritkított frissítés (induláskor, előtérbe hozáskor).
+    static func refreshIfNeeded(session: SessionStore, kreta: KretaClient) async {
+        let last = UserDefaults.standard.double(forKey: lastKey)
+        let age = Date().timeIntervalSince1970 - last
+        guard age > minInterval else {
+            WatchSyncLog.log.info("ritkítva, legutóbbi \(Int(age)) mp-je volt")
+            return
+        }
+        await refreshNow(session: session, kreta: kreta)
+    }
+
+    /// Azonnali frissítés (ritkítás nélkül).
+    static func refreshNow(session: SessionStore, kreta: KretaClient) async {
+        WatchSyncLog.log.info("refreshNow indul")
+        guard WCSession.isSupported() else {
+            WatchSyncLog.log.error("WCSession nem támogatott ezen az eszközön")
+            return
+        }
+        guard !running else {
+            WatchSyncLog.log.info("már fut egy frissítés, kihagyva")
+            return
+        }
+        guard let user = session.selectedUser else {
+            WatchSyncLog.log.info("nincs belépett user, nincs mit tolni")
+            return
+        }
+        running = true
+        defer { running = false }
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastKey)
+
+        // Azonnal: a widget-snapshotban lévő heti anyag (ha van) megy ki
+        // hálózat nélkül is — az óra nem vár a lehúzásra.
+        if let snap = TimetableWidgetStore.load(), !snap.lessons.isEmpty {
+            WatchSyncSender.pushSnapshot(snap)
+        }
+
+        let iss = user.instituteCode.isEmpty
+            ? (JWT.instituteCode(from: user.accessToken) ?? "")
+            : user.instituteCode
+        guard !iss.isEmpty, iss != "unknown" else { return }
+
+        // Aktuális hét (hétfő → +7 nap), mint a TimetableView.fetchWeek.
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let weekday = cal.component(.weekday, from: today)
+        let mondayOffset = (weekday == 1 ? -6 : 2 - weekday)
+        guard let monday = cal.date(byAdding: .day, value: mondayOffset, to: today),
+              let end = cal.date(byAdding: .day, value: 7, to: monday) else { return }
+        async let ttTask = kreta.fetchTimetable(iss: iss, from: monday, to: end)
+        async let gradesTask = kreta.fetchGrades(iss: iss)
+        async let subjectsTask = kreta.fetchAllSubjectNames(iss: iss)
+        let (lessons, grades, subjects) = await (ttTask, gradesTask, subjectsTask)
+        WatchSyncLog.log.info("lehúzva: \(lessons.count) óra, \(grades.count) jegy, \(subjects.count) tárgy")
+
+        if !lessons.isEmpty {
+            WatchSyncSender.pushTimetable(lessons)
+        }
+        if !grades.isEmpty {
+            // Tárgyak: hálózati + cache-elt unió, mint a GradesView-load.
+            let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1") ?? []
+            let all = Array(Set(subjects).union(cached)).sorted()
+            if !subjects.isEmpty {
+                UserDefaults.standard.set(subjects.sorted(), forKey: "firka.cachedSubjects.v1")
+            }
+            WatchSyncSender.pushGrades(grades: grades, subjects: all)
+        }
+    }
+}
 #else
 import Foundation
 
@@ -97,6 +204,12 @@ import Foundation
 enum WatchSyncSender {
     static func activate() {}
     static func pushTimetable(_: [LessonItem]) {}
+    static func pushSnapshot(_: TimetableWidgetStore.Snapshot) {}
     static func pushGrades(grades _: [GradeItem], subjects _: [String]) {}
+}
+
+enum WatchAutoPush {
+    static func refreshIfNeeded(session _: SessionStore, kreta _: KretaClient) async {}
+    static func refreshNow(session _: SessionStore, kreta _: KretaClient) async {}
 }
 #endif

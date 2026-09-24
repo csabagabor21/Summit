@@ -100,6 +100,9 @@ struct SummitApp: App {
                     if session.selectedUser != nil {
                         resolveSchoolCalendar()
                     }
+                    // Apple Watch: megnyitásra menjen át az órarend + a
+                    // jegyek az órára — nem kell hozzá tabokra menni.
+                    Task { await WatchAutoPush.refreshIfNeeded(session: session, kreta: kreta) }
                 }
                 .onChange(of: session.selectedId) { _, _ in
                     // A szinkron fiókonkénti opt-in: váltáskor kikapcsol
@@ -195,6 +198,9 @@ struct SummitApp: App {
                         // Frissítő, akinek nincs semmi beállítva: napi max
                         // egyszer az admin-naptár defaultolódik kérdés nélkül.
                         resolveSchoolCalendarForUpdater()
+                        // Apple Watch: előtérbe hozáskor is frissüljön az óra
+                        // (ritkítva — lásd WatchAutoPush).
+                        Task { await WatchAutoPush.refreshIfNeeded(session: session, kreta: kreta) }
                     }
                 }
         }
