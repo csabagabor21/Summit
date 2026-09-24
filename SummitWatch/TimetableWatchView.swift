@@ -206,18 +206,12 @@ private struct WatchLessonRow: View {
                                     .fill(Color.primary.opacity(0.08))
                             )
                             .lineLimit(1)
-                    }
-                    if !lesson.teacher.isEmpty {
-                        Text(lesson.teacher)
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
                     }
                     Text(timeRange)
                         .font(.caption2.monospacedDigit())
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
-                        .layoutPriority(1)
                 }
                 if isCurrent {
                     ProgressView(value: progress)
