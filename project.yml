@@ -21,6 +21,8 @@ targets:
     postBuildScripts:
       - name: Inject background refresh plist keys
         script: |
+          # Mac Catalyst builden az iOS háttér-kulcsok nem kellenek — kihagyjuk.
+          case "${EFFECTIVE_PLATFORM_NAME:-}" in *maccatalyst*) exit 0;; esac
           # A BGAppRefreshTask két tömb típusú plist-kulcsot igényel, amit az
           # INFOPLIST_KEY_* build settingek nem tudnak (csak stringet) — ezért
           # injektáljuk a legenerált Info.plist-be. plutil -insert atomi: mindig
@@ -58,14 +60,22 @@ targets:
         OTHER_LDFLAGS: "$(inherited) -ObjC"
         # Kézi aláírás a pbxproj-val egyezően (TestFlight: csabav5 profil).
         # Az [sdk=iphoneos*] kulcs csak eszköz-builden él — szimulátoron üres.
+        # Catalyst: ugyanaz a Bundle ID, egy TestFlight app — az iPad-es
+        # "Designed for iPad" mód KI, helyette natív Catalyst build megy fel.
+        SUPPORTS_MACCATALYST: YES
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: "iPhone Developer"
         "CODE_SIGN_IDENTITY[sdk=iphoneos*]": "iPhone Distribution"
         DEVELOPMENT_TEAM: ""
         "DEVELOPMENT_TEAM[sdk=iphoneos*]": 38DAVMRN66
+        # Mac (Catalyst) aláírás: korábban kézi sor a pbxproj-ban —
+        # regen-biztosan itt (különben a regen eldobná).
+        "DEVELOPMENT_TEAM[sdk=macosx*]": 38DAVMRN66
         PRODUCT_BUNDLE_IDENTIFIER: hu.flint
         PROVISIONING_PROFILE_SPECIFIER: ""
         "PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]": csabav5
+        "PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]": csabav5
         GENERATE_INFOPLIST_FILE: YES
         IPHONEOS_DEPLOYMENT_TARGET: "26.0"
         INFOPLIST_KEY_CFBundleDisplayName: "Summit"
@@ -123,6 +133,9 @@ targets:
         SWIFT_VERSION: "5.0"
         # Kézi aláírás, mint a fő appnál (TestFlight: widetv3 profil).
         # Az [sdk=iphoneos*] kulcs csak eszköz-builden él — szimulátoron üres.
+        # A Catalyst Mac buildbe is beágyazódik a widget, ezért az extension
+        # is kap Catalyst-támogatást (Live Activity widget Mac-en nincs).
+        SUPPORTS_MACCATALYST: YES
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: "iPhone Developer"
         "CODE_SIGN_IDENTITY[sdk=iphoneos*]": "iPhone Distribution"
@@ -174,3 +187,7 @@ targets:
         INFOPLIST_KEY_CFBundleName: "Summit"
         # Nincs nem-mentesített titkosítás (csak rendszer-HTTPS WC-n át).
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        # A companion-azonosító CSAK innen kerül a generált plistbe —
+        # az Info.plist fájl WK-kulcsait a GENERATE_INFOPLIST_FILE
+        # elnyomja, enélkül a telepítés elutasítja a beágyazott órát.
+        INFOPLIST_KEY_WKCompanionAppBundleIdentifier: hu.flint
