@@ -363,6 +363,7 @@ struct SettingsView: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
             .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 800, mac: 920) : .infinity)
+            .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
             }
         }
@@ -599,6 +600,10 @@ struct SettingsView: View {
             .disabled(summitSyncBusy || session.selectedUser?.isDemo == true)
             Text("Egy jelmondat köti össze az eszközeidet. A jelmondat csak ezen a telefonon van.")
                 .font(.caption2).foregroundStyle(.tertiary)
+            if SummitSync.isPassphraseFallbackActive {
+                Text("Fejlesztői Mac-build: a kulcstároló nem elérhető, a jelmondat helyben tárolódik.")
+                    .font(.caption2).foregroundStyle(.tertiary)
+            }
             if session.selectedUser?.isDemo == true {
                 Text("Demo módban nem elérhető.")
                     .font(.caption2).foregroundStyle(.secondary)
@@ -704,6 +709,11 @@ struct SettingsView: View {
         }
         if summitSync.isEnabled {
             summitSync.startListener()
+        } else if r != "nodoc" {
+            // pullNow "error"-ral tért vissza (kulcs- vagy hálózathiba).
+            // Ez korábban néma ág volt — a kapcsoló üzenet nélkül ugrott
+            // vissza. ("nodoc" esetén a pushNow már állított státuszt.)
+            summitSync.status = SummitSync.loadPassphrase() == nil ? "nincs kulcs" : "hálózati hiba"
         }
     }
 
@@ -741,22 +751,31 @@ private struct LiveActivitySettingsRow: View {
     @State private var showSystemAlert = false
 
     var body: some View {
-        Toggle(isOn: Binding(
-            get: { enabled },
-            set: { new in
-                enabled = new
-                manager.setAppEnabled(new)
-                if new { Task { await tryStartPreview() } }
-                manager.refreshSystemState()
-                if new && !manager.isSystemEnabled { showSystemAlert = true }
-                summitSync.markDirty(.liveActivity)
-            }
-        )) {
-            Label("Live Activity", systemImage: "clock.badge.checkmark")
+        Group {
+            #if targetEnvironment(macCatalyst)
+            Label("Live Activity (Mac-en nem elérhető)", systemImage: "clock.badge.checkmark")
                 .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+                .padding(.vertical, 2)
+            #else
+            Toggle(isOn: Binding(
+                get: { enabled },
+                set: { new in
+                    enabled = new
+                    manager.setAppEnabled(new)
+                    if new { Task { await tryStartPreview() } }
+                    manager.refreshSystemState()
+                    if new && !manager.isSystemEnabled { showSystemAlert = true }
+                    summitSync.markDirty(.liveActivity)
+                }
+            )) {
+                Label("Live Activity", systemImage: "clock.badge.checkmark")
+                    .font(.subheadline.weight(.medium))
+            }
+            .tint(theme.colors(for: scheme).accent)
+            .padding(.vertical, 2)
+            #endif
         }
-        .tint(theme.colors(for: scheme).accent)
-        .padding(.vertical, 2)
         .onAppear { manager.refreshSystemState() }
         .alert("Live Activities tiltva", isPresented: $showSystemAlert) {
             Button("Beállítások") { manager.openSystemSettings() }

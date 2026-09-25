@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import CryptoKit
+import Security
 import UIKit
 import FirebaseCore
 import FirebaseFirestore
@@ -72,6 +73,9 @@ final class SummitSync: ObservableObject {
     private static let dirtyKey = "summitsync.dirty.v1"
     private static let keychainService = "hu.flint.summit.sync"
     private static let keychainAccount = "passphrase"
+    /// Fejlesztői másolat kulcsa: csak akkor él, ha a Keychain írása
+    /// elhasal (aláíratlan/sandboxolt Mac-build, -34018).
+    private static let passphraseFallbackKey = "sync.passphrase.fallback.v1"
     private static let projectId = "summit-14b74"
     private static let apiKey = "AIzaSyA1TttM0aUUHsvjjAItYMbdID_no1vzg9s"
     static let minPassphraseLength = 8
@@ -122,10 +126,36 @@ final class SummitSync: ObservableObject {
     }
 
     static func savePassphrase(_ s: String) {
-        KeychainHelper.save(Data(s.utf8), service: keychainService, account: keychainAccount)
+        let stored = KeychainHelper.save(Data(s.utf8), service: keychainService, account: keychainAccount) == errSecSuccess
+            && loadKeychainPassphrase() != nil
+        if stored {
+            // Kulcstároló él — esetleges régi fejlesztői másolat törlése,
+            // hogy ne maradjon két helyen a jelmondat.
+            UserDefaults.standard.removeObject(forKey: passphraseFallbackKey)
+        } else {
+            // Sandboxolt, keychain-entitlement nélküli (aláíratlan) Mac-build:
+            // a SecItemAdd -34018-cal elhasal. Ilyenkor UserDefaults-másolatba
+            // mentünk, hogy a szinkron ott is bekapcsolható legyen. Aláírt
+            // builden ez az ág sosem él (ott a Keychain az elsődleges).
+            UserDefaults.standard.set(s, forKey: passphraseFallbackKey)
+        }
     }
 
     static func loadPassphrase() -> String? {
+        if let kc = loadKeychainPassphrase() { return kc }
+        guard let f = UserDefaults.standard.string(forKey: passphraseFallbackKey),
+              !f.isEmpty else { return nil }
+        return f
+    }
+
+    /// A fejlesztői másolat él-e (Keychain üres, de van mentett jelmondat) —
+    /// a Beállítások ilyenkor egy tájékoztató sort mutat.
+    static var isPassphraseFallbackActive: Bool {
+        loadKeychainPassphrase() == nil
+            && (UserDefaults.standard.string(forKey: passphraseFallbackKey)?.isEmpty == false)
+    }
+
+    private static func loadKeychainPassphrase() -> String? {
         guard let d = KeychainHelper.load(service: keychainService, account: keychainAccount),
               let s = String(data: d, encoding: .utf8), !s.isEmpty else { return nil }
         return s
@@ -133,6 +163,7 @@ final class SummitSync: ObservableObject {
 
     static func deletePassphrase() {
         KeychainHelper.delete(service: keychainService, account: keychainAccount)
+        UserDefaults.standard.removeObject(forKey: passphraseFallbackKey)
     }
 
     private var lastApplied: String {
