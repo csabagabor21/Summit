@@ -225,6 +225,7 @@ struct HomeView: View {
             .listStyle(.insetGrouped)
             // iPad: keskenyebb, középre igazított lista — nem nyúlik szét 12.9"-en
             .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
+            .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
             .scrollContentBackground(.hidden)
             .background(colors.background)
@@ -262,6 +263,10 @@ struct HomeView: View {
             .onChange(of: exemptedTick) { _, _ in Task { await syncLiveActivity() } }
             // Dolgozat-pótlás kapcsoló/elvetés — hálózat nélkül újraszámol.
             .onReceive(NotificationCenter.default.publisher(for: ExamRollover.changedNotification)) { _ in vm.applyRollover() }
+            // Üzenet megnyitva → a csengő-jelvény azonnal csökken (frissítés nélkül is).
+            .onChange(of: kreta.readMessageIDs) { _, ids in
+                vm.messages = vm.messages.map { ids.contains($0.id) ? $0.withRead() : $0 }
+            }
             .onChange(of: vm.lessonsToday) { _, _ in Task { await syncLiveActivity() } }
             .onChange(of: session.selectedId) { _, _ in Task { await vm.refresh(kreta: kreta, user: session.selectedUser); await syncLiveActivity() } }
             .onChange(of: previewMinutes) { _, _ in

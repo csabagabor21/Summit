@@ -204,21 +204,12 @@ struct GradeChartView: View {
     private var displayGrades: [GradeItem] {
         let src = validGrades
         guard monthly else { return src }
-        let grouped = Dictionary(grouping: src) { g -> String in
-            let c = Calendar.current.dateComponents([.year, .month], from: g.date)
-            return String(format: "%04d-%02d", c.year ?? 0, c.month ?? 0)
+        let buckets = GradingLogic.monthlyBuckets(grades: src)
+        guard buckets.count >= 2 else { return src }
+        return buckets.map { b in
+            let value = Int(round(b.average))
+            return GradeItem(id: "monthly-\(b.monthStart.timeIntervalSince1970)", subject: b.subject, value: value, valueText: "\(value)", date: b.monthStart, teacher: "", type: "havi", weight: 100, topic: "")
         }
-        var monthlyItems: [GradeItem] = []
-        for (_, items) in grouped {
-            let sorted = items.sorted { $0.date < $1.date }
-            let midDate = sorted[sorted.count/2].date
-            let avg = GradingLogic.weightedAverage(sorted)
-            let value = Int(round(avg))
-            let synth = GradeItem(id: "monthly-\(midDate.timeIntervalSince1970)", subject: sorted.first?.subject ?? "", value: value, valueText: "\(value)", date: midDate, teacher: "", type: "havi", weight: 100, topic: "")
-            monthlyItems.append(synth)
-        }
-        let sorted = monthlyItems.sorted { $0.date < $1.date }
-        return sorted.count >= 2 ? sorted : src
     }
     private var displayPoints: [(date: Date, avg: Double)] {
         let base = displayGrades

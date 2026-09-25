@@ -491,11 +491,32 @@ final class KretaClient: ObservableObject {
     /// A doboznevek az ekreta-docs-v3 szerint (`beerkezett`, `elkuldott`,
     /// `torolt`) — a régi `bejovo`/`kimenő`/`piszkozat` nevekre az API
     /// nem válaszolt, ezért nem töltődött be semmi.
+    /// Megnyitott (olvasottá tett) üzenetek ID-i — a lista és a főoldali
+    /// csengő-jelvény is ezt figyeli. Szerver-oldali olvasott-végpont nincs
+    /// dokumentálva (ekreta-docs-v3: "Marking message as read: not sure
+    /// yet"), ezért a megnyitás helyben, optimistán jelöl, és a következő
+    /// lista-lehúzáskor is rávetítjük a szerver által még olvasatlannak
+    /// jelentett tételekre. Újraindításkor is megmarad (500-as sapkával).
+    @Published var readMessageIDs: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "firka.readMessages.v1") ?? [])
+    /// Megnyitás → olvasott: azonnali helyi jelölés + perzisztálás.
+    func markMessageRead(_ id: String) {
+        guard !id.isEmpty, !readMessageIDs.contains(id) else { return }
+        readMessageIDs.insert(id)
+        // A halmaz nem nőhet végtelenre: legfeljebb 500 ID-t őrzünk.
+        let kept = Array(readMessageIDs.suffix(500))
+        readMessageIDs = Set(kept)
+        UserDefaults.standard.set(kept, forKey: "firka.readMessages.v1")
+    }
+    /// Szerver/demo-lista + helyi olvasott-jelölések összefésülése.
+    private func applyingLocalRead(_ items: [MessageItem]) -> [MessageItem] {
+        guard !readMessageIDs.isEmpty else { return items }
+        return items.map { readMessageIDs.contains($0.id) ? $0.withRead() : $0 }
+    }
     func fetchMessages(box: KretaAPI.Mailbox) async -> [MessageItem] {
         if isDemoBackend(iss: instituteCode ?? "") {
             // Demo: csak a beérkezettben van tartalom, az elküldött/törölt üres.
             if box == .incoming {
-                let r = DemoData.messages()
+                let r = applyingLocalRead(DemoData.messages())
                 diag("üzenet/\(box.rawValue): \(r.count) db (demo)"); return r
             }
             diag("üzenet/\(box.rawValue): 0 db (demo)"); return []
@@ -503,7 +524,7 @@ final class KretaClient: ObservableObject {
         guard let url = KretaAPI.messages(box) else { diag("üzenet/\(box.rawValue): rossz URL"); return [] }
         do {
             let data: Data = try await getRaw(url)
-            let r = KretaMessageDTO.lenientItems(from: data).sorted { $0.date > $1.date }
+            let r = applyingLocalRead(KretaMessageDTO.lenientItems(from: data).sorted { $0.date > $1.date })
             diag("üzenet/\(box.rawValue): \(r.count) db"); return r
         } catch { diagErr("üzenet/\(box.rawValue)", error); return [] }
     }

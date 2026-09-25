@@ -25,6 +25,10 @@ enum ExamRollover {
         var originalDate: Date
         /// Betöltött órarendi órára esik-e (nem naptár-becslés).
         var viaLesson: Bool
+        /// A cél-óra sorszáma (csak viaLesson esetén): a kijelzett dolgozat
+        /// erre az órára van tűzve, így az órarendes lejárt-határ
+        /// (ExamMatcher.lesson) is a jó órát találja meg a pótolt napon.
+        var lessonIndex: Int? = nil
     }
 
     static func isEnabled() -> Bool {
@@ -70,7 +74,8 @@ enum ExamRollover {
             guard seenDays.insert(day).inserted else { continue }
             guard !absenceDays.contains(day) else { continue }
             guard (calendar.dateComponents([.day], from: today, to: day).day ?? 0) <= 60 else { break }
-            return Resolution(displayDate: lesson.start, rolled: true, originalDate: original, viaLesson: true)
+            return Resolution(displayDate: lesson.start, rolled: true, originalDate: original, viaLesson: true,
+                              lessonIndex: Int(lesson.index))
         }
         // Nincs betöltött óra ilyen tárgyból: a következő hiányzásmentes
         // tanítási nap (becslés, max 14 nap) — swipe-pal elvethető.
@@ -103,7 +108,8 @@ enum ExamRollover {
             rolled.insert(e.id)
             originals[e.id] = e.date
             items.append(ExamItem(id: e.id, subject: e.subject, date: r.displayDate, mode: e.mode,
-                                  description: e.description, teacher: e.teacher, lessonIndex: e.lessonIndex,
+                                  description: e.description, teacher: e.teacher,
+                                  lessonIndex: r.lessonIndex ?? e.lessonIndex,
                                   announcedDate: e.announcedDate, groupName: e.groupName,
                                   attachments: e.attachments))
         }

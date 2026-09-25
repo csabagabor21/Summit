@@ -630,13 +630,17 @@ struct MessageItem: Identifiable, Hashable {
     let sender: String
     let subject: String
     let date: Date
-    let isRead: Bool
+    var isRead: Bool
     /// Részlet-törzs (listában üres, a detail-hívás tölti).
     var body: String = ""
     var attachments: [AttachmentItem] = []
     var plainBody: String { HomeworkPlain.text(from: body) }
     func withDetail(body: String, attachments: [AttachmentItem]) -> MessageItem {
         var c = self; c.body = body; c.attachments = attachments; return c
+    }
+    /// Megnyitás utáni olvasottá jelölés (helyi, optimista).
+    func withRead() -> MessageItem {
+        var c = self; c.isRead = true; return c
     }
 }
 struct ExamItem: Identifiable, Hashable {

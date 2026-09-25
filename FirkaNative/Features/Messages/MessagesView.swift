@@ -129,6 +129,7 @@ struct MessagesView: View {
             }
             .listStyle(.insetGrouped)
             .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
+            .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
             .scrollContentBackground(.hidden)
             .background(colors.background)
@@ -137,6 +138,9 @@ struct MessagesView: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .task { await loadAll() }
             .refreshable { await loadAll() }
+            .onChange(of: kreta.readMessageIDs) { _, ids in
+                messages = messages.map { ids.contains($0.id) ? $0.withRead() : $0 }
+            }
             .tint(colors.accent)
     }
 
@@ -280,11 +284,17 @@ private struct MessageDetailView: View {
         }
         .listStyle(.insetGrouped)
         .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
+        .padding(.horizontal, MacSupport.sidePadding)
         .frame(maxWidth: .infinity)
         .scrollContentBackground(.hidden)
         .background(colors.background)
         .navigationTitle("Üzenet")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            // Megnyitás → olvasott: a lista sora és a főoldali jelvény is
+            // azonnal átbillen (a szerver legközelebbi lehúzáskor követ).
+            kreta.markMessageRead(message.id)
+        }
         .task {
             // A lista demo-ban már hoz törzset; élesben a részlet tölti.
             if message.body.isEmpty && message.attachments.isEmpty {

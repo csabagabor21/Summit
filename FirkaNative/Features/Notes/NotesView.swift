@@ -130,6 +130,7 @@ struct NotesView: View {
             }
             .listStyle(.insetGrouped)
             .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
+            .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
             .scrollContentBackground(.hidden)
             .background(colors.background)
@@ -571,7 +572,7 @@ struct NotesView: View {
         if hwR.isEmpty && exR.isEmpty && hadData {
             homeworks = prevHW; exams = prevEx; absences = prevAb
         } else {
-            let (mergedHW, fetchedLessons) = await lessonAttachments(hwR, exams: exR, kreta: kreta, iss: iss)
+            let (mergedHW, fetchedLessons) = await lessonAttachments(hwR, exams: exR, kreta: kreta, iss: iss, absences: abR)
             homeworks = mergedHW; exams = exR; lessons = fetchedLessons
             absences = abR
         }
@@ -597,21 +598,34 @@ struct NotesView: View {
     /// nem csak a határidő napján — ezért a teljes listaablakot (-35 nap)
     /// plusz a határidőket nézzük át, heti darabokban, párhuzamosan.
     /// Üres/sikertelen órarendnél a házi-lista változatlanul marad.
-    private func lessonAttachments(_ hwR: [HomeworkItem], exams exR: [ExamItem], kreta: KretaClient, iss: String) async -> ([HomeworkItem], [LessonItem]) {
+    private func lessonAttachments(_ hwR: [HomeworkItem], exams exR: [ExamItem], kreta: KretaClient, iss: String, absences abR: [AbsenceItem]) async -> ([HomeworkItem], [LessonItem]) {
         guard !hwR.isEmpty || !exR.isEmpty else { return (hwR, []) }
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
         // A dolgozat-dátumok is tágítják az ablakot: a pótló-óra kereséséhez
         // a jövőbeli órák is kellenek, nem csak a házi-határidők.
         let deadlines = hwR.map(\.deadline) + exR.map(\.date)
+        // Hiányzás a dolgozat napján → a tétel ELŐRE (akár 60 nappal) vetítődik:
+        // ilyenkor az ablaknak a pótolt nap óráit is le kell fednie, különben
+        // az órarendes lejárt-határ (ExamExpiry) nem talál órát, és a dolgozat
+        // az óra után is a Dolgozatokban ragad.
+        let absenceDays = Set(abR.map { cal.startOfDay(for: $0.date) })
+        let hasOverlap = exR.contains { absenceDays.contains(cal.startOfDay(for: $0.date)) }
+        let horizon: Date
+        if hasOverlap, let far = cal.date(byAdding: .day, value: 62, to: today) {
+            horizon = far
+        } else {
+            horizon = cal.date(byAdding: .day, value: 2, to: cal.startOfDay(for: max(deadlines.max() ?? today, today))) ?? today
+        }
         guard let from = cal.date(byAdding: .day, value: -35, to: today),
-              let to = cal.date(byAdding: .day, value: 2, to: cal.startOfDay(for: max(deadlines.max() ?? today, today))),
-              to > from else { return (hwR, []) }
+              horizon > from else { return (hwR, []) }
+        let to = horizon
         // Heti darabolás (nagy ablakra az órarend-végpont megbízhatatlan),
-        // max ~3 hónap — a listaablak és a tipikus határidők beleférnek.
+        // max ~3,5 hónap — a listaablak, a tipikus határidők és átfedéskor
+        // a 60 napos pótló-horizont is belefér.
         var chunks: [(Date, Date)] = []
         var cur = from
-        while cur < to && chunks.count < 12 {
+        while cur < to && chunks.count < 15 {
             let end = min(cal.date(byAdding: .day, value: 7, to: cur)!, to)
             chunks.append((cur, end))
             cur = end

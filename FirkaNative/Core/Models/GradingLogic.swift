@@ -45,6 +45,37 @@ enum GradingLogic {
         return roundedGrade(raw: raw, threshold: threshold(for: subject))
     }
 
+    /// Havi átlag-sorozat az összátlag-grafikonhoz: (hónap eleje, súlyozott
+    /// átlag, darabszám, minta-tárgy). A pont DÁTUMA mindig a hónap ELSŐ
+    /// napja — nem a medián-jegy dátuma —, hogy az X-tengely hónap-tickjei
+    /// pontosan a pontok alatt legyenek (különben a vonal hónapokon belül
+    /// elcsúszik a feliratokhoz képest). Hónap szerint rendezve.
+    static func monthlyBuckets(grades: [GradeItem], calendar: Calendar = .current)
+    -> [(monthStart: Date, average: Double, count: Int, subject: String)] {
+        let src = grades.filter { $0.value != 0 }
+        let grouped = Dictionary(grouping: src) { g -> String in
+            let c = calendar.dateComponents([.year, .month], from: g.date)
+            return String(format: "%04d-%02d", c.year ?? 0, c.month ?? 0)
+        }
+        var out: [(monthStart: Date, average: Double, count: Int, subject: String)] = []
+        for (key, items) in grouped {
+            let sorted = items.sorted { $0.date < $1.date }
+            let start: Date = {
+                let p = key.split(separator: "-").compactMap { Int($0) }
+                if p.count == 2,
+                   let d = calendar.date(from: DateComponents(year: p[0], month: p[1], day: 1)) {
+                    return d
+                }
+                return sorted[sorted.count / 2].date
+            }()
+            out.append((monthStart: start,
+                        average: weightedAverage(sorted),
+                        count: sorted.count,
+                        subject: sorted.first?.subject ?? ""))
+        }
+        return out.sorted { $0.monthStart < $1.monthStart }
+    }
+
     // Overall normál = nyers átlagok átlaga
     static func overallAverage(grouped: [String: [GradeItem]]) -> Double {
         guard !grouped.isEmpty else { return 0 }
