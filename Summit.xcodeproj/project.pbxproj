@@ -150,7 +150,7 @@
 		01B840F52C3466DB1B0AF667 /* AbsencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbsencesView.swift; sourceTree = "<group>"; };
 		038E0AFC6C033CBCCCA58205 /* TimetableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableView.swift; sourceTree = "<group>"; };
 		092823FDC89EDC54BE31739D /* CompletedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompletedStore.swift; sourceTree = "<group>"; };
-		0BAE871D50553D3FF30F87AD /* Summit.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Summit.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0BAE871D50553D3FF30F87AD /* Summit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Summit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0F5EC6EB282C3C33E5FB6F00 /* RoundingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundingDetailView.swift; sourceTree = "<group>"; };
 		16DF003F0DB021C460B7EF92 /* SummitLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityAttributes.swift; sourceTree = "<group>"; };
 		194B529DC564DF78077C938A /* SubjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectDetailView.swift; sourceTree = "<group>"; };
@@ -167,7 +167,7 @@
 		36B97ACEA310D6F1D6FC56F2 /* RootViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootViewModel.swift; sourceTree = "<group>"; };
 		38378D28718442B4059B4C78 /* showcase4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase4.png; sourceTree = "<group>"; };
 		39EBCE90E5E55CCF969EB995 /* LiveActivityBackgroundRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityBackgroundRefresh.swift; sourceTree = "<group>"; };
-		3ABCF5C0C06170BB971F626E /* SummitWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = SummitWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		3ABCF5C0C06170BB971F626E /* SummitWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SummitWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		3D59A6CCFD64FBB01C3CF5B5 /* SummitMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitMotion.swift; sourceTree = "<group>"; };
 		3E3BE3B35F7AD238DA07178B /* DeveloperView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperView.swift; sourceTree = "<group>"; };
 		3F58C017E930EDD41FA3F852 /* TimetableWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableWidget.swift; sourceTree = "<group>"; };
@@ -911,10 +911,12 @@
 				CODE_SIGN_ENTITLEMENTS = SummitWidgets.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Distribution";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 38DAVMRN66;
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SummitWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Summit Widgets";
@@ -929,6 +931,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.Widgets;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = widetv3;
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = widetmacc;
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = YES;
 				SWIFT_VERSION = 5.0;
@@ -969,10 +972,12 @@
 				CODE_SIGN_ENTITLEMENTS = SummitWidgets.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Distribution";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 38DAVMRN66;
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SummitWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Summit Widgets";
@@ -987,8 +992,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.Widgets;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = widetv3;
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = widetmacc;
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = YES;
+				"CODE_SIGNING_ALLOWED[sdk=macosx*]" = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -1001,6 +1008,7 @@
 				CODE_SIGN_ENTITLEMENTS = SummitRelease.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Distribution";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = "";
@@ -1025,11 +1033,14 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				OTHER_LDFLAGS = "$(inherited) -ObjC";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = hu.flint;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = csabav5;
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = csabav5;
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = csabamacoldja;
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -1101,6 +1112,7 @@
 				CODE_SIGN_ENTITLEMENTS = Summit.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Distribution";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = "";
@@ -1125,13 +1137,17 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				OTHER_LDFLAGS = "$(inherited) -ObjC";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = hu.flint;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = csabav5;
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = csabav5;
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = csabamacoldja;
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = YES;
+				"CODE_SIGNING_ALLOWED[sdk=macosx*]" = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
