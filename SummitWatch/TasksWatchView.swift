@@ -25,6 +25,13 @@ struct TasksWatchView: View {
                 )
             } else {
                 List {
+                    if let err = store.lastSyncError {
+                        Section {
+                            Text(err)
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                        }
+                    }
                     if !homeworks.isEmpty {
                         Section("Házik") {
                             ForEach(homeworks) { hw in
@@ -41,6 +48,7 @@ struct TasksWatchView: View {
                     }
                 }
                 .listStyle(.plain)
+                .refreshable { await store.requestSyncNow() }
             }
         }
         .navigationTitle("Feladatok")

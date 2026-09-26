@@ -46,6 +46,13 @@ struct GradesWatchView: View {
                     )
                 } else {
                     List {
+                        if let err = store.lastSyncError {
+                            Section {
+                                Text(err)
+                                    .font(.caption2)
+                                    .foregroundStyle(.orange)
+                            }
+                        }
                         Section {
                             HStack(alignment: .lastTextBaseline) {
                                 VStack(alignment: .leading, spacing: 1) {
@@ -89,6 +96,7 @@ struct GradesWatchView: View {
                         }
                     }
                     .listStyle(.plain)
+                    .refreshable { await store.requestSyncNow() }
                 }
             }
             .navigationTitle("Jegyek")

@@ -26,6 +26,11 @@ final class WatchSyncStore: NSObject, ObservableObject {
     private let gradesKey = "watch.cache.grades.v1"
     private let tasksKey = "watch.cache.tasks.v1"
 
+    /// Lehúzásos frissítés állapota (az óra listái ezt mutatják).
+    @Published private(set) var isSyncing = false
+    @Published private(set) var lastSyncDate: Date?
+    @Published private(set) var lastSyncError: String?
+
     /// Accent az órára: órarend-snapshotből, különben jegyből, különben default.
     var accentHex: Int {
         timetable?.accentHex ?? grades?.accentHex ?? 0x4A90E2
@@ -116,6 +121,56 @@ extension WatchSyncStore: WCSessionDelegate {
             self.timetable = newTimetable
             self.grades = newGrades
             self.tasks = newTasks
+        }
+    }
+
+    // MARK: - Lehúzásos szinkronkérés (az óra listáiról)
+
+    /// Kézi frissítés lehúzásra (ritkítás nélkül): gyors üzenet-válasz, ha
+    /// az iPhone elérhető, különben sorba állított userInfo — arra a
+    /// rendszer az iPhone-t háttérben is felébreszti. 8 mp válasz nélkül
+    /// is sorba állunk, nem lóg a spinner.
+    @MainActor
+    func requestSyncNow() async {
+        lastSyncError = nil
+        guard WCSession.isSupported() else {
+            lastSyncError = "Az óra nem támogatja a szinkront."
+            return
+        }
+        let session = WCSession.default
+        guard session.activationState == .activated else {
+            lastSyncError = "A kapcsolat még aktiválódik — próbáld újra pár mp múlva."
+            return
+        }
+        isSyncing = true
+        defer { isSyncing = false }
+        lastRequest = Date()
+        let msg = [WatchPayloadKey.request: true]
+        // Azonnali út + időkorlát egyben: amelyik előbb jelez, az nyer.
+        let reply: [String: Any]? = await withTaskGroup(of: [String: Any]?.self) { group in
+            group.addTask {
+                try? await withCheckedThrowingContinuation { (cont: CheckedContinuation<[String: Any], Error>) in
+                    session.sendMessage(msg, replyHandler: { cont.resume(returning: $0) }, errorHandler: { cont.resume(throwing: $0) })
+                }
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: 8_000_000_000)
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+        if let reply {
+            apply(reply)
+            lastSyncDate = Date()
+            watchLog.info("lehúzásos szinkron kész")
+        } else {
+            // iPhone nem elérhető / nem válaszolt: userInfo-sor — a rendszer
+            // háttér-ébresztéskor kézbesíti, az adat megjön az órára.
+            watchLog.info("iPhone nem válaszolt, userInfo-sor")
+            session.transferUserInfo(msg)
+            lastSyncError = "Az iPhone most nem elérhető — a kérés sorba állt, az adat háttérben megjön."
         }
     }
 

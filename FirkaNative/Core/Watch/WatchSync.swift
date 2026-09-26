@@ -1,5 +1,24 @@
-#if !targetEnvironment(macCatalyst)
 import Foundation
+
+// MARK: - WatchSyncReport — diagnosztika-jelentés (Beállítások → Diagnosztika)
+// Sima értékek (Catalyst-barát): a Diagnosztika ebből rajzol, külön
+// WatchConnectivity-import nélkül — Macen is fordul.
+struct WatchSyncReport {
+    var supportedText: String = "–"
+    var activationText: String = "–"
+    var pairedText: String = "–"
+    var installedText: String = "–"
+    var reachableText: String = "–"
+    var timetableText: String = "–"
+    var gradesText: String = "–"
+    var tasksText: String = "–"
+    var errorText: String?
+    /// Egy mondatos ítélet ("mi a baj"), plusz tennivaló.
+    var verdictText: String = "–"
+    var hintText: String = ""
+}
+
+#if !targetEnvironment(macCatalyst)
 import os
 import WatchConnectivity
 
@@ -136,17 +155,136 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
             self.context[key] = data
             let session = WCSession.default
             WatchSyncLog.log.info("send \(key, privacy: .public) bytes=\(data.count) state=\(String(describing: session.activationState), privacy: .public) paired=\(session.isPaired, privacy: .public) watchInstalled=\(session.isWatchAppInstalled, privacy: .public)")
+            Self.noteSession(session)
             guard session.activationState == .activated else {
                 WatchSyncLog.log.info("session még nem aktív — context tárolva, aktiváláskor flush")
+                Self.noteSkip(key: key, reason: "session nem aktív")
                 return
             }
             do {
                 try session.updateApplicationContext(self.context)
                 WatchSyncLog.log.info("context elküldve (\(key, privacy: .public))")
+                Self.notePushed(key: key, bytes: data.count)
             } catch {
                 WatchSyncLog.log.error("context-hiba (\(key, privacy: .public)): \(error.localizedDescription, privacy: .public)")
+                Self.noteError("\(key): \(error.localizedDescription)")
             }
         }
+    }
+
+    // MARK: - Diagnosztika-rögzítés (Beállítások → Diagnosztika)
+
+    /// Jelentés-változás — a Diagnosztika erre frissíti a szekciót.
+    static let reportChanged = Notification.Name("watch.reportChanged.v1")
+
+    private static let diagPushAtSuffix = ".at"
+    private static let diagPushBytesSuffix = ".bytes"
+    private static let diagSkipSuffix = ".skip"
+    private static let diagErrorKey = "watch.diag.error.v1"
+    private static let diagSessionKey = "watch.diag.session.v1"
+
+    private static func diagPushAtKey(_ key: String) -> String { "watch.diag.push.\(key)" + diagPushAtSuffix }
+    private static func diagPushBytesKey(_ key: String) -> String { "watch.diag.push.\(key)" + diagPushBytesSuffix }
+    private static func diagSkipKey(_ key: String) -> String { "watch.diag.skip.\(key)" + diagSkipSuffix }
+
+    /// Session-pillanatkép minden küldésnél + aktiváláskor (főszálon hívjuk).
+    private static func noteSession(_ session: WCSession) {
+        let snap = "\(session.activationState.rawValue)|\(session.isPaired)|\(session.isWatchAppInstalled)|\(session.isReachable)"
+        UserDefaults.standard.set(snap, forKey: diagSessionKey)
+        // A post főszálon: a Diagnosztika @State-et ír rá.
+        if Thread.isMainThread {
+            NotificationCenter.default.post(name: reportChanged, object: nil)
+        } else {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: reportChanged, object: nil)
+            }
+        }
+    }
+
+    /// Sikeres push: dátum + méret, a hiba törlődik.
+    private static func notePushed(key: String, bytes: Int) {
+        let d = UserDefaults.standard
+        d.set(Date().timeIntervalSince1970, forKey: diagPushAtKey(key))
+        d.set(bytes, forKey: diagPushBytesKey(key))
+        d.removeObject(forKey: diagSkipKey(key))
+        d.removeObject(forKey: diagErrorKey)
+        NotificationCenter.default.post(name: reportChanged, object: nil)
+    }
+
+    /// Kihagyott push (pl. nem aktív session) — nem hiba, de látszik.
+    private static func noteSkip(key: String, reason: String) {
+        UserDefaults.standard.set("\(reason) • \(Self.huTime(Date()))", forKey: diagSkipKey(key))
+        NotificationCenter.default.post(name: reportChanged, object: nil)
+    }
+
+    /// Sikertelen push — a következő sikerig megmarad.
+    private static func noteError(_ message: String) {
+        UserDefaults.standard.set("\(message) • \(Self.huTime(Date()))", forKey: diagErrorKey)
+        NotificationCenter.default.post(name: reportChanged, object: nil)
+    }
+
+    private static func huTime(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "hu_HU")
+        f.dateFormat = "MMM d. HH:mm"
+        return f.string(from: d)
+    }
+
+    private static func sliceText(_ key: String) -> String {
+        let d = UserDefaults.standard
+        if d.double(forKey: diagPushAtKey(key)) > 0 {
+            let bytes = d.integer(forKey: diagPushBytesKey(key))
+            let kb = Double(bytes) / 1024.0
+            let when = huTime(Date(timeIntervalSince1970: d.double(forKey: diagPushAtKey(key))))
+            return "\(when) • \(String(format: "%.0f KB", kb))"
+        }
+        return d.string(forKey: diagSkipKey(key)) ?? "–"
+    }
+
+    /// Pillanatnyi jelentés a Diagnosztikának — sima stringek, WC nélkül.
+    static func report() -> WatchSyncReport {
+        var r = WatchSyncReport()
+        guard WCSession.isSupported() else {
+            r.supportedText = "nem"
+            r.verdictText = "Ezen az eszközön nem elérhető"
+            r.hintText = "Az óra-szinkron csak iPhone-on működik (WatchConnectivity) — Macen és iPaden a küldés néma no-op."
+            return r
+        }
+        r.supportedText = "igen"
+        let parts = (UserDefaults.standard.string(forKey: diagSessionKey) ?? "").split(separator: "|").map(String.init)
+        let boolText: (String?) -> String = { $0 == nil ? "–" : ($0 == "true" ? "igen" : "nem") }
+        if parts.count == 4 {
+            let state = Int(parts[0]) ?? -1
+            r.activationText = state == 2 ? "aktív" : (state == 1 ? "aktiválás alatt" : (state == 0 ? "nem aktív" : "–"))
+            r.pairedText = boolText(parts[1])
+            r.installedText = boolText(parts[2])
+            r.reachableText = boolText(parts[3])
+        }
+        r.timetableText = sliceText(WatchPayloadKey.timetable)
+        r.gradesText = sliceText(WatchPayloadKey.grades)
+        r.tasksText = sliceText(WatchPayloadKey.tasks)
+        r.errorText = UserDefaults.standard.string(forKey: diagErrorKey)
+        // Ítélet — az első igaz ok nyer.
+        if parts.count == 4, parts[0] != "2" {
+            r.verdictText = "A session nem aktív"
+            r.hintText = "Nyisd meg az appot iPhone-on és várj pár másodpercet; ha marad, indítsd újra az appot."
+        } else if parts.count == 4, parts[1] != "true" {
+            r.verdictText = "Nincs párosított óra"
+            r.hintText = "Párosíts Apple Watch-ot az iPhone-hoz (Watch app)."
+        } else if parts.count == 4, parts[2] != "true" {
+            r.verdictText = "Az óra-app nincs telepítve az órán"
+            r.hintText = "iPhone-on Watch app → Summit → Telepítés az órára."
+        } else if let err = r.errorText {
+            r.verdictText = "Utolsó push hibával halt el"
+            r.hintText = "Hiba: \(err). Legtöbbször elég a Főoldal lehúzása (újraküldi mindhárom szeletet)."
+        } else if r.timetableText == "–", r.gradesText == "–", r.tasksText == "–" {
+            r.verdictText = "Még nem történt push"
+            r.hintText = "Húzd le a Főoldalt, az Órarendet vagy a Jegyeket — a lehúzás végén az app tol az órára."
+        } else {
+            r.verdictText = "OK — az utolsó pushok átmentek"
+            r.hintText = "Ha az óra mégis üreset mutat, az órán húzd le valamelyik listát (az óra kér frisset az iPhone-tól)."
+        }
+        return r
     }
 
     // MARK: - Óra-iniciált szinkron (pull)
@@ -201,8 +339,10 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
     ) {
         if let error {
             WatchSyncLog.log.error("aktiválási hiba: \(error.localizedDescription, privacy: .public)")
+            Self.noteError("aktiválás: \(error.localizedDescription)")
         }
         WatchSyncLog.log.info("aktiválva: \(String(describing: activationState), privacy: .public) paired=\(session.isPaired, privacy: .public)")
+        Self.noteSession(session)
         // Késett aktiválás: a load() már a session élesedése előtt
         // összerakhatta a contextet — most pótoljuk a küldést.
         if activationState == .activated, !context.isEmpty {
@@ -335,12 +475,21 @@ enum WatchAutoPush {
     }
 }
 #else
-import Foundation
 
 // Mac Catalyst: nincs WatchConnectivity — a hívási helyek változatlanul
 // fordulnak, futáskor nem történik semmi.
 enum WatchSyncSender {
     static let syncRequested = Notification.Name("watch.syncRequested.v1")
+    static let reportChanged = Notification.Name("watch.reportChanged.v1")
+
+    /// Macen mindig ugyanaz: nem támogatott (a Diagnosztika ezt mutatja).
+    static func report() -> WatchSyncReport {
+        WatchSyncReport(
+            supportedText: "nem",
+            verdictText: "Ezen az eszközön nem elérhető",
+            hintText: "Az óra-szinkron csak iPhone-on működik (WatchConnectivity) — Macen a küldés néma no-op."
+        )
+    }
     static func activate() {}
     static func pushTimetable(_: [LessonItem]) {}
     static func pushSnapshot(_: TimetableWidgetStore.Snapshot) {}

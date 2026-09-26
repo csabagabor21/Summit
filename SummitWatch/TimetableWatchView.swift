@@ -32,6 +32,14 @@ struct TimetableWatchView: View {
                 } else {
                     VStack(spacing: 0) {
                         dayPager(days: days, now: now)
+                        if let err = store.lastSyncError {
+                            Text(err)
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                        }
                         List {
                             ForEach(dayLessons(now: now), id: \.id) { lesson in
                                 WatchLessonRow(
@@ -46,6 +54,7 @@ struct TimetableWatchView: View {
                             }
                         }
                         .listStyle(.plain)
+                        .refreshable { await store.requestSyncNow() }
                     }
                 }
             }

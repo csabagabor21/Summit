@@ -103,6 +103,18 @@ final class HomeViewModel: ObservableObject {
         NotificationManager.shared.checkAll(
             grades: gradesR, homeworks: hwR, exams: exR, absences: abR, userId: user.id
         )
+        // Apple Watch: a Főoldal lehúzása is szinkronizálja az órát.
+        // Jegyek: a teljes friss lista (tárgyak a cache-ből, mint máshol).
+        // Órarend: csak a mai nap jött le — belemergeljük a heti snapshotba,
+        // és azt toljuk (a heti kontextust nem írjuk felül egy nappal).
+        let cachedSubjects = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1") ?? []
+        WatchSyncSender.pushGrades(grades: gradesR, subjects: cachedSubjects)
+        if !ttR.isEmpty {
+            TimetableWidgetPublish.mergeToday(ttR, now: Date())
+            if let snap = TimetableWidgetStore.load(), !snap.lessons.isEmpty {
+                WatchSyncSender.pushSnapshot(snap)
+            }
+        }
         error = nil
         updateLiveState()
         return

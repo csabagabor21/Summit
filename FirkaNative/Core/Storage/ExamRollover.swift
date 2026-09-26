@@ -107,9 +107,17 @@ enum ExamRollover {
             }
             rolled.insert(e.id)
             originals[e.id] = e.date
+            // Betöltött cél-órára vetítve a CÉL-óra tűzése nyer: számozatlan
+            // ("-") cél-óránál nil — ilyenkor az eredeti pin eldobandó, hogy
+            // az idő-alapú csatolás (displayDate == lesson.start) találja meg
+            // a pótolt órát. Különben az eredeti óraszám rossz napon rossz
+            // órát keresne, a lejárt-határ nem tüzelne, és a tétel a pótolt
+            // óra után is a Dolgozatokban ragadna. Naptár-becslésnél
+            // (nincs betöltött óra) marad az eredeti pin.
+            let pin = r.viaLesson ? r.lessonIndex : (r.lessonIndex ?? e.lessonIndex)
             items.append(ExamItem(id: e.id, subject: e.subject, date: r.displayDate, mode: e.mode,
                                   description: e.description, teacher: e.teacher,
-                                  lessonIndex: r.lessonIndex ?? e.lessonIndex,
+                                  lessonIndex: pin,
                                   announcedDate: e.announcedDate, groupName: e.groupName,
                                   attachments: e.attachments))
         }

@@ -7,9 +7,12 @@ struct DiagnosticsView: View {
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var kreta: KretaClient
     @EnvironmentObject var analytics: AnalyticsStore
+    @EnvironmentObject var completed: CompletedStore
     @ObservedObject private var liveManager = SummitLiveActivityManager.shared
     /// A worker /status válasza a mai tervre (megnyitáskor és gombra frissül).
     @State private var workerStatus: String = "–"
+    /// Apple Watch szinkron-jelentés (pushonként frissül).
+    @State private var watchReport = WatchSyncSender.report()
 
     var body: some View {
         List {
@@ -47,6 +50,31 @@ struct DiagnosticsView: View {
                 Text("Worker (mai terv)")
             } footer: {
                 Text("A worker /status válasza: melyik határra ment ki push, hány próbával, mit felelt az APNs. „Nincs terv” = a feltöltés maradt ki; APNs 400/410 = rossz token vagy sandbox–prod keveredés; 403 = kulcs/Team ID.")
+            }
+            Section {
+                diagRow("Támogatott", watchReport.supportedText)
+                diagRow("Session", watchReport.activationText)
+                diagRow("Párosítva", watchReport.pairedText)
+                diagRow("Óra-app telepítve", watchReport.installedText)
+                diagRow("Elérhető most", watchReport.reachableText)
+                diagRow("Órarend push", watchReport.timetableText)
+                diagRow("Jegy push", watchReport.gradesText)
+                diagRow("Feladat push", watchReport.tasksText)
+                if let err = watchReport.errorText { diagRow("Hiba", err) }
+                diagRow("Ítélet", watchReport.verdictText)
+                Button("Óra szinkronizálása most") {
+                    Task {
+                        await WatchAutoPush.refreshNow(session: session, kreta: kreta, completed: completed)
+                        watchReport = WatchSyncSender.report()
+                    }
+                }
+            } header: {
+                Text("Apple Watch szinkron")
+            } footer: {
+                Text(watchReport.hintText.isEmpty ? "Tab-lehúzáskor (Főoldal, Órarend, Jegyek, Feladatok) az app automatikusan tol az órára." : watchReport.hintText)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: WatchSyncSender.reportChanged)) { _ in
+                watchReport = WatchSyncSender.report()
             }
             Section {
                 diagRow("Rendszer", liveManager.isSystemEnabled ? "engedélyezett" : "TILTVA (Beállítások → Summit)")
@@ -154,6 +182,7 @@ struct DiagnosticsView: View {
             + "analytics: enabled=\(analytics.isEnabled) attempt=\(analytics.lastAttempt) school=\(analytics.lastSchool) result=\(analytics.lastResult)\n"
             + "push: token=\(pushTokenDiag) feltöltés=\(lastUploadDiag) kimaradás=\(skipDiag)\n"
             + "terv-kulcs: \(planKeyDiag)\n"
+            + "watch: támogatott=\(watchReport.supportedText) session=\(watchReport.activationText) párosítva=\(watchReport.pairedText) óra-app=\(watchReport.installedText) elérhető=\(watchReport.reachableText) órarend=\(watchReport.timetableText) jegy=\(watchReport.gradesText) feladat=\(watchReport.tasksText) hiba=\(watchReport.errorText ?? "–") ítélet=\(watchReport.verdictText)\n"
             + "live activity: rendszer=\(liveManager.isSystemEnabled ? "engedélyezett" : "TILTVA") app=\(liveManager.isAppEnabled ? "be" : "KI") aktív=\(liveManager.activeCount) utolsó=\(liveManager.lastAction) hiba=\(liveManager.lastError ?? "–")\n"
             + kreta.diagLog.joined(separator: "\n")
             + "\n--- live activity események ---\n"
