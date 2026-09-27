@@ -83,7 +83,11 @@ final class KretaClient: ObservableObject {
 
     /// Halott munkamenet: csak az első átmenet dob popupot —
     /// a "Később" utáni újabb hibák már csak a piros sávot tartják életben.
+    /// Helyi backend (demo / felhasználónév-jelszavas tesztfiók): nincs
+    /// KRÉTA-munkamenet, a tokenek helyiek — itt a lejárat hamis lenne,
+    /// ezért sem piros sáv, sem popup, sem hibaüzenet nem keletkezhet.
     private func markExpired() {
+        if isDemoBackend(iss: instituteCode ?? "") { return }
         if !sessionExpired {
             sessionExpired = true
             showExpiredAlert = true

@@ -237,7 +237,11 @@ struct SettingsView: View {
                 // Iskola-kód felülírás: a tokenből fejlett kód néha nem host
                 // (pl. OM-azonosító) — olyankor minden DNS-hibával hal meg.
                 // Ide a böngészős e-KRÉTA cím eleje kell: https://EZ.e-kreta.hu
-                if session.selectedUser?.isDemo != true {
+                // Helyi backendes fióknál (demo / tesztfiók) rejtve: az
+                // átállítás levenné a fiókot a helyi pipeline-ról, és a
+                // hamis tokenekkel a valódi hálózaton csak lejárt-állapot
+                // (piros sáv + popup) keletkezne — pont az, amit nem akarunk.
+                if session.selectedUser?.isLocalBackend != true {
                     summitDivider
                     summitRow {
                         VStack(alignment: .leading, spacing: 6) {

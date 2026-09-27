@@ -23,6 +23,14 @@ struct AppUser: Codable, Identifiable, Equatable {
         AppUser(id: "demo-user", name: "Demo Diák", username: "demo", instituteCode: "demo", role: "student", accessToken: "demo", refreshToken: "demo", accessTokenExpire: Date().addingTimeInterval(3600*24*365), studentName: "Demo Diák", schoolName: "Demo Iskola", schoolCity: "Budapest")
     }
     var isDemo: Bool { id == "demo-user" }
+    /// Helyi backendes fiók (demo + tesztfiók): nincs KRÉTA-munkamenet,
+    /// az adat a helyi DemoData-pipeline-ból jön (instituteCode "demo",
+    /// lásd KretaClient.demoInstitute). Az ilyen fiókra a lejárt-munkamenet
+    /// UI (piros sáv, popup, hibaüzenet) sosem vonatkozhat — a tokenek
+    /// helyiek, nincs mit a KRÉTA-nak elutasítania.
+    var isLocalBackend: Bool {
+        instituteCode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "demo"
+    }
 }
 
 struct StoredUsers: Codable {
