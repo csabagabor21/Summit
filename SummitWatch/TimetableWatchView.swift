@@ -21,7 +21,9 @@ struct TimetableWatchView: View {
 
     var body: some View {
         TimelineView(.periodic(from: Date(), by: 30)) { timeline in
-            let now = timeline.date
+            // Fejlesztői idő-előnézet: ha az iPhone csúszkája aktív, az óra
+            // is az eltolt idő szerint rajzol (aktuális óra, progress, nap).
+            let now = store.previewNow ?? timeline.date
             Group {
                 if lessons.isEmpty {
                     ContentUnavailableView(

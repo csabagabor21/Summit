@@ -153,6 +153,7 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.context[key] = data
+            Self.stampPreview(into: &self.context)
             let session = WCSession.default
             WatchSyncLog.log.info("send \(key, privacy: .public) bytes=\(data.count) state=\(String(describing: session.activationState), privacy: .public) paired=\(session.isPaired, privacy: .public) watchInstalled=\(session.isWatchAppInstalled, privacy: .public)")
             Self.noteSession(session)
@@ -295,6 +296,18 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
 
     private static let lastKnownKeyPrefix = "watch.last.v1."
 
+    /// Fejlesztői idő-előnézet bélyegzése a contextbe: ha a csúszka
+    /// aktív, az óra is az eltolt idő szerint rajzol; ha nem, a kulcs
+    /// kikerül (az óra visszaáll valós időre). Minden küldési úton
+    /// frissen számoljuk — a csúszka mozgatása önmagában nem pushol.
+    static func stampPreview(into ctx: inout [String: Any]) {
+        if let ov = WatchPreviewClock.overrideNow() {
+            ctx[WatchPayloadKey.previewNow] = ov.timeIntervalSince1970
+        } else {
+            ctx.removeValue(forKey: WatchPayloadKey.previewNow)
+        }
+    }
+
     /// Utolsó ismert snapshotok a perzisztens tárolóból — alkalmazás-
     /// újraindítás után, háttér-ébresztéskor is elérhető.
     static func lastKnownContext() -> [String: Any] {
@@ -304,6 +317,7 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
                 ctx[key] = data
             }
         }
+        stampPreview(into: &ctx)
         return ctx
     }
 
@@ -328,6 +342,11 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
             reply?([:])
         }
         NotificationCenter.default.post(name: Self.syncRequested, object: nil)
+        // Háttér-ébresztésből (az óra lehúzása ébresztette az appot) a
+        // SwiftUI `.task` observer nem biztos, hogy él — ezért innen is
+        // indítjuk ugyanazt a frissítést saját store-okkal. Az
+        // running-flag a duplikációt kizárja, ha az observer is fut.
+        Task { await WatchAutoPush.refreshForWatchWake() }
     }
 
     // MARK: WCSessionDelegate (iOS: mindhárom kötelező)
@@ -404,6 +423,28 @@ enum WatchAutoPush {
             return
         }
         await refreshNow(session: session, kreta: kreta, completed: completed)
+    }
+
+    /// Óra-lehúzásos ébresztés kiszolgálása háttérből is: saját
+    /// store-okkal ugyanaz a refreshNow fut, mint az előtéri
+    /// observerből — a SwiftUI `.task` ilyenkor nem biztos, hogy él
+    /// (pl. az appot az óra userInfo-ja ébresztette). Token-beállítás
+    /// a BG-lánc mintájára (LiveActivityBackgroundRefresh.refreshNow).
+    @MainActor
+    static func refreshForWatchWake() async {
+        let session = SessionStore()
+        guard let user = session.selectedUser else {
+            WatchSyncLog.log.info("watch-wake: nincs belépett user")
+            return
+        }
+        let kreta = KretaClient()
+        kreta.accessToken = user.accessToken
+        kreta.refreshToken = user.refreshToken
+        kreta.instituteCode = user.instituteCode
+        kreta.onTokensRefreshed = { newAccess, newRefresh, expiresIn in
+            session.updateTokens(accessToken: newAccess, refreshToken: newRefresh, expiresIn: expiresIn)
+        }
+        await refreshNow(session: session, kreta: kreta, completed: CompletedStore())
     }
 
     /// Azonnali frissítés (ritkítás nélkül).

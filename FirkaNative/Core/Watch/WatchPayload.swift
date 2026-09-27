@@ -14,6 +14,26 @@ enum WatchPayloadKey {
     /// Óra → iPhone szinkronkérés (megnyitáskor, ha az órai adat avult
     /// vagy hiányzik). Mindkét irány ugyanazt a kulcs-szótárat használja.
     static let request = "watch.requestSync.v1"
+    /// Fejlesztői idő-előnézet pillanata (unix idő, Double). Csak akkor
+    /// van jelen, ha az iPhone-on az Idő-eltolás csúszka aktív — ilyenkor
+    /// az óra is az eltolt idő szerint rajzol (aktuális óra + progress).
+    static let previewNow = "watch.previewNow.v1"
+}
+
+/// Fejlesztői idő-előnézet (Beállítások → Fejlesztői → Idő-eltolás)
+/// órára szánt pillanata: ha aktív, a mai nap ennyi perckor "járunk".
+/// CSAK helyi WatchConnectivity-n utazik — a felhős SummitSync-be,
+/// a widget-cache-be és a Live Activity-tervbe sosem kerül (a dev
+/// flag nem szinkronizálható, csak a párosított óra tükrezi).
+enum WatchPreviewClock {
+    static func overrideNow() -> Date? {
+        let d = UserDefaults.standard
+        guard d.bool(forKey: "developer.enabled"),
+              d.bool(forKey: "home.demoPreviewActive") else { return nil }
+        let mins = d.double(forKey: "home.demoPreviewMinutes")
+        let base = Calendar.current.startOfDay(for: Date())
+        return base.addingTimeInterval(mins * 60)
+    }
 }
 
 /// Jegy az órára — a GradeItem hordozható kivonata (lásd GradesView).

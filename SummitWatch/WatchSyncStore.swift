@@ -30,6 +30,9 @@ final class WatchSyncStore: NSObject, ObservableObject {
     @Published private(set) var isSyncing = false
     @Published private(set) var lastSyncDate: Date?
     @Published private(set) var lastSyncError: String?
+    /// Fejlesztői idő-előnézet pillanata az iPhone-ról (csak ha a csúszka
+    /// aktív) — az órarend ilyenkor az eltolt idő szerint rajzol.
+    @Published private(set) var previewNow: Date?
 
     /// Accent az órára: órarend-snapshotből, különben jegyből, különben default.
     var accentHex: Int {
@@ -85,6 +88,9 @@ extension WatchSyncStore: WCSessionDelegate {
 
     private func apply(_ context: [String: Any]) {
         watchLog.info("context érkezett, kulcsok: \(context.keys.joined(separator: ","), privacy: .public)")
+        // Idő-előnézet: minden context/válasz úton frissen jön; hiánya =
+        // a csúszka ki van kapcsolva → vissza valós időre.
+        let newPreview: Date? = (context[WatchPayloadKey.previewNow] as? Double).map { Date(timeIntervalSince1970: $0) }
         var newTimetable = timetable
         var newGrades = grades
         var newTasks = tasks
@@ -116,11 +122,16 @@ extension WatchSyncStore: WCSessionDelegate {
                 watchLog.error("feladat-dekódhiba, \(data.count) bájt eldobva")
             }
         }
-        guard changed else { return }
+        // Az előnézetet akkor is átírjuk, ha snapshot nem változott
+        // (pl. csak a csúszkát mozgatták, vagy kikapcsolták) — különben
+        // az óra beragadna az eltolt időbe.
+        let previewChanged = newPreview != previewNow
+        guard changed || previewChanged else { return }
         DispatchQueue.main.async {
             self.timetable = newTimetable
             self.grades = newGrades
             self.tasks = newTasks
+            self.previewNow = newPreview
         }
     }
 
