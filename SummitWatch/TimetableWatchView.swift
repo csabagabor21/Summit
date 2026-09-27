@@ -63,6 +63,12 @@ struct TimetableWatchView: View {
             }
             .onAppear { smartSelect(now: now) }
             .onChange(of: store.timetable?.savedAt) { smartSelect(now: now) }
+            // Az előnézet utólag is beeshet (az első render még valós
+            // idővel választ napot, aztán megjön a csúszka állása) —
+            // ilyenkor muszáj újraválasztani, különben az óra beragad
+            // egy rossz napra. Kézi lapozás ilyenkor eldobódik (dev
+            // akció, az adatváltás amúgy is felülírná).
+            .onChange(of: store.previewNow) { smartSelect(now: now, force: true) }
         }
         // A TabView-oldal legfelső szintjén: ha ez csak a belső VStacken
         // van, az első (üres) renderelés beragasztja a térközt, és a későn
@@ -72,10 +78,10 @@ struct TimetableWatchView: View {
 
     // MARK: - Napválasztás
 
-    private func smartSelect(now: Date) {
+    private func smartSelect(now: Date, force: Bool = false) {
         // Telefonnal azonosan: ha a mai órák még tartanak/hátravannak, ma;
         // különben a következő órás nap. Kézi lapozás után nem nyúlunk hozzá.
-        if selectedDay != nil, initializedForSavedAt == store.timetable?.savedAt { return }
+        if !force, selectedDay != nil, initializedForSavedAt == store.timetable?.savedAt { return }
         let cal = Calendar.current
         let today = cal.startOfDay(for: now)
         if lessons.contains(where: { $0.end > now && cal.isDate($0.start, inSameDayAs: now) }) {
@@ -154,9 +160,13 @@ struct TimetableWatchView: View {
         // ki, hogy a sor az óra sávjába kerüljön, egy vonalba az idővel.
         // Képernyőképpel belőve S9 45 mm-en (cél: szöveg ~39px-nél,
         // egy vonalban az órával) — ne piszkáld.
+        // A leading padding itt hatástalan (a maxWidth-frame rögzíti a
+        // sort), ezért a bal sarokba offset visz: chevron ~48px-ről
+        // ~14px-re. Csak render-eltolás, a lista nem mozdul.
         .padding(.leading, -7)
         .padding(.top, 12)
         .padding(.bottom, 2)
+        .offset(x: -17)
     }
 
     private func dayTitle(_ day: Date, now: Date) -> String {
