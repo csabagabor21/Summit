@@ -34,6 +34,12 @@ struct TimetableWatchView: View {
                 } else {
                     VStack(spacing: 0) {
                         dayPager(days: days, now: now)
+                        // Az óra mellé húzva: a TabView-oldal felső
+                        // rendszer-térközét elengedjük, és csak annyit
+                        // adunk vissza, hogy a jobb chevron ne lógjon
+                        // bele az órába (kimérve a 44 mm-es layouton:
+                        // az óra sávja ~12-26 pt, a sor ~30 pt-tól indul).
+                        .padding(.top, 30)
                         if let err = store.lastSyncError {
                             Text(err)
                                 .font(.caption2)
@@ -59,6 +65,7 @@ struct TimetableWatchView: View {
                         .listStyle(.plain)
                         .refreshable { await store.requestSyncNow() }
                     }
+                    .ignoresSafeArea(edges: .top)
                 }
             }
             .onAppear { smartSelect(now: now) }
