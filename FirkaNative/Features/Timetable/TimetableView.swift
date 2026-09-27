@@ -15,6 +15,10 @@ struct TimetableView: View {
     @State private var exams: [ExamItem] = []
     @State private var selectedDay: Int = Calendar.current.component(.weekday, from: Date())
     @State private var weekOffset: Int = 0 // 0 = ez a hét, -1 = múlt hét, +1 = jövő hét
+    /// Naptári napok (tanév rendje) az üres napok hivatalos feliratához.
+    /// Dátum-kulcsolt, hetek közt megmarad — a régi bejegyzés csak a saját
+    /// napjára illeszkedik, ezért egy sikertelen lehúzás sem kever be idegent.
+    @State private var calendarDays: [SchoolDayInfo] = []
     // Kézi navigálás (hét/nap lapozás) után az okos ugrás nem dobhat vissza —
     // csak a "Ma" gomb és az első betöltés ugorhat a következő tanítási napra.
     @State private var userHasNavigated = false
@@ -275,7 +279,7 @@ struct TimetableView: View {
                         }
                     }
                     .padding(.vertical, 2)
-                    .listRowBackground(colors.surface)
+                    .summitRowSurface(colors: colors)
                     .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
                 }
 
@@ -320,7 +324,7 @@ struct TimetableView: View {
                             }
                             .padding(.vertical, 10)
                             .redacted(reason: .placeholder)
-                            .listRowBackground(colors.surface)
+                            .summitRowSurface(colors: colors)
                             .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                         }
                     }
@@ -336,7 +340,7 @@ struct TimetableView: View {
                         }
                     }
                     Section {
-                        ContentUnavailableView("Nincs óra", systemImage: "moon.zzz.fill", description: Text("Pihenőnap — nincs rögzített óra erre a napra."))
+                        ContentUnavailableView(emptyDayTitle, systemImage: emptyDayIcon, description: Text(emptyDayDetail))
                             .frame(maxWidth: .infinity, minHeight: 220)
                             .padding(.vertical, 16)
                             .listRowBackground(Color.clear)
@@ -405,9 +409,9 @@ struct TimetableView: View {
             }
             .listStyle(.insetGrouped)
             .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
+            .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
-            .scrollContentBackground(.hidden)
-            .background(colors.background)
+            .summitListChrome(colors: colors)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 24, coordinateSpace: .local)
                     .onEnded { value in
@@ -458,7 +462,7 @@ struct TimetableView: View {
             .onChange(of: isPreviewActive) { _, _ in publishWidgetSnapshot() }
             .navigationTitle("Órarend")
             .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(.visible, for: .navigationBar)
+            .summitToolbarBackground()
             .task {
                 if UserDefaults.standard.object(forKey: "home.demoPreviewMinutes") == nil {
                     let c = Calendar.current
@@ -637,6 +641,27 @@ struct TimetableView: View {
         guard schoolEventsVisible, let d = selectedDate else { return [] }
         return SchoolEventsStore.events(on: d, from: schoolEvents)
     }
+    /// A kiválasztott nap naptári bejegyzése (tanév rendje) — az üres nap
+    /// hivatalos feliratához („Tanítás nélküli munkanap (Nem órarendi nap)
+    /// (Hétfő)"), nem az általános „Pihenőnap" szöveghez.
+    private var selectedDayInfo: SchoolDayInfo? {
+        guard let d = selectedDate else { return nil }
+        return calendarDays.first { Calendar.current.isDate($0.date, inSameDayAs: d) }
+    }
+    private var emptyDayTitle: String {
+        guard let info = selectedDayInfo, !info.typeName.isEmpty else { return "Nincs óra" }
+        return info.typeName
+    }
+    private var emptyDayDetail: String {
+        guard let info = selectedDayInfo, !info.typeName.isEmpty else {
+            return "Pihenőnap — nincs rögzített óra erre a napra."
+        }
+        return info.emptyDayTexts().detail
+    }
+    private var emptyDayIcon: String {
+        guard let info = selectedDayInfo, !info.typeName.isEmpty else { return "moon.zzz.fill" }
+        return info.typeName.localizedCaseInsensitiveContains("munkanap") ? "briefcase.fill" : "moon.zzz.fill"
+    }
     /// KRÉTA néha ugyanazt az órát kétszer adja (pl. csoportbontás) — tárgy+időpont kulccsal irtjuk.
     private func deduped(_ items: [LessonItem]) -> [LessonItem] {
         var seen = Set<String>()
@@ -735,10 +760,18 @@ struct TimetableView: View {
         async let tt = kreta.fetchTimetable(iss: iss, from: start, to: end)
         async let hw = kreta.fetchHomework(iss: iss)
         async let ex = kreta.fetchExams(iss: iss)
-        let (ttR, hwR, exR) = await (tt, hw, ex)
+        async let calD = kreta.fetchCalendarDays(iss: iss, from: start, to: end)
+        let (ttR, hwR, exR, calR) = await (tt, hw, ex, calD)
         lessons = deduped(ttR)
         homeworks = hwR
         exams = exR
+        // Naptári napok beolvasztása dátum szerint (a hét friss adata nyer,
+        // a többi hét megmarad — a keresés úgyis nap-pontos).
+        if !calR.isEmpty {
+            let cal = Calendar.current
+            let weekDays = Set((0..<7).compactMap { cal.date(byAdding: .day, value: $0, to: cal.startOfDay(for: start)) })
+            calendarDays = calendarDays.filter { !weekDays.contains(cal.startOfDay(for: $0.date)) } + calR
+        }
         // Hiányzások a dolgozat-pótláshoz: hetet lapozva nem húzzuk újra.
         if cachedAbsences == nil {
             cachedAbsences = await kreta.fetchAbsences(iss: iss)

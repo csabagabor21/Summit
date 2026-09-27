@@ -31,6 +31,13 @@ struct AppUser: Codable, Identifiable, Equatable {
     var isLocalBackend: Bool {
         instituteCode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "demo"
     }
+    /// App Review tesztfiók: ugyanaz a helyi adatpipeline, mint a demó
+    /// (instituteCode "demo"), de valósághű névvel és iskolaadattal —
+    /// sehol nem jelenik meg "demo" felirat, és az isDemo-kapuk
+    /// (letiltott szinkron stb.) nem vonatkoznak rá.
+    static var reviewer: AppUser {
+        AppUser(id: "reviewer-user", name: "Kovács Anna", username: "summitreview", instituteCode: "demo", role: "student", accessToken: "reviewer", refreshToken: "reviewer", accessTokenExpire: Date().addingTimeInterval(3600*24*365), studentName: "Kovács Anna", schoolName: "Petőfi Sándor Gimnázium", schoolCity: "Budapest")
+    }
 }
 
 struct StoredUsers: Codable {

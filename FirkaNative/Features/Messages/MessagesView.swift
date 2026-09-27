@@ -57,7 +57,7 @@ struct MessagesView: View {
                     if isLoadingMessages {
                         ForEach(0..<3, id: \.self) { _ in
                             HStack { Text("Betöltés…").redacted(reason: .placeholder) }
-                                .listRowBackground(colors.surface)
+                                .summitRowSurface(colors: colors)
                         }
                     } else if messages.isEmpty {
                         Section {
@@ -106,7 +106,7 @@ struct MessagesView: View {
                     if isLoadingNotes {
                         ForEach(0..<3, id: \.self) { _ in
                             HStack { Text("Betöltés…").redacted(reason: .placeholder) }
-                                .listRowBackground(colors.surface)
+                                .summitRowSurface(colors: colors)
                         }
                     } else if notes.isEmpty {
                         Section {
@@ -131,11 +131,10 @@ struct MessagesView: View {
             .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
             .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
-            .scrollContentBackground(.hidden)
-            .background(colors.background)
+            .summitListChrome(colors: colors)
             .navigationTitle("Üzenetek")
             .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(.visible, for: .navigationBar)
+            .summitToolbarBackground()
             .task { await loadAll() }
             .refreshable { await loadAll() }
             .onChange(of: kreta.readMessageIDs) { _, ids in
@@ -184,7 +183,7 @@ struct MessagesView: View {
             }
         }
         .padding(.vertical, 4)
-        .listRowBackground(colors.surface)
+        .summitRowSurface(colors: colors)
     }
 
     // Magyar dátum — az eszköz nyelve angol is lehet (a szimulátoron is),
@@ -286,8 +285,7 @@ private struct MessageDetailView: View {
         .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
         .padding(.horizontal, MacSupport.sidePadding)
         .frame(maxWidth: .infinity)
-        .scrollContentBackground(.hidden)
-        .background(colors.background)
+        .summitListChrome(colors: colors)
         .navigationTitle("Üzenet")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {

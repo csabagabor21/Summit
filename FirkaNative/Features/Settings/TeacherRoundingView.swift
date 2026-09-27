@@ -47,11 +47,10 @@ struct TeacherRoundingView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(colors.background)
+        .summitListChrome(colors: colors)
         .navigationTitle("Tanári kerekítés")
         .navigationBarTitleDisplayMode(.large)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .summitToolbarBackground()
         .task { await loadSubjects() }
         .refreshable { await loadSubjects(force: true) }
         .onAppear { thresholds = GradingLogic.loadThresholds() }

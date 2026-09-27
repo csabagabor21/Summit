@@ -22,6 +22,15 @@ final class SessionStore: ObservableObject {
             selectedId = d.id
             persist()
         }
+        // Reviewer-login ellenőrzéshez: -FIRKA_REVIEWER indítási arggal
+        // a tesztfiókos user injektálódik (ugyanaz, mint a sikeres
+        // tesztfiókos belépés eredménye).
+        if users.isEmpty, ProcessInfo.processInfo.arguments.contains("-FIRKA_REVIEWER") {
+            let r = AppUser.reviewer
+            users = [r]
+            selectedId = r.id
+            persist()
+        }
     }
 
     func load() {

@@ -1,4 +1,6 @@
+#if !targetEnvironment(macCatalyst)
 import ActivityKit
+#endif
 import Foundation
 import UIKit
 

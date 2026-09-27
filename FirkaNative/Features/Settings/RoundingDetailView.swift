@@ -47,11 +47,10 @@ struct RoundingDetailView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(colors.background)
+        .summitListChrome(colors: colors)
         .navigationTitle(subject)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .summitToolbarBackground()
         .onAppear {
             threshold = GradingLogic.threshold(for: subject)
             isExempted = ExemptedStore.isExempted(subject)

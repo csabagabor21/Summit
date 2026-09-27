@@ -81,6 +81,9 @@ struct SummitApp: App {
                 .onAppear {
                     // Macen (iPad-app Macen) ne tudjon pici ablakba zsugorodni
                     MacSupport.applyWindowSizing()
+                    // Natív Mac-ablak: áttetsző háttér, hogy a Liquid Glass
+                    // sidebar/toolbar/lista vibrancy-vel látszódjon (ne fehér).
+                    MacSupport.applyWindowTransparency()
                     // Előtéri banner-delegált az értesítésekhez
                     NotificationManager.shared.configure()
                     kreta.accessToken = session.selectedUser?.accessToken

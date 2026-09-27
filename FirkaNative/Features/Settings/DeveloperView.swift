@@ -156,10 +156,12 @@ struct DeveloperView: View {
                                 Task { await liveManager.startDemoTestNow(userId: session.selectedUser?.id ?? "", accentHex: theme.accentHex) }
                             }
                             .font(.caption.weight(.semibold)).tint(colors.accent)
+                            #if !targetEnvironment(macCatalyst)
                             Button("Leállítás") {
                                 Task { await liveManager.endAll(dismissalPolicy: .immediate) }
                             }
                             .font(.caption.weight(.semibold)).tint(.red)
+                            #endif
                         }
                     }
                     settingsDivider
@@ -230,6 +232,7 @@ struct DeveloperView: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
             .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 800, mac: 920) : .infinity)
+            .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
         }
         .background { SummitBackdrop(imageName: "DevPeak") }

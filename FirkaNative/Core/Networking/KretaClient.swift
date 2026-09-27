@@ -373,6 +373,18 @@ final class KretaClient: ObservableObject {
             diag("órarend: \(r.count) db" + (attCount > 0 ? " (\(attCount) csatolmány)" : "")); return r
         } catch { diagErr("órarend", error); return [] }
     }
+    /// Naptári napok (tanév rendje) az órarend üres napjainak feliratához
+    /// („Tanítás nélküli munkanap (Nem órarendi nap) (Hétfő)").
+    /// Hibára üres lista — a nézet ilyenkor a régi általános szövegre esik.
+    func fetchCalendarDays(iss: String, from: Date, to: Date) async -> [SchoolDayInfo] {
+        if isDemoBackend(iss: iss) { return [] }
+        guard let url = KretaAPI.calendarDays(iss, from: from, to: to) else { diag("naptárnapok: rossz URL"); return [] }
+        do {
+            let data: Data = try await getRaw(url)
+            let r = KretaCalendarDayDTO.items(from: data).sorted { $0.date < $1.date }
+            diag("naptárnapok: \(r.count) db"); return r
+        } catch { diagErr("naptárnapok", error); return [] }
+    }
     func fetchHomework(iss: String) async -> [HomeworkItem] {
         if isDemoBackend(iss: iss) {
             let r = DemoData.homeworks()

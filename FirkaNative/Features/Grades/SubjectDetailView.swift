@@ -118,7 +118,7 @@ struct SubjectDetailView: View {
                     }
                 }
                 .padding(.vertical, 4)
-                .listRowBackground(colors.surface)
+                .summitRowSurface(colors: colors)
                 .listRowInsets(EdgeInsets(top: 14, leading: 16, bottom: 14, trailing: 16))
             } header: {
                 Text("Átlag és grafikon")
@@ -161,9 +161,9 @@ struct SubjectDetailView: View {
         }
         .listStyle(.insetGrouped)
         .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
+        .padding(.horizontal, MacSupport.sidePadding)
         .frame(maxWidth: .infinity)
-        .scrollContentBackground(.hidden)
-        .background(colors.background)
+        .summitListChrome(colors: colors)
         .navigationTitle(subject)
         .navigationBarTitleDisplayMode(.large)
         .animation(SummitMotion.gentle, value: graphRange)

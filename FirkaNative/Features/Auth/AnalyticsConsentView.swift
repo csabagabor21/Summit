@@ -37,9 +37,9 @@ struct AnalyticsConsentView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 24)
             }
-            .background(Color(.systemBackground).ignoresSafeArea())
+            .summitSheetBackground()
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.visible, for: .navigationBar)
+            .summitToolbarBackground()
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 10) {
                     Button { analytics.choose(enabled: true) } label: {
@@ -65,7 +65,7 @@ struct AnalyticsConsentView: View {
                 .background(Color(.systemBackground))
             }
         }
-        .background(Color(.systemBackground).ignoresSafeArea())
+        .summitSheetBackground()
         .interactiveDismissDisabled(true)
     }
 

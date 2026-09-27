@@ -348,10 +348,10 @@ enum HomeworkExpiry {
 }
 
 /// Lejárt dolgozat: a napja már elmúlt (ma éjfélnél korábbi) — vagy aznapra
-/// konkrét tanórára tűzött (óraszámos KRÉTA-dolgozat, saját órához vett vagy
+/// tanórára köthető (óraszámos KRÉTA-dolgozat, saját órához vett vagy
 /// hiányzás miatt előrevetített/pótolt), és az az óra már véget ért.
 /// Az ilyen a Dolgozatok szegmensből a Készbe kerül.
-/// Órához nem köthető aznapi dolgozat egész nap élő (régi viselkedés).
+/// Semmilyen aznapi órához nem köthető dolgozat egész nap élő.
 enum ExamExpiry {
     static func isExpired(_ e: ExamItem, now: Date = Date(), calendar: Calendar = .current,
                           lessons: [LessonItem] = []) -> Bool {
@@ -360,9 +360,9 @@ enum ExamExpiry {
         if e.date < startOfToday { return true }
         // Jövőbeli nap: élő.
         guard calendar.isDate(e.date, inSameDayAs: now) else { return false }
-        // Azonos nap: ha az óra véget ért, amire a dolgozat tűzve volt,
-        // a dolgozat lekerül a Dolgozatok szegmensből.
-        if let lesson = ExamMatcher.lesson(for: e, in: lessons, calendar: calendar) {
+        // Azonos nap: ha az óra véget ért, amire a dolgozat tűzve volt
+        // (vagy köthető), a dolgozat lekerül a Dolgozatok szegmensből.
+        if let lesson = ExamMatcher.lesson(for: e, in: lessons, calendar: calendar, now: now) {
             return lesson.end <= now
         }
         return false
@@ -397,24 +397,38 @@ enum ExamMatcher {
     }
 
     /// Fordított irány: melyik tanórára van tűzve a dolgozat (a lejárt-
-    /// határhoz). Csak biztos találat jöhet vissza, különben nil:
+    /// határhoz). A nil azt jelenti: nem köthető órához, egész nap élő.
     /// - óraszámos dolgozat → az aznapi, azonos tárgyú, azonos sorszámú óra;
+    ///   ha ilyen sorszámú óra nincs (számozatlan "-" nap, átszámozott
+    ///   órarend) → az időben legközelebbi azonos tárgyú óra, hogy a
+    ///   lejárt-határ tüzelni tudjon, ne ragadjon a tétel;
     /// - időpontos (pl. hiányzás miatt előrevetített, az óra kezdetére tett)
-    ///   dátum → az aznapi, azonos tárgyú, időben legközelebbi óra.
-    /// Óraszám nélküli, éjféli dátumú dolgozatra nil (nap-alapú, régi viselkedés).
-    static func lesson(for exam: ExamItem, in lessons: [LessonItem], calendar: Calendar = .current) -> LessonItem? {
+    ///   dátum → az aznapi, azonos tárgyú, időben legközelebbi óra;
+    /// - óraszám nélküli, éjféli dátumú dolgozat → ha aznap egyetlen azonos
+    ///   tárgyú óra van, az (az előre irány tükre); ha több van, és már
+    ///   mindegyik véget ért, a legkésőbb végződő (lejárt); különben nil
+    ///   (több még hátravan — nem dönthető el, melyikre szól).
+    static func lesson(for exam: ExamItem, in lessons: [LessonItem], calendar: Calendar = .current,
+                       now: Date = Date()) -> LessonItem? {
         let sameDay = lessons.filter {
             SubjectMatcher.same($0.subject, exam.subject)
             && calendar.isDate($0.start, inSameDayAs: exam.date)
         }
         guard !sameDay.isEmpty else { return nil }
+        func closest(to date: Date) -> LessonItem? {
+            sameDay.min {
+                abs($0.start.timeIntervalSince(date)) < abs($1.start.timeIntervalSince(date))
+            }
+        }
         if let n = exam.lessonIndex {
-            return sameDay.first { Int($0.index) == n }
+            if let pinned = sameDay.first(where: { Int($0.index) == n }) { return pinned }
+            return closest(to: exam.date)
         }
-        guard !isMidnight(exam.date, calendar: calendar) else { return nil }
-        return sameDay.min {
-            abs($0.start.timeIntervalSince(exam.date)) < abs($1.start.timeIntervalSince(exam.date))
-        }
+        guard isMidnight(exam.date, calendar: calendar) else { return closest(to: exam.date) }
+        if sameDay.count == 1 { return sameDay[0] }
+        let ended = sameDay.filter { $0.end <= now }
+        if ended.count == sameDay.count { return sameDay.max { $0.end < $1.end } }
+        return nil
     }
 
     private static func isMidnight(_ d: Date, calendar: Calendar) -> Bool {
@@ -1134,6 +1148,91 @@ struct KretaNoteDTO: Decodable {
             teacher: (TanarNeve ?? "").trimmingCharacters(in: .whitespaces),
             typeName: (Tipus?.Nev ?? "").trimmingCharacters(in: .whitespaces)
         )
+    }
+}
+
+/// Naptári nap (tanév rendje, `NaptariNapok`): a hivatalos app ebből írja
+/// ki az órarend üres napjaira pl. „Tanítás nélküli munkanap (Nem órarendi
+/// nap) (Hétfő)"-t. Toleráns parszolás: a KRÉTA-verziók kulcsai szóródnak,
+/// a NapTipusa objektum helyett néhol sima string jön.
+struct SchoolDayInfo: Identifiable, Hashable {
+    var id: String { "\(date.timeIntervalSince1970)" }
+    let date: Date
+    /// A hét napjának neve a szervertől („Hétfő") — ha nincs, helyben képezzük.
+    let weekdayName: String
+    /// Nap típusa („Tanítási nap", „Tanítás nélküli munkanap", …).
+    let typeName: String
+    /// Típus-leírás (ha a névtől eltér, érdemes).
+    let typeDescription: String
+    /// Órarendi nap-e (false → „Nem órarendi nap").
+    let isTimetableDay: Bool
+
+    /// Hét-nap név helyben, ha a szerver nem adta.
+    func resolvedWeekday(calendar: Calendar = .current) -> String {
+        let w = weekdayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !w.isEmpty { return w }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "hu_HU")
+        f.dateFormat = "EEEE"
+        let n = f.string(from: date)
+        return n.prefix(1).uppercased() + n.dropFirst()
+    }
+
+    /// Üres-napi felirat a hivatalos app mintájára:
+    /// cím = típus, leírás = „(Nem órarendi nap) (Hétfő)".
+    func emptyDayTexts(calendar: Calendar = .current) -> (title: String, detail: String) {
+        var parts: [String] = []
+        if !isTimetableDay { parts.append("(Nem órarendi nap)") }
+        parts.append("(\(resolvedWeekday(calendar: calendar)))")
+        return (typeName, parts.joined(separator: " "))
+    }
+}
+
+enum KretaCalendarDayDTO {
+    static func items(from data: Data, calendar: Calendar = .current) -> [SchoolDayInfo] {
+        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [Any] else { return [] }
+        return raw.compactMap { el -> SchoolDayInfo? in
+            guard let d = el as? [String: Any] else { return nil }
+            func s(_ keys: String...) -> String? {
+                for k in keys {
+                    if let v = d[k] as? String, !v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return v }
+                }
+                return nil
+            }
+            func b(_ keys: String...) -> Bool? {
+                for k in keys {
+                    if let v = d[k] as? Bool { return v }
+                    if let v = d[k] as? Int { return v != 0 }
+                    if let v = d[k] as? String {
+                        let t = v.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                        if t == "true" || t == "1" || t == "igen" { return true }
+                        if t == "false" || t == "0" || t == "nem" { return false }
+                    }
+                }
+                return nil
+            }
+            guard let dateRaw = s("Datum", "NapDatuma", "Nap", "Date"),
+                  let date = KretaDateParser.parse(dateRaw) else { return nil }
+            // Nap típusa: objektum {Nev, Leiras} vagy sima string.
+            var typeName = ""
+            var typeDesc = ""
+            if let t = d["NapTipusa"] as? [String: Any] ?? d["NapTipus"] as? [String: Any] ?? d["Tipus"] as? [String: Any] {
+                for k in ["Nev", "Name", "Megnevezes", "TipusNev"] {
+                    if let v = t[k] as? String, !v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { typeName = v; break }
+                }
+                for k in ["Leiras", "Description", "LeirasNev"] {
+                    if let v = t[k] as? String, !v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { typeDesc = v; break }
+                }
+            } else {
+                typeName = s("NapTipusa", "NapTipus", "Tipus", "NapJellege") ?? ""
+            }
+            if typeDesc == typeName { typeDesc = "" }
+            let weekday = s("HetNapjaNeve", "HetNapja", "NapNeve", "Hetnap") ?? ""
+            let isTT = b("OrarendiNap", "IsOrarendiNap", "Orarendi", "TanitasiNap") ?? true
+            if typeName.isEmpty && weekday.isEmpty { return nil }
+            return SchoolDayInfo(date: date, weekdayName: weekday, typeName: typeName,
+                                 typeDescription: typeDesc, isTimetableDay: isTT)
+        }
     }
 }
 

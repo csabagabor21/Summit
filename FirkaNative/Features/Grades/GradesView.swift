@@ -227,9 +227,9 @@ struct GradesView: View {
             .animation(SummitMotion.gentle, value: selectedTab)
             .listStyle(.insetGrouped)
             .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
+            .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
-            .scrollContentBackground(.hidden)
-            .background(colors.background)
+            .summitListChrome(colors: colors)
             .refreshable { await load() }
             .task { await load() }
             .navigationDestination(for: String.self) { subject in
@@ -241,7 +241,7 @@ struct GradesView: View {
             }
             .navigationTitle("Jegyek")
             .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(.visible, for: .navigationBar)
+            .summitToolbarBackground()
         }
         .tint(colors.accent)
     }

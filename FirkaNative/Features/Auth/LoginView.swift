@@ -6,6 +6,11 @@ struct LoginView: View {
     @EnvironmentObject var kreta: KretaClient
     @StateObject private var vm = AuthViewModel()
     @State private var showWeb = false
+    @State private var webError: String?
+    @State private var showReviewer = false
+    @State private var reviewerUser = ""
+    @State private var reviewerPass = ""
+    @State private var reviewerError: String?
     @Environment(\.colorScheme) var scheme
     @Environment(\.horizontalSizeClass) private var hSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -46,15 +51,28 @@ struct LoginView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .tint(colors.accent)
         .safeAreaInset(edge: .bottom) {
-            Button { showWeb = true } label: {
-                Text("Bejelentkezés")
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .functionalGlass(cornerRadius: 14)
+            VStack(spacing: 10) {
+                Button { webError = nil; showWeb = true } label: {
+                    Text("Bejelentkezés E.KRÉTÁVAL")
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .functionalGlass(cornerRadius: 14)
+                }
+                .buttonStyle(.plain)
+                Button { reviewerError = nil; showReviewer = true } label: {
+                    Text("Bejelentkezés felhasználónévvel és jelszóval")
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .functionalGlass(cornerRadius: 14, tint: colors.accent.opacity(0.45))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
             .frame(maxWidth: isPad ? 320 : .infinity)
             .padding(.horizontal, 32)
             .padding(.bottom, 24)
@@ -66,10 +84,62 @@ struct LoginView: View {
         }
         .sheet(isPresented: $showWeb) {
             NavigationStack {
-                KretaWebView(onCode: { code in showWeb=false; Task { await vm.handleCode(code, kreta: kreta, session: session) } }, onDemo: { showWeb=false; vm.loginDemo(session: session) })
-                    .ignoresSafeArea().navigationTitle("e-KRÉTA").navigationBarTitleDisplayMode(.inline)
-                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Mégse"){ showWeb=false } }; ToolbarItem(placement: .primaryAction){ Button("Demo"){ showWeb=false; vm.loginDemo(session:session)} } }
+                VStack(spacing: 0) {
+                    KretaWebView(onCode: { code in showWeb=false; Task { await vm.handleCode(code, kreta: kreta, session: session) } }, onDemo: { showWeb=false; vm.loginDemo(session: session) }, onError: { msg in webError = msg })
+                        .ignoresSafeArea()
+                    if let err = webError {
+                        VStack(spacing: 8) {
+                            Text("A KRÉTA-oldal nem tölthető be itt (\(err)). Ez külföldről előfordulhat.")
+                                .font(.footnote).multilineTextAlignment(.center).foregroundStyle(.secondary)
+                            Button("Folytatás demo módban") { showWeb=false; webError=nil; vm.loginDemo(session: session) }
+                                .buttonStyle(.borderedProminent)
+                        }
+                        .padding()
+                        .background(.thinMaterial)
+                    }
+                }
+                .navigationTitle("e-KRÉTA").navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Mégse"){ webError=nil; showWeb=false } }; ToolbarItem(placement: .primaryAction){ Button("Demo"){ showWeb=false; webError=nil; vm.loginDemo(session:session)} } }
             }.presentationDetents([.large]).presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showReviewer) {
+            NavigationStack {
+                VStack(spacing: 16) {
+                    Text("Add meg a felhasználóneved és a jelszavad.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    TextField("Felhasználónév", text: $reviewerUser)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .textContentType(.username)
+                        .summitInput()
+                    SecureField("Jelszó", text: $reviewerPass)
+                        .textContentType(.password)
+                        .summitInput()
+                    if let err = reviewerError {
+                        Text(err).font(.footnote).foregroundStyle(.red)
+                    }
+                    Button {
+                        if vm.loginReviewer(username: reviewerUser, password: reviewerPass, session: session) {
+                            reviewerPass = ""
+                            showReviewer = false
+                        } else {
+                            reviewerError = vm.error
+                        }
+                    } label: {
+                        Text("Bejelentkezés")
+                            .font(.headline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(reviewerUser.isEmpty || reviewerPass.isEmpty)
+                    Spacer()
+                }
+                .padding()
+                .navigationTitle("Bejelentkezés").navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Mégse") { reviewerPass = ""; showReviewer = false } } }
+            }.presentationDetents([.medium]).presentationDragIndicator(.visible)
         }
     }
 }

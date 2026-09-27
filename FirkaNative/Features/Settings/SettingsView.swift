@@ -380,7 +380,7 @@ struct SettingsView: View {
         }
         .navigationTitle("Beállítások")
         .navigationBarTitleDisplayMode(.large)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .summitToolbarBackground()
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { startTour() } label: {

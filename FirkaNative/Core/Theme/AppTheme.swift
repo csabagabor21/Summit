@@ -9,17 +9,63 @@ enum MacSupport {
     /// Debug/preview: -SUMMIT_MAC_PREVIEW kapcsolóval szimulátoron is
     /// megnézhető a Mac-elrendezés (széles sáv + nagy betű).
     static var previewMac: Bool { ProcessInfo.processInfo.arguments.contains("-SUMMIT_MAC_PREVIEW") }
-    static var isMac: Bool { ProcessInfo.processInfo.isiOSAppOnMac || previewMac }
+    static var isMac: Bool {
+#if targetEnvironment(macCatalyst)
+        true
+#else
+        ProcessInfo.processInfo.isiOSAppOnMac || previewMac
+#endif
+    }
     static func applyWindowSizing() {
         guard isMac else { return }
         guard let scene = UIApplication.shared.connectedScenes.first(where: { $0 is UIWindowScene }) as? UIWindowScene,
               let restrictions = scene.sizeRestrictions else { return }
         restrictions.minimumSize = CGSize(width: 1024, height: 700)
     }
+
     /// Tartalomsáv széles ablakban: iPaden és Macen is szélesebb a réginél,
     /// hogy ne vesszen el a hely nagy kijelzőn.
     static func contentWidth(ipad: CGFloat, mac: CGFloat) -> CGFloat {
+#if targetEnvironment(macCatalyst)
+        // Natív Mac app: a tartalom kitölti az ablakot, nincs középre
+        // szorított sáv + fekete oldalsó rész.
+        .infinity
+#else
         isMac ? mac : ipad
+#endif
+    }
+    /// Vékony oldalsó margó a teljes szélességű Mac-tartalomhoz (iOS-en 0).
+    static var sidePadding: CGFloat {
+#if targetEnvironment(macCatalyst)
+        24
+#else
+        0
+#endif
+    }
+    /// Valódi Mac-ablak (Catalyst vagy iPad-app Macen) — itt van asztal
+    /// az ablak mögött, így az áttetsző rendszer-material működik. A
+    /// -SUMMIT_MAC_PREVIEW szimulátoros elrendezés-előnézet NEM ilyen:
+    /// ott az átlátszó ablak csak feketét mutatna, ezért az marad iOS-úton.
+    static var isNativeMac: Bool {
+#if targetEnvironment(macCatalyst)
+        true
+#else
+        ProcessInfo.processInfo.isiOSAppOnMac
+#endif
+    }
+    /// Áttetsző ablak Catalysten: az UIWindow ne fessen átlátszatlan
+    /// fehér hátteret, így a natív rendszer-material (sidebar, toolbar,
+    /// grouped lista-háttér) valódi vibrancy-vel látszik — ez adja a natív
+    /// átlátszó Liquid Glass ablakot asztali gépen. iOS-en nem fut.
+    static func applyWindowTransparency() {
+        guard isNativeMac else { return }
+        for scene in UIApplication.shared.connectedScenes {
+            guard let ws = scene as? UIWindowScene else { continue }
+            for w in ws.windows {
+                w.backgroundColor = .clear
+                w.isOpaque = false
+            }
+        }
     }
 }
 
@@ -91,6 +137,57 @@ extension View {
             self.glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
         } else {
             self.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
+        }
+    }
+
+    /// Lista-képernyő chrome: iOS-en a saját Summit-háttér (opaque
+    /// colors.background + rejtett scroll-háttér), natív Mac-ablakban a
+    /// rendszer anyaga — áttetsző grouped háttér vibrancy-vel, Liquid Glass
+    /// sidebar + toolbar. Semmi kézi blur/opacity: a rendszer rajzol.
+    @ViewBuilder
+    func summitListChrome(colors: AppColors) -> some View {
+        if MacSupport.isNativeMac {
+            self
+                .scrollContentBackground(.visible)
+                .background(Color.clear)
+        } else {
+            self
+                .scrollContentBackground(.hidden)
+                .background(colors.background)
+        }
+    }
+
+    /// Toolbar-háttér: iOS-en kényszerített látható sáv, natív Mac-ablakban
+    /// nincs felülírás — a rendszer rajzolja az átlátszó Liquid Glass bart.
+    @ViewBuilder
+    func summitToolbarBackground() -> some View {
+        if MacSupport.isNativeMac {
+            self
+        } else {
+            self.toolbarBackground(.visible, for: .navigationBar)
+        }
+    }
+
+    /// Sor-háttér: iOS-en a Summit surface-kártya, natív Mac-ablakban a
+    /// rendszer sora — különben világos módban tömör fehér dobozok ülnének
+    /// az áttetsző ablakon.
+    @ViewBuilder
+    func summitRowSurface(colors: AppColors) -> some View {
+        if MacSupport.isNativeMac {
+            self.listRowBackground(Color.clear)
+        } else {
+            self.listRowBackground(colors.surface)
+        }
+    }
+
+    /// Teljes képernyős lap (pl. consent): iOS-en tömör rendszer-háttér,
+    /// natív Mac-ablakban átlátszó — a mögöttes tartalom áttűnik.
+    @ViewBuilder
+    func summitSheetBackground() -> some View {
+        if MacSupport.isNativeMac {
+            self.background(Color.clear)
+        } else {
+            self.background(Color(.systemBackground).ignoresSafeArea())
         }
     }
 }

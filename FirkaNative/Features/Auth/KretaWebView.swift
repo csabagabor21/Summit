@@ -4,6 +4,9 @@ import WebKit
 struct KretaWebView: UIViewRepresentable {
     var onCode: (String) -> Void
     var onDemo: (() -> Void)?
+    /// Hiba-visszajelzés a hívónak. A demo-ba lépés SOHA nem automatikus:
+    /// csak a user kifejezett koppintására történik (App Store 2.2).
+    var onError: ((String) -> Void)?
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
@@ -16,13 +19,14 @@ struct KretaWebView: UIViewRepresentable {
     }
     func updateUIView(_ uiView: WKWebView, context: Context) {}
 
-    func makeCoordinator() -> Coordinator { Coordinator(onCode: onCode, onDemo: onDemo) }
+    func makeCoordinator() -> Coordinator { Coordinator(onCode: onCode, onDemo: onDemo, onError: onError) }
 
     final class Coordinator: NSObject, WKNavigationDelegate {
         let onCode: (String) -> Void
         let onDemo: (() -> Void)?
+        let onError: ((String) -> Void)?
         var didHandle = false
-        init(onCode: @escaping (String)->Void, onDemo: (() -> Void)?) { self.onCode = onCode; self.onDemo = onDemo }
+        init(onCode: @escaping (String)->Void, onDemo: (() -> Void)?, onError: ((String) -> Void)? = nil) { self.onCode = onCode; self.onDemo = onDemo; self.onError = onError }
 
         func webView(_ webView: WKWebView, decidePolicyFor nav: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy)->Void) {
             if let url = nav.request.url, url.absoluteString.hasPrefix(KretaAPI.redirectURI),
@@ -36,13 +40,13 @@ struct KretaWebView: UIViewRepresentable {
             decisionHandler(.allow)
         }
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-            // Auto-fallback to demo if outside HU (Flutter does same)
-            if let onDemo { DispatchQueue.main.async { onDemo() } }
+            // Nincs auto-demo: csak jelezzük a hibát, a user dönt.
+            if let onError { DispatchQueue.main.async { onError(error.localizedDescription) } }
         }
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
             let ns = error as NSError
             if ns.code == NSURLErrorCancelled || ns.code == 102 { return }
-            if let onDemo, !didHandle { DispatchQueue.main.async { onDemo() } }
+            if !didHandle, let onError { DispatchQueue.main.async { onError(error.localizedDescription) } }
         }
     }
 }

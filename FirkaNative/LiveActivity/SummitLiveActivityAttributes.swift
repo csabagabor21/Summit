@@ -1,5 +1,7 @@
-import ActivityKit
 import Foundation
+#if !targetEnvironment(macCatalyst)
+import ActivityKit
+#endif
 
 // MARK: - Summit Live Activity Attributes — "napi egy activity" modell
 // Shared between main app + Widget extension (Target Membership: both).
@@ -24,6 +26,7 @@ import Foundation
 // Rendszer toggle: Settings → Summit → Live Activities
 //   -> ActivityAuthorizationInfo().areActivitiesEnabled
 //
+#if !targetEnvironment(macCatalyst)
 struct SummitLiveActivityAttributes: ActivityAttributes {
     // Static — egy tanítási napon belül nem változik.
     /// Nap-azonosító ("2026-09-08"). Másik nap = másik activity (reggel indul).
@@ -59,6 +62,32 @@ struct SummitLiveActivityAttributes: ActivityAttributes {
         var dayEnd: Date
     }
 }
+#else
+// Mac Catalyst: ActivityKit nincs — a push-terv feltöltéséhez (SummitPushSync)
+// csak a ContentState Codable alakja kell, Live Activity indítás nincs.
+struct SummitLiveActivityAttributes: Codable, Hashable {
+    var dayKey: String
+    var accentHex: Int
+
+    struct ContentState: Codable, Hashable {
+        var subject: String
+        var room: String
+        var teacher: String
+        var index: String
+        var isCancelled: Bool
+        var isSubstituted: Bool
+        var lessonStart: Date
+        var lessonEnd: Date
+        var nextSubject: String?
+        var nextRoom: String?
+        var nextStart: Date?
+        var phase: String
+        var staleDate: Date?
+        var plan: [PlanLesson]
+        var dayEnd: Date
+    }
+}
+#endif
 
 /// Egy mai óra kompakt másolata a ContentState számára.
 /// ~10 óra is bőven 1 KB alatt marad (a 4 KB-os limit töredéke).

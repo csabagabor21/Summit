@@ -66,4 +66,24 @@ final class AuthViewModel: ObservableObject {
     func loginDemo(session: SessionStore) {
         session.add(.demo)
     }
+
+    /// App Review tesztfiók (KRÉTA-fiók nélkül). A megadott páros a
+    /// Review Notes-ban szerepel; sikeres egyezéskor valósághű user
+    /// lép be ugyanarra a helyi adatpipeline-ra (instituteCode "demo").
+    static let reviewerUsername = "summitreview"
+    static let reviewerPassword = "Summit-Review-2026"
+
+    /// Tesztfiókos belépés. Igazat ad vissza helyes páros esetén.
+    func loginReviewer(username: String, password: String, session: SessionStore) -> Bool {
+        let u = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !u.isEmpty, !password.isEmpty,
+              u.lowercased() == Self.reviewerUsername,
+              password == Self.reviewerPassword else {
+            error = "Hibás felhasználónév vagy jelszó."
+            return false
+        }
+        error = nil
+        session.add(.reviewer)
+        return true
+    }
 }

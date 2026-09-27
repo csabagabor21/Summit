@@ -58,35 +58,27 @@ targets:
         # Firebase SPM statikus linkelés: az ObjC-kategóriákat a linker
         # különben leszedheti → runtime crash. (Ld. pbxproj OTHER_LDFLAGS.)
         OTHER_LDFLAGS: "$(inherited) -ObjC"
-        # Kézi aláírás a pbxproj-val egyezően (TestFlight: csabav5 profil).
-        # Az [sdk=iphoneos*] kulcs csak eszköz-builden él — szimulátoron üres.
+        # Automatikus aláírás (Xcode-managed profilok). A kézi profilok
+        # (csabav5 / csabamacoldja / widetv3 / widetmacc) nem állták ki az
+        # archive-ot, ezért az Xcode-ban kézzel Automatic-ra lett állítva —
+        # ez van itt visszakódolva, hogy a regen ne verje szét.
         # Catalyst: ugyanaz a Bundle ID, egy TestFlight app — az iPad-es
         # "Designed for iPad" mód KI, helyette natív Catalyst build megy fel.
         SUPPORTS_MACCATALYST: YES
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
-        CODE_SIGN_STYLE: Manual
-        CODE_SIGN_IDENTITY: "iPhone Developer"
-        "CODE_SIGN_IDENTITY[sdk=iphoneos*]": "iPhone Distribution"
-        # Mac (Catalyst) aláírás: disztribúciós identitás+profil
-        # (TestFlight). Debug helyi futtatásra a configs.Debug
-        # kikapcsolja az aláírást (CODE_SIGNING_ALLOWED=NO), különben a
-        # disztribúciós aláírás miatt a debugger nem tud csatlakozni
-        # (nincs get-task-allow) és a Mac-es indítás Runningboard 5 /
-        # launchd 163 hibával elhal.
-        "CODE_SIGN_IDENTITY[sdk=macosx*]": "Apple Distribution"
-        DEVELOPMENT_TEAM: ""
-        "DEVELOPMENT_TEAM[sdk=iphoneos*]": 38DAVMRN66
-        # Mac (Catalyst) aláírás: korábban kézi sor a pbxproj-ban —
-        # regen-biztosan itt (különben a regen eldobná).
-        "DEVELOPMENT_TEAM[sdk=macosx*]": 38DAVMRN66
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+        DEVELOPMENT_TEAM: 38DAVMRN66
         PRODUCT_BUNDLE_IDENTIFIER: hu.flint
         PROVISIONING_PROFILE_SPECIFIER: ""
-        "PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]": csabav5
-        "PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]": csabamacoldja
         GENERATE_INFOPLIST_FILE: YES
         IPHONEOS_DEPLOYMENT_TARGET: "26.0"
         INFOPLIST_KEY_CFBundleDisplayName: "Summit"
         INFOPLIST_KEY_CFBundleName: "Summit"
+        # Mac App Store (Catalyst) feltöltéshez kötelező kategória —
+        # enélkül "The product archive is invalid ... LSApplicationCategoryType".
+        # Csak macosx-SDK kapja, az iOS plist változatlan marad.
+        "INFOPLIST_KEY_LSApplicationCategoryType[sdk=macosx*]": public.app-category.education
         # Export compliance (TestFlight): az app nem használ nem-mentesített
         # titkosítást (csak rendszer-HTTPS) — ezzel nem kell buildenként
         # kitölteni az "App Encryption Documentation" kérdőívet.
@@ -106,17 +98,15 @@ targets:
         # és a TestFlight build újra push nélkül futna.
         Debug:
           CODE_SIGN_ENTITLEMENTS: Summit.entitlements
-          # Helyi Mac (Catalyst) futtatás: aláírás nélkül ("Sign to Run
-          # Locally"). Kézi stílus + disztribúciós profil kombóval a
-          # debugger nem tud kapcsolódni (nincs get-task-allow) →
-          # Runningboard 5 / launchd spawn 163 indítási hiba; üres
-          # profillal pedig a kézi aláírás követelne profilt. Helyi
-          # fejlesztői (development) Catalyst-profil a portálon hozható
-          # létre — amíg nincs, ez az aláíratlan Debug-mód a működő.
-          # Release (TestFlight) változatlanul disztribúciós.
-          "CODE_SIGNING_ALLOWED[sdk=macosx*]": NO
+          # Automatic módban a Debug development-identitással ír alá
+          # (van get-task-allow), így a debugger Mac-en (Catalyst) is
+          # kapcsolódik — nincs szükség aláírás-kikapcsolásra.
         Release:
           CODE_SIGN_ENTITLEMENTS: SummitRelease.entitlements
+          # Mac App Store (Catalyst) feltöltés: sandbox + network.client
+          # kötelező ("App sandbox not enabled"). Külön fájl, mert az iOS
+          # profilokban (csabav5) ez a kulcs nincs benne — oda nem kerülhet.
+          "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": SummitReleaseMac.entitlements
     dependencies:
       - target: SummitWidgets
       # Óra-app beágyazás ("Embed Watch Content"). Csak iOS-re szűrve,
@@ -147,25 +137,20 @@ targets:
     settings:
       base:
         SWIFT_VERSION: "5.0"
-        # Kézi aláírás, mint a fő appnál (TestFlight: widetv3 profil).
-        # Az [sdk=iphoneos*] kulcs csak eszköz-builden él — szimulátoron üres.
+        # Automatikus aláírás, mint a fő appnál (az Xcode-ban kézzel
+        # átállított működő setup visszakódolva — ld. a fő target kommentjét).
         # A Catalyst Mac buildbe is beágyazódik a widget, ezért az extension
         # is kap Catalyst-támogatást (Live Activity widget Mac-en nincs).
         SUPPORTS_MACCATALYST: YES
-        CODE_SIGN_STYLE: Manual
-        CODE_SIGN_IDENTITY: "iPhone Developer"
-        "CODE_SIGN_IDENTITY[sdk=iphoneos*]": "iPhone Distribution"
-        # Mac (Catalyst) RELEASE: a widget is beágyazódik a Catalyst-appba,
-        # ezért kell a macosx-sor (TestFlight: widetmacc profil).
-        "CODE_SIGN_IDENTITY[sdk=macosx*]": "Apple Distribution"
-        DEVELOPMENT_TEAM: ""
-        "DEVELOPMENT_TEAM[sdk=iphoneos*]": 38DAVMRN66
-        "DEVELOPMENT_TEAM[sdk=macosx*]": 38DAVMRN66
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+        DEVELOPMENT_TEAM: 38DAVMRN66
         PRODUCT_BUNDLE_IDENTIFIER: hu.flint.Widgets
         PROVISIONING_PROFILE_SPECIFIER: ""
-        "PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]": widetv3
-        "PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]": widetmacc
         CODE_SIGN_ENTITLEMENTS: SummitWidgets.entitlements
+        # Mac (Catalyst) feltöltés: a widgetbe is kell a sandbox-kulcs.
+        # Külön fájl, ugyanazért, mint a fő appnál.
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": SummitWidgetsMac.entitlements
         GENERATE_INFOPLIST_FILE: YES
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "10"
@@ -174,10 +159,9 @@ targets:
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
       configs:
         Debug:
-          # Helyi Mac (Catalyst) futtatás: aláírás nélkül, mint a fő
-          # appnál — disztribúciós widget-aláírással a gazda-app
-          # indítása is elhalna (nincs get-task-allow).
-          "CODE_SIGNING_ALLOWED[sdk=macosx*]": NO
+          # Automatic módban nincs szükség aláírás-kikapcsolásra
+          # (development-identitás, mint a fő appnál).
+          CODE_SIGN_ENTITLEMENTS: SummitWidgets.entitlements
   SummitWatch:
     type: application
     platform: watchOS
@@ -198,15 +182,13 @@ targets:
         SWIFT_VERSION: "5.0"
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "10"
-        PRODUCT_BUNDLE_IDENTIFIER: hu.flint.watch
-        # Kézi aláírás, mint a fő appnál. Eszköz/TestFlight buildhez a
-        # portálon külön watch-profil kell (hu.flint.watch) — amíg nincs,
-        # csak szimulátor-build megy.
-        CODE_SIGN_STYLE: Manual
-        CODE_SIGN_IDENTITY: "iPhone Developer"
-        "CODE_SIGN_IDENTITY[sdk=watchos*]": "iPhone Distribution"
-        DEVELOPMENT_TEAM: ""
-        "DEVELOPMENT_TEAM[sdk=watchos*]": 38DAVMRN66
+        PRODUCT_BUNDLE_IDENTIFIER: hu.flint.watchapp
+        # Automatikus aláírás, mint a fő appnál — külön watch-profil
+        # nem kell a portálon, az Xcode menedzseli (az Xcode-ban kézzel
+        # átállított működő setup visszakódolva).
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+        DEVELOPMENT_TEAM: 38DAVMRN66
         PROVISIONING_PROFILE_SPECIFIER: ""
         GENERATE_INFOPLIST_FILE: YES
         WATCHOS_DEPLOYMENT_TARGET: "26.0"

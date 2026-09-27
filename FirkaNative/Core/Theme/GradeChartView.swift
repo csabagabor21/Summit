@@ -117,11 +117,15 @@ struct GradeChartView: View {
                 .chartYScale(domain: 1...5)
                 .chartXScale(domain: xDomain)
                 .chartXAxis {
-                    AxisMarks(values: .stride(by: .month, count: 1)) { v in
+                    // Explicit tick-dátumok az adatból: a stride-os hónap-
+                    // léptetés a párnázott domain miatt üres/jövő hónapot is
+                    // behozott (pl. csupa szeptemberi jegynél "okt." állt a
+                    // tengelyen) — ez volt a látható elcsúszás.
+                    AxisMarks(values: xTickDates) { v in
                         AxisGridLine().foregroundStyle(Color.primary.opacity(0.04))
                         AxisTick().foregroundStyle(Color.primary.opacity(0.04))
-                        if let _ = v.as(Date.self) {
-                            AxisValueLabel(format: .dateTime.month(.abbreviated)).font(.caption2).foregroundStyle(.secondary)
+                        if let d = v.as(Date.self) {
+                            AxisValueLabel(xTickLabel(for: d)).font(.caption2).foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -201,11 +205,51 @@ struct GradeChartView: View {
 
     // MARK: Shared helpers — 0-s jegy kizárva mindenhonnan
     private var validGrades: [GradeItem] { grades.filter { $0.value != 0 } }
+    /// Havi vödrök (csak monthly módban, min. 2 hónap esetén él).
+    private var monthBuckets: [(monthStart: Date, average: Double, count: Int, subject: String)] {
+        guard monthly else { return [] }
+        let b = GradingLogic.monthlyBuckets(grades: validGrades)
+        return b.count >= 2 ? b : []
+    }
+    /// X-tengely tickek az adatból (havi módban a vödrök hónapkezdetei,
+    /// nyers módban a tartomány széle/közepe vagy hónapkezdetei).
+    private var xTickDates: [Date] {
+        if !monthBuckets.isEmpty { return monthBuckets.map(\.monthStart) }
+        let dates = displayGrades.map(\.date)
+        guard let min = dates.min(), let max = dates.max(), max > min else { return dates }
+        let cal = Calendar.current
+        let spanDays = max.timeIntervalSince(min) / 86400
+        if spanDays > 60 {
+            var out: [Date] = []
+            var cur = cal.date(from: cal.dateComponents([.year, .month], from: min)) ?? min
+            if cur < min, let nxt = cal.date(byAdding: .month, value: 1, to: cur) { cur = nxt }
+            while cur <= max, out.count < 7 {
+                out.append(cur)
+                guard let nxt = cal.date(byAdding: .month, value: 1, to: cur) else { break }
+                cur = nxt
+            }
+            return out
+        }
+        let mid = min.addingTimeInterval(max.timeIntervalSince(min) / 2)
+        return Array(Set([min, mid, max])).sorted()
+    }
+    private func xTickLabel(for d: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "hu_HU")
+        // Havi módban a régi kisbetűs rövid hónapnév (pl. "szept."),
+        // nyers módban nap-pontos dátum.
+        guard monthBuckets.isEmpty else {
+            f.dateFormat = "MMM"
+            return f.string(from: d)
+        }
+        f.dateFormat = "MM.dd"
+        return f.string(from: d)
+    }
     private var displayGrades: [GradeItem] {
         let src = validGrades
         guard monthly else { return src }
-        let buckets = GradingLogic.monthlyBuckets(grades: src)
-        guard buckets.count >= 2 else { return src }
+        let buckets = monthBuckets
+        guard !buckets.isEmpty else { return src }
         return buckets.map { b in
             let value = Int(round(b.average))
             return GradeItem(id: "monthly-\(b.monthStart.timeIntervalSince1970)", subject: b.subject, value: value, valueText: "\(value)", date: b.monthStart, teacher: "", type: "havi", weight: 100, topic: "")

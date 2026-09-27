@@ -64,7 +64,7 @@ struct NotesView: View {
                 if isLoading {
                     ForEach(0..<3, id: \.self) { _ in
                         HStack { Text("Betöltés…").redacted(reason: .placeholder) }
-                            .listRowBackground(colors.surface)
+                            .summitRowSurface(colors: colors)
                     }
                 } else if currentIsEmpty {
                     Section {
@@ -132,13 +132,12 @@ struct NotesView: View {
             .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
             .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
-            .scrollContentBackground(.hidden)
-            .background(colors.background)
+            .summitListChrome(colors: colors)
             .animation(SummitMotion.gentle, value: currentIsEmpty)
             .animation(SummitMotion.gentle, value: filter)
             .navigationTitle("Feladatok")
             .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(.visible, for: .navigationBar)
+            .summitToolbarBackground()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { pendingLesson = nil; showingPicker = true } label: {

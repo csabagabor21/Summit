@@ -5,6 +5,7 @@ struct HomeView: View {
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var kreta: KretaClient
     @EnvironmentObject var completed: CompletedStore
+    @EnvironmentObject var summitSync: SummitSync
     @StateObject private var vm = HomeViewModel()
     @Environment(\.colorScheme) var scheme
     @Environment(\.horizontalSizeClass) private var hSize
@@ -227,9 +228,15 @@ struct HomeView: View {
             .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
             .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
-            .scrollContentBackground(.hidden)
-            .background(colors.background)
-            .refreshable { await vm.refresh(kreta: kreta, user: session.selectedUser) }
+            .summitListChrome(colors: colors)
+            .refreshable {
+                // A főoldali lehúzás a SummitSyncet is oda-vissza
+                // szinkronizálja (függő feltöltés + lehúzás) — különben
+                // a KRÉTA-adat friss, de a másik eszköz/Mac sora marad,
+                // és az egész „seamful" (széteső) érzetű.
+                await vm.refresh(kreta: kreta, user: session.selectedUser)
+                await summitSync.flushThenPull()
+            }
             .task {
                 // első indításkor a previewMinutes legyen a mostani idő (ne fix 09:00)
                 if UserDefaults.standard.object(forKey: "home.demoPreviewMinutes") == nil {
@@ -283,7 +290,7 @@ struct HomeView: View {
             }
             .navigationTitle("Főoldal")
             .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(.visible, for: .navigationBar)
+            .summitToolbarBackground()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 18) {

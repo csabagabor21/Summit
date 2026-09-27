@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>aps-environment</key>
+	<string>production</string>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.hu.flint.summit</string>
+	</array>
+	<!-- Mac App Store (Catalyst) feltöltéshez kötelező. iOS-en külön
+	     fájl van (SummitRelease.entitlements): ez a kulcs iOS-profilban
+	     nincs benne, ezért csak a macosx-SDK kapja (project.yml). -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<!-- Sandboxolt Mac-app hálózat nélkül nem érné el a KRÉTA /
+	     Firestore-szervereket. -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+</dict>
+</plist>

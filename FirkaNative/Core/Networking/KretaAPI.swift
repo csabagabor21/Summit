@@ -38,6 +38,23 @@ enum KretaAPI {
         return comps.url ?? URL(string: base)
     }
     static func exams(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/BejelentettSzamonkeresek") }
+    /// Naptári napok (tanév rendje): nap típusa (tanítási nap, tanítás
+    /// nélküli munkanap, szünet …), órarendi-nap jelölés, hét napja.
+    /// A hivatalos app ebből írja ki pl. „Tanítás nélküli munkanap
+    /// (Nem órarendi nap) (Hétfő)"-t az órarend üres napjaira.
+    static func calendarDays(_ iss: String, from: Date? = nil, to: Date? = nil) -> URL? {
+        let base = kreta(iss) + "/ellenorzo/V3/Sajat/NaptariNapok"
+        guard let f = from, let t = to else { return URL(string: base) }
+        guard var comps = URLComponents(string: base) else { return nil }
+        let df = ISO8601DateFormatter()
+        df.formatOptions = [.withInternetDateTime]
+        df.timeZone = TimeZone(secondsFromGMT: 0)
+        comps.queryItems = [
+            URLQueryItem(name: "datumTol", value: df.string(from: f)),
+            URLQueryItem(name: "datumIg", value: df.string(from: t))
+        ]
+        return comps.url ?? URL(string: base)
+    }
     // refilc mintára: a lista ?datumTol=yyyy-MM-dd dátumszűrővel jön le
     // (csupasz endpointra a KRÉTA nem ad vissza használható listát),
     // majd minden házi részlete külön: HaziFeladatok/{uid}

@@ -935,16 +935,31 @@ final class SummitSync: ObservableObject {
     var realtimeAvailable: Bool { FirebaseApp.app() != nil }
 
     /// Csendes frissítés előtérbe hozáskor / Beállítások-megnyitáskor:
-    /// listener ha lehet, különben egyszeri REST-pull.
+    /// előbb a függő helyi szerkesztések mennek fel, aztán jön a lehúzás
+    /// (listener ha lehet, különben egyszeri REST-pull).
     func refresh(accessToken: String, theme: ThemeStore, profile: ProfileImageStore, completed: CompletedStore, userId: String?) {
         configure(accessToken: accessToken, theme: theme, profile: profile, completed: completed, userId: userId)
         guard isEnabled else { return }
+        Task { [weak self] in await self?.flushThenPull() }
+    }
+
+    /// Oda-vissza szinkron egy hívásban: a még fel nem töltött helyi
+    /// szerkesztések feltöltése, majd a távoliak lehúzása (vagy a listener
+    /// életben tartása). Gyógyítja a „lehúztam, de a másik eszközön semmi"
+    /// esetet: a 2 mp-es debounce közben megölt app piszkos mezői addig
+    /// se fel nem mentek, se le nem jöttek (a `newer` a piszkos mezőre
+    /// sosem mond igent) — a következő előtér/lehúzás most már kipucolja.
+    /// Mac (Catalyst) REST-úton ugyanezt futtatja, ezért ott is javul.
+    func flushThenPull() async {
+        guard isEnabled, lastToken != nil, liveTheme != nil else { return }
+        if !dirtyFields.isEmpty {
+            status = "feltöltés…"
+            _ = await pushNow()
+        }
         if realtimeAvailable {
             startListener()
         } else {
-            Task { [weak self] in
-                _ = await self?.pullNow()
-            }
+            _ = await pullNow()
         }
     }
 

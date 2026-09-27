@@ -3,6 +3,7 @@ xcuserdata/
 *.xcuserstate
 project.xcworkspace/xcuserdata/
 DerivedData/
+build/
 *.hmap
 *.ipa
 *.dSYM.zip

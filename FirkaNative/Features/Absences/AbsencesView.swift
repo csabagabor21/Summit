@@ -205,7 +205,7 @@ struct AbsencesView: View {
                 if isLoading {
                     ForEach(0..<3, id: \.self) { _ in
                         HStack { Text("Betöltés…").redacted(reason: .placeholder) }
-                            .listRowBackground(colors.surface)
+                            .summitRowSurface(colors: colors)
                     }
                 } else if absences.isEmpty {
                     Section {
@@ -235,7 +235,7 @@ struct AbsencesView: View {
                                     .foregroundStyle(.secondary)
                                 Spacer()
                             }
-                            .listRowBackground(colors.surface)
+                            .summitRowSurface(colors: colors)
                             .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
                         } else {
                             ForEach(unjustifiedItems.prefix(unjustifiedExpanded ? 100 : 3)) { a in
@@ -257,7 +257,7 @@ struct AbsencesView: View {
                                     .foregroundStyle(colors.accent)
                                     .contentShape(Rectangle())
                                 }
-                                .listRowBackground(colors.surface)
+                                .summitRowSurface(colors: colors)
                                 .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
                             }
                         }
@@ -301,7 +301,7 @@ struct AbsencesView: View {
                                     .foregroundStyle(.secondary)
                                 Spacer()
                             }
-                            .listRowBackground(colors.surface)
+                            .summitRowSurface(colors: colors)
                             .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
                         } else {
                             ForEach(justifiedItems.prefix(justifiedExpanded ? 100 : 3)) { a in
@@ -323,7 +323,7 @@ struct AbsencesView: View {
                                     .foregroundStyle(colors.accent)
                                     .contentShape(Rectangle())
                                 }
-                                .listRowBackground(colors.surface)
+                                .summitRowSurface(colors: colors)
                                 .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
                             }
                         }
@@ -352,12 +352,12 @@ struct AbsencesView: View {
             }
             .listStyle(.insetGrouped)
             .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
+            .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
-            .scrollContentBackground(.hidden)
-            .background(colors.background)
+            .summitListChrome(colors: colors)
             .navigationTitle("Hiányzások")
             .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(.visible, for: .navigationBar)
+            .summitToolbarBackground()
             .task { await load() }
             .refreshable { await load() }
             .animation(SummitMotion.gentle, value: absences.count)
