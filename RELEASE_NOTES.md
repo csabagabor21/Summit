@@ -1,5 +1,11 @@
 # Summit release notes
 
+## Build 17
+- Empty timetable days now say what KRÉTA says: "Tanítás nélküli munkanap (Nem órarendi nap) (Hétfő)" and friends, instead of a generic day-off text.
+- Projected exams finally leave the Exams tab when their lesson is over — even on unnumbered days or when every lesson of the day has ended.
+- The average graph on the Grades tab no longer labels September-only data as October: axis ticks come from the actual data now.
+- Pull-to-refresh on the home screen also syncs to your other devices, both ways — pending edits left behind by a killed app now flush on the next refresh or foreground, which fixes the flaky Mac round-trip too.
+
 ## Build 16
 - New timetable widget for the Home Screen (small, medium, large, plus Lock Screen): it always shows the current or next lesson, steps forward on its own when a lesson ends, and the medium list starts at the current lesson instead of the first one.
 - New school events calendar: add your school's calendar once — a share link (Google Calendar links work too), pasted text, raw ICS or an .ics file — and it syncs to all your devices, appearing above the timetable as full-width cards.
