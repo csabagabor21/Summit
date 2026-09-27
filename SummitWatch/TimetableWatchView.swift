@@ -34,12 +34,6 @@ struct TimetableWatchView: View {
                 } else {
                     VStack(spacing: 0) {
                         dayPager(days: days, now: now)
-                        // Az óra mellé húzva: a TabView-oldal felső
-                        // rendszer-térközét elengedjük, és csak annyit
-                        // adunk vissza, hogy a jobb chevron ne lógjon
-                        // bele az órába (kimérve a 44 mm-es layouton:
-                        // az óra sávja ~12-26 pt, a sor ~30 pt-tól indul).
-                        .padding(.top, 30)
                         if let err = store.lastSyncError {
                             Text(err)
                                 .font(.caption2)
@@ -65,12 +59,15 @@ struct TimetableWatchView: View {
                         .listStyle(.plain)
                         .refreshable { await store.requestSyncNow() }
                     }
-                    .ignoresSafeArea(edges: .top)
                 }
             }
             .onAppear { smartSelect(now: now) }
             .onChange(of: store.timetable?.savedAt) { smartSelect(now: now) }
         }
+        // A TabView-oldal legfelső szintjén: ha ez csak a belső VStacken
+        // van, az első (üres) renderelés beragasztja a térközt, és a későn
+        // megjövő adat már nem tudja összeomlasztani.
+        .ignoresSafeArea(edges: .top)
     }
 
     // MARK: - Napválasztás
@@ -109,23 +106,26 @@ struct TimetableWatchView: View {
         return "\(rem) perc van hátra"
     }
 
+    // Kompakt státuszsáv-léptető: a rendszeróra csak a jobb oldalt
+    // foglalja, ezért a napválasztó balra fent, az óra sávjában ül
+    // ("‹ Ma ›" stílus). A hétköznap rövid (3 betűs), hogy sose lógjon
+    // bele az órába — a sor max ~110 pt széles.
     @ViewBuilder
     private func dayPager(days: [Date], now: Date) -> some View {
         let cal = Calendar.current
         let day = selectedDay ?? cal.startOfDay(for: now)
         let idx = days.firstIndex(of: day)
-        HStack(spacing: 2) {
+        HStack(spacing: 3) {
             Button {
                 if let i = idx, i > 0 { selectedDay = days[i - 1] }
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(idx == nil || idx == 0 ? .tertiary : .primary)
-                    .frame(width: 28, height: 22)
+                    .frame(width: 24, height: 24)
             }
             .buttonStyle(.plain)
             .disabled(idx == nil || idx == 0)
-            Spacer(minLength: 0)
             Button {
                 selectedDay = cal.startOfDay(for: now)
                 initializedForSavedAt = store.timetable?.savedAt
@@ -134,22 +134,29 @@ struct TimetableWatchView: View {
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(cal.isDate(day, inSameDayAs: now) ? accent : .primary)
                     .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
             }
             .buttonStyle(.plain)
-            Spacer(minLength: 0)
             Button {
                 if let i = idx, i + 1 < days.count { selectedDay = days[i + 1] }
             } label: {
                 Image(systemName: "chevron.right")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(idx == nil || idx == days.count - 1 ? .tertiary : .primary)
-                    .frame(width: 28, height: 22)
+                    .frame(width: 24, height: 24)
             }
             .buttonStyle(.plain)
             .disabled(idx == nil || idx == days.count - 1)
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 2)
+        .frame(maxWidth: 116, alignment: .leading)
+        // A TabView-oldalnak fix belső térköze van (S9 45 mm-en kimérve:
+        // fent ~35 pt, balra ~7 pt) — ezt csak negatív padding egyenlíti
+        // ki, hogy a sor az óra sávjába kerüljön, egy vonalba az idővel.
+        // Képernyőképpel belőve S9 45 mm-en (cél: szöveg ~39px-nél,
+        // egy vonalban az órával) — ne piszkáld.
+        .padding(.leading, -7)
+        .padding(.top, 12)
+        .padding(.bottom, 2)
     }
 
     private func dayTitle(_ day: Date, now: Date) -> String {
@@ -161,7 +168,9 @@ struct TimetableWatchView: View {
         fmt.locale = Locale(identifier: "hu_HU")
         fmt.dateFormat = "EEEE"
         let name = fmt.string(from: day)
-        return name.prefix(1).uppercased() + name.dropFirst()
+        // Rövid alak a felső sávba: Hét / Ked / Sze / Csü / Pén.
+        let short = String(name.prefix(3))
+        return short.prefix(1).uppercased() + short.dropFirst()
     }
 }
 
