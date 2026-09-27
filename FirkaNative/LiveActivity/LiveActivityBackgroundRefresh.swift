@@ -1,3 +1,4 @@
+#if !targetEnvironment(macCatalyst)
 import BackgroundTasks
 import Foundation
 
@@ -207,6 +208,16 @@ enum LiveActivityBackgroundRefresh {
             grades: bgGrades, homeworks: bgHomework, exams: bgExams,
             absences: bgAbsences, userId: user.id
         )
+        // Új jegy az órára is háttérből: a context + lastKnown frissül,
+        // így az óra a következő megnyitáskor (vagy azonnal, ha előtérben
+        // van) már az új jegyeket mutatja — ehhez nem kell kinyitni az
+        // appot. Tárgylista külön hálózat nélkül, a cache-elt unióból
+        // (a 30 mp-es BG-ablakba nem fér újabb kör).
+        if !bgGrades.isEmpty {
+            let cachedSubjects = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1") ?? []
+            WatchSyncSender.pushGrades(grades: bgGrades, subjects: cachedSubjects)
+            await mgr.logEvent("BG: jegy-push az órára (\(bgGrades.count) jegy)")
+        }
         let accent = UserDefaults.standard.object(forKey: "theme.accentHex") as? Int ?? 0x4A90E2
         // Órarend widget életben tartása push nélkül: a mai nap friss
         // óráit mergeljük a cache-elt heti snapshotba — a widget így
@@ -233,3 +244,4 @@ enum LiveActivityBackgroundRefresh {
         return updated
     }
 }
+#endif
