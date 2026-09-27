@@ -126,9 +126,9 @@ struct TimetableWatchView: View {
                 if let i = idx, i > 0 { selectedDay = days[i - 1] }
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(.caption2.weight(.semibold))
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(idx == nil || idx == 0 ? .tertiary : .primary)
-                    .frame(width: 24, height: 24)
+                    .frame(width: 26, height: 26)
             }
             .buttonStyle(.plain)
             .disabled(idx == nil || idx == 0)
@@ -137,7 +137,7 @@ struct TimetableWatchView: View {
                 initializedForSavedAt = store.timetable?.savedAt
             } label: {
                 Text(dayTitle(day, now: now))
-                    .font(.footnote.weight(.semibold))
+                    .font(.callout.weight(.semibold))
                     .foregroundStyle(cal.isDate(day, inSameDayAs: now) ? accent : .primary)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
@@ -147,14 +147,14 @@ struct TimetableWatchView: View {
                 if let i = idx, i + 1 < days.count { selectedDay = days[i + 1] }
             } label: {
                 Image(systemName: "chevron.right")
-                    .font(.caption2.weight(.semibold))
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(idx == nil || idx == days.count - 1 ? .tertiary : .primary)
-                    .frame(width: 24, height: 24)
+                    .frame(width: 26, height: 26)
             }
             .buttonStyle(.plain)
             .disabled(idx == nil || idx == days.count - 1)
         }
-        .frame(maxWidth: 116, alignment: .leading)
+        .frame(maxWidth: 140, alignment: .leading)
         // A TabView-oldalnak fix belső térköze van (S9 45 mm-en kimérve:
         // fent ~35 pt, balra ~7 pt) — ezt csak negatív padding egyenlíti
         // ki, hogy a sor az óra sávjába kerüljön, egy vonalba az idővel.
