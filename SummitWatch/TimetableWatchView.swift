@@ -47,6 +47,7 @@ struct TimetableWatchView: View {
                                     isCurrent: lesson.start <= now && now <= lesson.end,
                                     isLast: lesson.id == dayLessons(now: now).last?.id,
                                     progress: progress(of: lesson, now: now),
+                                    remainingText: remainingText(of: lesson, now: now),
                                     accent: accent,
                                     colors: colors
                                 )
@@ -61,7 +62,6 @@ struct TimetableWatchView: View {
             .onAppear { smartSelect(now: now) }
             .onChange(of: store.timetable?.savedAt) { smartSelect(now: now) }
         }
-        .navigationTitle("Órarend")
     }
 
     // MARK: - Napválasztás
@@ -92,6 +92,12 @@ struct TimetableWatchView: View {
         let total = lesson.end.timeIntervalSince(lesson.start)
         guard total > 0 else { return 0 }
         return min(1, max(0, now.timeIntervalSince(lesson.start) / total))
+    }
+
+    private func remainingText(of lesson: TimetableWidgetStore.Lesson, now: Date) -> String {
+        let rem = Int(ceil(lesson.end.timeIntervalSince(now) / 60))
+        if rem <= 0 { return "Vége" }
+        return "\(rem) perc van hátra"
     }
 
     @ViewBuilder
@@ -156,6 +162,7 @@ private struct WatchLessonRow: View {
     let isCurrent: Bool
     let isLast: Bool
     let progress: Double
+    let remainingText: String
     let accent: Color
     let colors: AppColors
     @Environment(\.colorScheme) var scheme
@@ -168,6 +175,11 @@ private struct WatchLessonRow: View {
     }
     private var numberColor: Color {
         ringTint ?? .white
+    }
+    private var progressTint: Color {
+        if lesson.isCancelled { return .red }
+        if lesson.isSubstituted { return .orange }
+        return .blue
     }
     private var badgeLabel: String? { lesson.isCancelled ? "Elmarad" : (lesson.isSubstituted ? "Helyettesítés" : nil) }
     private var badgeColor: Color { lesson.isCancelled ? .red : .orange }
@@ -223,9 +235,14 @@ private struct WatchLessonRow: View {
                         .lineLimit(1)
                 }
                 if isCurrent {
-                    ProgressView(value: progress)
-                        .tint(.blue)
-                        .padding(.top, 1)
+                    VStack(alignment: .leading, spacing: 2) {
+                        ProgressView(value: progress)
+                            .tint(progressTint)
+                        Text(remainingText)
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 1)
                 }
             }
         }
