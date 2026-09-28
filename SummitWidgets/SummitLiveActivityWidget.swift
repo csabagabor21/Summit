@@ -27,49 +27,59 @@ struct SummitLiveActivityWidget: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    if context.state.phase == "break" {
-                        Label("Szünet", systemImage: "cup.and.saucer.fill")
-                            .font(.callout.weight(.semibold))
-                            .lineLimit(1)
-                    } else {
-                        Label {
-                            Text("\(context.state.subject) • \(context.state.index). óra")
-                                .font(.callout.weight(.semibold))
+                    // Kétsoros státusz: fent a tárgy (vagy Szünet), alatta a
+                    // meta — így nem egy összezsúfolt sorban áll minden.
+                    VStack(alignment: .leading, spacing: 2) {
+                        if context.state.phase == "break" {
+                            Label("Szünet", systemImage: "cup.and.saucer.fill")
+                                .font(.callout.weight(.bold))
                                 .lineLimit(1)
-                        } icon: {
-                            Image(systemName: context.state.isCancelled ? "xmark.circle.fill" : "graduationcap.fill")
+                        } else {
+                            Label {
+                                Text(context.state.subject)
+                                    .font(.callout.weight(.bold))
+                                    .lineLimit(1)
+                            } icon: {
+                                Image(systemName: context.state.isCancelled ? "xmark.circle.fill" : "graduationcap.fill")
+                                    .foregroundStyle(statusTint(context))
+                            }
                         }
+                        Text(expandedMeta(context))
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     // ÉLŐ timer: a rendszer másodpercenként frissíti, app-ébresztés nélkül.
-                    // (A statikus Date()-alapú szöveg beragadt, mert a Widgetet csak
-                    // app-update rajzolja újra — ez okozta a "lagging behind"-ot.)
-                    // Center: a trailing régióban a jobbra tolás optikailag
-                    // félrecsúszik a leading címhez képest.
-                    Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true)
-                        .font(.callout.monospacedDigit().weight(.semibold))
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .monospacedDigit()
-                }
-                DynamicIslandExpandedRegion(.center) {
-                    if let nxt = context.state.nextSubject {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.right.circle.fill")
-                            Text("\(nxt) • \(context.state.nextRoom ?? "")").lineLimit(1)
-                        }
-                        .font(.caption2).foregroundStyle(.secondary)
+                    // Alatta apró "hátra" / "kezdődik" felirat — nem csak egy lógó szám.
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true)
+                            .font(.title3.monospacedDigit().weight(.bold))
+                            .monospacedDigit()
+                            .lineLimit(1)
+                        Text(context.state.phase == "break" ? "kezdődik" : "hátra")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.secondary)
                     }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    // ÉLŐ progress: a rendszer animálja, app-update nélkül —
-                    // mint a Maps navigációs sávja. (A Date()-alapú fix érték
-                    // két update között beragadt volna.)
+                    // Alsó sáv: ÉLŐ progress (a rendszer animálja, app-update
+                    // nélkül) + alatta egy sorban a következő óra.
                     // Irány fázis-függő: óra közben TÖLTŐDIK (balról jobbra),
                     // szünetben ÜRÜL (jobbról balra) — a hátralévő szünet fogy.
-                    ProgressView(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: context.state.phase == "break")
-                        .tint(statusTint(context))
+                    VStack(alignment: .leading, spacing: 6) {
+                        ProgressView(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: context.state.phase == "break")
+                            .tint(statusTint(context))
+                        if let nxt = context.state.nextSubject {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.right.circle.fill")
+                                Text(nextLine(context, nxt)).lineLimit(1)
+                                Spacer(minLength: 0)
+                            }
+                            .font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                        }
+                    }
                 }
             } compactLeading: {
                 Image(systemName: pillSymbol(index: context.state.index, cancelled: context.state.isCancelled))
@@ -116,6 +126,26 @@ struct SummitLiveActivityWidget: Widget {
     private func compactRoom(_ context: ActivityViewContext<SummitLiveActivityAttributes>) -> String {
         if context.state.phase == "break" { return context.state.nextRoom ?? "" }
         return context.state.room
+    }
+
+    /// Expanded leading második sora: "N. óra • terem" (szünetben a
+    /// következő óráé).
+    private func expandedMeta(_ context: ActivityViewContext<SummitLiveActivityAttributes>) -> String {
+        if context.state.phase == "break" {
+            let room = context.state.nextRoom ?? ""
+            return room.isEmpty
+                ? "\(context.state.index). óra következik"
+                : "\(context.state.index). óra • \(room)"
+        }
+        return context.state.room.isEmpty
+            ? "\(context.state.index). óra"
+            : "\(context.state.index). óra • \(context.state.room)"
+    }
+
+    /// Expanded alsó sor: következő óra tárggyal + teremmel.
+    private func nextLine(_ context: ActivityViewContext<SummitLiveActivityAttributes>, _ subject: String) -> String {
+        let room = context.state.nextRoom ?? ""
+        return room.isEmpty ? subject : "\(subject) • \(room)"
     }
 
     /// Biztonságos SF Symbol: "10", "-", üres indexre nincs *.circle.fill → üres pill helyett fallback.

@@ -242,11 +242,12 @@ private struct WatchNowView: View {
         }
     }
 
-    // MARK: Smart Stack főnézet — a MOST-kártya tömör tükre
+    // MARK: Smart Stack főnézet — kompakt: cím + csík melletti "35p" + következő óra
+    // A csík a kiemelőszínt (accent) veszi fel, a hátralévő idő rövid
+    // "35p" alakban a csík MELLETT ül (nem külön soron), alatta pedig egy
+    // sorban a következő óra — így minden elfér zsúfoltság nélkül.
     private var rectangularView: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("MOST")
-                .font(.caption2.weight(.bold))
+        VStack(alignment: .leading, spacing: 3) {
             if !entry.hasSnapshot && entry.lessons.isEmpty {
                 Text("Nyisd meg az appot")
                     .font(.headline.weight(.semibold)).lineLimit(1)
@@ -259,32 +260,29 @@ private struct WatchNowView: View {
                         .font(.headline.weight(.semibold)).lineLimit(1)
                 case .morning:
                     if let n = calc.next {
-                        Label("Jó reggelt!", systemImage: "sun.max.fill")
-                            .font(.caption.weight(.semibold)).lineLimit(1)
+                        Text(n.subject)
+                            .font(.headline.weight(.bold)).lineLimit(1)
                         lessonLine(n, showTime: n.start)
-                        remainingLine
+                        progressLine(tint: statusTint(n))
+                        nextLine(n)
                     }
                 case .duringLesson:
                     if let c = calc.current {
                         Text(c.subject)
                             .font(.headline.weight(.bold)).lineLimit(1)
                         lessonLine(c, showTime: nil)
-                        ProgressView(value: calc.progress)
-                            .tint(statusTint(c))
-                        remainingLine
+                        progressLine(tint: statusTint(c))
                         if let n = calc.next {
-                            Text("Következő: \(n.subject) • \(shortTime(n.start))")
-                                .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                            nextLine(n)
                         }
                     }
                 case .duringBreak:
                     if let n = calc.next {
-                        Label("Szünet", systemImage: "cup.and.saucer.fill")
-                            .font(.caption.weight(.semibold)).lineLimit(1)
+                        Text(n.subject)
+                            .font(.headline.weight(.bold)).lineLimit(1)
                         lessonLine(n, showTime: n.start)
-                        ProgressView(value: calc.progress)
-                            .tint(statusTint(n))
-                        remainingLine
+                        progressLine(tint: statusTint(n))
+                        nextLine(n, prefix: "Szünet után")
                     }
                 }
                 attachedLine
@@ -297,7 +295,7 @@ private struct WatchNowView: View {
             Text("\(l.index). óra")
                 .font(.caption2.weight(.bold).monospacedDigit())
             Text("•").foregroundStyle(.tertiary).font(.caption2)
-            Text(l.room.isEmpty ? l.teacher : "\(l.room) • \(l.teacher)")
+            Text(l.room.isEmpty ? l.teacher : l.room)
                 .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             Spacer(minLength: 2)
             if let t = showTime {
@@ -306,11 +304,22 @@ private struct WatchNowView: View {
         }
     }
 
-    private var remainingLine: some View {
-        Text(calc.remainingText)
-            .font(.caption2.weight(.semibold).monospacedDigit())
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
+    /// Accent-csík + mellette a rövid "35p" — egy soron, külön
+    /// "X perc van hátra" sor nélkül.
+    private func progressLine(tint: Color) -> some View {
+        HStack(spacing: 6) {
+            ProgressView(value: calc.progress)
+                .tint(tint)
+            Text(shortRemaining)
+                .font(.caption2.weight(.bold).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+    }
+
+    private func nextLine(_ n: TimetableWidgetStore.Lesson, prefix: String = "Következő") -> some View {
+        Text("\(prefix): \(n.subject) • \(shortTime(n.start))")
+            .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
     }
 
     /// Rögzített dolgozat/házi egy-egy sora — mint a telefonos kártya alján.

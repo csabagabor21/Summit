@@ -193,8 +193,8 @@ private struct TimetableWidgetView: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        // Egyforma belső margó mind a 4 oldalon (mint az Apple widgetek).
+        .padding(14)
     }
 
     // MARK: Medium / Large — kompakt editorial lista: visszafogott fejléc,
@@ -219,7 +219,7 @@ private struct TimetableWidgetView: View {
                 // Ablakos lista: legfelül a tartó (vagy a következő) óra,
                 // alatta a rákövetkezők — az 5. óra alatt az 5–6–7. látszik.
                 let vis = TimetableWidgetLogic.window(lessons: entry.dayLessons, now: now, maxRows: maxRows)
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 4) {
                     if vis.earlier > 0 {
                         Text("↑ \(vis.earlier) korábbi óra")
                             .font(.caption2).foregroundStyle(.tertiary)
@@ -238,9 +238,9 @@ private struct TimetableWidgetView: View {
             }
             Spacer(minLength: 0)
         }
-        // Rendes belső margó, hogy semmi ne tapadjon az üveg széléhez.
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        // Egyforma belső margó mind a 4 oldalon (mint az Apple Időjárás
+        // widget: kiegyensúlyozott, semmi nem tapad az üveg széléhez).
+        .padding(16)
     }
 
     private func row(_ l: TimetableWidgetStore.Lesson) -> some View {
@@ -262,16 +262,16 @@ private struct TimetableWidgetView: View {
             }
             Spacer(minLength: 4)
             if l.isCancelled {
-                Text("elmarad").font(.caption2.weight(.medium)).foregroundStyle(.red)
+                Text("elmarad").font(.caption2.weight(.semibold)).foregroundStyle(.red)
             } else if l.isSubstituted {
-                Text("helyettesítés").font(.caption2.weight(.medium)).foregroundStyle(.orange)
+                Text("helyettesítés").font(.caption2.weight(.semibold)).foregroundStyle(.orange)
             } else if isCurrent(l) {
                 Text(remainingMinutes(l)).font(.caption2.weight(.semibold).monospacedDigit())
                     .foregroundStyle(accent)
             }
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 2)
+        .padding(.vertical, 5)
         .background {
             if isCurrent(l) {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
