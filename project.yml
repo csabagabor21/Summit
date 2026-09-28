@@ -193,6 +193,9 @@ targets:
         CODE_SIGN_IDENTITY: "Apple Development"
         DEVELOPMENT_TEAM: 38DAVMRN66
         PROVISIONING_PROFILE_SPECIFIER: ""
+        # App Group a Smart Stack-widgettel közös gyorsítótárhoz
+        # (WatchSharedStore) — nélküle a widget üreset mutat.
+        CODE_SIGN_ENTITLEMENTS: SummitWatchWidgets.entitlements
         GENERATE_INFOPLIST_FILE: YES
         WATCHOS_DEPLOYMENT_TARGET: "10.0"
         INFOPLIST_KEY_CFBundleDisplayName: "Summit Most"
@@ -230,6 +233,9 @@ targets:
         CODE_SIGN_IDENTITY: "Apple Development"
         DEVELOPMENT_TEAM: 38DAVMRN66
         PROVISIONING_PROFILE_SPECIFIER: ""
+        # App Group a Smart Stack-widgettel közös gyorsítótárhoz
+        # (WatchSharedStore) — nélküle a widget üreset mutat.
+        CODE_SIGN_ENTITLEMENTS: SummitWatch.entitlements
         GENERATE_INFOPLIST_FILE: YES
         WATCHOS_DEPLOYMENT_TARGET: "10.0"
         # Óra-ikon: a SummitWatch/WatchAppIcon.icon IconComposer-asset

@@ -6,20 +6,13 @@ import WidgetKit
 // progress + hátralévő idő, szünetben a következő, reggel az első, nap végén
 // "Ma nincs több órád". Az óraszámhoz rögzített dolgozat/házi egy-egy sora
 // szintén megjelenik (mint a telefonon a kártya alján).
-// Adat: a WatchSyncStore UserDefaults-gyorsítótára — az alábbi kulcsok
-// SZÓ SZERINT egyeznek a WatchSyncStore privát kulcsaival (az óra app-pal
-// közös sandboxban él az extension, külön App Group nem kell watchOS-en).
-enum WatchWidgetCache {
-    static let timetable = "watch.cache.timetable.v1"
-    static let tasks = "watch.cache.tasks.v1"
-    /// Fejlesztői idő-előnézet (unix idő, Double). Csak akkor van jelen, ha
-    /// az iPhone-on az Idő-eltolás csúszka aktív — a WatchSyncStore írja.
-    static let previewNow = "watch.cache.previewNow.v1"
-}
+// Adat: a WatchSharedStore App Group-gyorsítótára — a widget extension
+// NEM látja az óra app UserDefaults.standard-ját, ezért él minden a
+// groupban (a WatchSyncStore ugyanide ír).
 
 struct WatchNowWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "WatchNowWidget", provider: WatchNowProvider()) { entry in
+        StaticConfiguration(kind: WatchSharedStore.widgetKind, provider: WatchNowProvider()) { entry in
             WatchNowView(entry: entry)
         }
         .configurationDisplayName("Most")
@@ -72,11 +65,10 @@ struct WatchNowProvider: TimelineProvider {
     }
 
     private func makeEntry(at date: Date, preview: Bool) -> WatchNowEntry {
-        let d = UserDefaults.standard
         var lessons: [TimetableWidgetStore.Lesson] = []
         var accent = 0x4A90E2
         var hasSnapshot = false
-        if let data = d.data(forKey: WatchWidgetCache.timetable),
+        if let data = WatchSharedStore.data(forKey: WatchSharedStore.timetableKey),
            let snap = try? JSONDecoder().decode(TimetableWidgetStore.Snapshot.self, from: data),
            !snap.lessons.isEmpty {
             lessons = snap.lessons
@@ -84,13 +76,13 @@ struct WatchNowProvider: TimelineProvider {
             hasSnapshot = true
         }
         var tasks: WatchTasksSnapshot?
-        if let data = d.data(forKey: WatchWidgetCache.tasks),
+        if let data = WatchSharedStore.data(forKey: WatchSharedStore.tasksKey),
            let snap = try? JSONDecoder().decode(WatchTasksSnapshot.self, from: data) {
             tasks = snap
         }
         // Dev idő-eltolás: ha az iPhone csúszkája aktív, a widget is az
         // eltolt idő szerint rajzol (mint az óra app listái).
-        let previewTs = d.double(forKey: WatchWidgetCache.previewNow)
+        let previewTs = WatchSharedStore.defaults.double(forKey: WatchSharedStore.previewNowKey)
         let effective: Date = previewTs > 0 ? Date(timeIntervalSince1970: previewTs) : date
         if preview {
             return WatchNowEntry(

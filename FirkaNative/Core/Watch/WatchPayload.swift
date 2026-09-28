@@ -7,6 +7,46 @@ import Foundation
 // Az órarendi szelethez a widget snapshotját használjuk újra
 // (TimetableWidgetStore.Snapshot — szintén shared fájl, mindkét target
 // fordítja). Ez a fájl csak Foundationt importál, Catalyst-barát.
+/// Közös tár az óra app és a Smart Stack-widget között.
+/// watchOS-en a widget extension NEM látja az app UserDefaults.standard-ját,
+/// ezért a gyorsítótár App Groupban él. Azonosítója megegyezik az iOS-es
+/// csoportéval (group.hu.flint.summit), de platformonként külön konténer —
+/// az iOS widget-cache és az órai cache nem keveredik.
+/// Mindkét watch-target fordítja (lásd project.yml).
+enum WatchSharedStore {
+    static let appGroupID = "group.hu.flint.summit"
+    /// A Smart Stack-widget kind-ja (timeline-újratöltéshez is ez kell).
+    static let widgetKind = "WatchNowWidget"
+
+    static let timetableKey = "watch.cache.timetable.v1"
+    static let gradesKey = "watch.cache.grades.v1"
+    static let tasksKey = "watch.cache.tasks.v1"
+    /// Fejlesztői idő-előnézet (unix idő, Double). Csak akkor van jelen, ha
+    /// az iPhone-on az Idő-eltolás csúszka aktív.
+    static let previewNowKey = "watch.cache.previewNow.v1"
+
+    static var defaults: UserDefaults {
+        UserDefaults(suiteName: appGroupID) ?? .standard
+    }
+
+    /// Olvasás group-első, régi standard-második: a group előtti build
+    /// gyorsítótára átköltözik, így a widget már az első szinkron előtt is
+    /// látja a legutóbbi adatot.
+    static func data(forKey key: String) -> Data? {
+        if let d = defaults.data(forKey: key) { return d }
+        if defaults !== UserDefaults.standard,
+           let d = UserDefaults.standard.data(forKey: key) {
+            defaults.set(d, forKey: key)
+            return d
+        }
+        return nil
+    }
+
+    static func set(_ data: Data, forKey key: String) {
+        defaults.set(data, forKey: key)
+    }
+}
+
 enum WatchPayloadKey {
     static let timetable = "watch.timetable.v1"
     static let grades = "watch.grades.v1"

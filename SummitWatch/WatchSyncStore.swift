@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import os
 import WatchConnectivity
+import WidgetKit
 
 private let watchLog = Logger(subsystem: "hu.flint.summit.watch", category: "watchsync")
 
@@ -22,9 +23,8 @@ final class WatchSyncStore: NSObject, ObservableObject {
     private static let requestGap: TimeInterval = 5 * 60
     private var lastRequest: Date?
 
-    private let timetableKey = "watch.cache.timetable.v1"
-    private let gradesKey = "watch.cache.grades.v1"
-    private let tasksKey = "watch.cache.tasks.v1"
+    // Gyorsítótár-kulcsok: WatchSharedStore (App Group — a Smart Stack-widget
+    // ugyaninnen olvas, a standard-defaultsot nem látja).
 
     /// Lehúzásos frissítés állapota (az óra listái ezt mutatják).
     @Published private(set) var isSyncing = false
@@ -41,18 +41,26 @@ final class WatchSyncStore: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        if let data = UserDefaults.standard.data(forKey: timetableKey),
+        if let data = WatchSharedStore.data(forKey: WatchSharedStore.timetableKey),
            let snap = try? JSONDecoder().decode(TimetableWidgetStore.Snapshot.self, from: data) {
             timetable = snap
         }
-        if let data = UserDefaults.standard.data(forKey: gradesKey),
+        if let data = WatchSharedStore.data(forKey: WatchSharedStore.gradesKey),
            let snap = try? JSONDecoder().decode(WatchGradesSnapshot.self, from: data) {
             grades = snap
         }
-        if let data = UserDefaults.standard.data(forKey: tasksKey),
+        if let data = WatchSharedStore.data(forKey: WatchSharedStore.tasksKey),
            let snap = try? JSONDecoder().decode(WatchTasksSnapshot.self, from: data) {
             tasks = snap
         }
+        let previewTs = WatchSharedStore.defaults.double(forKey: WatchSharedStore.previewNowKey)
+        if previewTs > 0 {
+            previewNow = Date(timeIntervalSince1970: previewTs)
+        }
+        // A widget a groupból olvas, de a timeline-ja nem tudja, hogy az app
+        // elindult — indításkor kérünk egy frissítést, hogy a Smart Stack a
+        // legutóbbi gyorsítótárat mutassa az első szinkron előtt is.
+        WidgetCenter.shared.reloadTimelines(ofKind: WatchSharedStore.widgetKind)
         if WCSession.isSupported() {
             let session = WCSession.default
             session.delegate = self
@@ -98,7 +106,7 @@ extension WatchSyncStore: WCSessionDelegate {
         if let data = context[WatchPayloadKey.timetable] as? Data {
             if let snap = try? JSONDecoder().decode(TimetableWidgetStore.Snapshot.self, from: data) {
                 newTimetable = snap
-                UserDefaults.standard.set(data, forKey: timetableKey)
+                WatchSharedStore.set(data, forKey: WatchSharedStore.timetableKey)
                 changed = true
             } else {
                 watchLog.error("órarend-dekódhiba, \(data.count) bájt eldobva")
@@ -107,7 +115,7 @@ extension WatchSyncStore: WCSessionDelegate {
         if let data = context[WatchPayloadKey.grades] as? Data {
             if let snap = try? JSONDecoder().decode(WatchGradesSnapshot.self, from: data) {
                 newGrades = snap
-                UserDefaults.standard.set(data, forKey: gradesKey)
+                WatchSharedStore.set(data, forKey: WatchSharedStore.gradesKey)
                 changed = true
             } else {
                 watchLog.error("jegy-dekódhiba, \(data.count) bájt eldobva")
@@ -116,7 +124,7 @@ extension WatchSyncStore: WCSessionDelegate {
         if let data = context[WatchPayloadKey.tasks] as? Data {
             if let snap = try? JSONDecoder().decode(WatchTasksSnapshot.self, from: data) {
                 newTasks = snap
-                UserDefaults.standard.set(data, forKey: tasksKey)
+                WatchSharedStore.set(data, forKey: WatchSharedStore.tasksKey)
                 changed = true
             } else {
                 watchLog.error("feladat-dekódhiba, \(data.count) bájt eldobva")
@@ -124,14 +132,12 @@ extension WatchSyncStore: WCSessionDelegate {
         }
         // Az előnézetet akkor is átírjuk, ha snapshot nem változott
         // (pl. csak a csúszkát mozgatták, vagy kikapcsolták) — különben
-        // az óra beragadna az eltolt időbe.
-        // A Smart Stack widget (külön extension) is ebből olvas — az app-pal
-        // közös UserDefaults-ban él, külön App Group nem kell watchOS-en.
-        // Kulcs: WatchWidgetCache.previewNow ("watch.cache.previewNow.v1").
+        // az óra beragadna az eltolt időbe. A groupban él, hogy a Smart
+        // Stack-widget is az eltolt idő szerint rajzoljon.
         if let p = newPreview {
-            UserDefaults.standard.set(p.timeIntervalSince1970, forKey: "watch.cache.previewNow.v1")
+            WatchSharedStore.defaults.set(p.timeIntervalSince1970, forKey: WatchSharedStore.previewNowKey)
         } else {
-            UserDefaults.standard.removeObject(forKey: "watch.cache.previewNow.v1")
+            WatchSharedStore.defaults.removeObject(forKey: WatchSharedStore.previewNowKey)
         }
         let previewChanged = newPreview != previewNow
         guard changed || previewChanged else { return }
@@ -140,6 +146,9 @@ extension WatchSyncStore: WCSessionDelegate {
             self.grades = newGrades
             self.tasks = newTasks
             self.previewNow = newPreview
+            // Friss adat a groupban → a widget timeline-ja is újratölt,
+            // különben a Smart Stack a régi (üres) belépőnél ragadna.
+            WidgetCenter.shared.reloadTimelines(ofKind: WatchSharedStore.widgetKind)
         }
     }
 
