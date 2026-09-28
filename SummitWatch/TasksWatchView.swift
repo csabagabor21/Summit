@@ -8,11 +8,31 @@ import SwiftUI
 struct TasksWatchView: View {
     @EnvironmentObject var store: WatchSyncStore
 
+    /// Kinyitott házi-sorok (telefonos NotesView-minta).
+    @State private var expandedIDs = Set<String>()
+
     private var homeworks: [WatchHomework] {
         store.tasks?.homeworks.sorted { $0.deadline < $1.deadline } ?? []
     }
     private var exams: [WatchExam] {
         store.tasks?.exams.sorted { $0.date < $1.date } ?? []
+    }
+
+    private func toggleExpanded(_ id: String) {
+        withAnimation {
+            if expandedIDs.contains(id) { expandedIDs.remove(id) }
+            else { expandedIDs.insert(id) }
+        }
+    }
+
+    /// Melyik órára adták fel a házit: azonos tárgyú, határidő-napi óra
+    /// a szinkronizált órarendből (a telefonos HomeworkMatcher.lesson
+    /// szabálya). Nincs találat → a dátumszöveg napot mutat óraszám nélkül.
+    private func lessonIndex(for hw: WatchHomework) -> String? {
+        store.timetable?.lessons.first {
+            SubjectMatcher.same($0.subject, hw.subject)
+            && Calendar.current.isDate($0.start, inSameDayAs: hw.deadline)
+        }?.index
     }
 
     var body: some View {
@@ -35,14 +55,23 @@ struct TasksWatchView: View {
                     if !homeworks.isEmpty {
                         Section("Házik") {
                             ForEach(homeworks) { hw in
-                                WatchHomeworkRow(hw: hw)
+                                WatchHomeworkRow(
+                                    hw: hw,
+                                    lessonIndex: lessonIndex(for: hw),
+                                    expanded: expandedIDs.contains(hw.id),
+                                    onToggle: { toggleExpanded(hw.id) }
+                                )
                             }
                         }
                     }
                     if !exams.isEmpty {
                         Section("Dolgozatok") {
                             ForEach(exams) { ex in
-                                WatchExamRow(ex: ex)
+                                WatchExamRow(
+                                    ex: ex,
+                                    expanded: expandedIDs.contains(ex.id),
+                                    onToggle: { toggleExpanded(ex.id) }
+                                )
                             }
                         }
                     }
@@ -55,9 +84,18 @@ struct TasksWatchView: View {
     }
 }
 
-// MARK: - Házi-sor
+// MARK: - Házi-sor — becsukva csak tárgy + határidő, a fejléc
+// koppintására nyílik a teljes szöveg (a telefonos Feladatok-tab mintájára).
 private struct WatchHomeworkRow: View {
     let hw: WatchHomework
+    /// Melyik órára adták fel ("1") — a szülő oldja fel az órarendből.
+    let lessonIndex: String?
+    let expanded: Bool
+    let onToggle: () -> Void
+
+    /// A szinkron üres cím helyett "(nincs leírás)"-t küld — az nem
+    /// kinyitható tartalom, ezért ahhoz nincs nyíl és lenyíló szöveg sem.
+    private var hasText: Bool { !hw.title.isEmpty && hw.title != "(nincs leírás)" }
 
     var body: some View {
         HStack(alignment: .top, spacing: 9) {
@@ -75,14 +113,21 @@ private struct WatchHomeworkRow: View {
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.blue)
                     }
+                    Spacer(minLength: 2)
+                    if hasText {
+                        Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.tertiary)
+                    }
                 }
-                if !hw.title.isEmpty {
+                .contentShape(Rectangle())
+                .onTapGesture { if hasText { onToggle() } }
+                if expanded && hasText {
                     Text(hw.title)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(3)
                 }
-                Text(Self.dueText(hw.deadline))
+                Text(Self.dueText(hw.deadline, lessonIndex: lessonIndex))
                     .font(.caption2.weight(.medium).monospacedDigit())
                     .foregroundStyle(dueColor(hw.deadline))
                     .lineLimit(1)
@@ -91,12 +136,21 @@ private struct WatchHomeworkRow: View {
         .padding(.vertical, 3)
     }
 
-    static func dueText(_ date: Date) -> String {
+    /// Határidő-sor: ha tudjuk, melyik órára adták fel, a nap + óraszám
+    /// ("Péntek 1. óra"). Az éjféli dátum-határidőkre a "Ma 0:00-ig"
+    /// értelmetlen volt — éjfélkor nincs időpont, csak a nap. Valós
+    /// (nem éjféli) időpontnál marad a megszokott "-ig" alak.
+    static func dueText(_ date: Date, lessonIndex: String?) -> String {
         let cal = Calendar.current
-        let time = Self.timeFmt.string(from: date)
-        if cal.isDateInToday(date) { return "Ma \(time)-ig" }
-        if cal.isDateInTomorrow(date) { return "Holnap \(time)-ig" }
-        return "\(Self.dayFmt.string(from: date)) \(time)-ig"
+        let idx = (lessonIndex ?? "").isEmpty ? nil : lessonIndex
+        let day: String
+        if cal.isDateInToday(date) { day = "Ma" }
+        else if cal.isDateInTomorrow(date) { day = "Holnap" }
+        else if idx != nil { day = Self.weekdayFmt.string(from: date).capitalized }
+        else { day = Self.dayFmt.string(from: date) }
+        if let i = idx { return "\(day) \(i). óra" }
+        if cal.startOfDay(for: date) == date { return day }
+        return "\(day) \(Self.timeFmt.string(from: date))-ig"
     }
 
     private func dueColor(_ date: Date) -> Color {
@@ -118,11 +172,23 @@ private struct WatchHomeworkRow: View {
         f.dateFormat = "MMM d."
         return f
     }()
+    private static let weekdayFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "hu_HU")
+        f.dateFormat = "EEEE"
+        return f
+    }()
 }
 
 // MARK: - Dolgozat-sor
+// MARK: - Dolgozat-sor — ugyanúgy lenyitható, mint a házi:
+// becsukva tárgy + pillek + határidő, koppintásra a megnevezés és a leírás.
 private struct WatchExamRow: View {
     let ex: WatchExam
+    let expanded: Bool
+    let onToggle: () -> Void
+
+    private var hasText: Bool { !ex.mode.isEmpty || !ex.details.isEmpty }
 
     var body: some View {
         HStack(alignment: .top, spacing: 9) {
@@ -145,19 +211,27 @@ private struct WatchExamRow: View {
                             .font(.caption2.weight(.medium))
                             .foregroundStyle(.secondary)
                     }
+                    Spacer(minLength: 2)
+                    if hasText {
+                        Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.tertiary)
+                    }
                 }
-                if !ex.mode.isEmpty {
-                    Text(ex.mode)
-                        .font(.caption.weight(.medium))
-                        .lineLimit(1)
+                .contentShape(Rectangle())
+                .onTapGesture { if hasText { onToggle() } }
+                if expanded && hasText {
+                    if !ex.mode.isEmpty {
+                        Text(ex.mode)
+                            .font(.caption.weight(.medium))
+                    }
+                    if !ex.details.isEmpty {
+                        Text(ex.details)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                if !ex.details.isEmpty {
-                    Text(ex.details)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-                Text(WatchHomeworkRow.dueText(ex.date))
+                Text(WatchHomeworkRow.dueText(ex.date, lessonIndex: ex.lessonIndex.map { "\($0)" }))
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

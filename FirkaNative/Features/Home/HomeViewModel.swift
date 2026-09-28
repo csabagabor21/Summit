@@ -34,7 +34,7 @@ final class HomeViewModel: ObservableObject {
         return "Jó estét"
     }
 
-    func refresh(kreta: KretaClient, user: AppUser?) async {
+    func refresh(kreta: KretaClient, user: AppUser?, completed: CompletedStore) async {
         // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből
         // (instituteCode "demo") — nincs külön demo-ág.
         guard let user else {
@@ -114,6 +114,19 @@ final class HomeViewModel: ObservableObject {
             if let snap = TimetableWidgetStore.load(), !snap.lessons.isEmpty {
                 WatchSyncSender.pushSnapshot(snap)
             }
+        }
+        // Apple Watch: az aktív feladatok is mennek — különben az óra
+        // Házik/Dolgozatok listája csak a Feladatok tab megnyitására
+        // frissülne. Szűrés a Feladatok tab szabályaival (kész/lejárt ki).
+        // Üresen érkezett mindkét lista → nem nyúlunk az órához (a
+        // NotesView-val azonos óvatosság: az inkább sikertelen lehúzás,
+        // mint valóban üres hét).
+        if !hwR.isEmpty || !exR.isEmpty {
+            let active = WatchSyncSender.activeTasks(
+                homeworks: hwR, custom: custom, exams: exR,
+                lessons: rolloverLessons, completed: completed
+            )
+            WatchSyncSender.pushTasks(homeworks: active.hw, exams: active.ex)
         }
         error = nil
         updateLiveState()

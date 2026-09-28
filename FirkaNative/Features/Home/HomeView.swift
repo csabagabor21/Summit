@@ -234,7 +234,7 @@ struct HomeView: View {
                 // szinkronizálja (függő feltöltés + lehúzás) — különben
                 // a KRÉTA-adat friss, de a másik eszköz/Mac sora marad,
                 // és az egész „seamful" (széteső) érzetű.
-                await vm.refresh(kreta: kreta, user: session.selectedUser)
+                await vm.refresh(kreta: kreta, user: session.selectedUser, completed: completed)
                 await summitSync.flushThenPull()
             }
             .task {
@@ -245,7 +245,7 @@ struct HomeView: View {
                     let m = c.component(.minute, from: Date())
                     previewMinutes = Double(max(420, min(960, h*60+m)))
                 }
-                await vm.refresh(kreta: kreta, user: session.selectedUser)
+                await vm.refresh(kreta: kreta, user: session.selectedUser, completed: completed)
                 await syncLiveActivity()
             }
             // Percenkénti élő sync: az activity különben beragad (óraváltáskor
@@ -275,7 +275,7 @@ struct HomeView: View {
                 vm.messages = vm.messages.map { ids.contains($0.id) ? $0.withRead() : $0 }
             }
             .onChange(of: vm.lessonsToday) { _, _ in Task { await syncLiveActivity() } }
-            .onChange(of: session.selectedId) { _, _ in Task { await vm.refresh(kreta: kreta, user: session.selectedUser); await syncLiveActivity() } }
+            .onChange(of: session.selectedId) { _, _ in Task { await vm.refresh(kreta: kreta, user: session.selectedUser, completed: completed); await syncLiveActivity() } }
             .onChange(of: previewMinutes) { _, _ in
                 if devMode && isPreviewActive { enqueueLiveSync() }
             }

@@ -78,6 +78,9 @@ struct SummitLiveActivityWidget: Widget {
                                 Spacer(minLength: 0)
                             }
                             .font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                            // A nyíl az island bal ívénél vágódott — pár pont
+                            // beljebb húzzuk a sort.
+                            .padding(.leading, 4)
                         }
                     }
                 }
@@ -85,20 +88,12 @@ struct SummitLiveActivityWidget: Widget {
                 Image(systemName: pillSymbol(index: context.state.index, cancelled: context.state.isCancelled))
                     .foregroundStyle(statusTint(context))
             } compactTrailing: {
-                // Terem + ÉLŐ timer: az óra Smart Stack-sora a compact
-                // nézeteket mutatja (rendszer "Summit" fejléc + ez a sor),
-                // ezért itt kell lennie az infónak — nem csak a timernek.
-                // A terem rövid (legfeljebb pár karakter), így az iPhone
-                // pillben is elfér; óráról órára stabil, tehát nem ugrál.
-                HStack(spacing: 4) {
-                    Text(compactRoom(context))
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true)
-                        .font(.caption2.monospacedDigit().weight(.semibold))
-                        .monospacedDigit()
-                }
+                // Csak az ÉLŐ timer: a terem félbevágva ("Urán…") nézett ki
+                // rosszul a pici pillben, és jobbra zsúfolt volt — így balra
+                // a szám, jobbra a visszaszámláló, közte levegő.
+                Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true)
+                    .font(.caption2.monospacedDigit().weight(.semibold))
+                    .monospacedDigit()
             } minimal: {
                 Image(systemName: pillSymbol(index: context.state.index, cancelled: false))
                     .foregroundStyle(accentColor(context))
@@ -118,14 +113,6 @@ struct SummitLiveActivityWidget: Widget {
         if context.state.isCancelled { return Color.red }
         if context.state.isSubstituted { return Color.orange }
         return accentColor(context)
-    }
-
-    /// Terem a compact sorba: óra közben a terem, szünetben a következő
-    /// óráé (ha van). Üres teremnél üres string — ilyenkor csak a timer
-    /// látszik, mint eddig.
-    private func compactRoom(_ context: ActivityViewContext<SummitLiveActivityAttributes>) -> String {
-        if context.state.phase == "break" { return context.state.nextRoom ?? "" }
-        return context.state.room
     }
 
     /// Expanded leading második sora: "N. óra • terem" (szünetben a

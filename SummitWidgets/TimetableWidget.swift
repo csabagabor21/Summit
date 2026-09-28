@@ -172,8 +172,10 @@ private struct TimetableWidgetView: View {
     // MARK: Small — csak a lényeg: státusz színnel, tárgy, idő
     private var smallView: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(headerLine).font(.caption.weight(.medium))
-                .foregroundStyle(.secondary).lineLimit(1)
+            if let h = dayHeader {
+                Text(h).font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary).lineLimit(1)
+            }
             Spacer(minLength: 0)
             if entry.dayLessons.isEmpty {
                 emptyView
@@ -193,8 +195,10 @@ private struct TimetableWidgetView: View {
             }
             Spacer(minLength: 0)
         }
-        // Egyforma belső margó mind a 4 oldalon (mint az Apple widgetek).
-        .padding(14)
+        // Külső margó nincs: iOS 17+ óta a WidgetKit magától teszi a tartalom
+        // köré a szabványos, mind a 4 oldalon egyforma margót (mint az Apple
+        // Időjárás-widgeten) — a kézi padding duplázna, és a lista túl magas
+        // lesz, ezért vágódik le felül.
     }
 
     // MARK: Medium / Large — kompakt editorial lista: visszafogott fejléc,
@@ -202,17 +206,11 @@ private struct TimetableWidgetView: View {
     // accent-hátteret kap — így nem egyforma súlyú minden sor.
     private func listView(maxRows: Int) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .lastTextBaseline) {
-                Text(headerLine).font(.caption2.weight(.bold)).tracking(0.6)
+            if let h = dayHeader {
+                Text(h).font(.caption2.weight(.bold)).tracking(0.6)
                     .foregroundStyle(.secondary).lineLimit(1)
-                Spacer(minLength: 6)
-                if let first = entry.dayLessons.first, let last = entry.dayLessons.last {
-                    Text("\(entry.dayLessons.count) óra • \(first.start.formatted(date: .omitted, time: .shortened))–\(last.end.formatted(date: .omitted, time: .shortened))")
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.tertiary).lineLimit(1)
-                }
+                    .padding(.bottom, 6)
             }
-            .padding(.bottom, 6)
             if entry.dayLessons.isEmpty {
                 emptyView.padding(.top, 4)
             } else {
@@ -238,9 +236,7 @@ private struct TimetableWidgetView: View {
             }
             Spacer(minLength: 0)
         }
-        // Egyforma belső margó mind a 4 oldalon (mint az Apple Időjárás
-        // widget: kiegyensúlyozott, semmi nem tapad az üveg széléhez).
-        .padding(16)
+        // Külső margó nincs (lásd smallView): a rendszer-margó az egyforma.
     }
 
     private func row(_ l: TimetableWidgetStore.Lesson) -> some View {
@@ -271,7 +267,7 @@ private struct TimetableWidgetView: View {
             }
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 5)
+        .padding(.vertical, 4)
         .background {
             if isCurrent(l) {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -302,14 +298,14 @@ private struct TimetableWidgetView: View {
         let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "EEEE"
         return f.string(from: entry.dayDate).capitalized
     }
-    private var headerLine: String {
+    /// Fejléc-nap "ÓRAREND" nélkül: holnap → "HOLNAP", távolabbi nap → a nap
+    /// neve, ma → nil (nincs fejlécsor). Adat nélkül "ÓRAREND".
+    private var dayHeader: String? {
         if !entry.hasSnapshot && entry.dayLessons.isEmpty { return "ÓRAREND" }
         let cal = Calendar.current
-        let prefix: String
-        if cal.isDateInToday(entry.dayDate) { prefix = "MA" }
-        else if cal.isDateInTomorrow(entry.dayDate) { prefix = "HOLNAP" }
-        else { prefix = dayTitle.uppercased() }
-        return "ÓRAREND • \(prefix)"
+        if cal.isDateInToday(entry.dayDate) { return nil }
+        if cal.isDateInTomorrow(entry.dayDate) { return "HOLNAP" }
+        return dayTitle.uppercased()
     }
     private var dayCountLine: String {
         "\(entry.dayLessons.count) óra • \(dayTitle)"
