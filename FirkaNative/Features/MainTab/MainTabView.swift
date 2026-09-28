@@ -53,6 +53,12 @@ struct MainTabView: View {
         // Új jegy ünneplő kártya (diff, értesítés-koppintás vagy demo szimulálás után)
         .fullScreenCover(item: $notif.celebrationGrade) { grade in
             GradeCelebrationView(grade: grade)
+                // Értesítés-koppintás hidegindításkor a cover az első
+                // layout-körben nyílik, amikor az örökölt environment még
+                // nem ért le a prezentált hosting controllerbe (a crash-log
+                // szerint a theme hiányzott) — ezért explicit inject, mint
+                // az AnalyticsConsentView-nál a ContentView-ban.
+                .environmentObject(theme)
         }
         // Halott KRÉTA-munkamenet: a KRÉTA a refresh tokent is elutasította —
         // ilyenkor az adatok már nem frissülnek maguktól, újra be kell lépni.
