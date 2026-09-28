@@ -142,7 +142,7 @@ private struct WatchSubjectDetailView: View {
                                 .foregroundStyle(colors.gradeColor(for: g.value))
                                 .frame(width: 28, height: 28)
                                 .background {
-                                    Circle().fill(Color.clear).glassEffect(.clear, in: .circle)
+                                    Circle().fill(Color.clear).watchClearGlassCircle()
                                 }
                                 .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1))
                             VStack(alignment: .leading, spacing: 1) {
@@ -186,7 +186,7 @@ private struct WatchGradeCircle: View {
             .background {
                 Circle()
                     .fill(Color.clear)
-                    .glassEffect(.clear, in: .circle)
+                    .watchClearGlassCircle()
             }
             .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1))
     }

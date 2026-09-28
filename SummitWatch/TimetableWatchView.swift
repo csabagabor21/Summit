@@ -223,10 +223,7 @@ private struct WatchLessonRow: View {
                 .background {
                     Circle()
                         .fill(Color.clear)
-                        .glassEffect(
-                            .regular.tint((ringTint ?? .white).opacity(isCurrent ? 0.18 : 0.08)).interactive(),
-                            in: .circle
-                        )
+                        .watchTintedGlassCircle(tint: (ringTint ?? .white).opacity(isCurrent ? 0.18 : 0.08))
                 }
                 .padding(.top, 2)
 

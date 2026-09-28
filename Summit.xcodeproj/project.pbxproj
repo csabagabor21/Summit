@@ -49,6 +49,7 @@
 		58098CCBB8D9D3DB1C5A6596 /* AnalyticsConsentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E0E94310269FCFFF2F115AC /* AnalyticsConsentView.swift */; };
 		595775BF1AE585D948E4CA9B /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC0B40D99CA71E14A82E1AF /* AuthViewModel.swift */; };
 		59D0B237EE99E92BF971A0E7 /* TimetableWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F58C017E930EDD41FA3F852 /* TimetableWidget.swift */; };
+		5A78E3853CEEDF8FC84A226A /* WatchGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = A942DFEBC3847AC7E6660452 /* WatchGlass.swift */; };
 		5C24A893E84C2752AE05C4C9 /* SummitLiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 952A77C87AE801894AD9FA0F /* SummitLiveActivityManager.swift */; };
 		5F20AD0975C509783B0C6515 /* KretaClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 749530AC3E1096307CE8ED24 /* KretaClient.swift */; };
 		616093231CBFBBE90164AAA2 /* CompletedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 092823FDC89EDC54BE31739D /* CompletedStore.swift */; };
@@ -239,6 +240,7 @@
 		A84585AABBDBE7320433B315 /* TimetableWidgetLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableWidgetLogic.swift; sourceTree = "<group>"; };
 		A861E0155EDA827AA2285902 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
 		A90965AE210BE420CCD2F989 /* WatchNowWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchNowWidget.swift; sourceTree = "<group>"; };
+		A942DFEBC3847AC7E6660452 /* WatchGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchGlass.swift; sourceTree = "<group>"; };
 		AA71684B6DF0CFB5982A110F /* SchoolEventsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchoolEventsSection.swift; sourceTree = "<group>"; };
 		AFD363A0F8F101E59655A0B4 /* GradesWatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradesWatchView.swift; sourceTree = "<group>"; };
 		B148C2CB66ADC6FEBA6C1694 /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
@@ -369,6 +371,7 @@
 				64D00B43D3C4A6D54B036246 /* TasksWatchView.swift */,
 				45F417D93F92F1726B4C13A4 /* TimetableWatchView.swift */,
 				F680942F0CC6A6002F0C67D4 /* WatchAppIcon.icon */,
+				A942DFEBC3847AC7E6660452 /* WatchGlass.swift */,
 				78F66BBD733EBA04C7CB0856 /* WatchSyncStore.swift */,
 			);
 			path = SummitWatch;
@@ -787,6 +790,7 @@
 				CD44E1C674E1CC83E6804A2B /* TasksWatchView.swift in Sources */,
 				A32B70E7BA662076E86EF78E /* TimetableWatchView.swift in Sources */,
 				41298A0ADDBE2FADDA0E09E8 /* TimetableWidgetSnapshot.swift in Sources */,
+				5A78E3853CEEDF8FC84A226A /* WatchGlass.swift in Sources */,
 				00510505FE37B8B54818307E /* WatchPayload.swift in Sources */,
 				E9854B23F285356AEC2118E4 /* WatchSyncStore.swift in Sources */,
 			);
@@ -922,7 +926,7 @@
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Release;
 		};
@@ -947,7 +951,7 @@
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Release;
 		};
@@ -1065,7 +1069,7 @@
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Debug;
 		};
@@ -1090,7 +1094,7 @@
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Debug;
 		};
