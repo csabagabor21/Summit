@@ -162,6 +162,39 @@ targets:
           # Automatic módban nincs szükség aláírás-kikapcsolásra
           # (development-identitás, mint a fő appnál).
           CODE_SIGN_ENTITLEMENTS: SummitWidgets.entitlements
+  SummitWatchWidgets:
+    type: app-extension
+    platform: watchOS
+    deploymentTarget: "26.0"
+    info:
+      path: SummitWatchWidgets/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    sources:
+      - SummitWatchWidgets
+      # Shared fájlok framework nélkül — az óra app-pal közösen fordítva
+      # (minta: TimetableWidgetStore az iOS widgetnél).
+      - path: FirkaNative/Core/Storage/TimetableWidgetSnapshot.swift
+      - path: FirkaNative/Core/Storage/TimetableWidgetLogic.swift
+      - path: FirkaNative/Core/Watch/WatchPayload.swift
+      - path: FirkaNative/Core/Models/KretaModels.swift
+    settings:
+      base:
+        SWIFT_VERSION: "5.0"
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "10"
+        # Az extension bundle ID-nak az óra app ID-jával kell kezdődnie
+        # (mint iOS-en: a widget a fő app prefixét viseli).
+        PRODUCT_BUNDLE_IDENTIFIER: hu.flint.watchapp.Widgets
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+        DEVELOPMENT_TEAM: 38DAVMRN66
+        PROVISIONING_PROFILE_SPECIFIER: ""
+        GENERATE_INFOPLIST_FILE: YES
+        WATCHOS_DEPLOYMENT_TARGET: "26.0"
+        INFOPLIST_KEY_CFBundleDisplayName: "Summit Most"
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
   SummitWatch:
     type: application
     platform: watchOS
@@ -177,6 +210,9 @@ targets:
       - path: FirkaNative/Core/Models/GradingLogic.swift
       - path: FirkaNative/Core/Models/KretaModels.swift
       - path: FirkaNative/Core/Theme/AppColors.swift
+    dependencies:
+      # Smart Stack widget beágyazás ("Embed App Extensions").
+      - target: SummitWatchWidgets
     settings:
       base:
         SWIFT_VERSION: "5.0"

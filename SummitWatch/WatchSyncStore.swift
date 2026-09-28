@@ -125,6 +125,14 @@ extension WatchSyncStore: WCSessionDelegate {
         // Az előnézetet akkor is átírjuk, ha snapshot nem változott
         // (pl. csak a csúszkát mozgatták, vagy kikapcsolták) — különben
         // az óra beragadna az eltolt időbe.
+        // A Smart Stack widget (külön extension) is ebből olvas — az app-pal
+        // közös UserDefaults-ban él, külön App Group nem kell watchOS-en.
+        // Kulcs: WatchWidgetCache.previewNow ("watch.cache.previewNow.v1").
+        if let p = newPreview {
+            UserDefaults.standard.set(p.timeIntervalSince1970, forKey: "watch.cache.previewNow.v1")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "watch.cache.previewNow.v1")
+        }
         let previewChanged = newPreview != previewNow
         guard changed || previewChanged else { return }
         DispatchQueue.main.async {
