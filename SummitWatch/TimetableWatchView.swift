@@ -109,26 +109,26 @@ struct TimetableWatchView: View {
     private func remainingText(of lesson: TimetableWidgetStore.Lesson, now: Date) -> String {
         let rem = Int(ceil(lesson.end.timeIntervalSince(now) / 60))
         if rem <= 0 { return "Vége" }
-        return "\(rem) p"
+        return "\(rem) perc van hátra"
     }
 
-    // Üvegkapszulás napléptető az óra sávjában ("‹ Ma ›" pill).
-    // A kapszula a tartalomra simul, a maxWidth-frame pedig balra
-    // rögzíti — így a rendszeróra (jobb oldal) felé mindig marad lélegző
-    // hely. A hétköznap rövid (3 betűs), hogy sose érjen az órába.
+    // Kompakt státuszsáv-léptető: a rendszeróra csak a jobb oldalt
+    // foglalja, ezért a napválasztó balra fent, az óra sávjában ül
+    // ("‹ Ma ›" stílus). A hétköznap rövid (3 betűs), hogy sose lógjon
+    // bele az órába — a sor max ~110 pt széles.
     @ViewBuilder
     private func dayPager(days: [Date], now: Date) -> some View {
         let cal = Calendar.current
         let day = selectedDay ?? cal.startOfDay(for: now)
         let idx = days.firstIndex(of: day)
-        HStack(spacing: 6) {
+        HStack(spacing: 3) {
             Button {
                 if let i = idx, i > 0 { selectedDay = days[i - 1] }
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(idx == nil || idx == 0 ? .tertiary : .primary)
-                    .frame(width: 22, height: 28)
+                    .frame(width: 26, height: 26)
             }
             .buttonStyle(.plain)
             .disabled(idx == nil || idx == 0)
@@ -149,29 +149,23 @@ struct TimetableWatchView: View {
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(idx == nil || idx == days.count - 1 ? .tertiary : .primary)
-                    .frame(width: 22, height: 28)
+                    .frame(width: 26, height: 26)
             }
             .buttonStyle(.plain)
             .disabled(idx == nil || idx == days.count - 1)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .watchGlassPill()
-        // A lista az óra sávja alá is benyúlik (ignoresSafeArea) —
-        // görgetéskor a sorok a pill ALÁ csúsznak, nem fölé.
-        .zIndex(1)
-        .frame(maxWidth: 132, alignment: .leading)
+        .frame(maxWidth: 140, alignment: .leading)
         // A TabView-oldalnak fix belső térköze van (S9 45 mm-en kimérve:
         // fent ~35 pt, balra ~7 pt) — ezt csak negatív padding egyenlíti
-        // ki, hogy a pill az óra sávjába kerüljön, egy vonalba az idővel.
+        // ki, hogy a sor az óra sávjába kerüljön, egy vonalba az idővel.
         // Képernyőképpel belőve S9 45 mm-en (cél: szöveg ~39px-nél,
         // egy vonalban az órával) — ne piszkáld.
         // A leading padding itt hatástalan (a maxWidth-frame rögzíti a
         // sort), ezért a bal sarokba offset visz: chevron ~48px-ről
         // ~14px-re. Csak render-eltolás, a lista nem mozdul.
         .padding(.leading, -7)
-        .padding(.top, 16)
-        .padding(.bottom, 10)
+        .padding(.top, 12)
+        .padding(.bottom, 2)
         .offset(x: -17)
     }
 
@@ -202,7 +196,6 @@ private struct WatchLessonRow: View {
     @Environment(\.colorScheme) var scheme
 
     private var ringTint: Color? {
-        if lesson.isExempted { return .green }
         if lesson.isCancelled { return .red }
         if lesson.isSubstituted { return .orange }
         if isCurrent { return .blue }
@@ -216,24 +209,8 @@ private struct WatchLessonRow: View {
         if lesson.isSubstituted { return .orange }
         return .blue
     }
-    /// A sor üvegkártyájának tintje — a telefon rowBackground-jának
-    /// üveg-megfelelője: felmentett zöld, elmarad piros, helyettesítés
-    /// narancs, aktuális kék, egyébként semleges.
-    private var cardTint: Color {
-        if lesson.isExempted { return .green.opacity(0.16) }
-        if lesson.isCancelled { return .red.opacity(0.16) }
-        if lesson.isSubstituted { return .orange.opacity(0.16) }
-        if isCurrent { return .blue.opacity(0.16) }
-        return .white.opacity(0.10)
-    }
-    private var badgeLabel: String? {
-        if lesson.isExempted { return "Felmentett" }
-        return lesson.isCancelled ? "Elmarad" : (lesson.isSubstituted ? "Helyettesítés" : nil)
-    }
-    private var badgeColor: Color {
-        if lesson.isExempted { return .green }
-        return lesson.isCancelled ? .red : .orange
-    }
+    private var badgeLabel: String? { lesson.isCancelled ? "Elmarad" : (lesson.isSubstituted ? "Helyettesítés" : nil) }
+    private var badgeColor: Color { lesson.isCancelled ? .red : .orange }
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -261,16 +238,19 @@ private struct WatchLessonRow: View {
                 }
                 Text(lesson.subject)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundStyle(lesson.isCancelled || lesson.isExempted ? .secondary : .primary)
-                    .strikethrough(lesson.isCancelled || lesson.isExempted, color: .secondary)
+                    .foregroundStyle(lesson.isCancelled ? .secondary : .primary)
+                    .strikethrough(lesson.isCancelled, color: .secondary)
                     .lineLimit(2)
                 HStack(spacing: 4) {
                     if !lesson.room.isEmpty {
                         Text(lesson.room)
                             .font(.caption2.weight(.bold).monospacedDigit())
-                            .foregroundStyle(accent)
+                            .foregroundStyle(.secondary)
                             .padding(.horizontal, 5).padding(.vertical, 2)
-                            .watchGlassCube(tint: accent.opacity(0.16))
+                            .background(
+                                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                    .fill(Color.primary.opacity(0.08))
+                            )
                             .lineLimit(1)
                             .fixedSize(horizontal: true, vertical: false)
                     }
@@ -280,19 +260,16 @@ private struct WatchLessonRow: View {
                         .lineLimit(1)
                 }
                 if isCurrent {
-                    HStack(spacing: 6) {
+                    VStack(alignment: .leading, spacing: 2) {
                         ProgressView(value: progress)
                             .tint(progressTint)
                         Text(remainingText)
-                            .font(.caption2.weight(.semibold).monospacedDigit())
+                            .font(.caption2.monospacedDigit())
                             .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: true, vertical: false)
                     }
                     .padding(.top, 1)
                 }
             }
-            .padding(8)
-            .watchGlassCard(tint: cardTint)
         }
         .padding(.vertical, 3)
     }

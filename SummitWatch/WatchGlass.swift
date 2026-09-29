@@ -27,39 +27,6 @@ extension View {
             self.background { WatchLegacyDisc(tint: .white.opacity(0.10)) }
         }
     }
-
-    /// Üvegkapszula (pl. a napléptető "‹ Ma ›" pillje): a tartalomra
-    /// simul, nem nyúlik — ezért a hívó tegye maxWidth-frame-be.
-    @ViewBuilder
-    func watchGlassPill(tint: Color = .white.opacity(0.12)) -> some View {
-        if #available(watchOS 26, *) {
-            self.glassEffect(.regular.tint(tint).interactive(), in: .capsule)
-        } else {
-            self.background { WatchLegacyPill(tint: tint) }
-        }
-    }
-
-    /// Üvegkártya (pl. az órarend-sorok háttere a telefon mintájára):
-    /// lekerekített téglalap-üveg, státusz-tinttel színezve.
-    @ViewBuilder
-    func watchGlassCard(tint: Color = .white.opacity(0.10), cornerRadius: CGFloat = 14) -> some View {
-        if #available(watchOS 26, *) {
-            self.glassEffect(.regular.tint(tint).interactive(), in: .rect(cornerRadius: cornerRadius))
-        } else {
-            self.background { WatchLegacyCard(tint: tint, cornerRadius: cornerRadius) }
-        }
-    }
-
-    /// Üvegkocka (pl. a teremnév kis kockája): ugyanaz az üveg, kisebb
-    /// rádiusszal — a tinta jellemzően a kiemelőszín.
-    @ViewBuilder
-    func watchGlassCube(tint: Color = .white.opacity(0.12), cornerRadius: CGFloat = 6) -> some View {
-        if #available(watchOS 26, *) {
-            self.glassEffect(.regular.tint(tint).interactive(), in: .rect(cornerRadius: cornerRadius))
-        } else {
-            self.background { WatchLegacyCard(tint: tint, cornerRadius: cornerRadius) }
-        }
-    }
 }
 
 private struct WatchLegacyDisc: View {
@@ -69,29 +36,6 @@ private struct WatchLegacyDisc: View {
 
     var body: some View {
         Circle()
-            .fill(reduceTransparency || contrast == .increased ? tint.opacity(0.9) : tint)
-    }
-}
-
-private struct WatchLegacyPill: View {
-    let tint: Color
-    @Environment(\.accessibilityReduceTransparency) var reduceTransparency
-    @Environment(\.colorSchemeContrast) var contrast
-
-    var body: some View {
-        Capsule()
-            .fill(reduceTransparency || contrast == .increased ? tint.opacity(0.9) : tint)
-    }
-}
-
-private struct WatchLegacyCard: View {
-    let tint: Color
-    let cornerRadius: CGFloat
-    @Environment(\.accessibilityReduceTransparency) var reduceTransparency
-    @Environment(\.colorSchemeContrast) var contrast
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .fill(reduceTransparency || contrast == .increased ? tint.opacity(0.9) : tint)
     }
 }
