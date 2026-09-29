@@ -66,12 +66,7 @@ enum CheatStore {
         s.topics = s.topics.map {
             var t = $0
             t.title = String(t.title.prefix(maxTitleChars))
-            t.subtopics = t.subtopics.map {
-                var st = $0
-                st.title = String(st.title.prefix(maxTitleChars))
-                st.body = String(st.body.prefix(maxBodyChars))
-                return st
-            }
+            t.body = String(t.body.prefix(maxBodyChars))
             return t
         }
         return s

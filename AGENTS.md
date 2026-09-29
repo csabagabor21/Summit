@@ -7,7 +7,7 @@ Minden módosítás / user prompt után KÖTELEZŐ:
 3. `git push origin` (GitHub).
 
 Nincs kivétel: egy soros fix, UI-csiszolás, komment-átírás után is commit + push.
-Ne várj a userre, ne gyűjtögess több promptot egy commitba — egy feladat = egy commit.
+Ne várj a userre, ne gyűjtögess több promptot egy commitba — egy feladat = egy commit. ez azért kell, hogyha a következő promt kinyír valamit, azonnal vissza tudjuk csinálni. Nem kell megvárni az engedélyt mivel ezzel rosszat nem tudsz tenni.
 A commit előtt `xcodebuild ... build` sikerrel kell futhasson (Simulator, Debug).
 
 ## Környezet

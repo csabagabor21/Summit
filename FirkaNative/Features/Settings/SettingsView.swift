@@ -29,6 +29,9 @@ struct SettingsView: View {
     @State private var showDevAlert = false
     @State private var draftIss = ""
     @State private var draftSchoolName = ""
+    @State private var draftMetaAIKey = ""
+    @State private var metaAIKeyEdited = false
+    @State private var metaAIKeyMsg = ""
     @State private var repairMsg = ""
     @State private var repairRunning = false
     @State private var summitSyncPassphrase = ""
@@ -296,6 +299,56 @@ struct SettingsView: View {
                                 .font(.caption2).foregroundStyle(.tertiary)
                         }
                     }
+                }
+                // Meta AI-kulcs: ugyanaz a tár, mint a Watch-tab tetején —
+                // a mentés szinkronértesítést postol, így a Summit-sync
+                // automatikusan átviszi a többi eszközre.
+                summitDivider
+                summitRow {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Meta AI-kulcs").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        HStack {
+                            SecureField("Meta API-kulcs", text: $draftMetaAIKey)
+                                .font(.subheadline.monospaced())
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .summitInput()
+                                .onChange(of: draftMetaAIKey) { _, _ in
+                                    metaAIKeyEdited = true
+                                    metaAIKeyMsg = ""
+                                }
+                            Button("Mentés") {
+                                MetaAIKeyStore.save(draftMetaAIKey)
+                                metaAIKeyEdited = false
+                                metaAIKeyMsg = "Mentve — átmegy a többi eszközödre."
+                            }
+                            .font(.subheadline.weight(.bold))
+                            .disabled(draftMetaAIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+                        if MetaAIKeyStore.hasKey {
+                            HStack {
+                                Text("Megadva — a jegyzetgenerálás működik.")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                                Spacer()
+                                Button("Törlés", role: .destructive) {
+                                    MetaAIKeyStore.clear()
+                                    draftMetaAIKey = ""
+                                    metaAIKeyEdited = false
+                                    metaAIKeyMsg = "Törölve."
+                                }
+                                .font(.caption.weight(.bold))
+                            }
+                        }
+                        if !metaAIKeyMsg.isEmpty {
+                            Text(metaAIKeyMsg).font(.caption2).foregroundStyle(.secondary)
+                        }
+                        Text("A kulcs a Summit-szinkronnal átmegy a többi eszközödre, az órára sosem kerül át.")
+                            .font(.caption2).foregroundStyle(.tertiary)
+                    }
+                }
+                .onAppear { if !metaAIKeyEdited { draftMetaAIKey = MetaAIKeyStore.apiKey } }
+                .onReceive(NotificationCenter.default.publisher(for: MetaAIKeyStore.changedNotification)) { _ in
+                    if !metaAIKeyEdited { draftMetaAIKey = MetaAIKeyStore.apiKey }
                 }
             }
 

@@ -1,5 +1,17 @@
 # Summit release notes
 
+## Build 18
+- New Apple Watch Smart Stack widget ("Most"): the current lesson with live progress and remaining time, the next one during breaks, the first one in the morning — plus the day's homework/exam line, all in Hungarian.
+- The watch app now runs on older watches too (watchOS 10, Series 4 and up), and widgets keep showing the last known data instead of going blank.
+- New study notes: the Watch tab turns your material into per-topic notes with Meta AI (or write your own) — synced to all your devices and readable on the watch's Notes tab, mapped to your exams. The Meta API key lives in Settings, syncs across your devices, and never goes to the watch.
+- Notes got simpler: one topic is one note (title + text), topics edit in place, and existing two-level notes migrate automatically.
+- The watch timetable now mirrors the phone: green "Felmentett" badge for exempted subjects, smaller status badges, remaining time squeezed next to the progress bar ("35p"), room names in an accent-tinted glass cube, and the day's school events as cards above the lessons.
+- Exempted subjects and same-day homework/exams travel to the watch and widgets too, with the phone's green/grey status colors.
+- Watch deadlines speak in lessons ("Ma 3. óra") instead of misleading midnight times, task rows expand on tap, and pulling the home screen also pushes tasks to the watch.
+- The home screen always shows the "all exams/tasks" links, and the Dynamic Island timer no longer stretches the pill.
+- Fixed a crash when tapping a notification onto the new-grade celebration card.
+- The Watch tab only shows up if you have a paired Apple Watch — otherwise the tab bar stays clean.
+
 ## Build 17
 - Empty timetable days now say what KRÉTA says: "Tanítás nélküli munkanap (Nem órarendi nap) (Hétfő)" and friends, instead of a generic day-off text.
 - Projected exams finally leave the Exams tab when their lesson is over — even on unnumbered days or when every lesson of the day has ended.

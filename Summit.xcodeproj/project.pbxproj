@@ -92,6 +92,7 @@
 		B0EB4E218DC7D25C3912A300 /* SummitWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 34FE667EA4BEEE2B005C5760 /* SummitWatch.app */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		B34A7A1A7FCB666B1074DB04 /* SummitWatchWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7BF97DEC4000E0E3CD29F610 /* SummitWatchWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BB5A01A3BE5D222361C468C8 /* WatchSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48DF42DD023A4B522459E31A /* WatchSync.swift */; };
+		E7F14683FCA24C4E935FE297 /* WatchAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F2FE5E82B334BE396C2601D /* WatchAvailability.swift */; };
 		BDFD31F2A263320EC8B6D2F2 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58236DD34EB1ADABB1A9F254 /* SessionStore.swift */; };
 		BFD4B5425FC95BBEC6575868 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE74420CE9DA6A0EA10197C /* MainTabView.swift */; };
 		C0193DFFC067EF63923C0A7E /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBFE1FE503B9522FABFD9105 /* NotificationManager.swift */; };
@@ -210,6 +211,7 @@
 		447C41908D13C10B28E4707B /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
 		45F417D93F92F1726B4C13A4 /* TimetableWatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableWatchView.swift; sourceTree = "<group>"; };
 		48DF42DD023A4B522459E31A /* WatchSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSync.swift; sourceTree = "<group>"; };
+		7F2FE5E82B334BE396C2601D /* WatchAvailability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAvailability.swift; sourceTree = "<group>"; };
 		496420BF202DA6E01F09EA1D /* ProfileImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileImageView.swift; sourceTree = "<group>"; };
 		4B927208857FCA38A9068DD6 /* AttachmentViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentViewer.swift; sourceTree = "<group>"; };
 		4C2A1E29F6A708D112C24AF6 /* CheatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheatView.swift; sourceTree = "<group>"; };
@@ -565,6 +567,7 @@
 			children = (
 				F46888F9B5AABCFE8AF91CF4 /* WatchPayload.swift */,
 				48DF42DD023A4B522459E31A /* WatchSync.swift */,
+				7F2FE5E82B334BE396C2601D /* WatchAvailability.swift */,
 			);
 			path = Watch;
 			sourceTree = "<group>";
@@ -901,6 +904,7 @@
 				FFA61B0FDD4305EDABC7DE2A /* User.swift in Sources */,
 				3270693F8DAAA3900DE3F801 /* WatchPayload.swift in Sources */,
 				BB5A01A3BE5D222361C468C8 /* WatchSync.swift in Sources */,
+				E7F14683FCA24C4E935FE297 /* WatchAvailability.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,10 +1,10 @@
 import Foundation
 
 // MARK: - Meta AI kulcstár
-// A kulcs csak ezen az eszközön él (UserDefaults) — belépési adathoz
-// hasonlóan a SummitSync-be SOHA nem kerül, az órára sem megy át.
-// A user később kapja meg a kulcsot: addig a jegyzetek kézzel is
-// felvehetők, a generálás a kulcs megadásakor élesedik.
+// A kulcs UserDefaults-ban él, és a SummitSync `metaAIKey` mezőjében
+// átmegy a többi eszközre (az órára sosem kerül át). A user később
+// kapja meg a kulcsot: addig a jegyzetek kézzel is felvehetők,
+// a generálás a kulcs megadásakor élesedik.
 enum MetaAIKeyStore {
     static let key = "summit.metaAIKey.v1"
     static let changedNotification = Notification.Name("summit.metaAIKeyChanged")
@@ -21,14 +21,15 @@ enum MetaAIKeyStore {
     static func clear() { save("") }
 }
 
-// MARK: - Meta AI kliens (Llama API, OpenAI-kompatibilis)
-// A feltöltött anyagok szövegéből csinál témánkénti jegyzetvázlatot:
-// téma → altémák rövid, tanulható törzsekkel. A válasz JSON, amit a
+// MARK: - Meta AI kliens (Meta Model API, OpenAI-kompatibilis)
+// A feltöltött anyagok szövegéből csinál témánkénti jegyzetet:
+// minden téma egy cím + szöveges bejegyzés. A válasz JSON, amit a
 // kliens CheatTopic-fává alakít; a user a lapon utólag szerkesztheti.
 enum MetaAIClient {
-    /// OpenAI-kompatibilis végpont a Llama API-n.
-    static let endpoint = URL(string: "https://api.llama.com/compat/v1/chat/completions")!
-    static let model = "Llama-4-Maverick-17B-128E-Instruct-FP8"
+    /// Meta Model API, OpenAI-kompatibilis chat-végpont.
+    /// MINDIG a contributor-tier: muse-spark-1.3-contributor.
+    static let endpoint = URL(string: "https://api.meta.ai/v1/chat/completions")!
+    static let model = "muse-spark-1.3-contributor"
 
     enum AIError: LocalizedError {
         case noKey
@@ -58,12 +59,19 @@ enum MetaAIClient {
         let clipped = String(corpus.prefix(24_000))
         let prompt = """
         Tantárgy: \(subject). Témakör: \(title).
-        Az alábbi tananyagból készíts tömör, tanulható jegyzetvázlatot magyarul.
-        Bontsd 3-8 témára, minden témán belül 2-6 altémára (pl. életrajz, fő művek, elemzés).
-        Minden altémához írj 2-6 mondatos lényegre törő összefoglalót.
-        Csak az anyagban szereplő tényeket használd, ne találj ki semmit.
+        Az alábbi tananyagból készíts tanulható jegyzetet magyarul.
+        Bontsd 3-8 témára (pl. életrajz, fő művek, elemzés).
+        TARTALOM: semmit ne hagyj ki — ami az anyagban benne van, az
+        mind kerüljön bele, annyira szóról szóra, amennyire csak lehet.
+        Ne rövidíts, ne foglalj össze, ne hagyj el részleteket. A te dolgod
+        CSAK a tagolás: a teljes szöveget tedd áttekinthető, tanulható formába.
+        FORMÁZÁS (kötelező, Markdown): a body SOHA nem lehet egybefüggő
+        szövegtömb — tagold bekezdésekre, és MINDEN bekezdés, cím és lista
+        között pontosan egy üres sor legyen. Használj ### alcímeket
+        és - felsorolást, ahol illik. Ne találj ki semmit, csak az anyagban
+        szereplő tényeket használd.
         Válaszolj KIZÁRÓLAG érvényes JSON-nal, semmi mással:
-        {"topics":[{"title":"...","subtopics":[{"title":"...","body":"..."}]}]}
+        {"topics":[{"title":"...","body":"..."}]}
 
         TANANYAG:
         \(clipped)
@@ -98,8 +106,7 @@ enum MetaAIClient {
 
     // MARK: - Válaszfejtés
 
-    struct WireSub: Decodable { var title: String; var body: String }
-    struct WireTopic: Decodable { var title: String; var subtopics: [WireSub] }
+    struct WireTopic: Decodable { var title: String; var body: String }
     struct WireRoot: Decodable { var topics: [WireTopic] }
     struct WireChoiceMsg: Decodable { var content: String? }
     struct WireChoice: Decodable { var message: WireChoiceMsg? }
@@ -114,11 +121,7 @@ enum MetaAIClient {
         guard let jdata = json.data(using: .utf8),
               let root = try? JSONDecoder().decode(WireRoot.self, from: jdata),
               !root.topics.isEmpty else { return nil }
-        return root.topics.map { t in
-            CheatTopic(title: t.title, subtopics: t.subtopics.map {
-                CheatSubtopic(title: $0.title, body: $0.body)
-            })
-        }
+        return root.topics.map { CheatTopic(title: $0.title, body: $0.body) }
     }
 
     static func stripFences(_ s: String) -> String {

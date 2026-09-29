@@ -24,6 +24,8 @@ struct MainTabView: View {
     @Environment(\.colorScheme) var scheme
     @State private var selected: Int = ProcessInfo.processInfo.arguments.contains("-FIRKA_ABSENCES") ? 4 : 0
     @ObservedObject private var notif = NotificationManager.shared
+    @ObservedObject private var watchAvailability = WatchAvailability.shared
+    @Environment(\.scenePhase) private var scenePhase
     private let switchToTasks = Notification.Name("summit.switchToTasks")
     private let switchToTimetable = Notification.Name("summit.switchToTimetable")
     private let switchToGrades = Notification.Name("summit.switchToGrades")
@@ -42,7 +44,20 @@ struct MainTabView: View {
         // NINCS withAnimation(.spring) — a rendszer Liquid Glass morphja animál.
         // Custom spring felülírná a natív görbét és "cooked"-nak hat.
         .onReceive(NotificationCenter.default.publisher(for: switchToTasks)) { _ in
-            selected = 3
+            #if targetEnvironment(macCatalyst)
+            selected = 5
+            #else
+            if watchAvailability.hasWatch { selected = 3 }
+            #endif
+        }
+        // Óra nélkül nincs Watch tab: ha épp azon álltál párosítás
+        // törlésekor, vissza a Főoldalra (különben üres lapon ragadnál).
+        .onChange(of: watchAvailability.hasWatch) { _, has in
+            if !has, selected == 3 { selected = 0 }
+        }
+        .onAppear { watchAvailability.refresh() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { watchAvailability.refresh() }
         }
         .onReceive(NotificationCenter.default.publisher(for: switchToTimetable)) { _ in
             selected = 2
@@ -91,12 +106,22 @@ struct MainTabView: View {
             Tab("Órarend", systemImage: "calendar", value: 2) {
                 TimetableView()
             }
-            Tab("Watch", systemImage: "applewatch", value: 3) {
-                CheatView()
-            }
             Tab("Hiányzások", systemImage: "person.crop.rectangle.stack", value: 4) {
                 AbsencesView()
             }
+            // Párosított óra nélkül nincs Watch tab a dockban/sidebarban.
+            if watchAvailability.hasWatch {
+                Tab("Watch", systemImage: "applewatch", value: 3) {
+                    CheatView()
+                }
+            }
+            #if targetEnvironment(macCatalyst)
+            // Macen van hely bőven: a Feladatok külön sidebar-elemet kap
+            // (iPhone-on a Főoldal- és Watch-tab linkjei visznek oda).
+            Tab("Feladatok", systemImage: "checklist", value: 5) {
+                NotesView()
+            }
+            #endif
         }
         .tabViewStyle(.sidebarAdaptable)
         // Ne tegyél ide .toolbarBackground vagy .glassEffect-et:
@@ -110,8 +135,10 @@ struct MainTabView: View {
             HomeView().tabItem { Label("Főoldal", systemImage: "house.fill") }.tag(0)
             GradesView().tabItem { Label("Jegyek", systemImage: "star.fill") }.tag(1)
             TimetableView().tabItem { Label("Órarend", systemImage: "calendar") }.tag(2)
-            CheatView().tabItem { Label("Watch", systemImage: "applewatch") }.tag(3)
             AbsencesView().tabItem { Label("Hiányzások", systemImage: "person.crop.rectangle.stack") }.tag(4)
+            if watchAvailability.hasWatch {
+                CheatView().tabItem { Label("Watch", systemImage: "applewatch") }.tag(3)
+            }
         }
     }
 }

@@ -4,8 +4,10 @@ import PDFKit
 
 // MARK: - Jegyzetlap részletező — anyagok + témánkénti jegyzetek
 // Több anyag tölthető fel (txt/md/pdf); a "Jegyzet készítése" a
-// Meta AI-kulccsal csinál belőlük témákra + altémákra bontott vázlatot.
-// Minden kézzel is szerkeszthető — kulcs nélkül is teljes értékű.
+// Meta AI-kulccsal csinál belőlük témánkénti jegyzeteket. Egy téma
+// egy jegyzet (cím + szöveg) — nincs mélyebb szint: koppintásra
+// egyből a szöveg nyílik, ott szerkeszthető is. Kulcs nélkül is
+// teljes értékű kézi jegyzetként.
 struct CheatSheetView: View {
     @EnvironmentObject var theme: ThemeStore
     let sheetID: String
@@ -18,6 +20,7 @@ struct CheatSheetView: View {
     @State private var genError: String?
     @State private var showingAddTopic = false
     @State private var newTopicTitle = ""
+    @State private var editingTopic: CheatTopic?
     @Environment(\.colorScheme) var scheme
     var colors: AppColors { theme.colors(for: scheme) }
 
@@ -93,14 +96,21 @@ struct CheatSheetView: View {
                     if !s.topics.isEmpty {
                         Section {
                             ForEach(s.topics) { t in
-                                NavigationLink {
-                                    CheatTopicView(sheetID: s.id, topicID: t.id)
-                                } label: {
-                                    VStack(alignment: .leading, spacing: 2) {
+                                Button { editingTopic = t } label: {
+                                    VStack(alignment: .leading, spacing: 3) {
                                         Text(t.title)
                                             .font(.subheadline.weight(.semibold))
-                                        Text("\(t.subtopics.count) altéma")
-                                            .font(.caption).foregroundStyle(.secondary)
+                                            .foregroundStyle(.primary)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                        if t.body.isEmpty {
+                                            Text("(üres — koppints a szerkesztéshez)")
+                                                .font(.caption).foregroundStyle(.tertiary)
+                                        } else {
+                                            Text(t.body)
+                                                .font(.callout).foregroundStyle(.secondary)
+                                                .lineLimit(4)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                        }
                                     }
                                     .padding(.vertical, 2)
                                 }
@@ -121,16 +131,27 @@ struct CheatSheetView: View {
                     handleImport(result, into: s)
                 }
                 .alert("Új téma", isPresented: $showingAddTopic) {
-                    TextField("Téma címe", text: $newTopicTitle)
+                    TextField("Téma címe (pl. Életrajza)", text: $newTopicTitle)
                     Button("Hozzáadás") {
                         let t = newTopicTitle.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !t.isEmpty else { return }
                         var c = s
-                        c.topics.append(CheatTopic(title: t))
+                        let nt = CheatTopic(title: t)
+                        c.topics.append(nt)
                         newTopicTitle = ""
                         persist(c)
+                        editingTopic = nt
                     }
                     Button("Mégse", role: .cancel) { newTopicTitle = "" }
+                }
+                .sheet(item: $editingTopic) { t in
+                    TopicEditView(title: t.title, noteBody: t.body) { nt, nb in
+                        guard var c = CheatStore.load().first(where: { $0.id == s.id }),
+                              let ti = c.topics.firstIndex(where: { $0.id == t.id }) else { return }
+                        c.topics[ti].title = nt
+                        c.topics[ti].body = nb
+                        persist(c)
+                    }
                 }
             } else {
                 ContentUnavailableView("A lapot törölték", systemImage: "trash")
@@ -206,98 +227,8 @@ struct CheatSheetView: View {
     }
 }
 
-// MARK: - Téma — altémák listája + szerkesztés
-private struct CheatTopicView: View {
-    @EnvironmentObject var theme: ThemeStore
-    let sheetID: String
-    let topicID: String
-    @State private var topicTitle = ""
-    @State private var subtopics: [CheatSubtopic] = []
-    @State private var showingAdd = false
-    @State private var newSubTitle = ""
-    @State private var editingSub: CheatSubtopic?
-    @Environment(\.colorScheme) var scheme
-    var colors: AppColors { theme.colors(for: scheme) }
-
-    var body: some View {
-        List {
-            Section {
-                ForEach(subtopics) { st in
-                    Button { editingSub = st } label: {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(st.title)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.primary)
-                            if st.body.isEmpty {
-                                Text("(üres — koppints a szerkesztéshez)")
-                                    .font(.caption).foregroundStyle(.tertiary)
-                            } else {
-                                Text(st.body)
-                                    .font(.callout).foregroundStyle(.secondary)
-                                    .lineLimit(4)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 3)
-                    }
-                }
-                .onDelete { idx in
-                    var all = subtopics
-                    all.remove(atOffsets: idx)
-                    saveSubs(all)
-                }
-                Button { showingAdd = true } label: {
-                    Label("Altéma felvétele", systemImage: "plus")
-                        .foregroundStyle(colors.accent)
-                }
-            } header: {
-                Text("Altémák • \(subtopics.count) db")
-            }
-        }
-        .navigationTitle(topicTitle)
-        .navigationBarTitleDisplayMode(.large)
-        .alert("Új altéma", isPresented: $showingAdd) {
-            TextField("Altém címe (pl. Életrajza)", text: $newSubTitle)
-            Button("Hozzáadás") {
-                let t = newSubTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !t.isEmpty else { return }
-                saveSubs(subtopics + [CheatSubtopic(title: t)])
-                newSubTitle = ""
-            }
-            Button("Mégse", role: .cancel) { newSubTitle = "" }
-        }
-        .sheet(item: $editingSub) { st in
-            SubtopicEditView(title: st.title, noteBody: st.body) { nt, nb in
-                var all = subtopics
-                if let i = all.firstIndex(where: { $0.id == st.id }) {
-                    all[i].title = nt
-                    all[i].body = nb
-                    saveSubs(all)
-                }
-            }
-        }
-        .onAppear { refresh() }
-        .onReceive(NotificationCenter.default.publisher(for: CheatStore.changedNotification)) { _ in refresh() }
-    }
-
-    private func refresh() {
-        guard let s = CheatStore.load().first(where: { $0.id == sheetID }),
-              let t = s.topics.first(where: { $0.id == topicID }) else { return }
-        topicTitle = t.title
-        subtopics = t.subtopics
-    }
-
-    private func saveSubs(_ subs: [CheatSubtopic]) {
-        guard var s = CheatStore.load().first(where: { $0.id == sheetID }),
-              let ti = s.topics.firstIndex(where: { $0.id == topicID }) else { return }
-        s.topics[ti].subtopics = subs
-        CheatStore.upsert(s)
-        subtopics = subs
-    }
-}
-
-// MARK: - Altéma szerkesztő (cím + törzs)
-private struct SubtopicEditView: View {
+// MARK: - Téma szerkesztő (cím + jegyzetszöveg)
+private struct TopicEditView: View {
     @State var title: String
     @State var noteBody: String
     let onSave: (String, String) -> Void
@@ -306,13 +237,13 @@ private struct SubtopicEditView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Cím") { TextField("Altém címe", text: $title) }
+                Section("Cím") { TextField("Téma címe", text: $title) }
                 Section("Jegyzet") {
                     TextEditor(text: $noteBody)
                         .frame(minHeight: 220)
                 }
             }
-            .navigationTitle("Altéma szerkesztése")
+            .navigationTitle("Téma szerkesztése")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

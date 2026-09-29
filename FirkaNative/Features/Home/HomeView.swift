@@ -128,7 +128,7 @@ struct HomeView: View {
                                             withAnimation(SummitMotion.snappy) { completed.toggleExam(e.id) }
                                         }
                                     }
-                                    if vm.exams.count > 3 { NavigationLink("Összes dolgozat (\(vm.exams.count))") { NotesView(initialFilter: 1) }.font(.caption.weight(.semibold)).tint(colors.accent) }
+                                    NavigationLink("Összes dolgozat (\(vm.exams.count))") { NotesView(initialFilter: 1) }.font(.caption.weight(.semibold)).tint(colors.accent)
                                 }
                             }.frame(maxWidth: .infinity, alignment: .topLeading)
                             // Jobb: feladatok
@@ -142,7 +142,7 @@ struct HomeView: View {
                                             withAnimation(SummitMotion.snappy) { completed.toggleHomework(h.id) }
                                         }
                                     }
-                                    if hwVisible.count > 3 { NavigationLink("Összes feladat (\(hwVisible.count))") { NotesView() }.font(.caption.weight(.semibold)).tint(colors.accent) }
+                                    NavigationLink("Összes feladat (\(hwVisible.count))") { NotesView() }.font(.caption.weight(.semibold)).tint(colors.accent)
                                 }
                             }.frame(maxWidth: .infinity, alignment: .topLeading)
                         }.padding(.vertical, 4)
@@ -180,10 +180,8 @@ struct HomeView: View {
                                 }
                             )
                         }
-                        if sorted.count > 3 {
-                            NavigationLink { NotesView(initialFilter: 1) } label: {
-                                Text("Összes dolgozat (\(sorted.count))")
-                            }
+                        NavigationLink { NotesView(initialFilter: 1) } label: {
+                            Text("Összes dolgozat (\(sorted.count))")
                         }
                     }
                 } header: { Text("Közelgő dolgozatok").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
@@ -214,10 +212,8 @@ struct HomeView: View {
                                 }
                             )
                         }
-                        if sorted.count > 3 {
-                            NavigationLink { NotesView() } label: {
-                                Text("Összes feladat (\(sorted.count))")
-                            }
+                        NavigationLink { NotesView() } label: {
+                            Text("Összes feladat (\(sorted.count))")
                         }
                     }
                 } header: { Text("Közelgő feladatok").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }

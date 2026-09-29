@@ -28,6 +28,17 @@ extension View {
         }
     }
 
+    /// Üvegkapszula (pl. a napléptető "‹ Ma ›" pillje): a tartalomra
+    /// simul, nem nyúlik — ezért a hívó tegye maxWidth-frame-be.
+    @ViewBuilder
+    func watchGlassPill(tint: Color = .white.opacity(0.12)) -> some View {
+        if #available(watchOS 26, *) {
+            self.glassEffect(.regular.tint(tint).interactive(), in: .capsule)
+        } else {
+            self.background { WatchLegacyPill(tint: tint) }
+        }
+    }
+
     /// Üvegkocka (pl. a teremnév kis kockája): ugyanaz az üveg, kisebb
     /// rádiusszal — a tinta jellemzően a kiemelőszín.
     @ViewBuilder
@@ -47,6 +58,17 @@ private struct WatchLegacyDisc: View {
 
     var body: some View {
         Circle()
+            .fill(reduceTransparency || contrast == .increased ? tint.opacity(0.9) : tint)
+    }
+}
+
+private struct WatchLegacyPill: View {
+    let tint: Color
+    @Environment(\.accessibilityReduceTransparency) var reduceTransparency
+    @Environment(\.colorSchemeContrast) var contrast
+
+    var body: some View {
+        Capsule()
             .fill(reduceTransparency || contrast == .increased ? tint.opacity(0.9) : tint)
     }
 }

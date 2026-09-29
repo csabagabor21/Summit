@@ -485,7 +485,10 @@ struct TimetableView: View {
             // Két író (Home + Timetable eltérő nap locked lessons-szel) egymást ütötte:
             // csúszkánál az egyik indított, a másik endAll-ozott → villogó/blank Island.
             .onReceive(NotificationCenter.default.publisher(for: ExemptedStore.changedNotification)) { _ in exemptedTick += 1 }
-            .onReceive(NotificationCenter.default.publisher(for: SchoolEventsStore.changedNotification)) { _ in schoolEvents = SchoolEventsStore.load() }
+            .onReceive(NotificationCenter.default.publisher(for: SchoolEventsStore.changedNotification)) { _ in
+                schoolEvents = SchoolEventsStore.load()
+                WatchSyncSender.pushSchoolEvents(events: schoolEvents, visible: schoolEventsVisible)
+            }
             .id(exemptedTick)
             .onReceive(NotificationCenter.default.publisher(for: switchToTimetable)) { notif in
                 guard let info = notif.userInfo,
@@ -732,9 +735,12 @@ struct TimetableView: View {
     /// (A mapping + reload a TimetableWidgetPublish-ban; a BG-ébresztés
     /// ugyanoda mergeli a mai napot.)
     private func publishWidgetSnapshot() {
-        TimetableWidgetPublish.publishWeek(lessons)
-        // Apple Watch: ugyanez a heti anyag megy az órára is.
-        WatchSyncSender.pushTimetable(lessons)
+        TimetableWidgetPublish.publishWeek(lessons, homeworks: homeworks, exams: displayExams)
+        // Apple Watch: ugyanez a heti anyag megy az órára is — a státusz-
+        // flagekkel (felmentett zöld, dolgozat szürke), mint a telefonon.
+        WatchSyncSender.pushTimetable(lessons, homeworks: homeworks, exams: displayExams)
+        // Iskolai események az óra órarend-tetejére (ugyanaz a lista).
+        WatchSyncSender.pushSchoolEvents(events: schoolEvents, visible: schoolEventsVisible)
     }
 
     /// Saját tételek bekeverése a KRÉTA-listákba (mindig a store-ból,

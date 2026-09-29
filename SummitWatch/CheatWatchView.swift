@@ -1,11 +1,11 @@
 import SwiftUI
 
 // MARK: - Jegyzetek az órán — a telefonos Watch-tab lapjainak tükre
-// Dolgozatok listája, koppintásra a témák, azon belül az altémák
-// (pl. "Babits Mihály" → "Életrajza"). Felül a "Most" szekció: ha
-// az aktuális óra tárgyához van lap, az kerül előre — az órán
-// elég lenyitni, nem kell keresgélni. Csak olvasható (a szerkesztés
-// a telefonon van), koronával görgethető natív lista.
+// Dolgozatok listája, koppintásra a témák — egy téma egy jegyzet
+// (cím + lenyitható szöveg), mélyebb szint nincs. Felül a "Most"
+// szekció: ha az aktuális óra tárgyához van lap, az kerül előre —
+// az órán elég lenyitni, nem kell keresgélni. Csak olvasható
+// (a szerkesztés a telefonon van), koronával görgethető natív lista.
 struct CheatWatchView: View {
     @EnvironmentObject var store: WatchSyncStore
 
@@ -33,6 +33,9 @@ struct CheatWatchView: View {
     }
 
     var body: some View {
+        // NavigationStack nélkül a sorok koppintása nem nyit új lapot
+        // (GradesWatchView-minta, érték-alapú linkekkel).
+        NavigationStack {
         TimelineView(.periodic(from: Date(), by: 60)) { timeline in
             let now = store.previewNow ?? timeline.date
             let nowSubject = currentSubject(now: now)
@@ -57,9 +60,7 @@ struct CheatWatchView: View {
                         if !nowSheets.isEmpty {
                             Section("Most") {
                                 ForEach(nowSheets) { s in
-                                    NavigationLink {
-                                        CheatSheetTopicsView(sheet: s, topics: topics(of: s.id))
-                                    } label: {
+                                    NavigationLink(value: s.id) {
                                         WatchCheatRow(sheet: s, topicCount: topics(of: s.id).count, highlight: true)
                                     }
                                 }
@@ -68,9 +69,7 @@ struct CheatWatchView: View {
                         if !otherSheets.isEmpty {
                             Section(nowSheets.isEmpty ? "Lapok" : "Többi") {
                                 ForEach(otherSheets) { s in
-                                    NavigationLink {
-                                        CheatSheetTopicsView(sheet: s, topics: topics(of: s.id))
-                                    } label: {
+                                    NavigationLink(value: s.id) {
                                         WatchCheatRow(sheet: s, topicCount: topics(of: s.id).count, highlight: false)
                                     }
                                 }
@@ -82,6 +81,12 @@ struct CheatWatchView: View {
                 }
             }
             .navigationTitle("Jegyzet")
+            }
+            .navigationDestination(for: String.self) { sheetID in
+                if let s = sheets.first(where: { $0.id == sheetID }) {
+                    CheatSheetTopicsView(sheet: s, topics: topics(of: s.id))
+                }
+            }
         }
     }
 }
@@ -116,7 +121,7 @@ private struct WatchCheatRow: View {
     }
 }
 
-// MARK: - Dolgozat → témák
+// MARK: - Dolgozat → témák (koppintásra fullscreen jegyzet)
 private struct CheatSheetTopicsView: View {
     let sheet: WatchCheatSheet
     let topics: [WatchCheatTopic]
@@ -132,16 +137,22 @@ private struct CheatSheetTopicsView: View {
             } else {
                 List(topics) { t in
                     NavigationLink {
-                        CheatTopicSubsView(topic: t)
+                        CheatTopicDetailView(topic: t)
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(t.title)
                                 .font(.subheadline.weight(.semibold))
-                            Text("\(t.subtopics.count) altéma")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
+                            if t.body.isEmpty {
+                                Text("(üres)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            } else {
+                                Text("Megnyitás")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
                         }
-                        .padding(.vertical, 2)
+                        .padding(.vertical, 3)
                     }
                 }
                 .listStyle(.plain)
@@ -151,51 +162,36 @@ private struct CheatSheetTopicsView: View {
     }
 }
 
-// MARK: - Téma → altémák (lenyitható törzsekkel)
-private struct CheatTopicSubsView: View {
+// MARK: - Jegyzet fullscreen — OLED-fekete, Markdown-tagolással
+// A body Markdown-forrás (AI generálja: ## címek, listák, kiemelések),
+// ezért nem nyersen, hanem parsolva rajzoljuk — különben "##" látszana.
+private struct CheatTopicDetailView: View {
     let topic: WatchCheatTopic
-    @State private var expandedIDs = Set<String>()
+
+    private var rendered: AttributedString {
+        (try? AttributedString(markdown: topic.body)) ?? AttributedString(topic.body)
+    }
 
     var body: some View {
-        Group {
-            if topic.subtopics.isEmpty {
-                ContentUnavailableView(
-                    "Még nincs altéma",
-                    systemImage: "list.bullet",
-                    description: Text("A telefonon bővítsd ezt a témát.")
-                )
-            } else {
-                List(topic.subtopics) { st in
-                    let expanded = expandedIDs.contains(st.id)
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack(spacing: 5) {
-                            Text(st.title)
-                                .font(.subheadline.weight(.semibold))
-                            Spacer(minLength: 2)
-                            if !st.body.isEmpty {
-                                Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                                    .font(.caption2.weight(.bold))
-                                    .foregroundStyle(.tertiary)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            withAnimation {
-                                if expanded { expandedIDs.remove(st.id) }
-                                else { expandedIDs.insert(st.id) }
-                            }
-                        }
-                        if expanded && !st.body.isEmpty {
-                            Text(st.body)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.vertical, 3)
+        ZStack {
+            Color.black.ignoresSafeArea()
+            ScrollView {
+                if topic.body.isEmpty {
+                    Text("(üres)")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                } else {
+                    Text(rendered)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
                 }
-                .listStyle(.plain)
             }
         }
         .navigationTitle(topic.title)
+        .containerBackground(.black, for: .navigation)
     }
 }

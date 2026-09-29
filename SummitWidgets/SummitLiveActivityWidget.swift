@@ -53,11 +53,20 @@ struct SummitLiveActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.trailing) {
                     // ÉLŐ timer: a rendszer másodpercenként frissíti, app-ébresztés nélkül.
                     // Alatta apró "hátra" / "kezdődik" felirat — nem csak egy lógó szám.
+                    // A Text(timerInterval:) kapzsi: az összes felkínált szélességet
+                    // elkéri — itt a leading oszlopot szorítaná össze (ismert
+                    // Apple-issue: forums 723316 / 735125). Rejtett fix sablon
+                    // adja a szélességet, az élő timer csak rárajzolódik.
                     VStack(alignment: .trailing, spacing: 1) {
-                        Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true)
+                        Text("0:00:00")
                             .font(.title3.monospacedDigit().weight(.bold))
-                            .monospacedDigit()
-                            .lineLimit(1)
+                            .hidden()
+                            .overlay {
+                                Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true)
+                                    .font(.title3.monospacedDigit().weight(.bold))
+                                    .monospacedDigit()
+                                    .lineLimit(1)
+                            }
                         Text(context.state.phase == "break" ? "kezdődik" : "hátra")
                             .font(.caption2.weight(.medium))
                             .foregroundStyle(.secondary)
@@ -89,11 +98,20 @@ struct SummitLiveActivityWidget: Widget {
                     .foregroundStyle(statusTint(context))
             } compactTrailing: {
                 // Csak az ÉLŐ timer: a terem félbevágva ("Urán…") nézett ki
-                // rosszul a pici pillben, és jobbra zsúfolt volt — így balra
-                // a szám, jobbra a visszaszámláló, közte levegő.
-                Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true)
+                // rosszul a pici pillben. A Text(timerInterval:) kapzsi: az
+                // összes felkínált szélességet elkéri, ezért nyúlt a pill
+                // végig a státuszsávon — rejtett fix sablon ("0:00:00") adja
+                // a szélességet, az élő timer csak rárajzolódik, így a pill
+                // a tartalomra szorul (ismert Apple-issue: forums 723316 /
+                // 735125). Balra a szám, jobbra a visszaszámláló.
+                Text("0:00:00")
                     .font(.caption2.monospacedDigit().weight(.semibold))
-                    .monospacedDigit()
+                    .hidden()
+                    .overlay {
+                        Text(timerInterval: context.state.lessonStart...context.state.lessonEnd, countsDown: true)
+                            .font(.caption2.monospacedDigit().weight(.semibold))
+                            .monospacedDigit()
+                    }
             } minimal: {
                 Image(systemName: pillSymbol(index: context.state.index, cancelled: false))
                     .foregroundStyle(accentColor(context))

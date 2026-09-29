@@ -22,6 +22,7 @@ enum WatchSharedStore {
     static let gradesKey = "watch.cache.grades.v1"
     static let tasksKey = "watch.cache.tasks.v1"
     static let cheatKey = "watch.cache.cheat.v1"
+    static let schoolEventsKey = "watch.cache.schoolevents.v1"
     /// Fejlesztői idő-előnézet (unix idő, Double). Csak akkor van jelen, ha
     /// az iPhone-on az Idő-eltolás csúszka aktív.
     static let previewNowKey = "watch.cache.previewNow.v1"
@@ -54,6 +55,8 @@ enum WatchPayloadKey {
     static let tasks = "watch.tasks.v1"
     /// Tanulójegyzet-lapok az órára (Jegyzet tab).
     static let cheat = "watch.cheat.v1"
+    /// Iskolai események (tannaptár) az órarend tetejére.
+    static let schoolEvents = "watch.schoolevents.v1"
     /// Óra → iPhone szinkronkérés (megnyitáskor, ha az órai adat avult
     /// vagy hiányzik). Mindkét irány ugyanazt a kulcs-szótárat használja.
     static let request = "watch.requestSync.v1"
@@ -166,20 +169,14 @@ struct WatchTasksSnapshot: Codable {
 }
 
 // MARK: - Tanulójegyzet-lap az órára — a CheatSheet hordozható kivonata
-// Dolgozat → témák → altémák: az óra ugyanígy fúr le (Jegyzet tab).
-// A feltöltött nyers anyagok NEM utaznak (nagyok) — csak a kész
-// (AI- vagy kézi) jegyzet-törzsek, vágva (az applicationContext
-// nagy méretnél eldobná a teljes contextet).
-struct WatchCheatSub: Codable, Hashable, Identifiable {
-    var id: String
-    var title: String
-    var body: String
-}
-
+// Dolgozat → témák: egy téma egy jegyzet (cím + szöveg), mélyebb
+// szint nincs. A feltöltött nyers anyagok NEM utaznak (nagyok) —
+// csak a kész (AI- vagy kézi) jegyzet-törzsek, vágva (az
+// applicationContext nagy méretnél eldobná a teljes contextet).
 struct WatchCheatTopic: Codable, Hashable, Identifiable {
     var id: String
     var title: String
-    var subtopics: [WatchCheatSub]
+    var body: String
 }
 
 struct WatchCheatSheet: Codable, Hashable, Identifiable {
@@ -209,6 +206,50 @@ struct WatchCheatSnapshot: Codable {
         accentHex = try c.decodeIfPresent(Int.self, forKey: .accentHex) ?? 0x4A90E2
         sheets = try c.decodeIfPresent([WatchCheatSheet].self, forKey: .sheets) ?? []
         topics = try c.decodeIfPresent([String: [WatchCheatTopic]].self, forKey: .topics) ?? [:]
+    }
+}
+
+// MARK: - Iskolai esemény az órára — a SchoolEvent hordozható kivonata
+// A telefonos kártya-alcím szabállyal (idő • hely / Egész nap).
+struct WatchSchoolEvent: Codable, Hashable, Identifiable {
+    var day: String
+    var title: String
+    var location: String
+    var allDay: Bool
+    var start: String
+    var end: String
+
+    var id: String { "\(day)|\(start)|\(end)|\(title)|\(location)" }
+
+    var subtitle: String {
+        var parts: [String] = []
+        if !allDay, !start.isEmpty {
+            parts.append(end.isEmpty ? start : "\(start) – \(end)")
+        } else if location.isEmpty {
+            parts.append("Egész nap")
+        }
+        if !location.isEmpty { parts.append(location) }
+        return parts.joined(separator: " • ")
+    }
+}
+
+/// Esemény-snapshot: az adott hét tannaptára + mutatás-kapcsoló.
+struct WatchSchoolEventsSnapshot: Codable {
+    var savedAt: Date
+    var visible: Bool
+    var events: [WatchSchoolEvent]
+
+    enum CodingKeys: String, CodingKey {
+        case savedAt, visible, events
+    }
+    init(savedAt: Date, visible: Bool, events: [WatchSchoolEvent]) {
+        self.savedAt = savedAt; self.visible = visible; self.events = events
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        savedAt = try c.decodeIfPresent(Date.self, forKey: .savedAt) ?? Date.distantPast
+        visible = try c.decodeIfPresent(Bool.self, forKey: .visible) ?? true
+        events = try c.decodeIfPresent([WatchSchoolEvent].self, forKey: .events) ?? []
     }
 }
 

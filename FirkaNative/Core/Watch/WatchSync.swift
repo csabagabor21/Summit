@@ -50,13 +50,14 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
         session.activate()
     }
 
-    /// Heti órarend az órára (a widget-snapshot ugyanaz a mapping).
-    static func pushTimetable(_ lessons: [LessonItem]) {
+    /// Heti órarend az órára (a widget-snapshot ugyanaz a mapping —
+    /// a státusz-flagekkel: felmentett zöld, dolgozat szürke).
+    static func pushTimetable(_ lessons: [LessonItem], homeworks: [HomeworkItem] = [], exams: [ExamItem] = []) {
         guard WCSession.isSupported(), !lessons.isEmpty else { return }
         let snapshot = TimetableWidgetStore.Snapshot(
             savedAt: Date(),
             accentHex: TimetableWidgetPublish.currentAccentHex(),
-            lessons: TimetableWidgetPublish.fromLessons(lessons)
+            lessons: TimetableWidgetPublish.fromLessons(lessons, homeworks: homeworks, exams: exams)
         )
         pushSnapshot(snapshot)
     }
@@ -106,8 +107,8 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
     /// Tanulójegyzet-lapok az órára — a CheatView szabályaival.
     /// Üres lista is mehet (mind törölve → az óra Jegyzet-tabja ürül).
     /// Méretkorlát: az applicationContext nagy méretnél a teljes
-    /// contextet eldobná — ezért laponként max 12 téma, témánként
-    /// max 8 altéma, törzsenként 1500 karakter utazik.
+    /// contextet eldobná — ezért max 30 lap, laponként max 20 téma,
+    /// témánként 1500 karakter utazik.
     static func pushCheat(_ sheets: [CheatSheet]) {
         guard WCSession.isSupported() else { return }
         let mappedSheets = sheets.prefix(30).map {
@@ -115,14 +116,9 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
         }
         var mappedTopics: [String: [WatchCheatTopic]] = [:]
         for s in sheets.prefix(30) {
-            mappedTopics[s.id] = s.topics.prefix(12).map { t in
-                WatchCheatTopic(
-                    id: t.id, title: t.title,
-                    subtopics: t.subtopics.prefix(8).map {
-                        WatchCheatSub(id: $0.id, title: $0.title,
-                                      body: String($0.body.prefix(1500)))
-                    }
-                )
+            mappedTopics[s.id] = s.topics.prefix(20).map {
+                WatchCheatTopic(id: $0.id, title: $0.title,
+                                body: String($0.body.prefix(1500)))
             }
         }
         let snapshot = WatchCheatSnapshot(
@@ -155,6 +151,26 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
             .filter { !ExamExpiry.isExpired($0, lessons: lessons) }
             .sorted { $0.date < $1.date }
         return (hw, ex)
+    }
+
+    /// Iskolai események (tannaptár) az órarend tetejére.
+    /// Üres lista is mehet (törlés → az óra eseménysávja ürül).
+    static func pushSchoolEvents(events: [SchoolEvent], visible: Bool) {
+        guard WCSession.isSupported() else { return }
+        let mapped = events.prefix(500).map {
+            WatchSchoolEvent(
+                day: $0.day, title: $0.title, location: $0.location,
+                allDay: $0.allDay, start: $0.start, end: $0.end
+            )
+        }
+        let snapshot = WatchSchoolEventsSnapshot(
+            savedAt: Date(), visible: visible, events: Array(mapped)
+        )
+        guard let data = try? JSONEncoder().encode(snapshot) else {
+            WatchSyncLog.log.error("esemény-kódolási hiba")
+            return
+        }
+        shared.send(key: WatchPayloadKey.schoolEvents, data: data)
     }
 
     /// Jegyek + tárgyak + kerekítési küszöbök az órára.
@@ -348,7 +364,7 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
     /// újraindítás után, háttér-ébresztéskor is elérhető.
     static func lastKnownContext() -> [String: Any] {
         var ctx: [String: Any] = [:]
-        for key in [WatchPayloadKey.timetable, WatchPayloadKey.grades, WatchPayloadKey.tasks, WatchPayloadKey.cheat] {
+        for key in [WatchPayloadKey.timetable, WatchPayloadKey.grades, WatchPayloadKey.tasks, WatchPayloadKey.cheat, WatchPayloadKey.schoolEvents] {
             if let data = UserDefaults.standard.data(forKey: lastKnownKeyPrefix + key) {
                 ctx[key] = data
             }
@@ -529,7 +545,12 @@ enum WatchAutoPush {
         WatchSyncLog.log.info("lehúzva: \(lessons.count) óra, \(grades.count) jegy, \(subjects.count) tárgy, \(hwR.count) házi, \(exR.count) dolgozat")
 
         if !lessons.isEmpty {
-            WatchSyncSender.pushTimetable(lessons)
+            let custom = CustomTasksStore.load()
+            WatchSyncSender.pushTimetable(
+                lessons,
+                homeworks: hwR + CustomTasksStore.homeworkItems(from: custom),
+                exams: exR + CustomTasksStore.examItems(from: custom)
+            )
         }
         if !grades.isEmpty {
             // Tárgyak: hálózati + cache-elt unió, mint a GradesView-load.
@@ -551,6 +572,8 @@ enum WatchAutoPush {
         }
         // Jegyzetlapok helyből — hálózattól függetlenül mennek az órára.
         WatchSyncSender.pushCheat(CheatStore.load())
+        // Iskolai események helyből — az órarend tetejére.
+        WatchSyncSender.pushSchoolEvents(events: SchoolEventsStore.load(), visible: SchoolEventsStore.isVisible())
     }
 }
 #else
@@ -570,11 +593,12 @@ enum WatchSyncSender {
         )
     }
     static func activate() {}
-    static func pushTimetable(_: [LessonItem]) {}
+    static func pushTimetable(_: [LessonItem], homeworks _: [HomeworkItem] = [], exams _: [ExamItem] = []) {}
     static func pushSnapshot(_: TimetableWidgetStore.Snapshot) {}
     static func pushGrades(grades _: [GradeItem], subjects _: [String]) {}
     static func pushTasks(homeworks _: [HomeworkItem], exams _: [ExamItem]) {}
     static func pushCheat(_: [CheatSheet]) {}
+    static func pushSchoolEvents(events _: [SchoolEvent], visible _: Bool) {}
     @MainActor
     static func activeTasks(
         homeworks _: [HomeworkItem],

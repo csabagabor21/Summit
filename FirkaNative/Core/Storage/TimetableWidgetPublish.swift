@@ -5,12 +5,23 @@ import WidgetKit
 // LessonItem → widget-snapshot mapping egy helyen (TimetableView + BG-ébresztés).
 // WidgetKit-import miatt nem kerülhet a shared snapshot-fájlba.
 enum TimetableWidgetPublish {
-    static func fromLessons(_ lessons: [LessonItem]) -> [TimetableWidgetStore.Lesson] {
-        lessons.sorted { $0.start < $1.start }.map {
-            TimetableWidgetStore.Lesson(
-                id: $0.id, subject: $0.subject, room: $0.room, teacher: $0.teacher,
-                index: $0.index, start: $0.start, end: $0.end,
-                isCancelled: $0.isCancelled, isSubstituted: $0.isSubstituted
+    /// Telefonos státusz-port az órára/widgetbe: felmentett (zöld) +
+    /// aznapi házi/dolgozat (szürke) — ugyanaz a szabály, mint a
+    /// TimetableView.hasAssignment (tárgy+nap házi, tűzött dolgozat).
+    static func fromLessons(_ lessons: [LessonItem], homeworks: [HomeworkItem] = [], exams: [ExamItem] = []) -> [TimetableWidgetStore.Lesson] {
+        let cal = Calendar.current
+        return lessons.sorted { $0.start < $1.start }.map { lesson in
+            let sameDayHW = homeworks.contains {
+                SubjectMatcher.same($0.subject, lesson.subject)
+                && cal.isDate($0.deadline, inSameDayAs: lesson.start)
+            }
+            let sameDayExam = ExamMatcher.exam(for: lesson, in: exams) != nil
+            return TimetableWidgetStore.Lesson(
+                id: lesson.id, subject: lesson.subject, room: lesson.room, teacher: lesson.teacher,
+                index: lesson.index, start: lesson.start, end: lesson.end,
+                isCancelled: lesson.isCancelled, isSubstituted: lesson.isSubstituted,
+                isExempted: ExemptedStore.isExempted(lesson.subject),
+                hasAssignment: sameDayHW || sameDayExam
             )
         }
     }
@@ -33,12 +44,12 @@ enum TimetableWidgetPublish {
     }
 
     /// Teljes heti snapshot írása (TimetableView.load() végéről).
-    static func publishWeek(_ lessons: [LessonItem]) {
+    static func publishWeek(_ lessons: [LessonItem], homeworks: [HomeworkItem] = [], exams: [ExamItem] = []) {
         guard !lessons.isEmpty else { return }
         let preview = previewState()
         TimetableWidgetStore.save(TimetableWidgetStore.Snapshot(
             savedAt: Date(), accentHex: currentAccentHex(),
-            lessons: fromLessons(lessons),
+            lessons: fromLessons(lessons, homeworks: homeworks, exams: exams),
             previewActive: preview.active, previewMinutes: preview.minutes
         ))
         WidgetCenter.shared.reloadTimelines(ofKind: TimetableWidgetStore.kind)

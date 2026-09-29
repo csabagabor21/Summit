@@ -22,6 +22,41 @@ enum TimetableWidgetStore {
         var end: Date
         var isCancelled: Bool
         var isSubstituted: Bool
+        /// Telefonos státusz-port: felmentett tárgy (zöld) — az iPhone
+        /// az ExemptedStore-ból tölti push-kor.
+        var isExempted: Bool = false
+        /// Telefonos státusz-port: aznapi házi/dolgozat (szürke háttér) —
+        /// az iPhone a HomeworkMatcher/ExamMatcher szabállyal tölti.
+        var hasAssignment: Bool = false
+
+        // Régi snapshotokban még nincs isExempted/hasAssignment kulcs —
+        // decodeIfPresent, különben egy frissítés után az első push-ig
+        // üres lenne az óra és a widget.
+        enum CodingKeys: String, CodingKey {
+            case id, subject, room, teacher, index, start, end
+            case isCancelled, isSubstituted, isExempted, hasAssignment
+        }
+        init(id: String, subject: String, room: String, teacher: String, index: String, start: Date, end: Date, isCancelled: Bool, isSubstituted: Bool, isExempted: Bool = false, hasAssignment: Bool = false) {
+            self.id = id; self.subject = subject; self.room = room
+            self.teacher = teacher; self.index = index
+            self.start = start; self.end = end
+            self.isCancelled = isCancelled; self.isSubstituted = isSubstituted
+            self.isExempted = isExempted; self.hasAssignment = hasAssignment
+        }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            id = try c.decode(String.self, forKey: .id)
+            subject = try c.decode(String.self, forKey: .subject)
+            room = try c.decodeIfPresent(String.self, forKey: .room) ?? ""
+            teacher = try c.decodeIfPresent(String.self, forKey: .teacher) ?? ""
+            index = try c.decodeIfPresent(String.self, forKey: .index) ?? ""
+            start = try c.decode(Date.self, forKey: .start)
+            end = try c.decode(Date.self, forKey: .end)
+            isCancelled = try c.decodeIfPresent(Bool.self, forKey: .isCancelled) ?? false
+            isSubstituted = try c.decodeIfPresent(Bool.self, forKey: .isSubstituted) ?? false
+            isExempted = try c.decodeIfPresent(Bool.self, forKey: .isExempted) ?? false
+            hasAssignment = try c.decodeIfPresent(Bool.self, forKey: .hasAssignment) ?? false
+        }
     }
 
     struct Snapshot: Codable {

@@ -2,11 +2,11 @@ import SwiftUI
 
 // MARK: - Watch tab — tanulójegyzetek (SummitCheat)
 // Dolgozatonkénti lapok: feltöltött anyagokból Meta AI-kulccsal
-// generált (vagy kézzel írt) témánkénti jegyzetek, altémákra bontva
+// generált (vagy kézzel írt) témánkénti jegyzetek
 // (pl. "Babits Mihály" → "Életrajza", "Novellái"). A lapok az órára
 // is átmennek (Watch-szinkron → Jegyzet tab), a kulcs nélkül is
-// használható kézi jegyzetként. A Feladatok innen továbbra is
-// elérhetők (jobb felső gomb + régi deep-linkek).
+// használható kézi jegyzetként. A Feladatok a Főoldalról nyílnak,
+// a régi deep-linkek továbbra is ide mutatnak (coverben nyílik).
 struct CheatView: View {
     @EnvironmentObject var theme: ThemeStore
     @EnvironmentObject var session: SessionStore
@@ -120,11 +120,6 @@ struct CheatView: View {
             .navigationBarTitleDisplayMode(.large)
             .summitToolbarBackground()
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { showingTasks = true } label: {
-                        Label("Feladatok", systemImage: "checklist")
-                    }
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showingAdd = true } label: {
                         Image(systemName: "plus")

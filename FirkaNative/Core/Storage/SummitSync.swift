@@ -27,6 +27,7 @@ enum SummitSyncField: String, CaseIterable {
     case schoolEventsURL
     case customTasks
     case cheatSheets
+    case metaAIKey
     case examRollover
 
     /// A mező verzióbélyege a docban (`ts_theme` …). Régi docokban
@@ -53,7 +54,8 @@ enum SummitSyncField: String, CaseIterable {
 /// kerekítés, felmentések, házi/dolgozat pipák, értesítési kapcsolók,
 /// Live Activity kapcsoló, iskolai események (+ mutatás-kapcsoló és a
 /// mentett naptár-link, hogy a kézi felülírás linkje is átmenjen),
-/// saját feladatok/dolgozatok, tanulójegyzet-lapok, dolgozat-pótlás kapcsoló.
+/// saját feladatok/dolgozatok, tanulójegyzet-lapok, Meta AI-kulcs,
+/// dolgozat-pótlás kapcsoló.
 @MainActor
 final class SummitSync: ObservableObject {
     @Published var isEnabled: Bool {
@@ -97,6 +99,10 @@ final class SummitSync: ObservableObject {
     /// nagyobb, mint a saját feladatoké. A rules 100 000-et enged
     /// (régi kliensek felé opcionális mező).
     static let maxCheatSheetsChars = 100_000
+    /// Meta AI-kulcs plafon (karakter): a kulcs rövid, a vágás csak
+    /// sérült adat ellen véd. A rules 500-at enged (régi kliensek
+    /// felé opcionális mező).
+    static let maxMetaAIKeyChars = 500
 
     /// Piszkos (feltöltésre váró) mezők — memóriában + perzisztálva, hogy
     /// egy újraindulás se nyelje el a még fel nem töltött szerkesztést.
@@ -245,6 +251,7 @@ final class SummitSync: ObservableObject {
         var schoolEventsURL: String
         var customTasks: String
         var cheatSheets: String
+        var metaAIKey: String
         var examRollover: Bool
     }
 
@@ -269,6 +276,7 @@ final class SummitSync: ObservableObject {
             schoolEventsURL: SchoolEventsStore.savedURL() ?? "",
             customTasks: CustomTasksStore.syncString(CustomTasksStore.load()),
             cheatSheets: CheatStore.syncString(CheatStore.load()),
+            metaAIKey: String(MetaAIKeyStore.apiKey.prefix(Self.maxMetaAIKeyChars)),
             examRollover: Self.flag("exams.rolloverOnAbsence", default: true)
         )
     }
@@ -358,6 +366,15 @@ final class SummitSync: ObservableObject {
             if let r = remote?.cheatSheetsRaw { return (r, remoteDate(for: .cheatSheets)) }
             return (local.cheatSheets, fieldTimestamps[SummitSyncField.cheatSheets.rawValue] ?? now)
         }()
+        // Meta AI-kulcs: a régi docban még hiányozhat (nil) — olyankor
+        // a helyi kulcs a régi bélyegével megy. Üres helyi kulccsal
+        // nem írunk felül távoli kulcsot (a még kulcs-nélküli eszköz
+        // első push-a nem törölheti a másik eszköz kulcsát).
+        let (mkV, mkTs): (String, Date) = {
+            if pending.contains(SummitSyncField.metaAIKey.rawValue) { return (local.metaAIKey, now) }
+            if let r = remote?.metaAIKeyRaw { return (r, remoteDate(for: .metaAIKey)) }
+            return (local.metaAIKey, fieldTimestamps[SummitSyncField.metaAIKey.rawValue] ?? now)
+        }()
         // Fotó: túl nagy helyi képnél (nil) a távoli marad — sosem küldünk
         // rá üreset, mert az a szerver-oldali kép törlését jelentené.
         let photoPair: (String, Date)
@@ -391,6 +408,7 @@ final class SummitSync: ObservableObject {
             "schoolEventsURL": str(seURLV),
             "customTasks": str(ctV),
             "cheatSheets": str(chV),
+            "metaAIKey": str(mkV),
             "examRollover": bool(erV),
         ]
         let tsPairs: [(SummitSyncField, Date)] = [
@@ -400,7 +418,7 @@ final class SummitSync: ObservableObject {
             (.notifyTasks, ntTs), (.notifyAbsences, naTs), (.liveActivity, laTs),
             (.schoolEvents, seTs), (.schoolEventsShow, seShowTs),
             (.schoolEventsURL, seURLTs), (.customTasks, ctTs),
-            (.cheatSheets, chTs), (.examRollover, erTs),
+            (.cheatSheets, chTs), (.metaAIKey, mkTs), (.examRollover, erTs),
         ]
         for (f, d) in tsPairs { fields[f.tsKey] = ts(d) }
 
@@ -429,6 +447,7 @@ final class SummitSync: ObservableObject {
             legacy.removeValue(forKey: "schoolEventsURL")
             legacy.removeValue(forKey: "customTasks")
             legacy.removeValue(forKey: "cheatSheets")
+            legacy.removeValue(forKey: "metaAIKey")
             legacy.removeValue(forKey: "examRollover")
             guard await patch(legacy) == 200 else {
                 status = "feltöltés hiba"
@@ -541,6 +560,9 @@ final class SummitSync: ObservableObject {
         /// Tanulójegyzet-lapok JSON (`nil` = a régi docban még nincs mező —
         /// ilyenkor a helyi lista marad, nem törlünk).
         let cheatSheetsRaw: String?
+        /// Meta AI-kulcs (`nil` = a régi docban még nincs mező —
+        /// ilyenkor a helyi kulcs marad, nem törlünk).
+        let metaAIKeyRaw: String?
         /// Mezőnkénti bélyeg (`ts_*`, régi docban az `updatedAt`).
         let fieldDates: [String: Date]
     }
@@ -636,6 +658,12 @@ final class SummitSync: ObservableObject {
                   raw.count <= maxCheatSheetsChars else { return nil }
             return raw
         }()
+        // Meta AI-kulcs: ugyanaz az opcionális szemantika.
+        let metaAIKeyRaw: String? = {
+            guard let raw = data["metaAIKey"] as? String,
+                  raw.count <= maxMetaAIKeyChars else { return nil }
+            return raw
+        }()
         // Dolgozat-pótlás kapcsoló: régi docban hiányozhat (nil = helyi marad).
         let examRollover = data["examRollover"] as? Bool
         return Payload(updatedAt: isoPlain.string(from: date), updatedAtDate: date,
@@ -652,6 +680,7 @@ final class SummitSync: ObservableObject {
                        schoolEventsURLRaw: schoolEventsURLRaw,
                        customTasksRaw: customTasksRaw,
                        cheatSheetsRaw: cheatSheetsRaw,
+                       metaAIKeyRaw: metaAIKeyRaw,
                        fieldDates: fieldDates)
     }
 
@@ -743,6 +772,10 @@ final class SummitSync: ObservableObject {
             guard let raw = s("cheatSheets"), raw.count <= maxCheatSheetsChars else { return nil }
             return raw
         }()
+        let metaAIKeyRaw: String? = {
+            guard let raw = s("metaAIKey"), raw.count <= maxMetaAIKeyChars else { return nil }
+            return raw
+        }()
         return Payload(updatedAt: updatedAt, updatedAtDate: updatedAtDate,
                        theme: theme, accentHex: accent, sizeKey: sizeKey,
                        photoRaw: photoRaw, photo: photo, photoDecodeFailed: photoDecodeFailed,
@@ -757,6 +790,7 @@ final class SummitSync: ObservableObject {
                        schoolEventsURLRaw: schoolEventsURLRaw,
                        customTasksRaw: customTasksRaw,
                        cheatSheetsRaw: cheatSheetsRaw,
+                       metaAIKeyRaw: metaAIKeyRaw,
                        fieldDates: fieldDates)
     }
 
@@ -863,6 +897,18 @@ final class SummitSync: ObservableObject {
             CheatStore.replaceAll(sheets)
             applied.append(.cheatSheets)
         }
+        // Meta AI-kulcs: `nil` nyers mező = régi doc, a helyi marad.
+        // Üres string = tudatos törlés (a másik eszközön törölték).
+        // Üres helyi kulccsal nem írunk felül távoli kulcsot — a még
+        // kulcs-nélküli eszköz lehúzása nem törölhet (a push-merge
+        // ugyanígy a távoli értéket tartja meg).
+        if newer(.metaAIKey), let raw = p.metaAIKeyRaw {
+            let clean = String(raw.prefix(Self.maxMetaAIKeyChars))
+            if !clean.isEmpty || !MetaAIKeyStore.hasKey {
+                if clean != MetaAIKeyStore.apiKey { MetaAIKeyStore.save(clean) }
+            }
+            applied.append(.metaAIKey)
+        }
         guard !applied.isEmpty else { return false }
         for f in applied {
             // A fenti mentések (fotó, kerekítés, felmentés) dirty-értesítést
@@ -918,6 +964,8 @@ final class SummitSync: ObservableObject {
             (CustomTasksStore.changedNotification, [.customTasks]),
             // Tanulójegyzet-lap felvétele, szerkesztése, törlése, távoli pull.
             (CheatStore.changedNotification, [.cheatSheets]),
+            // Meta AI-kulcs megadása, cseréje, törlése, távoli pull.
+            (MetaAIKeyStore.changedNotification, [.metaAIKey]),
         ]
         for (name, fields) in map {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
