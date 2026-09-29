@@ -21,10 +21,78 @@ enum MetaAIKeyStore {
     static func clear() { save("") }
 }
 
+// MARK: - Közös Gemini-tartalék saját kulcs nélkül (Firebase-ből)
+// A kulcs NINCS az appba égetve: futásidőben jön a Firestore
+// `public/ai_fallback` docból (`geminiKey` + `geminiModel` stringmezők —
+// bárki olvashatja, senki nem írhatja, rotálás = doc-csere konzolból).
+// Direkt a legolcsóbb free-tier modell jár hozzá (gyenge minőség!) —
+// saját Meta AI-kulccsal a rendes Meta-végpont dolgozik helyette.
+// Offline-ra az utolsó ismert érték gyorsítótárazva van.
+enum GeminiFallback {
+    static let projectId = "summit-14b74"
+    /// Firestore-olvasáshoz (publikus doc, lásd a többi REST-hívást).
+    static let restKey = "AIzaSyA1TttM0aUUHsvjjAItYMbdID_no1vzg9s"
+    static let docId = "ai_fallback"
+    /// Alapértelmezett modell, ha a docban nincs más: a legolcsóbb
+    /// free-tieres lite (direkt gyenge) — a modellnév a docból
+    /// felülírható, appfrissítés nélkül.
+    static let defaultModel = "gemini-3.5-flash-lite"
+    /// Gemini OpenAI-kompatibilis chat-végpont (ugyanaz a kérés/alak,
+    /// mint a Meta-klón — `Authorization: Bearer <API-kulcs>`).
+    static let endpoint = URL(string: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions")!
+
+    struct Config { var key: String; var model: String }
+    private static var mem: Config?
+    private static let keyCacheKey = "summit.geminiFallbackKey.v1"
+    private static let modelCacheKey = "summit.geminiFallbackModel.v1"
+
+    static func config() async -> Config? {
+        if let m = mem, !m.key.isEmpty { return m }
+        if let doc = await fetchDoc(), let k = doc["geminiKey"], !k.isEmpty {
+            let rawModel = doc["geminiModel"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let c = Config(key: k, model: rawModel.isEmpty ? defaultModel : rawModel)
+            mem = c
+            UserDefaults.standard.set(c.key, forKey: keyCacheKey)
+            UserDefaults.standard.set(c.model, forKey: modelCacheKey)
+            return c
+        }
+        // Offline: utolsó ismert érték (a tartalék attól még élhet).
+        if let k = UserDefaults.standard.string(forKey: keyCacheKey), !k.isEmpty {
+            let c = Config(key: k, model: UserDefaults.standard.string(forKey: modelCacheKey) ?? defaultModel)
+            mem = c
+            return c
+        }
+        return nil
+    }
+
+    static func forgetCache() {
+        mem = nil
+        UserDefaults.standard.removeObject(forKey: keyCacheKey)
+        UserDefaults.standard.removeObject(forKey: modelCacheKey)
+    }
+
+    private static func fetchDoc() async -> [String: String]? {
+        guard let url = URL(string: "https://firestore.googleapis.com/v1/projects/\(projectId)/databases/(default)/documents/public/\(docId)?key=\(restKey)") else { return nil }
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 15
+        guard let (data, resp) = try? await URLSession.shared.data(for: req),
+              (resp as? HTTPURLResponse)?.statusCode == 200,
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let fields = json["fields"] as? [String: Any] else { return nil }
+        var out: [String: String] = [:]
+        for (k, v) in fields {
+            if let s = (v as? [String: String])?["stringValue"] { out[k] = s }
+        }
+        return out
+    }
+}
+
 // MARK: - Meta AI kliens (Meta Model API, OpenAI-kompatibilis)
 // A feltöltött anyagok szövegéből csinál témánkénti jegyzetet:
 // minden téma egy cím + szöveges bejegyzés. A válasz JSON, amit a
 // kliens CheatTopic-fává alakít; a user a lapon utólag szerkesztheti.
+// Saját Meta-kulcs nélkül a Firebase-ből jövő közös, ingyenes
+// Gemini-tartalék dolgozik (gyenge!) — saját kulccsal a Meta-végpont.
 enum MetaAIClient {
     /// Meta Model API, OpenAI-kompatibilis chat-végpont.
     /// MINDIG a contributor-tier: muse-spark-1.3-contributor.
@@ -36,15 +104,17 @@ enum MetaAIClient {
         case noMaterial
         case network(String)
         case badStatus(Int)
+        case rateLimited
         case badResponse
         var errorDescription: String? {
             switch self {
-            case .noKey: return "Nincs Meta AI-kulcs — add meg a lapon a generáláshoz."
+            case .noKey: return "Nincs AI-elérés — ellenőrizd a netet, vagy adj meg saját Meta AI-kulcsot."
             case .noMaterial: return "Nincs anyag a lapon — tölts fel jegyzetet a generáláshoz."
             case .network(let m): return "Hálózati hiba: \(m)"
             case .badStatus(let c): return c == 401 || c == 403
                 ? "A kulcsot elutasították (401/403) — ellenőrizd a Meta AI-kulcsot."
-                : "A Meta AI hibát adott (\(c)) — próbáld újra később."
+                : "Az AI hibát adott (\(c)) — próbáld újra később."
+            case .rateLimited: return "A közös ingyenes keret épp betelt (429) — próbáld később, vagy adj meg saját Meta AI-kulcsot."
             case .badResponse: return "Értelmezhetetlen válasz érkezett — próbáld újra."
             }
         }
@@ -52,7 +122,21 @@ enum MetaAIClient {
 
     /// Témajegyzékek generálása az anyagok szövegéből.
     static func generateTopics(subject: String, title: String, materials: [CheatMaterial]) async throws -> [CheatTopic] {
-        guard MetaAIKeyStore.hasKey else { throw AIError.noKey }
+        // Szolgáltató-választás: saját kulcs → Meta, különben a közös
+        // Firebase-es Gemini-tartalék (ha az sem érhető el, nincs generálás).
+        let target: URL
+        let targetModel: String
+        let authKey: String
+        if MetaAIKeyStore.hasKey {
+            target = Self.endpoint
+            targetModel = Self.model
+            authKey = MetaAIKeyStore.apiKey
+        } else {
+            guard let fb = await GeminiFallback.config() else { throw AIError.noKey }
+            target = GeminiFallback.endpoint
+            targetModel = fb.model
+            authKey = fb.key
+        }
         let corpus = materials.map(\.text).joined(separator: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !corpus.isEmpty else { throw AIError.noMaterial }
         // A modellablak védelme: az eleje (tananyag) számít, a vége vágható.
@@ -77,17 +161,17 @@ enum MetaAIClient {
         \(clipped)
         """
         let body: [String: Any] = [
-            "model": model,
+            "model": targetModel,
             "messages": [
                 ["role": "system", "content": "Magyar nyelvű tanulójegyzet-készítő vagy. Mindig csak érvényes JSON-t válaszolsz."],
                 ["role": "user", "content": prompt],
             ],
             "temperature": 0.3,
         ]
-        var req = URLRequest(url: endpoint)
+        var req = URLRequest(url: target)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("Bearer \(MetaAIKeyStore.apiKey)", forHTTPHeaderField: "Authorization")
+        req.setValue("Bearer \(authKey)", forHTTPHeaderField: "Authorization")
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
         req.timeoutInterval = 90
         let data: Data
@@ -99,6 +183,9 @@ enum MetaAIClient {
         } catch {
             throw AIError.network(error.localizedDescription)
         }
+        // A közös tartalék-keret kimerülése külön, érthető üzenetet kap
+        // (429) — ilyenkor a saját kulcs a kiút.
+        if status == 429 { throw AIError.rateLimited }
         guard status == 200 else { throw AIError.badStatus(status) }
         guard let topics = Self.parseTopics(from: data), !topics.isEmpty else { throw AIError.badResponse }
         return topics

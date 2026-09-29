@@ -48,7 +48,7 @@ struct CheatView: View {
                             }
                             .disabled(apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         } else {
-                            Text("Kulcs nélkül kézi jegyzetként működik — az AI-összefoglaláshoz kell majd a kulcs.")
+                            Text("Saját kulcs nélkül is megy: a közös ingyenes Gemini (gyenge) készíti a jegyzetet — saját kulccsal jobb minőség.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

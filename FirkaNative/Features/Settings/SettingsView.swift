@@ -342,7 +342,7 @@ struct SettingsView: View {
                         if !metaAIKeyMsg.isEmpty {
                             Text(metaAIKeyMsg).font(.caption2).foregroundStyle(.secondary)
                         }
-                        Text("A kulcs a Summit-szinkronnal átmegy a többi eszközödre, az órára sosem kerül át.")
+                        Text("A kulcs a Summit-szinkronnal átmegy a többi eszközödre, az órára sosem kerül át. Kulcs nélkül a közös ingyenes Gemini dolgozik (gyengébb).")
                             .font(.caption2).foregroundStyle(.tertiary)
                     }
                 }

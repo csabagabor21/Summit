@@ -75,9 +75,9 @@ struct CheatSheetView: View {
                                     .foregroundStyle(colors.accent)
                             }
                         }
-                        .disabled(generating || s.materials.isEmpty || !MetaAIKeyStore.hasKey)
+                        .disabled(generating || s.materials.isEmpty)
                         if !MetaAIKeyStore.hasKey {
-                            Text("Ehhez Meta AI-kulcs kell — a Watch-tab tetején adhatod meg.")
+                            Text("Saját kulcs nélkül a közös, ingyenes Gemini készíti (gyenge!) — saját Meta AI-kulccsal jobb. Kulcs a Watch-tab tetején adható meg.")
                                 .font(.caption).foregroundStyle(.secondary)
                         } else if s.materials.isEmpty {
                             Text("Előbb tölts fel legalább egy anyagot.")
