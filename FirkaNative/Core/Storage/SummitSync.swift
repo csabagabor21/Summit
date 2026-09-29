@@ -26,6 +26,7 @@ enum SummitSyncField: String, CaseIterable {
     case schoolEventsShow
     case schoolEventsURL
     case customTasks
+    case cheatSheets
     case examRollover
 
     /// A mező verzióbélyege a docban (`ts_theme` …). Régi docokban
@@ -52,7 +53,7 @@ enum SummitSyncField: String, CaseIterable {
 /// kerekítés, felmentések, házi/dolgozat pipák, értesítési kapcsolók,
 /// Live Activity kapcsoló, iskolai események (+ mutatás-kapcsoló és a
 /// mentett naptár-link, hogy a kézi felülírás linkje is átmenjen),
-/// saját feladatok/dolgozatok, dolgozat-pótlás kapcsoló.
+/// saját feladatok/dolgozatok, tanulójegyzet-lapok, dolgozat-pótlás kapcsoló.
 @MainActor
 final class SummitSync: ObservableObject {
     @Published var isEnabled: Bool {
@@ -92,6 +93,10 @@ final class SummitSync: ObservableObject {
     /// Saját feladat/dolgozat JSON-plafon (karakter): ~200 tétel fér bele.
     /// A rules 48 000-et enged (régi kliensek felé opcionális mező).
     static let maxCustomTasksChars = 48_000
+    /// Tanulójegyzet-lap JSON-plafon (karakter): az AI-jegyzetek miatt
+    /// nagyobb, mint a saját feladatoké. A rules 100 000-et enged
+    /// (régi kliensek felé opcionális mező).
+    static let maxCheatSheetsChars = 100_000
 
     /// Piszkos (feltöltésre váró) mezők — memóriában + perzisztálva, hogy
     /// egy újraindulás se nyelje el a még fel nem töltött szerkesztést.
@@ -239,6 +244,7 @@ final class SummitSync: ObservableObject {
         var schoolEventsShow: Bool
         var schoolEventsURL: String
         var customTasks: String
+        var cheatSheets: String
         var examRollover: Bool
     }
 
@@ -262,6 +268,7 @@ final class SummitSync: ObservableObject {
             schoolEventsShow: SchoolEventsStore.isVisible(),
             schoolEventsURL: SchoolEventsStore.savedURL() ?? "",
             customTasks: CustomTasksStore.syncString(CustomTasksStore.load()),
+            cheatSheets: CheatStore.syncString(CheatStore.load()),
             examRollover: Self.flag("exams.rolloverOnAbsence", default: true)
         )
     }
@@ -344,6 +351,13 @@ final class SummitSync: ObservableObject {
             if let r = remote?.customTasksRaw { return (r, remoteDate(for: .customTasks)) }
             return (local.customTasks, fieldTimestamps[SummitSyncField.customTasks.rawValue] ?? now)
         }()
+        // Tanulójegyzet-lapok: a régi docban még hiányozhat (nil) —
+        // olyankor a helyi lista a régi bélyegével megy.
+        let (chV, chTs): (String, Date) = {
+            if pending.contains(SummitSyncField.cheatSheets.rawValue) { return (local.cheatSheets, now) }
+            if let r = remote?.cheatSheetsRaw { return (r, remoteDate(for: .cheatSheets)) }
+            return (local.cheatSheets, fieldTimestamps[SummitSyncField.cheatSheets.rawValue] ?? now)
+        }()
         // Fotó: túl nagy helyi képnél (nil) a távoli marad — sosem küldünk
         // rá üreset, mert az a szerver-oldali kép törlését jelentené.
         let photoPair: (String, Date)
@@ -376,6 +390,7 @@ final class SummitSync: ObservableObject {
             "schoolEventsShow": bool(seShowV),
             "schoolEventsURL": str(seURLV),
             "customTasks": str(ctV),
+            "cheatSheets": str(chV),
             "examRollover": bool(erV),
         ]
         let tsPairs: [(SummitSyncField, Date)] = [
@@ -385,7 +400,7 @@ final class SummitSync: ObservableObject {
             (.notifyTasks, ntTs), (.notifyAbsences, naTs), (.liveActivity, laTs),
             (.schoolEvents, seTs), (.schoolEventsShow, seShowTs),
             (.schoolEventsURL, seURLTs), (.customTasks, ctTs),
-            (.examRollover, erTs),
+            (.cheatSheets, chTs), (.examRollover, erTs),
         ]
         for (f, d) in tsPairs { fields[f.tsKey] = ts(d) }
 
@@ -413,6 +428,7 @@ final class SummitSync: ObservableObject {
             legacy.removeValue(forKey: "schoolEventsShow")
             legacy.removeValue(forKey: "schoolEventsURL")
             legacy.removeValue(forKey: "customTasks")
+            legacy.removeValue(forKey: "cheatSheets")
             legacy.removeValue(forKey: "examRollover")
             guard await patch(legacy) == 200 else {
                 status = "feltöltés hiba"
@@ -522,6 +538,9 @@ final class SummitSync: ObservableObject {
         /// Saját feladatok JSON (`nil` = a régi docban még nincs mező —
         /// ilyenkor a helyi lista marad, nem törlünk).
         let customTasksRaw: String?
+        /// Tanulójegyzet-lapok JSON (`nil` = a régi docban még nincs mező —
+        /// ilyenkor a helyi lista marad, nem törlünk).
+        let cheatSheetsRaw: String?
         /// Mezőnkénti bélyeg (`ts_*`, régi docban az `updatedAt`).
         let fieldDates: [String: Date]
     }
@@ -611,6 +630,12 @@ final class SummitSync: ObservableObject {
                   raw.count <= maxCustomTasksChars else { return nil }
             return raw
         }()
+        // Tanulójegyzet-lapok: ugyanaz az opcionális szemantika.
+        let cheatSheetsRaw: String? = {
+            guard let raw = data["cheatSheets"] as? String,
+                  raw.count <= maxCheatSheetsChars else { return nil }
+            return raw
+        }()
         // Dolgozat-pótlás kapcsoló: régi docban hiányozhat (nil = helyi marad).
         let examRollover = data["examRollover"] as? Bool
         return Payload(updatedAt: isoPlain.string(from: date), updatedAtDate: date,
@@ -626,6 +651,7 @@ final class SummitSync: ObservableObject {
                        schoolEventsRaw: schoolEventsRaw, schoolEventsShow: schoolEventsShow,
                        schoolEventsURLRaw: schoolEventsURLRaw,
                        customTasksRaw: customTasksRaw,
+                       cheatSheetsRaw: cheatSheetsRaw,
                        fieldDates: fieldDates)
     }
 
@@ -713,6 +739,10 @@ final class SummitSync: ObservableObject {
             guard let raw = s("customTasks"), raw.count <= maxCustomTasksChars else { return nil }
             return raw
         }()
+        let cheatSheetsRaw: String? = {
+            guard let raw = s("cheatSheets"), raw.count <= maxCheatSheetsChars else { return nil }
+            return raw
+        }()
         return Payload(updatedAt: updatedAt, updatedAtDate: updatedAtDate,
                        theme: theme, accentHex: accent, sizeKey: sizeKey,
                        photoRaw: photoRaw, photo: photo, photoDecodeFailed: photoDecodeFailed,
@@ -726,6 +756,7 @@ final class SummitSync: ObservableObject {
                        schoolEventsRaw: schoolEventsRaw, schoolEventsShow: b("schoolEventsShow"),
                        schoolEventsURLRaw: schoolEventsURLRaw,
                        customTasksRaw: customTasksRaw,
+                       cheatSheetsRaw: cheatSheetsRaw,
                        fieldDates: fieldDates)
     }
 
@@ -825,6 +856,13 @@ final class SummitSync: ObservableObject {
             CustomTasksStore.replaceAll(tasks)
             applied.append(.customTasks)
         }
+        // Tanulójegyzet-lapok: `nil` nyers mező = régi doc, a helyi marad.
+        // Üres string = tudatos törlés. Sérült JSON-nál a helyi marad.
+        if newer(.cheatSheets), let raw = p.cheatSheetsRaw,
+           let sheets = CheatStore.decodeSync(raw) {
+            CheatStore.replaceAll(sheets)
+            applied.append(.cheatSheets)
+        }
         guard !applied.isEmpty else { return false }
         for f in applied {
             // A fenti mentések (fotó, kerekítés, felmentés) dirty-értesítést
@@ -878,6 +916,8 @@ final class SummitSync: ObservableObject {
             (SchoolEventsStore.urlChangedNotification, [.schoolEventsURL]),
             // Saját feladat/dolgozat felvétele, törlése, távoli pull.
             (CustomTasksStore.changedNotification, [.customTasks]),
+            // Tanulójegyzet-lap felvétele, szerkesztése, törlése, távoli pull.
+            (CheatStore.changedNotification, [.cheatSheets]),
         ]
         for (name, fields) in map {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in

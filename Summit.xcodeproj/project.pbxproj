@@ -31,6 +31,8 @@
 		39C60F238B9CE1643D4D00FB /* ExemptedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 326A7165235AF080CF90FB8D /* ExemptedStore.swift */; };
 		3DD981EF753741F402A6F479 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0BD3D0BD4C28044F95ED458 /* HomeView.swift */; };
 		3E46C09489740EF31AAF0E51 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CE0368F13109AD5B0C8D790 /* LoginView.swift */; };
+		400F9A4F42BC9E21D516E474 /* CheatSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F69EBE00C1E9795F9DE95246 /* CheatSheetView.swift */; };
+		40EBB149DF3DE49EC32441E4 /* CheatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEDFF37B0D30CD2AA0212E08 /* CheatModels.swift */; };
 		41298A0ADDBE2FADDA0E09E8 /* TimetableWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = F963EB973555B758C1101D65 /* TimetableWidgetSnapshot.swift */; };
 		42F61C8AFE8009002E272540 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22EE35060AC05385D57607A4 /* SettingsView.swift */; };
 		4307013EF2822F600C935AB2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B418024E2E5AE953F6E3E66 /* ContentView.swift */; };
@@ -48,6 +50,7 @@
 		54A14C167FA2BC79CAB9266B /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = B148C2CB66ADC6FEBA6C1694 /* AppColors.swift */; };
 		58098CCBB8D9D3DB1C5A6596 /* AnalyticsConsentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E0E94310269FCFFF2F115AC /* AnalyticsConsentView.swift */; };
 		595775BF1AE585D948E4CA9B /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC0B40D99CA71E14A82E1AF /* AuthViewModel.swift */; };
+		59A73912FB5FC521119948A1 /* CheatWatchPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EDBA687F00D8388CCBD4DDA /* CheatWatchPush.swift */; };
 		59D0B237EE99E92BF971A0E7 /* TimetableWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F58C017E930EDD41FA3F852 /* TimetableWidget.swift */; };
 		5A78E3853CEEDF8FC84A226A /* WatchGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = A942DFEBC3847AC7E6660452 /* WatchGlass.swift */; };
 		5C24A893E84C2752AE05C4C9 /* SummitLiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 952A77C87AE801894AD9FA0F /* SummitLiveActivityManager.swift */; };
@@ -62,7 +65,9 @@
 		6F57A7559D0EC6EE41ACBD3F /* WatchPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = F46888F9B5AABCFE8AF91CF4 /* WatchPayload.swift */; };
 		6FD6D376BF8C8537963C516F /* GradeCircle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19DFC7C10A0189809286952D /* GradeCircle.swift */; };
 		79486CB87A01E8EC73A80F16 /* RoundingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F5EC6EB282C3C33E5FB6F00 /* RoundingDetailView.swift */; };
+		79B56C5EA8956C3CA4D3F923 /* CheatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C2A1E29F6A708D112C24AF6 /* CheatView.swift */; };
 		7D969EE8488778FF82B72229 /* FilterBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83B9022E76AD6AB32842452B /* FilterBarView.swift */; };
+		84E871367170AB755B252E52 /* CheatStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28DCFC5C5B97178FAFAEF1E0 /* CheatStore.swift */; };
 		8957515789A879317AE7291A /* SummitPushSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3E3A06805897E70CA3FE15D /* SummitPushSync.swift */; };
 		8C2B1C9B56CDA57FDA0F1AD5 /* SummitWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3ABCF5C0C06170BB971F626E /* SummitWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		8C6140AB017826BDF110FABD /* NotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F810987AB234C214EFE198C /* NotesView.swift */; };
@@ -99,12 +104,14 @@
 		D69D581273C97687038823EE /* SchoolCalendarDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 538B4D0DC7A588CA62E63427 /* SchoolCalendarDirectory.swift */; };
 		D98770305ADBCA9B0CCC1D6D /* GradingLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E84D5228585755250AA0D05 /* GradingLogic.swift */; };
 		DA9FAB3C3C4BCED9B3B83028 /* AnalyticsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 403733D1E79BF3F0BDF3A215 /* AnalyticsStore.swift */; };
+		DD7226E6D87C472965917912 /* MetaAIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8AF464B30B6BBCFA2B31D48 /* MetaAIClient.swift */; };
 		DF031CE0F1D65920D1D003E7 /* LiveCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F94AC888464350A05C1090C /* LiveCardView.swift */; };
 		E18B6A9B4FA1105E20981AF6 /* KretaAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62D820C4CC82989E7AB176A3 /* KretaAPI.swift */; };
 		E3E071A24AC9AB1AFCFB58A7 /* CustomTasksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D3E0B0FDF4604B9398AA272 /* CustomTasksStore.swift */; };
 		E598547D4480AFB303E33F50 /* LiveActivityStateBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD687285FF927AFC07229437 /* LiveActivityStateBuilder.swift */; };
 		E9854B23F285356AEC2118E4 /* WatchSyncStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78F66BBD733EBA04C7CB0856 /* WatchSyncStore.swift */; };
 		EB0BA8A61112DF3F8C21100C /* KretaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBF03B396B70AF1C4B035458 /* KretaModels.swift */; };
+		EF894B6E452FA8B29EAC59C7 /* CheatWatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14799ECC82A8A6690B992259 /* CheatWatchView.swift */; };
 		F521FF40A3154A21781D1948 /* TimetableWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = F963EB973555B758C1101D65 /* TimetableWidgetSnapshot.swift */; };
 		F6711F9870E041805B9772B2 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E86A32AD2DDFC87FB138D5 /* AppTheme.swift */; };
 		F8233A954E2118EBB3EBFD56 /* GradesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58254DFECD2C7AC3611DD728 /* GradesView.swift */; };
@@ -178,6 +185,7 @@
 		092823FDC89EDC54BE31739D /* CompletedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompletedStore.swift; sourceTree = "<group>"; };
 		0BAE871D50553D3FF30F87AD /* Summit.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Summit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0F5EC6EB282C3C33E5FB6F00 /* RoundingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundingDetailView.swift; sourceTree = "<group>"; };
+		14799ECC82A8A6690B992259 /* CheatWatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheatWatchView.swift; sourceTree = "<group>"; };
 		16DF003F0DB021C460B7EF92 /* SummitLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityAttributes.swift; sourceTree = "<group>"; };
 		194B529DC564DF78077C938A /* SubjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectDetailView.swift; sourceTree = "<group>"; };
 		19DFC7C10A0189809286952D /* GradeCircle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCircle.swift; sourceTree = "<group>"; };
@@ -186,6 +194,7 @@
 		225D81CC5A3BF3C9D730B87F /* ic_splash.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_splash.png; sourceTree = "<group>"; };
 		22EE35060AC05385D57607A4 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		26D362E074715FDA9A2FFBC2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		28DCFC5C5B97178FAFAEF1E0 /* CheatStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheatStore.swift; sourceTree = "<group>"; };
 		290841CB6CF37C571738D5D8 /* Student.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Student.swift; sourceTree = "<group>"; };
 		326A7165235AF080CF90FB8D /* ExemptedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExemptedStore.swift; sourceTree = "<group>"; };
 		343E8AF99B84335349319C56 /* GradeChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeChartView.swift; sourceTree = "<group>"; };
@@ -203,6 +212,7 @@
 		48DF42DD023A4B522459E31A /* WatchSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSync.swift; sourceTree = "<group>"; };
 		496420BF202DA6E01F09EA1D /* ProfileImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileImageView.swift; sourceTree = "<group>"; };
 		4B927208857FCA38A9068DD6 /* AttachmentViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentViewer.swift; sourceTree = "<group>"; };
+		4C2A1E29F6A708D112C24AF6 /* CheatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheatView.swift; sourceTree = "<group>"; };
 		4CC0B40D99CA71E14A82E1AF /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
 		4DBEA545697A0AFB5ED93A92 /* SummitWatchWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitWatchWidgetsBundle.swift; sourceTree = "<group>"; };
 		4F810987AB234C214EFE198C /* NotesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesView.swift; sourceTree = "<group>"; };
@@ -217,6 +227,7 @@
 		64D00B43D3C4A6D54B036246 /* TasksWatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksWatchView.swift; sourceTree = "<group>"; };
 		66A280F65EA8973C9BD6A643 /* KretaWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaWebView.swift; sourceTree = "<group>"; };
 		6E0E94310269FCFFF2F115AC /* AnalyticsConsentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsConsentView.swift; sourceTree = "<group>"; };
+		6EDBA687F00D8388CCBD4DDA /* CheatWatchPush.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheatWatchPush.swift; sourceTree = "<group>"; };
 		6F94AC888464350A05C1090C /* LiveCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCardView.swift; sourceTree = "<group>"; };
 		720F49AFD0A1A5B6C3CA9AB6 /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
 		749530AC3E1096307CE8ED24 /* KretaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaClient.swift; sourceTree = "<group>"; };
@@ -242,6 +253,7 @@
 		A90965AE210BE420CCD2F989 /* WatchNowWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchNowWidget.swift; sourceTree = "<group>"; };
 		A942DFEBC3847AC7E6660452 /* WatchGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchGlass.swift; sourceTree = "<group>"; };
 		AA71684B6DF0CFB5982A110F /* SchoolEventsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchoolEventsSection.swift; sourceTree = "<group>"; };
+		AEDFF37B0D30CD2AA0212E08 /* CheatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheatModels.swift; sourceTree = "<group>"; };
 		AFD363A0F8F101E59655A0B4 /* GradesWatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradesWatchView.swift; sourceTree = "<group>"; };
 		B148C2CB66ADC6FEBA6C1694 /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
 		B439B973B0C83A6163B9A8E2 /* LiveActivityCatalystStubs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityCatalystStubs.swift; sourceTree = "<group>"; };
@@ -250,6 +262,7 @@
 		B7AEC13243FD70028FF077DA /* showcase3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase3.png; sourceTree = "<group>"; };
 		B7E156CB119C0AA44F6ECF68 /* SummitApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitApp.swift; sourceTree = "<group>"; };
 		BD41B4ED9508F804D6940D5E /* ic_rounded.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_rounded.png; sourceTree = "<group>"; };
+		C8AF464B30B6BBCFA2B31D48 /* MetaAIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetaAIClient.swift; sourceTree = "<group>"; };
 		CACC3C6BFC6796A0A3267897 /* TimetableWidgetPublish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableWidgetPublish.swift; sourceTree = "<group>"; };
 		D545B038F89135DDB38415E2 /* showcase2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase2.png; sourceTree = "<group>"; };
 		DDF41EC6F961DFC321F8FED9 /* MessagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesView.swift; sourceTree = "<group>"; };
@@ -263,6 +276,7 @@
 		F129BF98BF502D69E561BE08 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		F46888F9B5AABCFE8AF91CF4 /* WatchPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchPayload.swift; sourceTree = "<group>"; };
 		F680942F0CC6A6002F0C67D4 /* WatchAppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = WatchAppIcon.icon; sourceTree = "<group>"; };
+		F69EBE00C1E9795F9DE95246 /* CheatSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheatSheetView.swift; sourceTree = "<group>"; };
 		F963EB973555B758C1101D65 /* TimetableWidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableWidgetSnapshot.swift; sourceTree = "<group>"; };
 		FBFE1FE503B9522FABFD9105 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		FCD612738202004C2155D62E /* TeacherRoundingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeacherRoundingView.swift; sourceTree = "<group>"; };
@@ -336,6 +350,19 @@
 			path = SummitWidgets;
 			sourceTree = "<group>";
 		};
+		27EC9F8438B4BC6FE6207CB6 /* Cheat */ = {
+			isa = PBXGroup;
+			children = (
+				AEDFF37B0D30CD2AA0212E08 /* CheatModels.swift */,
+				F69EBE00C1E9795F9DE95246 /* CheatSheetView.swift */,
+				28DCFC5C5B97178FAFAEF1E0 /* CheatStore.swift */,
+				4C2A1E29F6A708D112C24AF6 /* CheatView.swift */,
+				6EDBA687F00D8388CCBD4DDA /* CheatWatchPush.swift */,
+				C8AF464B30B6BBCFA2B31D48 /* MetaAIClient.swift */,
+			);
+			path = Cheat;
+			sourceTree = "<group>";
+		};
 		2B392934834A2113E74B9584 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
@@ -365,6 +392,7 @@
 		376775F7630A675C4FBB5A34 /* SummitWatch */ = {
 			isa = PBXGroup;
 			children = (
+				14799ECC82A8A6690B992259 /* CheatWatchView.swift */,
 				AFD363A0F8F101E59655A0B4 /* GradesWatchView.swift */,
 				26D362E074715FDA9A2FFBC2 /* Info.plist */,
 				897478263CC14E9677BA3955 /* SummitWatchApp.swift */,
@@ -450,6 +478,7 @@
 				225F791A575F82F35ECE1EAB /* Absences */,
 				653F96092664E799B430D729 /* Attachments */,
 				018A05B9D2DE7C260226F8E2 /* Auth */,
+				27EC9F8438B4BC6FE6207CB6 /* Cheat */,
 				7070AF8DA86AD8AD598D36E7 /* Grades */,
 				4393A737D8D343A80B277A26 /* Home */,
 				93A188207B192C2AF33F83B9 /* MainTab */,
@@ -783,6 +812,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				54A14C167FA2BC79CAB9266B /* AppColors.swift in Sources */,
+				EF894B6E452FA8B29EAC59C7 /* CheatWatchView.swift in Sources */,
 				52B310CDA2178D044B0E409A /* GradesWatchView.swift in Sources */,
 				9452445D4637696EEF502A31 /* GradingLogic.swift in Sources */,
 				8F81255CB7FB5428B8AB4039 /* KretaModels.swift in Sources */,
@@ -807,6 +837,11 @@
 				F6711F9870E041805B9772B2 /* AppTheme.swift in Sources */,
 				8FA20E049E51FE3A80FA29EF /* AttachmentViewer.swift in Sources */,
 				595775BF1AE585D948E4CA9B /* AuthViewModel.swift in Sources */,
+				40EBB149DF3DE49EC32441E4 /* CheatModels.swift in Sources */,
+				400F9A4F42BC9E21D516E474 /* CheatSheetView.swift in Sources */,
+				84E871367170AB755B252E52 /* CheatStore.swift in Sources */,
+				79B56C5EA8956C3CA4D3F923 /* CheatView.swift in Sources */,
+				59A73912FB5FC521119948A1 /* CheatWatchPush.swift in Sources */,
 				616093231CBFBBE90164AAA2 /* CompletedStore.swift in Sources */,
 				4307013EF2822F600C935AB2 /* ContentView.swift in Sources */,
 				E3E071A24AC9AB1AFCFB58A7 /* CustomTasksStore.swift in Sources */,
@@ -835,6 +870,7 @@
 				3E46C09489740EF31AAF0E51 /* LoginView.swift in Sources */,
 				BFD4B5425FC95BBEC6575868 /* MainTabView.swift in Sources */,
 				51445194496F9216C84299A8 /* MessagesView.swift in Sources */,
+				DD7226E6D87C472965917912 /* MetaAIClient.swift in Sources */,
 				8C6140AB017826BDF110FABD /* NotesView.swift in Sources */,
 				C0193DFFC067EF63923C0A7E /* NotificationManager.swift in Sources */,
 				19D3A7B14C46D6CC18FD0B79 /* ProfileCropView.swift in Sources */,

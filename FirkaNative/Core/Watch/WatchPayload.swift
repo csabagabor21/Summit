@@ -21,6 +21,7 @@ enum WatchSharedStore {
     static let timetableKey = "watch.cache.timetable.v1"
     static let gradesKey = "watch.cache.grades.v1"
     static let tasksKey = "watch.cache.tasks.v1"
+    static let cheatKey = "watch.cache.cheat.v1"
     /// Fejlesztői idő-előnézet (unix idő, Double). Csak akkor van jelen, ha
     /// az iPhone-on az Idő-eltolás csúszka aktív.
     static let previewNowKey = "watch.cache.previewNow.v1"
@@ -51,6 +52,8 @@ enum WatchPayloadKey {
     static let timetable = "watch.timetable.v1"
     static let grades = "watch.grades.v1"
     static let tasks = "watch.tasks.v1"
+    /// Tanulójegyzet-lapok az órára (Jegyzet tab).
+    static let cheat = "watch.cheat.v1"
     /// Óra → iPhone szinkronkérés (megnyitáskor, ha az órai adat avult
     /// vagy hiányzik). Mindkét irány ugyanazt a kulcs-szótárat használja.
     static let request = "watch.requestSync.v1"
@@ -159,6 +162,53 @@ struct WatchTasksSnapshot: Codable {
         accentHex = try c.decodeIfPresent(Int.self, forKey: .accentHex) ?? 0x4A90E2
         homeworks = try c.decodeIfPresent([WatchHomework].self, forKey: .homeworks) ?? []
         exams = try c.decodeIfPresent([WatchExam].self, forKey: .exams) ?? []
+    }
+}
+
+// MARK: - Tanulójegyzet-lap az órára — a CheatSheet hordozható kivonata
+// Dolgozat → témák → altémák: az óra ugyanígy fúr le (Jegyzet tab).
+// A feltöltött nyers anyagok NEM utaznak (nagyok) — csak a kész
+// (AI- vagy kézi) jegyzet-törzsek, vágva (az applicationContext
+// nagy méretnél eldobná a teljes contextet).
+struct WatchCheatSub: Codable, Hashable, Identifiable {
+    var id: String
+    var title: String
+    var body: String
+}
+
+struct WatchCheatTopic: Codable, Hashable, Identifiable {
+    var id: String
+    var title: String
+    var subtopics: [WatchCheatSub]
+}
+
+struct WatchCheatSheet: Codable, Hashable, Identifiable {
+    var id: String
+    var subject: String
+    var title: String
+    var date: Date?
+}
+
+/// Jegyzet-snapshot: lapok + témáik az órára.
+struct WatchCheatSnapshot: Codable {
+    var savedAt: Date
+    var accentHex: Int
+    var sheets: [WatchCheatSheet]
+    var topics: [String: [WatchCheatTopic]]
+
+    enum CodingKeys: String, CodingKey {
+        case savedAt, accentHex, sheets, topics
+    }
+    init(savedAt: Date, accentHex: Int, sheets: [WatchCheatSheet], topics: [String: [WatchCheatTopic]]) {
+        self.savedAt = savedAt; self.accentHex = accentHex
+        self.sheets = sheets; self.topics = topics
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        savedAt = try c.decodeIfPresent(Date.self, forKey: .savedAt) ?? Date.distantPast
+        accentHex = try c.decodeIfPresent(Int.self, forKey: .accentHex) ?? 0x4A90E2
+        sheets = try c.decodeIfPresent([WatchCheatSheet].self, forKey: .sheets) ?? []
+        topics = try c.decodeIfPresent([String: [WatchCheatTopic]].self, forKey: .topics) ?? [:]
     }
 }
 

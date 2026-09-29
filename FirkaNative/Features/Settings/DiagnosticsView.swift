@@ -60,6 +60,7 @@ struct DiagnosticsView: View {
                 diagRow("Órarend push", watchReport.timetableText)
                 diagRow("Jegy push", watchReport.gradesText)
                 diagRow("Feladat push", watchReport.tasksText)
+                diagRow("Jegyzet push", watchReport.cheatText)
                 if let err = watchReport.errorText { diagRow("Hiba", err) }
                 diagRow("Ítélet", watchReport.verdictText)
                 Button("Óra szinkronizálása most") {
@@ -182,7 +183,7 @@ struct DiagnosticsView: View {
             + "analytics: enabled=\(analytics.isEnabled) attempt=\(analytics.lastAttempt) school=\(analytics.lastSchool) result=\(analytics.lastResult)\n"
             + "push: token=\(pushTokenDiag) feltöltés=\(lastUploadDiag) kimaradás=\(skipDiag)\n"
             + "terv-kulcs: \(planKeyDiag)\n"
-            + "watch: támogatott=\(watchReport.supportedText) session=\(watchReport.activationText) párosítva=\(watchReport.pairedText) óra-app=\(watchReport.installedText) elérhető=\(watchReport.reachableText) órarend=\(watchReport.timetableText) jegy=\(watchReport.gradesText) feladat=\(watchReport.tasksText) hiba=\(watchReport.errorText ?? "–") ítélet=\(watchReport.verdictText)\n"
+            + "watch: támogatott=\(watchReport.supportedText) session=\(watchReport.activationText) párosítva=\(watchReport.pairedText) óra-app=\(watchReport.installedText) elérhető=\(watchReport.reachableText) órarend=\(watchReport.timetableText) jegy=\(watchReport.gradesText) feladat=\(watchReport.tasksText) jegyzet=\(watchReport.cheatText) hiba=\(watchReport.errorText ?? "–") ítélet=\(watchReport.verdictText)\n"
             + "live activity: rendszer=\(liveManager.isSystemEnabled ? "engedélyezett" : "TILTVA") app=\(liveManager.isAppEnabled ? "be" : "KI") aktív=\(liveManager.activeCount) utolsó=\(liveManager.lastAction) hiba=\(liveManager.lastError ?? "–")\n"
             + kreta.diagLog.joined(separator: "\n")
             + "\n--- live activity események ---\n"

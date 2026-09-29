@@ -16,6 +16,7 @@ final class WatchSyncStore: NSObject, ObservableObject {
     @Published private(set) var timetable: TimetableWidgetStore.Snapshot?
     @Published private(set) var grades: WatchGradesSnapshot?
     @Published private(set) var tasks: WatchTasksSnapshot?
+    @Published private(set) var cheat: WatchCheatSnapshot?
 
     /// Ennél régebbi órai adattal megnyitáskor kérünk frisset.
     private static let staleAfter: TimeInterval = 30 * 60
@@ -52,6 +53,10 @@ final class WatchSyncStore: NSObject, ObservableObject {
         if let data = WatchSharedStore.data(forKey: WatchSharedStore.tasksKey),
            let snap = try? JSONDecoder().decode(WatchTasksSnapshot.self, from: data) {
             tasks = snap
+        }
+        if let data = WatchSharedStore.data(forKey: WatchSharedStore.cheatKey),
+           let snap = try? JSONDecoder().decode(WatchCheatSnapshot.self, from: data) {
+            cheat = snap
         }
         let previewTs = WatchSharedStore.defaults.double(forKey: WatchSharedStore.previewNowKey)
         if previewTs > 0 {
@@ -102,6 +107,7 @@ extension WatchSyncStore: WCSessionDelegate {
         var newTimetable = timetable
         var newGrades = grades
         var newTasks = tasks
+        var newCheat = cheat
         var changed = false
         if let data = context[WatchPayloadKey.timetable] as? Data {
             if let snap = try? JSONDecoder().decode(TimetableWidgetStore.Snapshot.self, from: data) {
@@ -130,6 +136,15 @@ extension WatchSyncStore: WCSessionDelegate {
                 watchLog.error("feladat-dekódhiba, \(data.count) bájt eldobva")
             }
         }
+        if let data = context[WatchPayloadKey.cheat] as? Data {
+            if let snap = try? JSONDecoder().decode(WatchCheatSnapshot.self, from: data) {
+                newCheat = snap
+                WatchSharedStore.set(data, forKey: WatchSharedStore.cheatKey)
+                changed = true
+            } else {
+                watchLog.error("jegyzet-dekódhiba, \(data.count) bájt eldobva")
+            }
+        }
         // Az előnézetet akkor is átírjuk, ha snapshot nem változott
         // (pl. csak a csúszkát mozgatták, vagy kikapcsolták) — különben
         // az óra beragadna az eltolt időbe. A groupban él, hogy a Smart
@@ -145,6 +160,7 @@ extension WatchSyncStore: WCSessionDelegate {
             self.timetable = newTimetable
             self.grades = newGrades
             self.tasks = newTasks
+            self.cheat = newCheat
             self.previewNow = newPreview
             // Friss adat a groupban → a widget timeline-ja is újratölt,
             // különben a Smart Stack a régi (üres) belépőnél ragadna.
@@ -210,7 +226,7 @@ extension WatchSyncStore: WCSessionDelegate {
     /// háttérben is felébreszti, és a gyorstárból válaszol.
     private func requestSyncIfNeeded(session: WCSession) {
         let now = Date()
-        let savedAts = [timetable?.savedAt, grades?.savedAt, tasks?.savedAt]
+        let savedAts = [timetable?.savedAt, grades?.savedAt, tasks?.savedAt, cheat?.savedAt]
         let stale = savedAts.contains(where: { $0 == nil })
             || savedAts.compactMap { $0 }.contains { now.timeIntervalSince($0) > Self.staleAfter }
         guard stale else { return }

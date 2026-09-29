@@ -12,6 +12,7 @@ struct WatchSyncReport {
     var timetableText: String = "–"
     var gradesText: String = "–"
     var tasksText: String = "–"
+    var cheatText: String = "–"
     var errorText: String?
     /// Egy mondatos ítélet ("mi a baj"), plusz tennivaló.
     var verdictText: String = "–"
@@ -100,6 +101,40 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
             return
         }
         shared.send(key: WatchPayloadKey.tasks, data: data)
+    }
+
+    /// Tanulójegyzet-lapok az órára — a CheatView szabályaival.
+    /// Üres lista is mehet (mind törölve → az óra Jegyzet-tabja ürül).
+    /// Méretkorlát: az applicationContext nagy méretnél a teljes
+    /// contextet eldobná — ezért laponként max 12 téma, témánként
+    /// max 8 altéma, törzsenként 1500 karakter utazik.
+    static func pushCheat(_ sheets: [CheatSheet]) {
+        guard WCSession.isSupported() else { return }
+        let mappedSheets = sheets.prefix(30).map {
+            WatchCheatSheet(id: $0.id, subject: $0.subject, title: $0.title, date: $0.date)
+        }
+        var mappedTopics: [String: [WatchCheatTopic]] = [:]
+        for s in sheets.prefix(30) {
+            mappedTopics[s.id] = s.topics.prefix(12).map { t in
+                WatchCheatTopic(
+                    id: t.id, title: t.title,
+                    subtopics: t.subtopics.prefix(8).map {
+                        WatchCheatSub(id: $0.id, title: $0.title,
+                                      body: String($0.body.prefix(1500)))
+                    }
+                )
+            }
+        }
+        let snapshot = WatchCheatSnapshot(
+            savedAt: Date(),
+            accentHex: TimetableWidgetPublish.currentAccentHex(),
+            sheets: Array(mappedSheets), topics: mappedTopics
+        )
+        guard let data = try? JSONEncoder().encode(snapshot) else {
+            WatchSyncLog.log.error("jegyzet-kódolási hiba")
+            return
+        }
+        shared.send(key: WatchPayloadKey.cheat, data: data)
     }
 
     /// Aktív házik + dolgozatok a NotesView szabályaival: saját tételek
@@ -264,6 +299,7 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
         r.timetableText = sliceText(WatchPayloadKey.timetable)
         r.gradesText = sliceText(WatchPayloadKey.grades)
         r.tasksText = sliceText(WatchPayloadKey.tasks)
+        r.cheatText = sliceText(WatchPayloadKey.cheat)
         r.errorText = UserDefaults.standard.string(forKey: diagErrorKey)
         // Ítélet — az első igaz ok nyer.
         if parts.count == 4, parts[0] != "2" {
@@ -278,7 +314,7 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
         } else if let err = r.errorText {
             r.verdictText = "Utolsó push hibával halt el"
             r.hintText = "Hiba: \(err). Legtöbbször elég a Főoldal lehúzása (újraküldi mindhárom szeletet)."
-        } else if r.timetableText == "–", r.gradesText == "–", r.tasksText == "–" {
+        } else if r.timetableText == "–", r.gradesText == "–", r.tasksText == "–", r.cheatText == "–" {
             r.verdictText = "Még nem történt push"
             r.hintText = "Húzd le a Főoldalt, az Órarendet vagy a Jegyeket — a lehúzás végén az app tol az órára."
         } else {
@@ -312,7 +348,7 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
     /// újraindítás után, háttér-ébresztéskor is elérhető.
     static func lastKnownContext() -> [String: Any] {
         var ctx: [String: Any] = [:]
-        for key in [WatchPayloadKey.timetable, WatchPayloadKey.grades, WatchPayloadKey.tasks] {
+        for key in [WatchPayloadKey.timetable, WatchPayloadKey.grades, WatchPayloadKey.tasks, WatchPayloadKey.cheat] {
             if let data = UserDefaults.standard.data(forKey: lastKnownKeyPrefix + key) {
                 ctx[key] = data
             }
@@ -513,6 +549,8 @@ enum WatchAutoPush {
             )
             WatchSyncSender.pushTasks(homeworks: active.hw, exams: active.ex)
         }
+        // Jegyzetlapok helyből — hálózattól függetlenül mennek az órára.
+        WatchSyncSender.pushCheat(CheatStore.load())
     }
 }
 #else
@@ -536,6 +574,7 @@ enum WatchSyncSender {
     static func pushSnapshot(_: TimetableWidgetStore.Snapshot) {}
     static func pushGrades(grades _: [GradeItem], subjects _: [String]) {}
     static func pushTasks(homeworks _: [HomeworkItem], exams _: [ExamItem]) {}
+    static func pushCheat(_: [CheatSheet]) {}
     @MainActor
     static func activeTasks(
         homeworks _: [HomeworkItem],

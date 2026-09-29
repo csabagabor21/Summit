@@ -91,8 +91,8 @@ struct MainTabView: View {
             Tab("Órarend", systemImage: "calendar", value: 2) {
                 TimetableView()
             }
-            Tab("Feladatok", systemImage: "checklist", value: 3) {
-                NotesView()
+            Tab("Watch", systemImage: "applewatch", value: 3) {
+                CheatView()
             }
             Tab("Hiányzások", systemImage: "person.crop.rectangle.stack", value: 4) {
                 AbsencesView()
@@ -110,7 +110,7 @@ struct MainTabView: View {
             HomeView().tabItem { Label("Főoldal", systemImage: "house.fill") }.tag(0)
             GradesView().tabItem { Label("Jegyek", systemImage: "star.fill") }.tag(1)
             TimetableView().tabItem { Label("Órarend", systemImage: "calendar") }.tag(2)
-            NotesView().tabItem { Label("Feladatok", systemImage: "checklist") }.tag(3)
+            CheatView().tabItem { Label("Watch", systemImage: "applewatch") }.tag(3)
             AbsencesView().tabItem { Label("Hiányzások", systemImage: "person.crop.rectangle.stack") }.tag(4)
         }
     }

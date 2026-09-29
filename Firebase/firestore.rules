@@ -128,12 +128,12 @@ function isValidSyncDoc() {
       'rounding', 'exempted', 'completedHw', 'completedEx',
       'notifyGrades', 'notifyTasks', 'notifyAbsences', 'liveActivity',
       'schoolEvents', 'schoolEventsShow', 'schoolEventsURL', 'customTasks',
-      'examRollover',
+      'cheatSheets', 'examRollover',
       'ts_theme', 'ts_accentHex', 'ts_sizeKey', 'ts_photo', 'ts_rounding',
       'ts_exempted', 'ts_completedHw', 'ts_completedEx', 'ts_notifyGrades',
       'ts_notifyTasks', 'ts_notifyAbsences', 'ts_liveActivity',
       'ts_schoolEvents', 'ts_schoolEventsShow', 'ts_schoolEventsURL', 'ts_customTasks',
-      'ts_examRollover'])
+      'ts_cheatSheets', 'ts_examRollover'])
     && request.resource.data.v is int && request.resource.data.v == 1
     && request.resource.data.updatedAt is timestamp
     && request.resource.data.updatedAt <= request.time + duration.value(5, 'm')
@@ -185,6 +185,11 @@ function isValidSyncDoc() {
     && (!('customTasks' in request.resource.data) || (request.resource.data.customTasks is string
       && request.resource.data.customTasks.size() <= 48000))
     && (!('ts_customTasks' in request.resource.data) || request.resource.data.ts_customTasks is timestamp)
+    // Tanulójegyzet-lapok: opcionálisak (régi kliens ezek nélkül is
+    // írhat), de ha vannak: kompakt JSON (üres = tudatos törlés).
+    && (!('cheatSheets' in request.resource.data) || (request.resource.data.cheatSheets is string
+      && request.resource.data.cheatSheets.size() <= 100000))
+    && (!('ts_cheatSheets' in request.resource.data) || request.resource.data.ts_cheatSheets is timestamp)
     // Dolgozat-pótlás kapcsoló: opcionális (régi kliens e nélkül is írhat).
     && (!('examRollover' in request.resource.data) || request.resource.data.examRollover is bool)
     && (!('ts_examRollover' in request.resource.data) || request.resource.data.ts_examRollover is timestamp);
