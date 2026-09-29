@@ -245,12 +245,9 @@ private struct WatchLessonRow: View {
                     if !lesson.room.isEmpty {
                         Text(lesson.room)
                             .font(.caption2.weight(.bold).monospacedDigit())
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(accent)
                             .padding(.horizontal, 5).padding(.vertical, 2)
-                            .background(
-                                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                    .fill(Color.primary.opacity(0.08))
-                            )
+                            .watchGlassCube(tint: accent.opacity(0.16))
                             .lineLimit(1)
                             .fixedSize(horizontal: true, vertical: false)
                     }
