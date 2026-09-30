@@ -242,10 +242,11 @@ private struct WatchNowView: View {
         }
     }
 
-    // MARK: Smart Stack főnézet — kompakt: cím + csík melletti "35p" + következő óra
-    // A csík a kiemelőszínt (accent) veszi fel, a hátralévő idő rövid
-    // "35p" alakban a csík MELLETT ül (nem külön soron), alatta pedig egy
-    // sorban a következő óra — így minden elfér zsúfoltság nélkül.
+    // MARK: Smart Stack főnézet — cím (tárgy • terem) + számos csík + következő óra
+    // Óraszám-sor nincs: az óraszám a csík elején, RAJTA ül (fehér szám),
+    // a terem pedig a címben, kis pöttyel. A csík a kiemelőszínt (accent)
+    // veszi fel, a hátralévő idő rövid "35p" alakban a csík MELLETT
+    // (nem külön soron), alatta normál méretű sorban a következő óra.
     private var rectangularView: some View {
         VStack(alignment: .leading, spacing: 3) {
             // Két egyforma spacer középre rendezi a blokkot: alul-felül
@@ -264,28 +265,22 @@ private struct WatchNowView: View {
                         .font(.headline.weight(.semibold)).lineLimit(1)
                 case .morning:
                     if let n = calc.next {
-                        Text(n.subject)
-                            .font(.headline.weight(.bold)).lineLimit(1)
-                        lessonLine(n, showTime: n.start)
-                        progressLine(tint: statusTint(n))
+                        titleRow(n)
+                        progressLine(tint: statusTint(n), index: n.index)
                         nextLine(n)
                     }
                 case .duringLesson:
                     if let c = calc.current {
-                        Text(c.subject)
-                            .font(.headline.weight(.bold)).lineLimit(1)
-                        lessonLine(c, showTime: nil)
-                        progressLine(tint: statusTint(c))
+                        titleRow(c)
+                        progressLine(tint: statusTint(c), index: c.index)
                         if let n = calc.next {
                             nextLine(n)
                         }
                     }
                 case .duringBreak:
                     if let n = calc.next {
-                        Text(n.subject)
-                            .font(.headline.weight(.bold)).lineLimit(1)
-                        lessonLine(n, showTime: n.start)
-                        progressLine(tint: statusTint(n))
+                        titleRow(n)
+                        progressLine(tint: statusTint(n), index: n.index)
                         nextLine(n)
                     }
                 }
@@ -314,26 +309,35 @@ private struct WatchNowView: View {
         }
     }
 
-    private func lessonLine(_ l: TimetableWidgetStore.Lesson, showTime: Date?) -> some View {
+    /// Cím-sor: tárgy + kis pötty + terem (az óraszám-sor helyett —
+    /// az óraszám a csíkon ül). A terem sosem nyomódik össze,
+    /// a tárgy vágódik (`tail`), ha szűk a hely.
+    private func titleRow(_ l: TimetableWidgetStore.Lesson) -> some View {
         HStack(spacing: 4) {
-            Text("\(l.index). óra")
-                .font(.caption2.weight(.bold).monospacedDigit())
+            Text(l.subject)
+                .font(.headline.weight(.bold)).lineLimit(1)
+                .truncationMode(.tail)
             Text("•").foregroundStyle(.tertiary).font(.caption2)
             Text(l.room.isEmpty ? l.teacher : l.room)
                 .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-            Spacer(minLength: 2)
-            if let t = showTime {
-                Text(shortTime(t)).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
-            }
+                .fixedSize(horizontal: true, vertical: false)
         }
     }
 
-    /// Accent-csík + mellette a rövid "35p" — egy soron, külön
-    /// "X perc van hátra" sor nélkül.
-    private func progressLine(tint: Color) -> some View {
+    /// Accent-csík + RAJTA az óraszám (fehér szám a csík elején) + mellette
+    /// a rövid "35p" — egy soron, külön "X perc van hátra" sor nélkül.
+    private func progressLine(tint: Color, index: String) -> some View {
         HStack(spacing: 6) {
             ProgressView(value: calc.progress)
                 .tint(tint)
+                .overlay(alignment: .leading) {
+                    if !index.isEmpty {
+                        Text("\(index).")
+                            .font(.system(size: 11, weight: .bold).monospacedDigit())
+                            .foregroundStyle(.white)
+                            .padding(.leading, 6)
+                    }
+                }
             Text(shortRemaining)
                 .font(.caption2.weight(.bold).monospacedDigit())
                 .foregroundStyle(.secondary)
@@ -343,13 +347,13 @@ private struct WatchNowView: View {
 
     /// Következő óra egy sorban: nyíl + terem, utána a tárgy, ha elfér.
     /// Időpont és "Következő" felirat nincs — a fenti sorokból úgyis
-    /// látszik, melyik óra tart épp. Szándékosan kisebb (10pt) alárendelt
-    /// sor, hogy a Smart Stack-kártyán biztosan elférjen. A terem sosem
-    /// nyomódik össze, a tárgy vágódik (`tail`), ha szűk a hely.
+    /// látszik, melyik óra tart épp. Normál (caption2) méret — az óraszám-sor
+    /// megszűnt, így van hely. A terem sosem nyomódik össze,
+    /// a tárgy vágódik (`tail`), ha szűk a hely.
     private func nextLine(_ n: TimetableWidgetStore.Lesson) -> some View {
         HStack(spacing: 4) {
             Image(systemName: "arrow.right.circle.fill")
-                .font(.system(size: 10, weight: .bold))
+                .font(.caption2.weight(.bold))
                 .foregroundStyle(.secondary)
                 // Optikai igazítás: a kerek ikonnak nincs sík bal éle, mint
                 // a "Matek" M-betűjének — enélkül a sor beljebbnek látszana.
@@ -358,13 +362,13 @@ private struct WatchNowView: View {
             let room = n.room.isEmpty ? n.teacher : n.room
             if !room.isEmpty {
                 Text(room)
-                    .font(.system(size: 10, weight: .bold).monospacedDigit())
+                    .font(.caption2.weight(.bold).monospacedDigit())
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
             }
             Text(n.subject)
-                .font(.system(size: 10))
+                .font(.caption2)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
