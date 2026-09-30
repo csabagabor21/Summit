@@ -6,19 +6,29 @@ import WatchConnectivity
 #endif
 
 // MARK: - Óra-elérhetőség a Watch tab láthatóságához
-// Csak párosított óra esetén látszik a Watch tab — óra nélkül nincs
-// mit az órára tolni. WCSession-delegate nem kell hozzá (csak olvasunk),
-// a delegate továbbra is a WatchSyncSender marad.
-// Mac Catalysten és órát párosítani nem tudó eszközön (iPad) sosem látszik.
+// Helyi párosított óra VAGY szinkronizált órajelenlét esetén látszik
+// a Watch tab: Mac Catalysten (ahol párosítás nincs) is lehet tab,
+// ha a SummitSync `hasWatch` mezőjéből egy másik eszköz órája átjött —
+// így Macről is lehet jegyzetet készíteni, ami átmegy a telefonra
+// (és onnan az órára). WCSession-delegate nem kell hozzá (csak
+// olvasunk), a delegate továbbra is a WatchSyncSender marad.
 final class WatchAvailability: ObservableObject {
     static let shared = WatchAvailability()
 
+    /// Ezen az eszközön párosított óra van-e.
     @Published private(set) var hasWatch: Bool = false
+    /// Másik eszköz órája a szinkronból (Macen ez nyitja a tabot).
+    @Published private(set) var peerHasWatch: Bool = false
+    /// A tab láthatósága: helyi vagy távoli óra.
+    var showTab: Bool { hasWatch || peerHasWatch }
+
+    static let peerKey = "sync.peerHasWatch.v1"
 
     private var cancellables = Set<AnyCancellable>()
 
     private init() {
         hasWatch = Self.current()
+        peerHasWatch = UserDefaults.standard.bool(forKey: Self.peerKey)
         // Aktiválás/push után a watch-riport frissül — arra újraszámolunk,
         // így a párosítás után magától megjelenik a tab, alkalmazás-újraindítás nélkül.
         NotificationCenter.default.publisher(for: WatchSyncSender.reportChanged)
@@ -32,6 +42,15 @@ final class WatchAvailability: ObservableObject {
     func refresh() {
         let v = Self.current()
         if v != hasWatch { hasWatch = v }
+    }
+
+    /// A szinkronból jövő órajelenlét bejegyzése (SummitSync applyRemote).
+    /// Perzisztált, így újraindítás után is megmarad a Mac-tab.
+    func setPeerHasWatch(_ v: Bool) {
+        if v != peerHasWatch {
+            peerHasWatch = v
+            UserDefaults.standard.set(v, forKey: Self.peerKey)
+        }
     }
 
     private static func current() -> Bool {

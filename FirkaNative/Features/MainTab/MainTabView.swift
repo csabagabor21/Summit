@@ -25,6 +25,10 @@ struct MainTabView: View {
     @State private var selected: Int = ProcessInfo.processInfo.arguments.contains("-FIRKA_ABSENCES") ? 4 : 0
     @ObservedObject private var notif = NotificationManager.shared
     @ObservedObject private var watchAvailability = WatchAvailability.shared
+    @EnvironmentObject var completed: CompletedStore
+    /// Óra nélküli iPhone-on nincs Watch tab (így a CheatView-cover sem
+    /// él) — ilyenkor a Feladatok coverben nyílik (lásd switchToTasks).
+    @State private var showingTasksCover = false
     @Environment(\.scenePhase) private var scenePhase
     private let switchToTasks = Notification.Name("summit.switchToTasks")
     private let switchToTimetable = Notification.Name("summit.switchToTimetable")
@@ -43,16 +47,39 @@ struct MainTabView: View {
         .tint(colors.accent)
         // NINCS withAnimation(.spring) — a rendszer Liquid Glass morphja animál.
         // Custom spring felülírná a natív görbét és "cooked"-nak hat.
-        .onReceive(NotificationCenter.default.publisher(for: switchToTasks)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: switchToTasks)) { notif in
             #if targetEnvironment(macCatalyst)
             selected = 5
             #else
-            if watchAvailability.hasWatch { selected = 3 }
+            if watchAvailability.showTab {
+                selected = 3
+            } else if !showingTasksCover {
+                // Óra nélküli iPhone: nincs Watch tab, így a CheatView
+                // cover-reléje sem él — a Feladatok ilyenkor itt, coverben
+                // nyílik. Az értesítést EGYSZER továbbküldjük, hogy a
+                // NotesView szegmense + sorvillanása hasson; a saját
+                // újraküldésünket az őr feltartóztatja (nincs hurok).
+                showingTasksCover = true
+                if let info = notif.userInfo {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                        NotificationCenter.default.post(name: switchToTasks, object: nil, userInfo: info)
+                    }
+                }
+            }
             #endif
         }
-        // Óra nélkül nincs Watch tab: ha épp azon álltál párosítás
-        // törlésekor, vissza a Főoldalra (különben üres lapon ragadnál).
-        .onChange(of: watchAvailability.hasWatch) { _, has in
+        .fullScreenCover(isPresented: $showingTasksCover) {
+            NotesView()
+                .environmentObject(theme)
+                .environmentObject(session)
+                .environmentObject(kreta)
+                .environmentObject(completed)
+        }
+        // Watch tab nélkül nincs min állni: ha épp azon álltál, amikor
+        // eltűnt (párosítás törlése), vissza a Főoldalra (különben üres
+        // lapon ragadnál). A szinkronizált órajel (peerHasWatch) miatt
+        // a showTab-ot figyeljük, nem csak a helyi párosítást.
+        .onChange(of: watchAvailability.showTab) { _, has in
             if !has, selected == 3 { selected = 0 }
         }
         .onAppear { watchAvailability.refresh() }
@@ -109,8 +136,10 @@ struct MainTabView: View {
             Tab("Hiányzások", systemImage: "person.crop.rectangle.stack", value: 4) {
                 AbsencesView()
             }
-            // Párosított óra nélkül nincs Watch tab a dockban/sidebarban.
-            if watchAvailability.hasWatch {
+            // Helyi vagy szinkronizált óra nélkül nincs Watch tab a
+            // dockban/sidebarban — Macen a telefon órája nyitja (jegyzet
+            // Macről is készíthető, átmegy a telefonra, onnan az órára).
+            if watchAvailability.showTab {
                 Tab("Watch", systemImage: "applewatch", value: 3) {
                     CheatView()
                 }
@@ -136,7 +165,7 @@ struct MainTabView: View {
             GradesView().tabItem { Label("Jegyek", systemImage: "star.fill") }.tag(1)
             TimetableView().tabItem { Label("Órarend", systemImage: "calendar") }.tag(2)
             AbsencesView().tabItem { Label("Hiányzások", systemImage: "person.crop.rectangle.stack") }.tag(4)
-            if watchAvailability.hasWatch {
+            if watchAvailability.showTab {
                 CheatView().tabItem { Label("Watch", systemImage: "applewatch") }.tag(3)
             }
         }

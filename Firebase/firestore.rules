@@ -128,12 +128,12 @@ function isValidSyncDoc() {
       'rounding', 'exempted', 'completedHw', 'completedEx',
       'notifyGrades', 'notifyTasks', 'notifyAbsences', 'liveActivity',
       'schoolEvents', 'schoolEventsShow', 'schoolEventsURL', 'customTasks',
-      'cheatSheets', 'metaAIKey', 'examRollover',
+      'cheatSheets', 'metaAIKey', 'examRollover', 'hasWatch',
       'ts_theme', 'ts_accentHex', 'ts_sizeKey', 'ts_photo', 'ts_rounding',
       'ts_exempted', 'ts_completedHw', 'ts_completedEx', 'ts_notifyGrades',
       'ts_notifyTasks', 'ts_notifyAbsences', 'ts_liveActivity',
       'ts_schoolEvents', 'ts_schoolEventsShow', 'ts_schoolEventsURL', 'ts_customTasks',
-      'ts_cheatSheets', 'ts_metaAIKey', 'ts_examRollover'])
+      'ts_cheatSheets', 'ts_metaAIKey', 'ts_examRollover', 'ts_hasWatch'])
     && request.resource.data.v is int && request.resource.data.v == 1
     && request.resource.data.updatedAt is timestamp
     && request.resource.data.updatedAt <= request.time + duration.value(5, 'm')
@@ -197,7 +197,11 @@ function isValidSyncDoc() {
     && (!('ts_metaAIKey' in request.resource.data) || request.resource.data.ts_metaAIKey is timestamp)
     // Dolgozat-pótlás kapcsoló: opcionális (régi kliens e nélkül is írhat).
     && (!('examRollover' in request.resource.data) || request.resource.data.examRollover is bool)
-    && (!('ts_examRollover' in request.resource.data) || request.resource.data.ts_examRollover is timestamp);
+    && (!('ts_examRollover' in request.resource.data) || request.resource.data.ts_examRollover is timestamp)
+    // Órajelenlét: opcionális bool (van-e párosított óra az eszközön —
+    // ebből tudja meg a Mac, hogy mutathatja a Watch tabot).
+    && (!('hasWatch' in request.resource.data) || request.resource.data.hasWatch is bool)
+    && (!('ts_hasWatch' in request.resource.data) || request.resource.data.ts_hasWatch is timestamp);
 }
 
 service cloud.firestore {

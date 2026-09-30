@@ -29,6 +29,7 @@ enum SummitSyncField: String, CaseIterable {
     case cheatSheets
     case metaAIKey
     case examRollover
+    case hasWatch
 
     /// A mező verzióbélyege a docban (`ts_theme` …). Régi docokban
     /// hiányozhat — olyankor az `updatedAt` a helyettese.
@@ -55,7 +56,8 @@ enum SummitSyncField: String, CaseIterable {
 /// Live Activity kapcsoló, iskolai események (+ mutatás-kapcsoló és a
 /// mentett naptár-link, hogy a kézi felülírás linkje is átmenjen),
 /// saját feladatok/dolgozatok, tanulójegyzet-lapok, Meta AI-kulcs,
-/// dolgozat-pótlás kapcsoló.
+/// dolgozat-pótlás kapcsoló, órajelenlét (párosított óra van-e ezen az
+/// eszközön — ebből tudja meg a Mac, hogy mutathatja a Watch tabot).
 @MainActor
 final class SummitSync: ObservableObject {
     @Published var isEnabled: Bool {
@@ -103,6 +105,10 @@ final class SummitSync: ObservableObject {
     /// sérült adat ellen véd. A rules 500-at enged (régi kliensek
     /// felé opcionális mező).
     static let maxMetaAIKeyChars = 500
+    /// Utoljára felküldött órajelenlét-érték: csak a helyi `true`
+    /// válthat dirty-re (az óra nélküli eszköz — pl. a Mac — sosem
+    /// jelöl, így nem írhatja felül a telefon `true`-ját `false`-szal).
+    private static let hasWatchSentKey = "summitsync.hasWatchSent.v1"
 
     /// Piszkos (feltöltésre váró) mezők — memóriában + perzisztálva, hogy
     /// egy újraindulás se nyelje el a még fel nem töltött szerkesztést.
@@ -253,6 +259,7 @@ final class SummitSync: ObservableObject {
         var cheatSheets: String
         var metaAIKey: String
         var examRollover: Bool
+        var hasWatch: Bool
     }
 
     private func localValues() -> LocalValues? {
@@ -277,7 +284,8 @@ final class SummitSync: ObservableObject {
             customTasks: CustomTasksStore.syncString(CustomTasksStore.load()),
             cheatSheets: CheatStore.syncString(CheatStore.load()),
             metaAIKey: String(MetaAIKeyStore.apiKey.prefix(Self.maxMetaAIKeyChars)),
-            examRollover: Self.flag("exams.rolloverOnAbsence", default: true)
+            examRollover: Self.flag("exams.rolloverOnAbsence", default: true),
+            hasWatch: WatchAvailability.shared.hasWatch
         )
     }
 
@@ -375,6 +383,14 @@ final class SummitSync: ObservableObject {
             if let r = remote?.metaAIKeyRaw { return (r, remoteDate(for: .metaAIKey)) }
             return (local.metaAIKey, fieldTimestamps[SummitSyncField.metaAIKey.rawValue] ?? now)
         }()
+        // Órajelenlét: ragadós `true` — ha BÁRMELYIK oldalon van óra,
+        // az marad (a Mac `false`-a sosem törölheti a telefon `true`-ját;
+        // a párosítás végleges törlése így nem terjed — tudatos határ).
+        let (watchV, watchTs): (Bool, Date) = {
+            if local.hasWatch { return (true, now) }
+            if let r = remote?.hasWatch { return (r, remoteDate(for: .hasWatch)) }
+            return (false, fieldTimestamps[SummitSyncField.hasWatch.rawValue] ?? now)
+        }()
         // Fotó: túl nagy helyi képnél (nil) a távoli marad — sosem küldünk
         // rá üreset, mert az a szerver-oldali kép törlését jelentené.
         let photoPair: (String, Date)
@@ -410,6 +426,7 @@ final class SummitSync: ObservableObject {
             "cheatSheets": str(chV),
             "metaAIKey": str(mkV),
             "examRollover": bool(erV),
+            "hasWatch": bool(watchV),
         ]
         let tsPairs: [(SummitSyncField, Date)] = [
             (.theme, themeTs), (.accentHex, accentTs), (.sizeKey, sizeTs),
@@ -419,6 +436,7 @@ final class SummitSync: ObservableObject {
             (.schoolEvents, seTs), (.schoolEventsShow, seShowTs),
             (.schoolEventsURL, seURLTs), (.customTasks, ctTs),
             (.cheatSheets, chTs), (.metaAIKey, mkTs), (.examRollover, erTs),
+            (.hasWatch, watchTs),
         ]
         for (f, d) in tsPairs { fields[f.tsKey] = ts(d) }
 
@@ -449,6 +467,7 @@ final class SummitSync: ObservableObject {
             legacy.removeValue(forKey: "cheatSheets")
             legacy.removeValue(forKey: "metaAIKey")
             legacy.removeValue(forKey: "examRollover")
+            legacy.removeValue(forKey: "hasWatch")
             guard await patch(legacy) == 200 else {
                 status = "feltöltés hiba"
                 return false
@@ -459,6 +478,8 @@ final class SummitSync: ObservableObject {
         }
         for (f, d) in tsPairs { fieldTimestamps[f.rawValue] = d }
         persistFieldTs()
+        // A ténylegesen felküldött órajelenlét jegyzése a refresh-triggerhez.
+        UserDefaults.standard.set(watchV, forKey: Self.hasWatchSentKey)
         dirtyFields.subtract(pending)
         persistDirty()
         lastApplied = nowISO
@@ -546,6 +567,9 @@ final class SummitSync: ObservableObject {
         /// Dolgozat-pótlás kapcsoló (`nil` = a régi docban még nincs mező —
         /// ilyenkor a helyi állapot marad, nem írunk felül).
         let examRollover: Bool?
+        /// Órajelenlét (`nil` = a régi docban még nincs mező —
+        /// ilyenkor a helyi peer-jelzés marad, nem törlünk).
+        let hasWatch: Bool?
         /// Iskolai esemény JSON (`nil` = a régi docban még nincs mező —
         /// ilyenkor a helyi állapot marad, nem törlünk).
         let schoolEventsRaw: String?
@@ -666,6 +690,8 @@ final class SummitSync: ObservableObject {
         }()
         // Dolgozat-pótlás kapcsoló: régi docban hiányozhat (nil = helyi marad).
         let examRollover = data["examRollover"] as? Bool
+        // Órajelenlét: régi docban hiányozhat (nil = helyi peer-jel marad).
+        let hasWatch = data["hasWatch"] as? Bool
         return Payload(updatedAt: isoPlain.string(from: date), updatedAtDate: date,
                        theme: theme, accentHex: accent, sizeKey: sizeKey,
                        photoRaw: photoRaw, photo: photo, photoDecodeFailed: photoDecodeFailed,
@@ -676,6 +702,7 @@ final class SummitSync: ObservableObject {
                        notifyGrades: notifyGrades, notifyTasks: notifyTasks,
                        notifyAbsences: notifyAbsences, liveActivity: liveActivity,
                        examRollover: examRollover,
+                       hasWatch: hasWatch,
                        schoolEventsRaw: schoolEventsRaw, schoolEventsShow: schoolEventsShow,
                        schoolEventsURLRaw: schoolEventsURLRaw,
                        customTasksRaw: customTasksRaw,
@@ -786,6 +813,7 @@ final class SummitSync: ObservableObject {
                        notifyGrades: notifyGrades, notifyTasks: notifyTasks,
                        notifyAbsences: notifyAbsences, liveActivity: liveActivity,
                        examRollover: b("examRollover"),
+                       hasWatch: b("hasWatch"),
                        schoolEventsRaw: schoolEventsRaw, schoolEventsShow: b("schoolEventsShow"),
                        schoolEventsURLRaw: schoolEventsURLRaw,
                        customTasksRaw: customTasksRaw,
@@ -864,6 +892,13 @@ final class SummitSync: ObservableObject {
             d.set(v, forKey: ExamRollover.enabledKey)
             NotificationCenter.default.post(name: ExamRollover.changedNotification, object: nil)
             applied.append(.examRollover)
+        }
+        // Órajelenlét: `nil` = régi doc, a helyi peer-jel marad. `true`
+        // érkezésekor a Mac is megmutatja a Watch tabot (jegyzetkészítés
+        // Macről is). A mentés @Published-ön át azonnal újrarajzol.
+        if newer(.hasWatch), let v = p.hasWatch {
+            WatchAvailability.shared.setPeerHasWatch(v)
+            applied.append(.hasWatch)
         }
         // Iskolai események: `nil` nyers mező = régi doc, a helyi marad.
         // Üres string = tudatos törlés. Sérült JSON-nál a helyi marad.
@@ -1028,6 +1063,14 @@ final class SummitSync: ObservableObject {
     func refresh(accessToken: String, theme: ThemeStore, profile: ProfileImageStore, completed: CompletedStore, userId: String?) {
         configure(accessToken: accessToken, theme: theme, profile: profile, completed: completed, userId: userId)
         guard isEnabled else { return }
+        // Óra-jelenlét terjesztése: CSAK a helyi `true` jelöl dirty-re
+        // (és csak amíg fel nem ment — utána a sent-jelzés blokkol).
+        // Az óra nélküli eszköz (pl. a Mac) sosem jelöl, így a telefon
+        // `true`-ját sosem írhatja felül `false`-szal.
+        if WatchAvailability.shared.hasWatch,
+           !(UserDefaults.standard.object(forKey: Self.hasWatchSentKey) as? Bool ?? false) {
+            markDirty(.hasWatch)
+        }
         Task { [weak self] in await self?.flushThenPull() }
     }
 

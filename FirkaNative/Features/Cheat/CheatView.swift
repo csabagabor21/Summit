@@ -143,6 +143,10 @@ struct CheatView: View {
                     .environmentObject(completed)
             }
             .onReceive(NotificationCenter.default.publisher(for: switchToTasks)) { notif in
+                // Őr a relé-hurok ellen: a saját újraküldésünk is ideér —
+                // azt már nem küldjük tovább (különben 0,4 mp-enként
+                // újraindulna a szegmens + villanás, örökké).
+                guard !showingTasks else { return }
                 showingTasks = true
                 // A NotesView még nem él a coverben — a notifot
                 // újraküldjük, hogy a szegmens + villanás hasson.
