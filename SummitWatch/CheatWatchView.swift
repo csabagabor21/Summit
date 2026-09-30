@@ -168,15 +168,19 @@ private struct CheatSheetTopicsView: View {
 private struct CheatTopicDetailView: View {
     let topic: WatchCheatTopic
 
-    private var rendered: AttributedString {
-        (try? AttributedString(markdown: topic.body)) ?? AttributedString(topic.body)
+    /// Bekezdések külön tömbben: a Markdown bekezdés-távolsága az órán
+    /// nem ad látható lukat, ezért minden bekezdés saját Text fix
+    /// térközzel — a formázás (félkövér, címsor, lista) bekezdésenként
+    /// parsolva megmarad.
+    private var paragraphs: [Para] {
+        splitMarkdownParagraphs(topic.body).map { Para(raw: $0) }
     }
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
             ScrollView {
-                if topic.body.isEmpty {
+                if topic.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Text("(üres)")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
@@ -184,10 +188,14 @@ private struct CheatTopicDetailView: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                 } else {
-                    Text(rendered)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(paragraphs) { p in
+                            Text(p.rendered)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
                 }
             }
         }
@@ -195,3 +203,15 @@ private struct CheatTopicDetailView: View {
         .containerBackground(.black, for: .navigation)
     }
 }
+
+/// Egy bekezdés + Markdown-renderelése (bekezdésenként parsolva, így a
+/// soron belüli formázás megmarad; hibás Markdownnál nyers szöveg).
+private struct Para: Identifiable, Hashable {
+    let id = UUID()
+    let raw: String
+    var rendered: AttributedString {
+        (try? AttributedString(markdown: raw)) ?? AttributedString(raw)
+    }
+}
+
+

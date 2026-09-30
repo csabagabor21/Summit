@@ -253,6 +253,20 @@ struct WatchSchoolEventsSnapshot: Codable {
     }
 }
 
+// MARK: - Markdown-bekezdésekre vágás (jegyzet-nézet, óra)
+// Az órai Text Markdown-bekezdéstávolsága nem ad látható lukat, ezért a
+// jegyzet-nézet bekezdésenként külön Textet rajzol fix térközzel.
+// Üres sorok mentén vág; ami maradék szimpla sortörés, az bekezdésen
+// belüli szoros törés marad.
+func splitMarkdownParagraphs(_ s: String) -> [String] {
+    s.components(separatedBy: "\n")
+        .map { $0.trimmingCharacters(in: .whitespaces) }
+        .split(separator: "", omittingEmptySubsequences: false)
+        .map { $0.joined(separator: "\n") }
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+}
+
 // MARK: - Évközi-szűrés a telefonnal azonosan (GradesView.isEvkozi)
 enum WatchGradeFilter {
     static func isEvkozi(_ g: WatchGrade) -> Bool {
