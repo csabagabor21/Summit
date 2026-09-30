@@ -345,11 +345,10 @@ private struct WatchNowView: View {
         }
     }
 
-    /// Következő óra egy sorban: nyíl + terem, utána a tárgy, ha elfér.
-    /// Időpont és "Következő" felirat nincs — a fenti sorokból úgyis
-    /// látszik, melyik óra tart épp. Normál (caption2) méret — az óraszám-sor
-    /// megszűnt, így van hely. A terem sosem nyomódik össze,
-    /// a tárgy vágódik (`tail`), ha szűk a hely.
+    /// Következő óra egy sorban: nyíl + terem + pötty + tárgy
+    /// ("→ B2 • Angol"). Időpont és "Következő" felirat nincs — a fenti
+    /// sorokból úgyis látszik, melyik óra tart épp. A terem sosem nyomódik
+    /// össze, a tárgy vágódik (`tail`), ha szűk a hely.
     private func nextLine(_ n: TimetableWidgetStore.Lesson) -> some View {
         HStack(spacing: 4) {
             Image(systemName: "arrow.right.circle.fill")
@@ -366,6 +365,7 @@ private struct WatchNowView: View {
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
+                Text("•").foregroundStyle(.tertiary).font(.caption2)
             }
             Text(n.subject)
                 .font(.caption2)
