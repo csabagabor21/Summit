@@ -35,8 +35,12 @@ struct AppUser: Codable, Identifiable, Equatable {
     /// (instituteCode "demo"), de valósághű névvel és iskolaadattal —
     /// sehol nem jelenik meg "demo" felirat, és az isDemo-kapuk
     /// (letiltott szinkron stb.) nem vonatkoznak rá.
+    /// A review-fiók fix tokenje (nem JWT): a `SummitSyncKey`
+    /// ezen azonosítja a szinkronhoz — egy helyen, hogy a két
+    /// használati hely (fiókgyár, kulcsképzés) ne tudjon szétcsúszni.
+    static let reviewerToken = "reviewer"
     static var reviewer: AppUser {
-        AppUser(id: "reviewer-user", name: "Kovács Anna", username: "summitreview", instituteCode: "demo", role: "student", accessToken: "reviewer", refreshToken: "reviewer", accessTokenExpire: Date().addingTimeInterval(3600*24*365), studentName: "Kovács Anna", schoolName: "Petőfi Sándor Gimnázium", schoolCity: "Budapest")
+        AppUser(id: "reviewer-user", name: "Kovács Anna", username: "summitreview", instituteCode: "demo", role: "student", accessToken: reviewerToken, refreshToken: reviewerToken, accessTokenExpire: Date().addingTimeInterval(3600*24*365), studentName: "Kovács Anna", schoolName: "Petőfi Sándor Gimnázium", schoolCity: "Budapest")
     }
 }
 

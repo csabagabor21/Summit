@@ -76,6 +76,7 @@ final class SummitSync: ObservableObject {
     private static let lastAppliedKey = "sync.lastApplied.v1"
     private static let fieldTsKey = "summitsync.fieldTs.v1"
     private static let dirtyKey = "summitsync.dirty.v1"
+    private static let dirtyTsKey = "summitsync.dirtyTs.v1"
     private static let keychainService = "hu.flint.summit.sync"
     private static let keychainAccount = "passphrase"
     /// Fejlesztői másolat kulcsa: csak akkor él, ha a Keychain írása
@@ -83,7 +84,7 @@ final class SummitSync: ObservableObject {
     private static let passphraseFallbackKey = "sync.passphrase.fallback.v1"
     private static let projectId = "summit-14b74"
     private static let apiKey = "AIzaSyA1TttM0aUUHsvjjAItYMbdID_no1vzg9s"
-    static let minPassphraseLength = 8
+    static let minPassphraseLength = SummitSyncKey.minPassphraseLength
     /// Kerekítés-JSON plafon (karakter): ~30 tárgy is bőven belefér.
     static let maxRoundingChars = 16_000
     /// Fotó-base64 plafon (karakter): 256 px jpeg mellé bőséges, 1 MiB
@@ -113,6 +114,10 @@ final class SummitSync: ObservableObject {
     /// Piszkos (feltöltésre váró) mezők — memóriában + perzisztálva, hogy
     /// egy újraindulás se nyelje el a még fel nem töltött szerkesztést.
     private var dirtyFields: Set<String> = []
+    /// Piszkos mezőnként a SZERKESZTÉS pillanata (nem a feltöltésé).
+    /// A feltöltés ezt a bélyeget viszi fel — egy beragadt régi jelölés
+    /// így nem írhatja felül a frissebb szervert (last-writer-wins).
+    private var dirtyTimes: [String: Date] = [:]
     /// Mezőnkénti utolsó ismert (küldött vagy alkalmazott) bélyeg.
     private var fieldTimestamps: [String: Date] = [:]
 
@@ -122,6 +127,13 @@ final class SummitSync: ObservableObject {
         if let arr = UserDefaults.standard.array(forKey: Self.dirtyKey) as? [String] {
             dirtyFields = Set(arr)
         }
+        if let dict = UserDefaults.standard.dictionary(forKey: Self.dirtyTsKey) as? [String: Double] {
+            dirtyTimes = dict.mapValues { Date(timeIntervalSince1970: $0) }
+        }
+        // Migráció: időbélyeg nélküli, régi jelölések a mostani
+        // pillanattal indulnak (a mai viselkedéssel azonosan).
+        let now = Date()
+        for f in dirtyFields where dirtyTimes[f] == nil { dirtyTimes[f] = now }
         if let dict = UserDefaults.standard.dictionary(forKey: Self.fieldTsKey) as? [String: Double] {
             fieldTimestamps = dict.mapValues { Date(timeIntervalSince1970: $0) }
         }
@@ -133,13 +145,13 @@ final class SummitSync: ObservableObject {
     // MARK: - Kulcsképzés
 
     /// SHA256-hex lenyomat a szinkron-doc ID-jához. Nil, ha a tokenből
-    /// nincs stabil kulcs, vagy a jelmondat túl rövid.
+    /// nincs stabil kulcs, vagy a jelmondat túl rövid. A JWT-sub mellé
+    /// a review-fiók helyi kulcsa is beszáll (`SummitSyncKey`), így a
+    /// summitreview is tud szinkronizálni — a demo továbbra sem.
     static func syncId(accessToken: String, passphrase: String) -> String? {
-        guard let stable = JWT.stableUserKey(from: accessToken),
-              passphrase.count >= minPassphraseLength else { return nil }
-        let input = "summit-sync-v1\n\(stable)\n\(passphrase)"
-        let digest = SHA256.hash(data: Data(input.utf8))
-        return digest.map { String(format: "%02x", $0) }.joined()
+        let stable = JWT.stableUserKey(from: accessToken)
+            ?? SummitSyncKey.localStableKey(from: accessToken)
+        return SummitSyncKey.syncId(stableKey: stable, passphrase: passphrase)
     }
 
     static func savePassphrase(_ s: String) {
@@ -190,6 +202,7 @@ final class SummitSync: ObservableObject {
 
     private func persistDirty() {
         UserDefaults.standard.set(Array(dirtyFields), forKey: Self.dirtyKey)
+        UserDefaults.standard.set(dirtyTimes.mapValues { $0.timeIntervalSince1970 }, forKey: Self.dirtyTsKey)
     }
 
     private func persistFieldTs() {
@@ -314,10 +327,19 @@ final class SummitSync: ObservableObject {
         let nowISO = Self.isoString(from: now)
         let (remote, _) = await fetchPayload(url: url)
 
-        // Segéd: piszkos mezőnél a helyi érték + mostani bélyeg nyer,
-        // tisztánál a távoli (ha van), különben a helyi a régi bélyegével.
+        // Segéd: piszkos mezőnél a helyi érték csak akkor nyer, ha a
+        // szerkesztése újabb a távolinál — egy beragadt régi jelölés
+        // nem írhatja felül a frissebb szervert. Tisztánál a távoli
+        // (ha van), különben a helyi a régi bélyegével.
         func pick<T>(_ field: SummitSyncField, local: T, remote: T?) -> (T, Date) {
-            if pending.contains(field.rawValue) { return (local, now) }
+            if pending.contains(field.rawValue) {
+                let editAt = dirtyTimes[field.rawValue] ?? now
+                if let r = remote,
+                   SummitSyncKey.remoteWins(remoteTs: remoteDate(for: field), dirtyAt: editAt, localTs: fieldTimestamps[field.rawValue] ?? .distantPast) {
+                    return (r, remoteDate(for: field))
+                }
+                return (local, editAt)
+            }
             if let r = remote { return (r, remoteDate(for: field)) }
             return (local, fieldTimestamps[field.rawValue] ?? now)
         }
@@ -387,7 +409,20 @@ final class SummitSync: ObservableObject {
         // az marad (a Mac `false`-a sosem törölheti a telefon `true`-ját;
         // a párosítás végleges törlése így nem terjed — tudatos határ).
         let (watchV, watchTs): (Bool, Date) = {
-            if local.hasWatch { return (true, now) }
+            if local.hasWatch {
+                if pending.contains(SummitSyncField.hasWatch.rawValue) {
+                    let editAt = dirtyTimes[SummitSyncField.hasWatch.rawValue] ?? now
+                    if let r = remote?.hasWatch,
+                       SummitSyncKey.remoteWins(remoteTs: remoteDate(for: .hasWatch), dirtyAt: editAt, localTs: fieldTimestamps[SummitSyncField.hasWatch.rawValue] ?? .distantPast) {
+                        return (r, remoteDate(for: .hasWatch))
+                    }
+                    return (true, editAt)
+                }
+                // Ragadós `true` bélyegemelés nélkül: egyszer felment,
+                // onnantól nem írjuk újra minden feltöltéskor.
+                if let r = remote?.hasWatch, r { return (true, remoteDate(for: .hasWatch)) }
+                return (true, fieldTimestamps[SummitSyncField.hasWatch.rawValue] ?? now)
+            }
             if let r = remote?.hasWatch { return (r, remoteDate(for: .hasWatch)) }
             return (false, fieldTimestamps[SummitSyncField.hasWatch.rawValue] ?? now)
         }()
@@ -480,7 +515,16 @@ final class SummitSync: ObservableObject {
         persistFieldTs()
         // A ténylegesen felküldött órajelenlét jegyzése a refresh-triggerhez.
         UserDefaults.standard.set(watchV, forKey: Self.hasWatchSentKey)
-        dirtyFields.subtract(pending)
+        // Feltöltés közben újra piszkolódott mező marad (az újabb
+        // szerkesztés bélyege nagyobb a most felvittnél) — a többi
+        // jelölés mehet, az a szerverrel szinkronban van.
+        let usedTs = Dictionary(uniqueKeysWithValues: tsPairs.map { ($0.0.rawValue, $0.1) })
+        for f in pending {
+            if (dirtyTimes[f] ?? .distantPast) <= (usedTs[f] ?? .distantFuture) {
+                dirtyFields.remove(f)
+                dirtyTimes.removeValue(forKey: f)
+            }
+        }
         persistDirty()
         lastApplied = nowISO
         status = "szinkronizálva"
@@ -828,12 +872,15 @@ final class SummitSync: ObservableObject {
     /// - Returns: true, ha legalább egy mező alkalmazva lett.
     @discardableResult
     private func applyRemote(_ p: Payload, theme: ThemeStore, profile: ProfileImageStore, completed: CompletedStore?) -> Bool {
-        /// Frissebb-e a távoli mező, mint a helyi — és nincs-e rajta
-        /// még fel nem töltött helyi szerkesztés (az nyer a push-ig)?
+        /// Frissebb-e a távoli mező, mint a helyi: egy fel nem töltött
+        /// RÉGI szerkesztés nem blokkolhatja az újabb szervert — csak a
+        /// távozónál frissebb helyi szerkesztés tartja meg a mezőt.
         func newer(_ field: SummitSyncField) -> Bool {
-            guard !dirtyFields.contains(field.rawValue) else { return false }
             guard let rts = p.fieldDates[field.rawValue] else { return false }
-            return rts > (fieldTimestamps[field.rawValue] ?? .distantPast)
+            return SummitSyncKey.remoteWins(
+                remoteTs: rts,
+                dirtyAt: dirtyTimes[field.rawValue],
+                localTs: fieldTimestamps[field.rawValue] ?? .distantPast)
         }
         var applied: [SummitSyncField] = []
         if newer(.theme), let m = AppThemeMode(rawValue: p.theme) {
@@ -863,11 +910,15 @@ final class SummitSync: ObservableObject {
             applied.append(.exempted)
         }
         if newer(.completedHw) || newer(.completedEx) {
-            // A két pipa-lista egy hub-értesítésen osztozik, ezért együtt
-            // frissülnek (ha bármelyik újabb, mindkettőé az új bélyeg).
-            completed?.replaceAll(homework: p.completedHw, exams: p.completedEx)
-            if newer(.completedHw) { applied.append(.completedHw) }
-            if newer(.completedEx) { applied.append(.completedEx) }
+            // A két pipa-lista egy hub-értesítésen osztozik, de csak az
+            // újabbik cserélődik — a helyben frissebb lista értéke
+            // nem veszhet el egy részleges lehúzásban.
+            let hwNew = newer(.completedHw), exNew = newer(.completedEx)
+            completed?.replaceAll(
+                homework: hwNew ? p.completedHw : Array(completed?.homeworkDone ?? []),
+                exams: exNew ? p.completedEx : Array(completed?.examDone ?? []))
+            if hwNew { applied.append(.completedHw) }
+            if exNew { applied.append(.completedEx) }
         }
         let d = UserDefaults.standard
         if newer(.notifyGrades) {
@@ -948,7 +999,10 @@ final class SummitSync: ObservableObject {
         for f in applied {
             // A fenti mentések (fotó, kerekítés, felmentés) dirty-értesítést
             // postolnak — azokat itt eldobjuk, hiszen épp a szerverről jöttek.
+            // A szerver nyert, így az esetleges elavult helyi jelölés is
+            // mehet (a frissebb helyi szerkesztést a `newer` megőrizte volna).
             dirtyFields.remove(f.rawValue)
+            dirtyTimes.removeValue(forKey: f.rawValue)
             if let rts = p.fieldDates[f.rawValue] { fieldTimestamps[f.rawValue] = rts }
         }
         persistDirty()
@@ -1010,16 +1064,25 @@ final class SummitSync: ObservableObject {
     }
 
     /// Helyi szerkesztés után 2 mp-cel feltölt (összevonja a sorozatos
-    /// csúszka-pötyögéseket). Csak a megjelölt mezők mennek fel — a többi
-    /// a szerverről keveredik vissza. A suppress-ablak a saját
-    /// pull-alkalmazás visszhangját szűri.
+    /// csúszka-pötyögéseket) — a Beállításokban átállított érték így
+    /// magától felmegy, nem kell hozzá lehúzás. Csak a megjelölt mezők
+    /// mennek fel, a szerkesztés pillanatának bélyegével: a frissebb
+    /// szerver így sosem íródik felül egy régebbi helyi szerkesztéssel.
+    /// A többi mező a szerverről keveredik vissza. A suppress-ablak a
+    /// saját pull-alkalmazás visszhangját szűri.
     func markDirty(_ fields: SummitSyncField...) {
         markDirty(fields)
     }
 
     func markDirty(_ fields: [SummitSyncField]) {
         guard !fields.isEmpty else { return }
-        dirtyFields.formUnion(fields.map(\.rawValue))
+        // A mező értéke a legutóbbi írás, ezért a bélyeg is az:
+        // minden jelölés felülírja az előzőt.
+        let now = Date()
+        for f in fields {
+            dirtyFields.insert(f.rawValue)
+            dirtyTimes[f.rawValue] = now
+        }
         persistDirty()
         dirtyTask?.cancel()
         dirtyTask = Task { @MainActor [weak self] in
@@ -1042,6 +1105,7 @@ final class SummitSync: ObservableObject {
     /// lehúzást a saját mezőjén).
     func discardPendingEdits() {
         dirtyFields = []
+        dirtyTimes = [:]
         persistDirty()
     }
 
@@ -1074,23 +1138,24 @@ final class SummitSync: ObservableObject {
         Task { [weak self] in await self?.flushThenPull() }
     }
 
-    /// Oda-vissza szinkron egy hívásban: a még fel nem töltött helyi
-    /// szerkesztések feltöltése, majd a távoliak lehúzása (vagy a listener
-    /// életben tartása). Gyógyítja a „lehúztam, de a másik eszközön semmi"
-    /// esetet: a 2 mp-es debounce közben megölt app piszkos mezői addig
-    /// se fel nem mentek, se le nem jöttek (a `newer` a piszkos mezőre
-    /// sosem mond igent) — a következő előtér/lehúzás most már kipucolja.
+    /// Oda-vissza szinkron egy hívásban: ELŐBB a távoliak lehúzása
+    /// (a frissebb szerver akkor is beolvasódik, ha helyben beragadt
+    /// egy régi, fel nem töltött jelölés), UTÁNA a megmaradt — tényleg
+    /// a szervernél újabb — helyi szerkesztések feltöltése (vagy a
+    /// listener életben tartása). Gyógyítja a „lehúztam, de a másik
+    /// eszközön semmi" esetet: a 2 mp-es debounce közben megölt app
+    /// piszkos mezői a következő előtér/lehúzáskor kipucolódnak.
     /// Mac (Catalyst) REST-úton ugyanezt futtatja, ezért ott is javul.
     func flushThenPull() async {
         guard isEnabled, lastToken != nil, liveTheme != nil else { return }
-        if !dirtyFields.isEmpty {
-            status = "feltöltés…"
-            _ = await pushNow()
-        }
         if realtimeAvailable {
             startListener()
         } else {
             _ = await pullNow()
+        }
+        if !dirtyFields.isEmpty {
+            status = "feltöltés…"
+            _ = await pushNow()
         }
     }
 
