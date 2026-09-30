@@ -444,8 +444,12 @@ final class SummitLiveActivityManager: ObservableObject {
             }
             demoTestActiveUntil = nil
             // Minden mai óra felmentett: nincs mit mutatni, a napnak vége.
+            // .immediate-tel zárunk (.default helyett): a .default a
+            // lezárt kártyát még órákig a zárolt képernyőn hagyná, az
+            // utolsó óra végén viszont halottnak kell lennie — sehol
+            // semmi (mint az összes többi lezárási ágon).
             lastAction = today.isEmpty ? "Minden mai óra felmentett → lezárva" : "Mai órák vége → lezárva"
-            await endAllImpl(dismissalPolicy: .default)
+            await endAllImpl(dismissalPolicy: .immediate)
             return false
         }
         let state = Self.makeState(today: today, current: cur, next: nxt, now: now)
