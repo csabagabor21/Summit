@@ -50,6 +50,82 @@ struct CheatTopic: Codable, Identifiable, Hashable {
         try c.encode(title, forKey: .title)
         try c.encode(body, forKey: .body)
     }
+
+    // MARK: - Törzsszöveg-normalizálás (AI-fegyelmezés)
+    // A gyenge modellek néha egybefüggő faltömböt adnak vissza (nincs
+    // üres sor, néhol a szóköz is lemarad: "címmel.A", "fordítás1913-ban"
+    // — lásd watch-screenshot). Ezt javítjuk, nem a modellt fegyelmezzük:
+    // a meglévő Markdown-szerkezetet (üres sorok, címsorok, listák)
+    // sosem bántjuk, csak a hosszú, sortörés nélküli tömböket tördeljük
+    // mondathatáronként bekezdésekre. FIXPONT (idempotens): load() és
+    // cap() is hívja, az újrafuttatás ugyanazt adja.
+    static func normalizedBody(_ s: String) -> String {
+        var t = s.replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        // Lelmaradt szóközök: írásjel + nagybetű/szám ("címmel.A"),
+        // illetve szó + évszám/szám ("fordítás1913-ban"). A vegyjeleket
+        // (H2O, B2) nem bántjuk — csak 3-4 jegyű számot választunk le.
+        t = Self.replacing(t, pattern: "([.!?:;])([A-ZÁÉÍÓÖŐÚÜŰ0-9])", with: "$1 $2")
+        t = Self.replacing(t, pattern: "([a-záéíóöőúüű])(\\d{3,4})", with: "$1 $2")
+        // 3+ sortörés → 1 üres sor.
+        t = Self.replacing(t, pattern: "\n{3,}", with: "\n\n")
+        t = t.trimmingCharacters(in: .whitespacesAndNewlines)
+        var out: [String] = []
+        for block in t.components(separatedBy: "\n\n") {
+            let b = block.trimmingCharacters(in: .whitespacesAndNewlines)
+            if b.isEmpty { continue }
+            if !b.contains("\n"), b.count > 350, !Self.isMarkdownLine(b) {
+                out.append(contentsOf: Self.paragraphs(from: b))
+            } else {
+                out.append(b)
+            }
+        }
+        return out.joined(separator: "\n\n")
+    }
+
+    /// Markdown-szerkezetű sor (címsor, lista, idézet): tördelni tilos.
+    private static func isMarkdownLine(_ s: String) -> Bool {
+        let t = s.trimmingCharacters(in: .whitespaces)
+        if t.hasPrefix("#") || t.hasPrefix(">") || t.hasPrefix("- ") ||
+            t.hasPrefix("* ") || t.hasPrefix("+ ") { return true }
+        if t.range(of: #"^\d+[.)]\s"#, options: .regularExpression) != nil { return true }
+        return false
+    }
+
+    /// Hosszú tömb → max ~300 karakteres bekezdések mondathatárokon.
+    private static func paragraphs(from block: String) -> [String] {
+        let sentences = Self.split(block,
+            pattern: #"(?<=[.!?…])\s+(?=[A-ZÁÉÍÓÖŐÚÜŰ"„(\d])"#)
+        guard sentences.count > 1 else { return [block] }
+        var paras: [String] = []
+        var cur = ""
+        for s in sentences {
+            if cur.isEmpty { cur = s }
+            else if cur.count + 1 + s.count <= 300 { cur += " " + s }
+            else { paras.append(cur); cur = s }
+        }
+        if !cur.isEmpty { paras.append(cur) }
+        return paras.isEmpty ? [block] : paras
+    }
+
+    private static func replacing(_ s: String, pattern: String, with template: String) -> String {
+        guard let re = try? NSRegularExpression(pattern: pattern) else { return s }
+        return re.stringByReplacingMatches(in: s, range: NSRange(s.startIndex..., in: s), withTemplate: template)
+    }
+
+    private static func split(_ s: String, pattern: String) -> [String] {
+        guard let re = try? NSRegularExpression(pattern: pattern) else { return [s] }
+        let range = NSRange(s.startIndex..., in: s)
+        var out: [String] = []
+        var last = s.startIndex
+        for m in re.matches(in: s, range: range) {
+            guard let r = Range(m.range, in: s) else { continue }
+            out.append(String(s[last..<r.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines))
+            last = r.upperBound
+        }
+        out.append(String(s[last...]).trimmingCharacters(in: .whitespacesAndNewlines))
+        return out.filter { !$0.isEmpty }
+    }
 }
 
 struct CheatMaterial: Codable, Identifiable, Hashable {

@@ -21,7 +21,10 @@ enum CheatStore {
     static func load() -> [CheatSheet] {
         guard let data = UserDefaults.standard.data(forKey: listKey),
               let arr = try? JSONDecoder().decode([CheatSheet].self, from: data) else { return [] }
-        return arr.sorted { $0.updatedAt > $1.updatedAt }
+        // Olvasáskor is normalizálunk (csak nézet): a régi, egybetömbös
+        // AI-szövegek így mentés nélkül is tagoltan jelennek meg a
+        // telefonon és az órán; a perzisztálást a cap() végzi.
+        return arr.sorted { $0.updatedAt > $1.updatedAt }.map { normalizeTopics($0) }
     }
 
     static func save(_ sheets: [CheatSheet]) {
@@ -66,7 +69,19 @@ enum CheatStore {
         s.topics = s.topics.map {
             var t = $0
             t.title = String(t.title.prefix(maxTitleChars))
-            t.body = String(t.body.prefix(maxBodyChars))
+            t.body = String(CheatTopic.normalizedBody(String(t.body.prefix(maxBodyChars))).prefix(maxBodyChars))
+            return t
+        }
+        return s
+    }
+
+    /// Téma-törzsek normalizálása mentés nélkül (load-nézet + migráció).
+    /// Idempotens: az újrafuttatás ugyanazt adja.
+    static func normalizeTopics(_ sheet: CheatSheet) -> CheatSheet {
+        var s = sheet
+        s.topics = s.topics.map {
+            var t = $0
+            t.body = CheatTopic.normalizedBody(t.body)
             return t
         }
         return s

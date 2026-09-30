@@ -208,7 +208,7 @@ enum MetaAIClient {
         guard let jdata = json.data(using: .utf8),
               let root = try? JSONDecoder().decode(WireRoot.self, from: jdata),
               !root.topics.isEmpty else { return nil }
-        return root.topics.map { CheatTopic(title: $0.title, body: $0.body) }
+        return root.topics.map { CheatTopic(title: $0.title, body: CheatTopic.normalizedBody($0.body)) }
     }
 
     static func stripFences(_ s: String) -> String {
