@@ -242,6 +242,10 @@ private struct WatchSchoolEventRow: View {
                         .lineLimit(2)
                 }
             }
+            // Teljes sorszélesség (mint a telefon full-width kártyája):
+            // a frame a háttér ELŐTT jön, hogy a színezett kártya is
+            // végigérjen, ne csak a szöveg szélességéig.
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(8)
         .background(
