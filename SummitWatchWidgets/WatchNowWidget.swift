@@ -125,6 +125,10 @@ struct WatchNowCalc {
     var previous: TimetableWidgetStore.Lesson?
     var progress: Double = 0
     var remainingText: String = ""
+    /// Az aktuális fázis fix intervalluma az ÉLŐ visszaszámlálóhoz:
+    /// Text(timerInterval:) magától tickel (reload nélkül), ezért napi
+    /// pár timeline-reload is elég. Nil = nincs mutatnivaló fázis.
+    var phase: ClosedRange<Date>? = nil
     /// A tartó/következő órához rögzített dolgozat (mint a telefonon).
     var exam: WatchExam?
     /// Ugyanarra az órára eső házi (mint a telefonon).
@@ -169,6 +173,7 @@ struct WatchNowCalc {
             let total = cur.end.timeIntervalSince(cur.start)
             progress = total > 0 ? min(1, max(0, now.timeIntervalSince(cur.start) / total)) : 0
             remainingText = Self.formatRemaining(Int(ceil(cur.end.timeIntervalSince(now) / 60)), past: true)
+            phase = cur.start...cur.end
             next = filtered.first(where: { $0.start > now })
             previous = filtered.last(where: { $0.end < now })
         } else if let nxt = filtered.first(where: { $0.start > now }) {
@@ -178,11 +183,15 @@ struct WatchNowCalc {
                 let total = nxt.start.timeIntervalSince(p.end)
                 progress = total > 0 ? min(1, max(0, now.timeIntervalSince(p.end) / total)) : 0
                 remainingText = Self.formatRemaining(Int(ceil(nxt.start.timeIntervalSince(now) / 60)), past: false)
+                phase = p.end...nxt.start
             } else if now < filtered.first!.start {
                 state = .morning
                 let first = filtered.first!
                 let cal = Calendar.current
                 let morningStart = cal.date(bySettingHour: 7, minute: 0, second: 0, of: now) ?? now
+                // Fordított intervallum (pl. 7:00 előtti első óra) crash-elne —
+                // ilyenkor nincs élő visszaszámláló, marad a statikus szöveg.
+                if morningStart <= first.start { phase = morningStart...first.start }
                 let total = first.start.timeIntervalSince(morningStart)
                 if total > 0, now >= morningStart {
                     progress = min(1, max(0, now.timeIntervalSince(morningStart) / total))
@@ -200,6 +209,7 @@ struct WatchNowCalc {
                     let total = nxt.start.timeIntervalSince(p.end)
                     progress = total > 0 ? min(1, max(0, now.timeIntervalSince(p.end) / total)) : 0
                     remainingText = Self.formatRemaining(Int(ceil(nxt.start.timeIntervalSince(now) / 60)), past: false)
+                    if p.end <= nxt.start { phase = p.end...nxt.start }
                 }
             }
             next = nxt; previous = prev
@@ -245,7 +255,8 @@ private struct WatchNowView: View {
     // MARK: Smart Stack főnézet — cím (tárgy • terem) + számos csík + következő óra
     // Óraszám-sor nincs: az óraszám a csík elején, RAJTA ül (fehér szám),
     // a terem pedig a címben, kis pöttyel. A csík a kiemelőszínt (accent)
-    // veszi fel, a hátralévő idő rövid "35p" alakban a csík MELLETT
+    // veszi fel, a hátralévő idő élő visszaszámlálóként ("35:00",
+    // Text(timerInterval:) — magától tickel) a csík MELLETT
     // (nem külön soron), alatta normál méretű sorban a következő óra.
     private var rectangularView: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -325,7 +336,8 @@ private struct WatchNowView: View {
     }
 
     /// Accent-csík + RAJTA az óraszám (fehér szám a csík elején) + mellette
-    /// a rövid "35p" — egy soron, külön "X perc van hátra" sor nélkül.
+    /// az élő visszaszámláló ("35:00", másodpercenként tickel, reload
+    /// nélkül) — egy soron, külön "X perc van hátra" sor nélkül.
     private func progressLine(tint: Color, index: String) -> some View {
         HStack(spacing: 6) {
             ProgressView(value: calc.progress)
@@ -338,7 +350,7 @@ private struct WatchNowView: View {
                             .padding(.leading, 6)
                     }
                 }
-            Text(shortRemaining)
+            countdownText
                 .font(.caption2.weight(.bold).monospacedDigit())
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -398,7 +410,7 @@ private struct WatchNowView: View {
                 Gauge(value: calc.progress) {
                     Text(c.index).font(.caption2.weight(.bold).monospacedDigit())
                 } currentValueLabel: {
-                    Text(shortRemaining).font(.caption2.weight(.bold).monospacedDigit())
+                    countdownText.font(.caption2.weight(.bold).monospacedDigit())
                 }
                 .gaugeStyle(.accessoryCircular)
                 .tint(statusTint(c))
@@ -408,7 +420,7 @@ private struct WatchNowView: View {
                 Gauge(value: calc.progress) {
                     Text(n.index).font(.caption2.weight(.bold).monospacedDigit())
                 } currentValueLabel: {
-                    Text(shortRemaining).font(.caption2.weight(.bold).monospacedDigit())
+                    countdownText.font(.caption2.weight(.bold).monospacedDigit())
                 }
                 .gaugeStyle(.accessoryCircular)
                 .tint(statusTint(n))
@@ -420,14 +432,33 @@ private struct WatchNowView: View {
 
     // MARK: Egy sor a Smart Stack tetejére / sarki nézet
     private var inlineView: some View {
-        Text(inlineText).lineLimit(1)
+        inlineBody.lineLimit(1)
+    }
+
+    /// Óra alatt a mondat vége is él ("Most: Matek • 35:00"); máshol
+    /// (időpontot mutató reggel/szünet, nap vége) marad a statikus szöveg.
+    @ViewBuilder
+    private var inlineBody: some View {
+        if let phase = calc.phase, !isPreviewShift,
+           entry.hasSnapshot, !entry.lessons.isEmpty,
+           calc.state == .duringLesson, let c = calc.current {
+            Text("Most: \(c.subject) • ") + Text(timerInterval: phase, countsDown: true)
+        } else {
+            Text(inlineText)
+        }
     }
 
     private var cornerView: some View {
-        Text(cornerText)
-            .font(.caption2.weight(.bold).monospacedDigit())
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
+        Group {
+            if let phase = calc.phase, !isPreviewShift {
+                Text(timerInterval: phase, countsDown: true)
+            } else {
+                Text(cornerText)
+            }
+        }
+        .font(.caption2.weight(.bold).monospacedDigit())
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
     }
 
     private var inlineText: String {
@@ -461,6 +492,25 @@ private struct WatchNowView: View {
         let parts = calc.remainingText.split(separator: " ")
         if let first = parts.first, Int(first) != nil { return "\(first) p" }
         return calc.remainingText
+    }
+
+    /// Dev idő-csúszka aktív? Ilyenkor az élő timer rossz értéket mutatna
+    /// (valós időben tickelne az eltolt fázisra), ezért statikus marad.
+    /// A galéria-placeholder mikroszekundumos eltérését nem nézzük annak.
+    private var isPreviewShift: Bool {
+        abs(entry.effectiveNow.timeIntervalSince(entry.date)) > 1
+    }
+
+    /// Élő visszaszámláló ("35:00", másodpercenként tickel): a rendszer
+    /// magától újrarajzolja, timeline-reload nélkül. Preview-eltolásnál
+    /// és fázis nélkül a régi statikus "35 p" marad.
+    @ViewBuilder
+    private var countdownText: some View {
+        if let phase = calc.phase, !isPreviewShift {
+            Text(timerInterval: phase, countsDown: true)
+        } else {
+            Text(shortRemaining)
+        }
     }
 
     private func statusTint(_ l: TimetableWidgetStore.Lesson) -> Color {
