@@ -248,6 +248,10 @@ private struct WatchNowView: View {
     // sorban a következő óra — így minden elfér zsúfoltság nélkül.
     private var rectangularView: some View {
         VStack(alignment: .leading, spacing: 3) {
+            // Két egyforma spacer középre rendezi a blokkot: alul-felül
+            // ugyanakkora padding adódik, bármekkora a kártya (a lekerekített
+            // sarkokhoz is arányosan igazodik). Szűk helyen 0-ra csuklanak.
+            Spacer(minLength: 0)
             if !entry.hasSnapshot && entry.lessons.isEmpty {
                 Text("Nyisd meg az appot")
                     .font(.headline.weight(.semibold)).lineLimit(1)
@@ -287,7 +291,13 @@ private struct WatchNowView: View {
                 }
                 attachedLine
             }
+            Spacer(minLength: 0)
         }
+        // Mért aszimmetria kompenzálása: a rendszer tartalom-margója felül
+        // ~12-13px, alul ~2-3px (saját szimulátor-mérés) — a -5 felhozza a
+        // blokkot, így alul-felül egyforma a padding. Rövid állapotokban
+        // (1-2 sor) a spacerek középre rendeznek, ott ez hatástalan.
+        .padding(.top, -5)
         // Smart Stack-háttér: a rendszer a harmadik féltől származó
         // kártyák alá átlátszatlan feketét tesz (saját mérés: 6 háttér-
         // variáns kipróbálva szimulátoron + pixel-analízis — a clear,
@@ -341,6 +351,10 @@ private struct WatchNowView: View {
             Image(systemName: "arrow.right.circle.fill")
                 .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(.secondary)
+                // Optikai igazítás: a kerek ikonnak nincs sík bal éle, mint
+                // a "Matek" M-betűjének — enélkül a sor beljebbnek látszana.
+                // Offset (nem padding), hogy a layout-távok ne változzanak.
+                .offset(x: -2)
             let room = n.room.isEmpty ? n.teacher : n.room
             if !room.isEmpty {
                 Text(room)
