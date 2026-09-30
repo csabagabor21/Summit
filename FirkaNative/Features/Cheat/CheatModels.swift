@@ -67,8 +67,11 @@ struct CheatTopic: Codable, Identifiable, Hashable {
         // (H2O, B2) nem bántjuk — csak 3-4 jegyű számot választunk le.
         t = Self.replacing(t, pattern: "([.!?:;])([A-ZÁÉÍÓÖŐÚÜŰ0-9])", with: "$1 $2")
         t = Self.replacing(t, pattern: "([a-záéíóöőúüű])(\\d{3,4})", with: "$1 $2")
-        // 3+ sortörés → 1 üres sor.
+        // 3+ sortörés → 1 üres sor, magányos sortörés → üres sor.
+        // (A modell gyakran szimpla \n-ekkel tördel — a Markdown azt
+        // egybefolyatja, csak az üres sor ad valódi bekezdésnyi lukat.)
         t = Self.replacing(t, pattern: "\n{3,}", with: "\n\n")
+        t = Self.replacing(t, pattern: "(?<!\n)\n(?!\n)", with: "\n\n")
         t = t.trimmingCharacters(in: .whitespacesAndNewlines)
         var out: [String] = []
         for block in t.components(separatedBy: "\n\n") {

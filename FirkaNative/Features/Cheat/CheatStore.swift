@@ -24,8 +24,20 @@ enum CheatStore {
         // Olvasáskor is normalizálunk (csak nézet): a régi, egybetömbös
         // AI-szövegek így mentés nélkül is tagoltan jelennek meg a
         // telefonon és az órán; a perzisztálást a cap() végzi.
-        return arr.sorted { $0.updatedAt > $1.updatedAt }.map { normalizeTopics($0) }
+        let sorted = arr.sorted { $0.updatedAt > $1.updatedAt }
+        let norm = sorted.map { normalizeTopics($0) }
+        // Egyszeri migráció indításonként: ha a tárolt anyag még a régi,
+        // tagolatlan alak, visszamentjük — a mentés changed-jelzése
+        // tolja az órát (CheatWatchPush) és a syncet is, így a watchra
+        // magától átmegy a tagolt szöveg, kézi újramentés nélkül.
+        if !migratedThisLaunch {
+            migratedThisLaunch = true
+            if norm != sorted { save(norm) }
+        }
+        return norm
     }
+
+    private static var migratedThisLaunch = false
 
     static func save(_ sheets: [CheatSheet]) {
         let capped = Array(sheets.prefix(maxSheets)).map { cap($0) }
