@@ -288,13 +288,19 @@ private struct WatchNowView: View {
                 attachedLine
             }
         }
-        // Liquid Glass háttér (liquid-glass skill, widgets.md): a
-        // containerBackground a swap-pont, amit a rendszer üvegre cserél
-        // a Smart Stack-ben. Az AccessoryWidgetBackground a sztenderd
-        // adaptív widget-háttér — ugyanaz, mint a Now Playing kártyáé.
-        // A `.clear` itt feketét adott, mert nem volt mit üvegre cserélni.
+        // Smart Stack-háttér: a rendszer a harmadik féltől származó
+        // kártyák alá átlátszatlan feketét tesz (saját mérés: 6 háttér-
+        // variáns kipróbálva szimulátoron + pixel-analízis — a clear,
+        // a material, a .glassEffect és az AccessoryWidgetBackground is
+        // feketét ad, csak a lapos szín él). A Now Playing világos üvege
+        // rendszer-privilegium, nem publikus API. A HIG is egyedi hátteret
+        // javasol (mint a Stocks piros/zöldje) — ezért ez a finom semleges
+        // fény-átmenet imitálja az üveg csillogását.
         .containerBackground(for: .widget) {
-            AccessoryWidgetBackground()
+            LinearGradient(
+                colors: [.white.opacity(0.16), .white.opacity(0.03)],
+                startPoint: .top, endPoint: .bottom
+            )
         }
     }
 
@@ -332,7 +338,7 @@ private struct WatchNowView: View {
     /// nyomódik össze, a tárgy vágódik (`tail`), ha szűk a hely.
     private func nextLine(_ n: TimetableWidgetStore.Lesson) -> some View {
         HStack(spacing: 4) {
-            Image(systemName: "arrow.right")
+            Image(systemName: "arrow.right.circle.fill")
                 .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(.secondary)
             let room = n.room.isEmpty ? n.teacher : n.room
