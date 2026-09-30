@@ -242,12 +242,14 @@ private struct WatchNowView: View {
         }
     }
 
-    // MARK: Smart Stack főnézet — kompakt: cím + csík melletti "35p" + következő óra
+    // MARK: Smart Stack főnézet — kompakt: cím + csík melletti "15p" + következő óra
     // A csík a kiemelőszínt (accent) veszi fel, a hátralévő idő rövid
-    // "35p" alakban a csík MELLETT ül (nem külön soron), alatta pedig egy
-    // sorban a következő óra — így minden elfér zsúfoltság nélkül.
+    // "15p" alakban a csík MELLETT ül (nem külön soron), alatta pedig egy
+    // sorban a következő óra nyíllal + teremmel (időpont nélkül).
+    // Szándékosan feszes: spacing 1, kisebb cím, vékony csík — hogy az
+    // alsó (következő órás) sor se vágódjon le a Smart Stack-kártyán.
     private var rectangularView: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 1) {
             if !entry.hasSnapshot && entry.lessons.isEmpty {
                 Text("Nyisd meg az appot")
                     .font(.headline.weight(.semibold)).lineLimit(1)
@@ -261,7 +263,8 @@ private struct WatchNowView: View {
                 case .morning:
                     if let n = calc.next {
                         Text(n.subject)
-                            .font(.headline.weight(.bold)).lineLimit(1)
+                            .font(.system(size: 15, weight: .bold)).lineLimit(1)
+                            .minimumScaleFactor(0.8)
                         lessonLine(n, showTime: n.start)
                         progressLine(tint: statusTint(n))
                         nextLine(n)
@@ -269,7 +272,8 @@ private struct WatchNowView: View {
                 case .duringLesson:
                     if let c = calc.current {
                         Text(c.subject)
-                            .font(.headline.weight(.bold)).lineLimit(1)
+                            .font(.system(size: 15, weight: .bold)).lineLimit(1)
+                            .minimumScaleFactor(0.8)
                         lessonLine(c, showTime: nil)
                         progressLine(tint: statusTint(c))
                         if let n = calc.next {
@@ -279,19 +283,21 @@ private struct WatchNowView: View {
                 case .duringBreak:
                     if let n = calc.next {
                         Text(n.subject)
-                            .font(.headline.weight(.bold)).lineLimit(1)
+                            .font(.system(size: 15, weight: .bold)).lineLimit(1)
+                            .minimumScaleFactor(0.8)
                         lessonLine(n, showTime: n.start)
                         progressLine(tint: statusTint(n))
-                        nextLine(n, prefix: "Szünet után")
+                        nextLine(n)
                     }
                 }
                 attachedLine
             }
         }
+        .widgetGlassBackground()
     }
 
     private func lessonLine(_ l: TimetableWidgetStore.Lesson, showTime: Date?) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 3) {
             Text("\(l.index). óra")
                 .font(.caption2.weight(.bold).monospacedDigit())
             Text("•").foregroundStyle(.tertiary).font(.caption2)
@@ -304,22 +310,46 @@ private struct WatchNowView: View {
         }
     }
 
-    /// Accent-csík + mellette a rövid "35p" — egy soron, külön
-    /// "X perc van hátra" sor nélkül.
+    /// Accent-csík + mellette a rövid "15p" — egy soron, külön
+    /// "X perc van hátra" sor nélkül. Vékony csík, hogy a 4 sor
+    /// (cím + óra/terem + csík + következő) a Smart Stack-magasságba férjen.
     private func progressLine(tint: Color) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 5) {
             ProgressView(value: calc.progress)
                 .tint(tint)
+                .frame(height: 5)
+                .clipShape(Capsule())
             Text(shortRemaining)
-                .font(.caption2.weight(.bold).monospacedDigit())
+                .font(.system(size: 12, weight: .bold).monospacedDigit())
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
         }
     }
 
-    private func nextLine(_ n: TimetableWidgetStore.Lesson, prefix: String = "Következő") -> some View {
-        Text("\(prefix): \(n.subject) • \(shortTime(n.start))")
-            .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+    /// Következő óra egy sorban: nyíl + terem, utána a tárgy, ha elfér.
+    /// Időpont és "Következő" felirat nincs — a fenti sorokból úgyis
+    /// látszik, melyik óra tart épp. A terem sosem nyomódik össze,
+    /// a tárgy vágódik (`tail`), ha szűk a hely.
+    private func nextLine(_ n: TimetableWidgetStore.Lesson) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: "arrow.right")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.secondary)
+            let room = n.room.isEmpty ? n.teacher : n.room
+            if !room.isEmpty {
+                Text(room)
+                    .font(.caption2.weight(.bold).monospacedDigit())
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+            Text(n.subject)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
     }
 
     /// Rögzített dolgozat/házi egy-egy sora — mint a telefonos kártya alján.
@@ -418,6 +448,22 @@ private struct WatchNowView: View {
 
     private func shortTime(_ d: Date) -> String {
         d.formatted(date: .omitted, time: .shortened)
+    }
+}
+
+// MARK: - Liquid Glass háttér a négyszögletes nézetre
+// watchOS 26-tól a rendszer rajzolja a Liquid Glasst a Smart Stack-ben:
+// nincs saját háttér, a `.clear` engedi át az üveget (mint az
+// iOS-widgeteknél). Régebbi rendszeren marad a rendszer alapértelmezett
+// háttere — oda nem nyúlunk.
+private extension View {
+    @ViewBuilder
+    func widgetGlassBackground() -> some View {
+        if #available(watchOS 26, *) {
+            self.containerBackground(.clear, for: .widget)
+        } else {
+            self
+        }
     }
 }
 
