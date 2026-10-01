@@ -18,9 +18,6 @@ struct SettingsView: View {
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var cropImage: UIImage?
     @State private var showPhotoOptions = false
-    @AppStorage("notify.grades") private var notifyGrades = true
-    @AppStorage("notify.tasks") private var notifyTasks = true
-    @AppStorage("notify.absences") private var notifyAbsences = true
     @AppStorage("exams.rolloverOnAbsence") private var examRollover = true
     @AppStorage("developer.enabled") private var devEnabled = false
     @AppStorage("home.demoPreviewActive") private var isPreviewOn = false
@@ -38,6 +35,9 @@ struct SettingsView: View {
     @State private var summitSyncBusy = false
     @State private var scrollOffset: CGFloat = 0 // parallax háttérhez (onScrollGeometryChange)
     @AppStorage("tour.settings.seen.v1") private var tourSeen = false
+    @State private var accountExpanded = false // Fiók: egysoros, koppintásra nyílik
+    @AppStorage("notify.enabled") private var notifyEnabled = true // Értesítések főkapcsolója
+    @State private var calendarExpanded = false // Iskolai események lenyíló
     @State private var tourStep: Int?
     var colors: AppColors { theme.colors(for: scheme) }
 
@@ -96,87 +96,6 @@ struct SettingsView: View {
                 Button("Mégse", role: .cancel) {}
                 } message: { Text("Új kép a Módosítással, vagy töröld a jelenlegit.") }
 
-            summitIsland(header: "Tanári kerekítés", footer: "Tantárgyanként külön állítható.", tour: .rounding, tourActive: tourIs(.rounding)) {
-                summitRow {
-                    NavigationLink { TeacherRoundingView() } label: {
-                        HStack {
-                            Label("Tanári kerekítés", systemImage: "slider.horizontal.below.rounded")
-                                .font(.subheadline.weight(.medium))
-                            Spacer()
-                            if isLoadingSubjects {
-                                ProgressView().scaleEffect(0.85)
-                            } else if subjects.isEmpty {
-                                Text("—").foregroundStyle(.tertiary).font(.caption)
-                            } else {
-                                Text("\(subjects.count) tárgy").font(.caption.weight(.medium)).foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .tint(colors.accent)
-                }
-            }
-
-            summitIsland(header: "Live Activity", footer: "Lock Screen + Dynamic Island.", tour: .live, tourActive: tourIs(.live)) {
-                summitRow { LiveActivitySettingsRow() }
-            }
-
-            summitIsland(header: "Iskolai események", footer: "0. óraként az órarend tetején. A kézi beállításod sosem íródik felül.", tour: .events, tourActive: tourIs(.events)) {
-                summitRow { SchoolEventsSection() }
-            }
-
-            summitIsland(header: "Értesítések", footer: "Helyi értesítés adatfrissítéskor — a KRÉTA nem küld push-t.", tour: .notifications, tourActive: tourIs(.notifications)) {
-                summitRow {
-                    Toggle(isOn: $notifyGrades) {
-                        Label("Új jegy", systemImage: "star.fill").font(.subheadline.weight(.medium))
-                    }
-                    .tint(colors.accent)
-                    .onChange(of: notifyGrades) { _, new in
-                        if new { Task { await NotificationManager.shared.requestPermission() } }
-                        summitSync.markDirty(.notifyGrades)
-                    }
-                }
-                summitDivider
-                summitRow {
-                    Toggle(isOn: $notifyTasks) {
-                        Label("Új házi / dolgozat", systemImage: "checklist").font(.subheadline.weight(.medium))
-                    }
-                    .tint(colors.accent)
-                    .onChange(of: notifyTasks) { _, new in
-                        if new { Task { await NotificationManager.shared.requestPermission() } }
-                        summitSync.markDirty(.notifyTasks)
-                    }
-                }
-                summitDivider
-                summitRow {
-                    Toggle(isOn: $notifyAbsences) {
-                        Label("Új hiányzás", systemImage: "person.crop.rectangle.stack").font(.subheadline.weight(.medium))
-                    }
-                    .tint(colors.accent)
-                    .onChange(of: notifyAbsences) { _, new in
-                        if new { Task { await NotificationManager.shared.requestPermission() } }
-                        summitSync.markDirty(.notifyAbsences)
-                    }
-                }
-                // A tesztelőeszközök (értesítés-tesztek, szimulált jegy) a
-                // Fejlesztői módban élnek — Beállítások alján feloldható.
-            }
-
-            summitIsland(header: "Dolgozat-pótlás", footer: "Ha a dolgozat napján hiányzol, a dolgozat a következő ilyen órára kerül, piros háttérrel. Ha arról is hiányzol, továbbmegy. Swipe-pal elvethető.") {
-                summitRow {
-                    Toggle(isOn: $examRollover) {
-                        Label("Átütemezés hiányzáskor", systemImage: "calendar.badge.exclamationmark").font(.subheadline.weight(.medium))
-                    }
-                    .tint(colors.accent)
-                    .onChange(of: examRollover) { _, _ in
-                        // A store postolja a frissítő értesítést; a kapcsolgatás
-                        // külön dirty-jelölést kap (mint a schoolEventsShow),
-                        // hogy a blobok újraküldése nélkül menjen fel a syncbe.
-                        ExamRollover.setEnabled(examRollover)
-                        summitSync.markDirty(.examRollover)
-                    }
-                }
-            }
-
             summitIsland(header: "Megjelenés", tour: .appearance, tourActive: tourIs(.appearance)) {
                 summitRow {
                     Picker("Téma", selection: Binding(get: { theme.mode }, set: { theme.mode = $0 })) {
@@ -227,7 +146,99 @@ struct SettingsView: View {
                 }
             }
 
+            summitIsland(header: "Tanári kerekítés", footer: "Tantárgyanként külön állítható.", tour: .rounding, tourActive: tourIs(.rounding)) {
+                summitRow {
+                    NavigationLink { TeacherRoundingView() } label: {
+                        HStack {
+                            Label("Tanári kerekítés", systemImage: "slider.horizontal.below.rounded")
+                                .font(.subheadline.weight(.medium))
+                            Spacer()
+                            if isLoadingSubjects {
+                                ProgressView().scaleEffect(0.85)
+                            } else if subjects.isEmpty {
+                                Text("—").foregroundStyle(.tertiary).font(.caption)
+                            } else {
+                                Text("\(subjects.count) tárgy").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .tint(colors.accent)
+                }
+            }
+
+            summitIsland(header: "Értesítések", footer: "Helyi értesítés adatfrissítéskor — a KRÉTA nem küld push-t. A Live Activity a Lock Screen + Dynamic Island.", tour: .notifications, tourActive: tourIs(.notifications) || tourIs(.live)) {
+                summitRow {
+                    Toggle(isOn: $notifyEnabled) {
+                        Label("Értesítések", systemImage: "bell.fill").font(.subheadline.weight(.medium))
+                    }
+                    .tint(colors.accent)
+                    .onChange(of: notifyEnabled) { _, new in
+                        if new { Task { await NotificationManager.shared.requestPermission() } }
+                        summitSync.markDirty(.notifyEnabled)
+                    }
+                }
+                summitDivider
+                summitRow {
+                    LiveActivitySettingsRow()
+                }
+                .id(AnyHashable(SettingsTour.Anchor.live))
+                // A tesztelőeszközök (értesítés-tesztek, szimulált jegy) a
+                // Fejlesztői módban élnek — Beállítások alján feloldható.
+            }
+
+            summitIsland(header: "Iskolai események", footer: "0. óraként az órarend tetején. A kézi beállításod sosem íródik felül.", tour: .events, tourActive: tourIs(.events)) {
+                summitRow {
+                    Button { withAnimation(SummitMotion.snappy) { calendarExpanded.toggle() } } label: {
+                        HStack {
+                            Label("Tannaptár", systemImage: "calendar").font(.subheadline.weight(.medium))
+                            Spacer()
+                            Image(systemName: "chevron.down")
+                                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                .rotationEffect(.degrees(calendarExpanded ? 180 : 0))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityValue(calendarExpanded ? "kinyitva" : "zárva")
+                }
+                if calendarExpanded {
+                    summitDivider
+                    summitRow { SchoolEventsSection() }
+                }
+            }
+
+            summitIsland(header: "Dolgozat-pótlás", footer: "Ha a dolgozat napján hiányzol, a dolgozat a következő ilyen órára kerül, piros háttérrel. Ha arról is hiányzol, továbbmegy. Swipe-pal elvethető.") {
+                summitRow {
+                    Toggle(isOn: $examRollover) {
+                        Label("Átütemezés hiányzáskor", systemImage: "calendar.badge.exclamationmark").font(.subheadline.weight(.medium))
+                    }
+                    .tint(colors.accent)
+                    .onChange(of: examRollover) { _, _ in
+                        // A store postolja a frissítő értesítést; a kapcsolgatás
+                        // külön dirty-jelölést kap (mint a schoolEventsShow),
+                        // hogy a blobok újraküldése nélkül menjen fel a syncbe.
+                        ExamRollover.setEnabled(examRollover)
+                        summitSync.markDirty(.examRollover)
+                    }
+                }
+            }
+
             summitIsland(header: "Fiók", tour: .account, tourActive: tourIs(.account)) {
+                summitRow {
+                    Button { withAnimation(SummitMotion.snappy) { accountExpanded.toggle() } } label: {
+                        HStack {
+                            Label("Fiók", systemImage: "person.crop.circle").font(.subheadline.weight(.medium))
+                            Spacer()
+                            Text(session.selectedUser?.name ?? "Diák").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            Image(systemName: "chevron.down")
+                                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                .rotationEffect(.degrees(accountExpanded ? 180 : 0))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityValue(accountExpanded ? "kinyitva" : "zárva")
+                }
+                if accountExpanded {
+                summitDivider
                 summitRow {
                     Button("Kijelentkezés", role: .destructive) { session.logout() }
                 }
@@ -349,6 +360,7 @@ struct SettingsView: View {
                 .onAppear { if !metaAIKeyEdited { draftMetaAIKey = MetaAIKeyStore.apiKey } }
                 .onReceive(NotificationCenter.default.publisher(for: MetaAIKeyStore.changedNotification)) { _ in
                     if !metaAIKeyEdited { draftMetaAIKey = MetaAIKeyStore.apiKey }
+                }
                 }
             }
 

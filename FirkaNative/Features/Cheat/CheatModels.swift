@@ -136,13 +136,20 @@ struct CheatMaterial: Codable, Identifiable, Hashable {
     var name: String
     var text: String
     var addedAt: Date
+    /// Forrásfajta: "pdf" / "image" / nil (txt, md és régi adatok).
+    /// Hiányzó kulcs = régi tárolás = sima szöveg — a dekódolás nem törik.
+    var kind: String?
 
-    init(id: String = UUID().uuidString, name: String, text: String, addedAt: Date = Date()) {
+    init(id: String = UUID().uuidString, name: String, text: String, addedAt: Date = Date(), kind: String? = nil) {
         self.id = id
         self.name = name
         self.text = text
         self.addedAt = addedAt
+        self.kind = kind
     }
+
+    var isPDF: Bool { kind == "pdf" }
+    var isImage: Bool { kind == "image" }
 }
 
 struct CheatSheet: Codable, Identifiable, Hashable {

@@ -1,4 +1,6 @@
 import Foundation
+import UIKit
+import PDFKit
 
 // MARK: - Meta AI kulcstár
 // A kulcs UserDefaults-ban él, és a SummitSync `metaAIKey` mezőjében
@@ -87,9 +89,10 @@ enum GeminiFallback {
     }
 }
 
-// MARK: - Meta AI kliens (Meta Model API, OpenAI-kompatibilis)
-// A feltöltött anyagok szövegéből csinál témánkénti jegyzetet:
-// minden téma egy cím + szöveges bejegyzés. A válasz JSON, amit a
+// MARK: - Meta AI kliens (Meta Model API, OpenAI-kompatibilis, multimodális)
+// A feltöltött anyagok TELJES tartalmából csinál témánkénti jegyzetet
+// (nincs karaktersáv): szöveg + pdf-oldalak képként + fotók.
+// Minden téma egy cím + szöveges bejegyzés. A válasz JSON, amit a
 // kliens CheatTopic-fává alakít; a user a lapon utólag szerkesztheti.
 // Saját Meta-kulcs nélkül a Firebase-ből jövő közös, ingyenes
 // Gemini-tartalék dolgozik (gyenge!) — saját kulccsal a Meta-végpont.
@@ -137,10 +140,13 @@ enum MetaAIClient {
             targetModel = fb.model
             authKey = fb.key
         }
-        let corpus = materials.map(\.text).joined(separator: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !corpus.isEmpty else { throw AIError.noMaterial }
-        // A modellablak védelme: az eleje (tananyag) számít, a vége vágható.
-        let clipped = String(corpus.prefix(24_000))
+        // TELJES szöveg a lemez-tárból (nincs 15k/24k vágás) — a
+        // UserDefaults-beli vágott másolat csak tartalék régi anyagokhoz.
+        let corpus = materials.map { CheatStore.fullText(id: $0.id) ?? $0.text }
+            .joined(separator: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        // Képek: pdf-oldalak rasterizálva + feltöltött fotók (multimodális).
+        let imageURLs = Self.imageDataURLs(for: materials)
+        guard !corpus.isEmpty || !imageURLs.isEmpty else { throw AIError.noMaterial }
         let prompt = """
         Tantárgy: \(subject). Témakör: \(title).
         Az alábbi tananyagból készíts tanulható jegyzetet magyarul.
@@ -149,6 +155,8 @@ enum MetaAIClient {
         mind kerüljön bele, annyira szóról szóra, amennyire csak lehet.
         Ne rövidíts, ne foglalj össze, ne hagyj el részleteket. A te dolgod
         CSAK a tagolás: a teljes szöveget tedd áttekinthető, tanulható formába.
+        A csatolt KÉPEKEN látható tartalmat (ábrák, képletek, táblázatok,
+        szkennelt oldalak) ugyanígy dolgozd bele a jegyzetbe.
         FORMÁZÁS (kötelező, Markdown): a body SOHA nem lehet egybefüggő
         szövegtömb — tagold bekezdésekre, és MINDEN bekezdés, cím és lista
         között pontosan egy üres sor legyen. Használj ### alcímeket
@@ -158,22 +166,35 @@ enum MetaAIClient {
         {"topics":[{"title":"...","body":"..."}]}
 
         TANANYAG:
-        \(clipped)
+        \(corpus)
         """
+        // Multimodális user-üzenet: szöveg + képek (pdf-oldalak, fotók).
+        // Kép nélkül marad a sima string-alak (régi viselkedés).
+        var userContent: Any = prompt
+        if !imageURLs.isEmpty {
+            var parts: [[String: Any]] = [["type": "text", "text": prompt]]
+            parts += imageURLs.map { ["type": "image_url", "image_url": ["url": $0]] }
+            userContent = parts
+        }
         let body: [String: Any] = [
             "model": targetModel,
             "messages": [
                 ["role": "system", "content": "Magyar nyelvű tanulójegyzet-készítő vagy. Mindig csak érvényes JSON-t válaszolsz."],
-                ["role": "user", "content": prompt],
+                ["role": "user", "content": userContent],
             ],
             "temperature": 0.3,
         ]
+        guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else { throw AIError.badResponse }
+        // Durva plafon: ~20 MB kérés fölött inkább érthető hiba, mint lógás.
+        guard httpBody.count < 20_000_000 else {
+            throw AIError.network("Az anyag képekkel együtt túl nagy (\(httpBody.count / 1_000_000) MB) — vegyél ki oldalakat, és próbáld újra.")
+        }
         var req = URLRequest(url: target)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("Bearer \(authKey)", forHTTPHeaderField: "Authorization")
-        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        req.timeoutInterval = 90
+        req.httpBody = httpBody
+        req.timeoutInterval = 180
         let data: Data
         let status: Int
         do {
@@ -189,6 +210,65 @@ enum MetaAIClient {
         guard status == 200 else { throw AIError.badStatus(status) }
         guard let topics = Self.parseTopics(from: data), !topics.isEmpty else { throw AIError.badResponse }
         return topics
+    }
+
+    // MARK: - Multimodális képek (pdf-oldalak + fotók)
+
+    /// Minden anyaghoz a képi tartalom data-URL-ként: pdf-nél MINDEN
+    /// oldal rasterizálva (a modell a teljes pdf-et látja), fotónál az
+    /// eredeti kép leskálázva. Üres = tisztán szöveges kérés.
+    static func imageDataURLs(for materials: [CheatMaterial]) -> [String] {
+        var out: [String] = []
+        for m in materials {
+            if m.isPDF, let pdf = CheatStore.pdfData(id: m.id), !pdf.isEmpty {
+                out += jpegDataURLs(fromPDF: pdf)
+            } else if m.isImage, let data = CheatStore.imageData(id: m.id),
+                      let url = jpegDataURL(fromImageData: data, maxSide: 1568) {
+                out.append(url)
+            }
+        }
+        return out
+    }
+
+    /// PDF összes oldala → JPEG data-URL (fehér háttér, max 1536px).
+    static func jpegDataURLs(fromPDF data: Data, maxSide: CGFloat = 1536) -> [String] {
+        guard let doc = PDFDocument(data: data) else { return [] }
+        var out: [String] = []
+        for i in 0..<doc.pageCount {
+            guard let page = doc.page(at: i) else { continue }
+            let box = page.bounds(for: .mediaBox)
+            guard box.width > 0, box.height > 0 else { continue }
+            let k = min(1, maxSide / max(box.width, box.height))
+            let size = CGSize(width: box.width * k, height: box.height * k)
+            let renderer = UIGraphicsImageRenderer(size: size)
+            let img = renderer.image { ctx in
+                UIColor.white.setFill()
+                ctx.fill(CGRect(origin: .zero, size: size))
+                page.draw(with: .mediaBox, to: ctx.cgContext)
+            }
+            if let jpg = img.jpegData(compressionQuality: 0.65) {
+                out.append("data:image/jpeg;base64,\(jpg.base64EncodedString())")
+            }
+        }
+        return out
+    }
+
+    /// Fotó → leskálázott JPEG data-URL.
+    static func jpegDataURL(fromImageData data: Data, maxSide: CGFloat = 1568) -> String? {
+        guard let ui = UIImage(data: data) else { return nil }
+        let s = max(ui.size.width, ui.size.height)
+        let img: UIImage
+        if s > maxSide, s > 0 {
+            let k = maxSide / s
+            let ns = CGSize(width: ui.size.width * k, height: ui.size.height * k)
+            img = UIGraphicsImageRenderer(size: ns).image { _ in
+                ui.draw(in: CGRect(origin: .zero, size: ns))
+            }
+        } else {
+            img = ui
+        }
+        guard let jpg = img.jpegData(compressionQuality: 0.8) else { return nil }
+        return "data:image/jpeg;base64,\(jpg.base64EncodedString())"
     }
 
     // MARK: - Válaszfejtés

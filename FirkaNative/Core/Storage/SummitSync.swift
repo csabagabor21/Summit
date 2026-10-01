@@ -18,9 +18,7 @@ enum SummitSyncField: String, CaseIterable {
     case exempted
     case completedHw
     case completedEx
-    case notifyGrades
-    case notifyTasks
-    case notifyAbsences
+    case notifyEnabled
     case liveActivity
     case schoolEvents
     case schoolEventsShow
@@ -52,7 +50,7 @@ enum SummitSyncField: String, CaseIterable {
 /// eszköz beállításait, és két eszköz eltérő mezői nem ütik egymást.
 ///
 /// Szinkronizált tartalom: téma (mode), kiemelőszín, szövegméret, profilkép,
-/// kerekítés, felmentések, házi/dolgozat pipák, értesítési kapcsolók,
+/// kerekítés, felmentések, házi/dolgozat pipák, értesítés-főkapcsoló,
 /// Live Activity kapcsoló, iskolai események (+ mutatás-kapcsoló és a
 /// mentett naptár-link, hogy a kézi felülírás linkje is átmenjen),
 /// saját feladatok/dolgozatok, tanulójegyzet-lapok, Meta AI-kulcs,
@@ -261,9 +259,7 @@ final class SummitSync: ObservableObject {
         var exempted: String
         var completedHw: String
         var completedEx: String
-        var notifyGrades: Bool
-        var notifyTasks: Bool
-        var notifyAbsences: Bool
+        var notifyEnabled: Bool
         var liveActivity: Bool
         var schoolEvents: String
         var schoolEventsShow: Bool
@@ -287,9 +283,7 @@ final class SummitSync: ObservableObject {
             exempted: Self.stringArrayJSON(Array(ExemptedStore.load()), maxChars: 8_000, maxCount: 128),
             completedHw: Self.stringArrayJSON(CompletedStore.loadHomeworkIDs(), maxChars: 12_000, maxCount: 256),
             completedEx: Self.stringArrayJSON(CompletedStore.loadExamIDs(), maxChars: 12_000, maxCount: 256),
-            notifyGrades: Self.flag("notify.grades", default: true),
-            notifyTasks: Self.flag("notify.tasks", default: true),
-            notifyAbsences: Self.flag("notify.absences", default: true),
+            notifyEnabled: Self.flag("notify.enabled", default: true),
             liveActivity: Self.flag("liveActivity.enabled", default: true),
             schoolEvents: SchoolEventsStore.syncString(SchoolEventsStore.load()),
             schoolEventsShow: SchoolEventsStore.isVisible(),
@@ -358,9 +352,7 @@ final class SummitSync: ObservableObject {
         let (exemptedV, exemptedTs) = pick(.exempted, local: local.exempted, remote: remote?.exemptedRaw)
         let (hwV, hwTs) = pick(.completedHw, local: local.completedHw, remote: remote?.completedHwRaw)
         let (exV, exTs) = pick(.completedEx, local: local.completedEx, remote: remote?.completedExRaw)
-        let (ngV, ngTs) = pick(.notifyGrades, local: local.notifyGrades, remote: remote?.notifyGrades)
-        let (ntV, ntTs) = pick(.notifyTasks, local: local.notifyTasks, remote: remote?.notifyTasks)
-        let (naV, naTs) = pick(.notifyAbsences, local: local.notifyAbsences, remote: remote?.notifyAbsences)
+        let (neV, neTs) = pick(.notifyEnabled, local: local.notifyEnabled, remote: remote?.notifyEnabled)
         let (laV, laTs) = pick(.liveActivity, local: local.liveActivity, remote: remote?.liveActivity)
         let (erV, erTs) = pick(.examRollover, local: local.examRollover, remote: remote?.examRollover)
         // Iskolai események: a régi docban még hiányozhat (nil) — olyankor a
@@ -450,9 +442,7 @@ final class SummitSync: ObservableObject {
             "exempted": str(exemptedV),
             "completedHw": str(hwV),
             "completedEx": str(exV),
-            "notifyGrades": bool(ngV),
-            "notifyTasks": bool(ntV),
-            "notifyAbsences": bool(naV),
+            "notifyEnabled": bool(neV),
             "liveActivity": bool(laV),
             "schoolEvents": str(seV),
             "schoolEventsShow": bool(seShowV),
@@ -466,8 +456,8 @@ final class SummitSync: ObservableObject {
         let tsPairs: [(SummitSyncField, Date)] = [
             (.theme, themeTs), (.accentHex, accentTs), (.sizeKey, sizeTs),
             (.photo, photoPair.1), (.rounding, roundingTs), (.exempted, exemptedTs),
-            (.completedHw, hwTs), (.completedEx, exTs), (.notifyGrades, ngTs),
-            (.notifyTasks, ntTs), (.notifyAbsences, naTs), (.liveActivity, laTs),
+            (.completedHw, hwTs), (.completedEx, exTs), (.notifyEnabled, neTs),
+            (.liveActivity, laTs),
             (.schoolEvents, seTs), (.schoolEventsShow, seShowTs),
             (.schoolEventsURL, seURLTs), (.customTasks, ctTs),
             (.cheatSheets, chTs), (.metaAIKey, mkTs), (.examRollover, erTs),
@@ -503,6 +493,14 @@ final class SummitSync: ObservableObject {
             legacy.removeValue(forKey: "metaAIKey")
             legacy.removeValue(forKey: "examRollover")
             legacy.removeValue(forKey: "hasWatch")
+            // A régi szabály a három per-típus kapcsolót követeli meg —
+            // a főkapcsoló értékét mindháromba belemásoljuk, az új kulcs
+            // és bélyege pedig kikerül (azt a régi szabály nem ismeri).
+            legacy.removeValue(forKey: "notifyEnabled")
+            legacy.removeValue(forKey: "ts_notifyEnabled")
+            legacy["notifyGrades"] = bool(neV)
+            legacy["notifyTasks"] = bool(neV)
+            legacy["notifyAbsences"] = bool(neV)
             guard await patch(legacy) == 200 else {
                 status = "feltöltés hiba"
                 return false
@@ -604,9 +602,7 @@ final class SummitSync: ObservableObject {
         let completedHwRaw: String
         let completedEx: [String]
         let completedExRaw: String
-        let notifyGrades: Bool
-        let notifyTasks: Bool
-        let notifyAbsences: Bool
+        let notifyEnabled: Bool
         let liveActivity: Bool
         /// Dolgozat-pótlás kapcsoló (`nil` = a régi docban még nincs mező —
         /// ilyenkor a helyi állapot marad, nem írunk felül).
@@ -691,9 +687,7 @@ final class SummitSync: ObservableObject {
               let exempted = decodeStringArray(exemptedRaw, maxChars: 8_000, maxCount: 128),
               let completedHw = decodeStringArray(completedHwRaw, maxChars: 12_000, maxCount: 256),
               let completedEx = decodeStringArray(completedExRaw, maxChars: 12_000, maxCount: 256),
-              let notifyGrades = data["notifyGrades"] as? Bool,
-              let notifyTasks = data["notifyTasks"] as? Bool,
-              let notifyAbsences = data["notifyAbsences"] as? Bool,
+              let notifyEnabled = data["notifyEnabled"] as? Bool,
               let liveActivity = data["liveActivity"] as? Bool else { return nil }
         // Iskolai események: régi docban hiányozhatnak (nil = helyi marad).
         // Sérült (túl nagy / nem string) mezőnél szintén a helyi marad —
@@ -743,8 +737,7 @@ final class SummitSync: ObservableObject {
                        exempted: exempted, exemptedRaw: exemptedRaw,
                        completedHw: completedHw, completedHwRaw: completedHwRaw,
                        completedEx: completedEx, completedExRaw: completedExRaw,
-                       notifyGrades: notifyGrades, notifyTasks: notifyTasks,
-                       notifyAbsences: notifyAbsences, liveActivity: liveActivity,
+                       notifyEnabled: notifyEnabled, liveActivity: liveActivity,
                        examRollover: examRollover,
                        hasWatch: hasWatch,
                        schoolEventsRaw: schoolEventsRaw, schoolEventsShow: schoolEventsShow,
@@ -823,8 +816,8 @@ final class SummitSync: ObservableObject {
               let exempted = decodeStringArray(exemptedRaw, maxChars: 8_000, maxCount: 128),
               let completedHw = decodeStringArray(completedHwRaw, maxChars: 12_000, maxCount: 256),
               let completedEx = decodeStringArray(completedExRaw, maxChars: 12_000, maxCount: 256),
-              let notifyGrades = b("notifyGrades"), let notifyTasks = b("notifyTasks"),
-              let notifyAbsences = b("notifyAbsences"), let liveActivity = b("liveActivity") else { return nil }
+              let notifyEnabled = b("notifyEnabled"),
+              let liveActivity = b("liveActivity") else { return nil }
         // REST-út: ugyanaz az opcionális szemantika, mint a snapshotnál.
         let schoolEventsRaw: String? = {
             guard let raw = s("schoolEvents"), raw.count <= maxSchoolEventsChars else { return nil }
@@ -854,8 +847,7 @@ final class SummitSync: ObservableObject {
                        exempted: exempted, exemptedRaw: exemptedRaw,
                        completedHw: completedHw, completedHwRaw: completedHwRaw,
                        completedEx: completedEx, completedExRaw: completedExRaw,
-                       notifyGrades: notifyGrades, notifyTasks: notifyTasks,
-                       notifyAbsences: notifyAbsences, liveActivity: liveActivity,
+                       notifyEnabled: notifyEnabled, liveActivity: liveActivity,
                        examRollover: b("examRollover"),
                        hasWatch: b("hasWatch"),
                        schoolEventsRaw: schoolEventsRaw, schoolEventsShow: b("schoolEventsShow"),
@@ -921,17 +913,9 @@ final class SummitSync: ObservableObject {
             if exNew { applied.append(.completedEx) }
         }
         let d = UserDefaults.standard
-        if newer(.notifyGrades) {
-            d.set(p.notifyGrades, forKey: "notify.grades")
-            applied.append(.notifyGrades)
-        }
-        if newer(.notifyTasks) {
-            d.set(p.notifyTasks, forKey: "notify.tasks")
-            applied.append(.notifyTasks)
-        }
-        if newer(.notifyAbsences) {
-            d.set(p.notifyAbsences, forKey: "notify.absences")
-            applied.append(.notifyAbsences)
+        if newer(.notifyEnabled) {
+            d.set(p.notifyEnabled, forKey: "notify.enabled")
+            applied.append(.notifyEnabled)
         }
         if newer(.liveActivity) {
             d.set(p.liveActivity, forKey: "liveActivity.enabled")
