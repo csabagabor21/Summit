@@ -12,6 +12,9 @@ struct SummitApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // Régi per-típus értesítéskapcsolók összevonása a főkapcsolóba
+        // (egyszeri, idempotens — csak akkor nyúl, ha régi kulcs él).
+        NotificationManager.migratePerTypeKeys()
         // Live Activity háttér-ébresztés: óra/szünet végén az app
         // megnyitása nélkül is átkapcsol az activity.
         LiveActivityBackgroundRefresh.register()

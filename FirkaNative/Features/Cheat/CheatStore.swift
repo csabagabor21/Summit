@@ -120,4 +120,43 @@ enum CheatStore {
               let arr = try? JSONDecoder().decode([CheatSheet].self, from: data) else { return nil }
         return arr.map { cap($0) }
     }
+
+    // MARK: - Lemez-tár a TELJES anyagokhoz (generáláshoz)
+    // A UserDefaults/sync továbbra is vágott szöveget visz (15k —
+    // a Firestore-doc és a sync-séma védelme), de a generálás innen
+    // olvassa a TELJES szöveget + a pdf/kép binárist. Anyagonként:
+    // <id>.txt (full szöveg), <id>.pdf (eredeti pdf), <id>.jpg (kép).
+    // Csak ezen az eszközön él (nem szinkronizálódik).
+    static func materialDir() -> URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = base.appendingPathComponent("CheatMaterials", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    static func saveFullPayload(id: String, text: String?, pdf: Data?, image: Data?) {
+        let dir = materialDir()
+        if let t = text, !t.isEmpty { try? t.write(to: dir.appendingPathComponent("\(id).txt"), atomically: true, encoding: .utf8) }
+        if let p = pdf { try? p.write(to: dir.appendingPathComponent("\(id).pdf")) }
+        if let im = image { try? im.write(to: dir.appendingPathComponent("\(id).jpg")) }
+    }
+
+    static func fullText(id: String) -> String? {
+        try? String(contentsOf: materialDir().appendingPathComponent("\(id).txt"), encoding: .utf8)
+    }
+
+    static func pdfData(id: String) -> Data? {
+        try? Data(contentsOf: materialDir().appendingPathComponent("\(id).pdf"))
+    }
+
+    static func imageData(id: String) -> Data? {
+        try? Data(contentsOf: materialDir().appendingPathComponent("\(id).jpg"))
+    }
+
+    static func removePayload(id: String) {
+        let dir = materialDir()
+        for ext in ["txt", "pdf", "jpg"] {
+            try? FileManager.default.removeItem(at: dir.appendingPathComponent("\(id).\(ext)"))
+        }
+    }
 }

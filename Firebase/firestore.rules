@@ -65,8 +65,8 @@ rules_version = '2';
 //                "[]" = nincs felmentés)
 //   - completedHw / completedEx: string (kötelező, JSON ID-tömbök
 //                ≤ 12 000 kar., max 256-256; "[]" = nincs pipa)
-//   - notifyGrades / notifyTasks / notifyAbsences / liveActivity:
-//     bool (kötelezők)
+//   - notifyEnabled / liveActivity: bool (kötelezők; az értesítések
+//     egyetlen főkapcsolója — jegy, házi/dolgozat, hiányzás együtt)
 //   - schoolEvents: string (opcionális, kompakt esemény-JSON ≤ 50 000 kar.,
 //     "[]" = tudatos törlés; hiánya = régi kliens, a helyi állapot marad)
 //   - schoolEventsShow: bool (opcionális; hiánya = régi kliens)
@@ -75,8 +75,8 @@ rules_version = '2';
 //   - examRollover: bool (opcionális; dolgozat-pótlás kapcsoló,
 //     hiánya = régi kliens, a helyi állapot marad)
 //   - ts_theme / ts_accentHex / ts_sizeKey / ts_photo / ts_rounding /
-//     ts_exempted / ts_completedHw / ts_completedEx / ts_notifyGrades /
-//     ts_notifyTasks / ts_notifyAbsences / ts_liveActivity /
+//     ts_exempted / ts_completedHw / ts_completedEx / ts_notifyEnabled /
+//     ts_liveActivity /
 //     ts_schoolEvents / ts_schoolEventsShow / ts_schoolEventsURL /
 //     ts_customTasks / ts_examRollover: timestamp
 //     (opcionálisak; mezőnkénti verzióbélyeg a delta-szinkronhoz —
@@ -126,12 +126,12 @@ function isValidHeartbeat() {
 function isValidSyncDoc() {
   return hasOnlyAllowedFields(['v', 'updatedAt', 'theme', 'accentHex', 'sizeKey', 'photo',
       'rounding', 'exempted', 'completedHw', 'completedEx',
-      'notifyGrades', 'notifyTasks', 'notifyAbsences', 'liveActivity',
+      'notifyEnabled', 'liveActivity',
       'schoolEvents', 'schoolEventsShow', 'schoolEventsURL', 'customTasks',
       'cheatSheets', 'metaAIKey', 'examRollover', 'hasWatch',
       'ts_theme', 'ts_accentHex', 'ts_sizeKey', 'ts_photo', 'ts_rounding',
-      'ts_exempted', 'ts_completedHw', 'ts_completedEx', 'ts_notifyGrades',
-      'ts_notifyTasks', 'ts_notifyAbsences', 'ts_liveActivity',
+      'ts_exempted', 'ts_completedHw', 'ts_completedEx', 'ts_notifyEnabled',
+      'ts_liveActivity',
       'ts_schoolEvents', 'ts_schoolEventsShow', 'ts_schoolEventsURL', 'ts_customTasks',
       'ts_cheatSheets', 'ts_metaAIKey', 'ts_examRollover', 'ts_hasWatch'])
     && request.resource.data.v is int && request.resource.data.v == 1
@@ -154,9 +154,7 @@ function isValidSyncDoc() {
     && request.resource.data.completedHw.size() <= 12000
     && request.resource.data.completedEx is string
     && request.resource.data.completedEx.size() <= 12000
-    && request.resource.data.notifyGrades is bool
-    && request.resource.data.notifyTasks is bool
-    && request.resource.data.notifyAbsences is bool
+    && request.resource.data.notifyEnabled is bool
     && request.resource.data.liveActivity is bool
     // Iskolai események: opcionálisak (régi kliens ezek nélkül is írhat),
     // de ha vannak: kompakt esemény-JSON (üres = tudatos törlés) + kapcsoló.
@@ -171,9 +169,7 @@ function isValidSyncDoc() {
     && (!('ts_exempted' in request.resource.data) || request.resource.data.ts_exempted is timestamp)
     && (!('ts_completedHw' in request.resource.data) || request.resource.data.ts_completedHw is timestamp)
     && (!('ts_completedEx' in request.resource.data) || request.resource.data.ts_completedEx is timestamp)
-    && (!('ts_notifyGrades' in request.resource.data) || request.resource.data.ts_notifyGrades is timestamp)
-    && (!('ts_notifyTasks' in request.resource.data) || request.resource.data.ts_notifyTasks is timestamp)
-    && (!('ts_notifyAbsences' in request.resource.data) || request.resource.data.ts_notifyAbsences is timestamp)
+    && (!('ts_notifyEnabled' in request.resource.data) || request.resource.data.ts_notifyEnabled is timestamp)
     && (!('ts_liveActivity' in request.resource.data) || request.resource.data.ts_liveActivity is timestamp)
     && (!('ts_schoolEvents' in request.resource.data) || request.resource.data.ts_schoolEvents is timestamp)
     && (!('ts_schoolEventsShow' in request.resource.data) || request.resource.data.ts_schoolEventsShow is timestamp)

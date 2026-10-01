@@ -25,14 +25,31 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
     // MARK: - Toggle kulcsok (SettingsView @AppStorage-gal írja)
 
-    static let gradesKey = "notify.grades"
-    static let tasksKey = "notify.tasks" // házi + dolgozat együtt
-    static let absencesKey = "notify.absences"
+    /// Egyetlen főkapcsoló: minden helyi értesítés (jegy, házi/dolgozat,
+    /// hiányzás) együtt. A régi per-típus kulcsok (`notify.grades`,
+    /// `notify.tasks`, `notify.absences`) megvannak még az eszközön —
+    /// a `migratePerTypeKeys` hajtja őket össze ebbe az egybe.
+    static let masterKey = "notify.enabled"
 
     /// Hiányzó kulcs = bekapcsolva (az első verzióban minden default ON).
     static func isEnabled(_ key: String) -> Bool {
         guard UserDefaults.standard.object(forKey: key) != nil else { return true }
         return UserDefaults.standard.bool(forKey: key)
+    }
+
+    /// Egyszeri összevonás a régi per-típus kapcsolókból a főkapcsolóba:
+    /// ha BÁRMELYIK régi ki volt kapcsolva, a főkapcsoló is KI lesz
+    /// (konzervatív: nem kapcsolunk vissza olyat, amit a user leoltott).
+    /// Utána a régi kulcsok törlődnek. Többször hívható (idempotens).
+    static func migratePerTypeKeys() {
+        let d = UserDefaults.standard
+        let olds = ["notify.grades", "notify.tasks", "notify.absences"]
+        guard olds.contains(where: { d.object(forKey: $0) != nil }) else { return }
+        let allOn = olds.allSatisfy { d.object(forKey: $0) as? Bool ?? true }
+        if d.object(forKey: masterKey) == nil {
+            d.set(allOn, forKey: masterKey)
+        }
+        for k in olds { d.removeObject(forKey: k) }
     }
 
     // MARK: - Setup
@@ -230,25 +247,25 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     /// Új elemek oldalhatás nélkül (toggle + diff, ütemezés nélkül) —
     /// a digest (checkAll) és az azonnali (checkX) ág közös alapja.
     private func freshGradeItems(_ grades: [GradeItem], userId: String) -> [GradeItem] {
-        guard Self.isEnabled(Self.gradesKey) else { return [] }
+        guard Self.isEnabled(Self.masterKey) else { return [] }
         let byId = Dictionary(uniqueKeysWithValues: grades.map { ($0.id, $0) })
         return fresh(kind: "Grades", userId: userId, ids: grades.map(\.id)).compactMap { byId[$0] }
     }
 
     private func freshHomeworkItems(_ items: [HomeworkItem], userId: String) -> [HomeworkItem] {
-        guard Self.isEnabled(Self.tasksKey) else { return [] }
+        guard Self.isEnabled(Self.masterKey) else { return [] }
         let byId = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
         return fresh(kind: "Homework", userId: userId, ids: items.map(\.id)).compactMap { byId[$0] }
     }
 
     private func freshExamItems(_ items: [ExamItem], userId: String) -> [ExamItem] {
-        guard Self.isEnabled(Self.tasksKey) else { return [] }
+        guard Self.isEnabled(Self.masterKey) else { return [] }
         let byId = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
         return fresh(kind: "Exams", userId: userId, ids: items.map(\.id)).compactMap { byId[$0] }
     }
 
     private func freshAbsenceCount(_ items: [AbsenceItem], userId: String) -> Int {
-        guard Self.isEnabled(Self.absencesKey) else { return 0 }
+        guard Self.isEnabled(Self.masterKey) else { return 0 }
         return fresh(kind: "Absences", userId: userId, ids: items.map(\.id)).count
     }
 
