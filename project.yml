@@ -249,6 +249,9 @@ targets:
         # az Info.plist fájl WK-kulcsait a GENERATE_INFOPLIST_FILE
         # elnyomja, enélkül a telepítés elutasítja a beágyazott órát.
         INFOPLIST_KEY_WKCompanionAppBundleIdentifier: hu.flint
+# FIGYELEM: a SummitUITests UI-teszt target KÉZZEL van a pbxproj-ban
+# (az xcodegen 2.46 nem ismer ui-test-bundle típust) — regen ELVISZI,
+# utána újra hozzá kell adni (lásd a commitot, ami bevezette).
 # Megosztott scheme az óra-app közvetlen futtatásához (Xcode Run az
 # órára — a scheme a repó része, nem user-lokális).
 schemes:

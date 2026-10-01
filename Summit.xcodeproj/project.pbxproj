@@ -119,6 +119,7 @@
 		F8233A954E2118EBB3EBFD56 /* GradesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58254DFECD2C7AC3611DD728 /* GradesView.swift */; };
 		FD026D2EFE2507AB734BC8F1 /* ProfileImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 496420BF202DA6E01F09EA1D /* ProfileImageView.swift */; };
 		FFA61B0FDD4305EDABC7DE2A /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = A861E0155EDA827AA2285902 /* User.swift */; };
+		11B2C3D4E5F60718293A4B5C6 /* SummitUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21B2C3D4E5F60718293A4B5C6 /* SummitUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -142,6 +143,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = E7C12D878B9DE0DB4A7665A6;
 			remoteInfo = SummitWatchWidgets;
+		};
+		61B2C3D4E5F60718293A4B5C6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6510C8A6EF4312A2F2013012 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = ABA958FA185265DCF2621F4E;
+			remoteInfo = Summit;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -285,6 +293,8 @@
 		FBFE1FE503B9522FABFD9105 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		FCD612738202004C2155D62E /* TeacherRoundingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeacherRoundingView.swift; sourceTree = "<group>"; };
 		FD687285FF927AFC07229437 /* LiveActivityStateBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityStateBuilder.swift; sourceTree = "<group>"; };
+		21B2C3D4E5F60718293A4B5C6 /* SummitUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitUITests.swift; sourceTree = "<group>"; };
+		41B2C3D4E5F60718293A4B5C6 /* SummitUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SummitUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -293,6 +303,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				952CC5EA8265073FC9C0C7BF /* FirebaseFirestore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F1B2C3D4E5F60718293A4B5C6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -388,6 +405,7 @@
 				376775F7630A675C4FBB5A34 /* SummitWatch */,
 				CA0E1737917D7BF56C40F4D9 /* SummitWatchWidgets */,
 				24B69D4CF1C8E2057530B073 /* SummitWidgets */,
+				31B2C3D4E5F60718293A4B5C6 /* SummitUITests */,
 				95CE7EB3304633540076C893 /* AppIcon.icon */,
 				83661FDFBF33D1DB3F71AA1D /* Products */,
 			);
@@ -507,6 +525,14 @@
 			path = LiveActivity;
 			sourceTree = "<group>";
 		};
+		31B2C3D4E5F60718293A4B5C6 /* SummitUITests */ = {
+			isa = PBXGroup;
+			children = (
+				21B2C3D4E5F60718293A4B5C6 /* SummitUITests.swift */,
+			);
+			path = SummitUITests;
+			sourceTree = "<group>";
+		};
 		83661FDFBF33D1DB3F71AA1D /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -514,6 +540,7 @@
 				34FE667EA4BEEE2B005C5760 /* SummitWatch.app */,
 				7BF97DEC4000E0E3CD29F610 /* SummitWatchWidgets.appex */,
 				3ABCF5C0C06170BB971F626E /* SummitWidgets.appex */,
+				41B2C3D4E5F60718293A4B5C6 /* SummitUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -698,6 +725,24 @@
 			productReference = 3ABCF5C0C06170BB971F626E /* SummitWidgets.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		A1B2C3D4E5F60718293A4B5C6 /* SummitUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B1B2C3D4E5F60718293A4B5C6 /* Build configuration list for PBXNativeTarget "SummitUITests" */;
+			buildPhases = (
+				E1B2C3D4E5F60718293A4B5C6 /* Sources */,
+				F1B2C3D4E5F60718293A4B5C6 /* Frameworks */,
+				01B2C3D4E5F60718293A4B5C6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				51B2C3D4E5F60718293A4B5C6 /* PBXTargetDependency */,
+			);
+			name = SummitUITests;
+			productName = SummitUITests;
+			productReference = 41B2C3D4E5F60718293A4B5C6 /* SummitUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -720,6 +765,10 @@
 						ProvisioningStyle = Automatic;
 					};
 					FC8FDBD76C8EAED05EFD9DED = {
+						DevelopmentTeam = 38DAVMRN66;
+						ProvisioningStyle = Automatic;
+					};
+					A1B2C3D4E5F60718293A4B5C6 = {
 						DevelopmentTeam = 38DAVMRN66;
 						ProvisioningStyle = Automatic;
 					};
@@ -746,6 +795,7 @@
 				FC8FDBD76C8EAED05EFD9DED /* SummitWidgets */,
 				E7C12D878B9DE0DB4A7665A6 /* SummitWatchWidgets */,
 				C09D4B16983CC98E7A7BF0C3 /* SummitWatch */,
+				A1B2C3D4E5F60718293A4B5C6 /* SummitUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -773,6 +823,13 @@
 				1794ABDF8895488700C4BF24 /* showcase2.png in Resources */,
 				371B199FB30740EA5F3A7D25 /* showcase3.png in Resources */,
 				8D867F1B7783C5AA139BA81D /* showcase4.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		01B2C3D4E5F60718293A4B5C6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -925,6 +982,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E1B2C3D4E5F60718293A4B5C6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				11B2C3D4E5F60718293A4B5C6 /* SummitUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -943,6 +1008,11 @@
 			isa = PBXTargetDependency;
 			target = E7C12D878B9DE0DB4A7665A6 /* SummitWatchWidgets */;
 			targetProxy = CC46EF16A3FED436BFB26BBC /* PBXContainerItemProxy */;
+		};
+		51B2C3D4E5F60718293A4B5C6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = ABA958FA185265DCF2621F4E /* Summit */;
+			targetProxy = 61B2C3D4E5F60718293A4B5C6 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1313,6 +1383,48 @@
 			};
 			name = Debug;
 		};
+		C1B2C3D4E5F60718293A4B5C6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
+				DEVELOPMENT_TEAM = 38DAVMRN66;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Summit UI Tests";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.UITests;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Summit;
+			};
+			name = Debug;
+		};
+		D1B2C3D4E5F60718293A4B5C6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
+				DEVELOPMENT_TEAM = 38DAVMRN66;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Summit UI Tests";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.UITests;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Summit;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1357,6 +1469,15 @@
 			buildConfigurations = (
 				ECCAC48AD9CB2CD99A6EF52B /* Debug */,
 				856E19681AF54FD342E85BA1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B1B2C3D4E5F60718293A4B5C6 /* Build configuration list for PBXNativeTarget "SummitUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C1B2C3D4E5F60718293A4B5C6 /* Debug */,
+				D1B2C3D4E5F60718293A4B5C6 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
