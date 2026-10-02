@@ -246,9 +246,10 @@ private struct TimetableWidgetView: View {
 
     // MARK: Lock screen — "Most" kártya 3 sorban
     // A téglalap-slot kb. 160×76 pt: egy státusz-fejléc + egy cím + egy
-    // info-sor fér el kényelmesen. Ezért nincs külön "következő óra" sor:
-    // szünetben/reggel a mutatott óra MAGA a következő, a duplikált cím
-    // (tárgy felül + "→ tárgy" alul) volt a fura. Különbség az órához
+    // info-sor fér el kényelmesen. A "→ következő óra" sor csak óra alatt
+    // jelenik meg, ahol tényleg más óra jön: szünetben/reggel a mutatott
+    // óra MAGA a következő, ott a duplikált cím (tárgy + "→ tárgy") volt
+    // a fura. Különbség az órához
     // képest: az iPhone-snapshot csak egy hasAssignment-flaget hordoz
     // (dolgozat/házi részletei nélkül), ezért a kártya alján összevont
     // "Számonkérés" sor áll a két részletes órai sor helyett.
@@ -270,6 +271,9 @@ private struct TimetableWidgetView: View {
                         statusHeader("MOST")
                         subjectLine(c)
                         progressLine(tint: statusTint(c))
+                        if let n = nowCalc.next, n.id != c.id {
+                            nextLine(n)
+                        }
                     }
                 case .duringBreak:
                     if let n = nowCalc.next {
@@ -327,6 +331,32 @@ private struct TimetableWidgetView: View {
         Text(s)
             .font(.caption2.weight(.bold).monospacedDigit())
             .foregroundStyle(.secondary).lineLimit(1)
+    }
+
+    /// Következő óra egy sorban: nyíl + terem + pötty + tárgy. Csak óra
+    /// alatt jelenik meg, ahol a következő tényleg MÁS óra (nincs duplikált
+    /// cím, mint a szünetes "tárgy + → tárgy" volt).
+    private func nextLine(_ n: TimetableWidgetStore.Lesson) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "arrow.right.circle.fill")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.secondary)
+                .offset(x: -2)
+            let room = n.room.isEmpty ? n.teacher : n.room
+            if !room.isEmpty {
+                Text(room)
+                    .font(.caption2.weight(.bold).monospacedDigit())
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                Text("•").foregroundStyle(.tertiary).font(.caption2)
+            }
+            Text(n.subject)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
     }
 
     /// Rövid vékony accent-csík, MELLETTE az élő visszaszámláló
