@@ -266,7 +266,7 @@ private struct TimetableWidgetView: View {
             } else {
                 switch nowCalc.state {
                 case .empty:
-                    if let note = validNote {
+                    if let note = activeNote {
                         noteCard(note)
                     } else {
                         Label("Ma nincs több órád", systemImage: "moon.zzz.fill")
@@ -293,7 +293,7 @@ private struct TimetableWidgetView: View {
                         progressLine(tint: statusTint(n))
                     }
                 case .upcoming:
-                    if let note = validNote {
+                    if let note = activeNote {
                         noteCard(note)
                     } else if let n = nowCalc.next {
                         statusHeader(dayLabel(n.start).uppercased())
@@ -349,6 +349,22 @@ private struct TimetableWidgetView: View {
         let cal = Calendar.current
         guard cal.startOfDay(for: note.day) >= cal.startOfDay(for: entry.effectiveNow) else { return nil }
         return note
+    }
+
+    /// Aktív jegyzet: üres állapotban bármely érvényes jövőbeli jegyzet
+    /// mehet, holnapi nézetben csak az arra a napra szóló — különben egy
+    /// távoli jegyzet (pl. keddi esemény) eltakarná a közelebbi órát
+    /// (pl. hétfő 8:00).
+    private var activeNote: TimetableWidgetStore.NextDayNote? {
+        guard let note = validNote else { return nil }
+        switch nowCalc.state {
+        case .empty:
+            return note
+        case .upcoming:
+            return Calendar.current.isDate(note.day, inSameDayAs: entry.dayDate) ? note : nil
+        default:
+            return nil
+        }
     }
 
     private func noteIcon(_ kind: String) -> String {
@@ -480,7 +496,7 @@ private struct TimetableWidgetView: View {
                 .tint(statusColor(n))
             }
         case .empty:
-            if let note = validNote {
+            if let note = activeNote {
                 Image(systemName: note.totalCount == 1 ? noteIcon(note.items.first?.kind ?? "") : "bell.badge.fill")
             } else {
                 Image(systemName: "moon.zzz.fill")
@@ -516,13 +532,13 @@ private struct TimetableWidgetView: View {
         guard entry.hasSnapshot, !entry.dayLessons.isEmpty else { return "Most: nyisd meg az appot" }
         switch nowCalc.state {
         case .empty:
-            if let note = validNote { return noteLine(note) }
+            if let note = activeNote { return noteLine(note) }
             return "Ma nincs több órád"
         case .morning:
             if let n = nowCalc.next { return "Első: \(n.subject) • \(shortTime(n.start))" }
             return "Ma nincs több órád"
         case .upcoming:
-            if let note = validNote { return noteLine(note) }
+            if let note = activeNote { return noteLine(note) }
             if let n = nowCalc.next { return "\(dayLabel(n.start)): \(n.subject) • \(shortTime(n.start))" }
             return "Ma nincs több órád"
         case .duringLesson:

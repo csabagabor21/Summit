@@ -223,6 +223,15 @@ enum LiveActivityBackgroundRefresh {
         // óráit mergeljük a cache-elt heti snapshotba — a widget így
         // háttér-ébresztésből is frissül, nem csak Órarend-nyitásra.
         TimetableWidgetPublish.mergeToday(lessons, now: now)
+        // Óra-komplikáció életben tartása: a friss snapshot az órára is
+        // kimegy (az óra a context érkezésekor menti + újratölti a saját
+        // widget-timeline-ját) — enélkül a watch csak a saját
+        // költségkeretes reloadjaira hagyatkozna, és beragadna.
+        // pushSnapshot: a mergelt cache megy, a jegyzet sértetlen marad
+        // (szemben egy részleges pushTimetable-újraszámolással).
+        if let snap = TimetableWidgetStore.load(), !snap.lessons.isEmpty {
+            WatchSyncSender.pushSnapshot(snap)
+        }
         // Heti cache kimerülve (pl. péntek este)? A következő 7 nap
         // egyben — a widget holnap is mutat, nem "Mára vége"-t.
         await TimetableWidgetPublish.prefetchUpcomingIfExhausted(now: now, kreta: kreta, iss: iss)

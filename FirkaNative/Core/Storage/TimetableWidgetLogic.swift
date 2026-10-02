@@ -21,8 +21,11 @@ enum TimetableWidgetLogic {
         return (cal.startOfDay(for: now), todays)
     }
 
-    /// Timeline-pillanatok: most + minden hátra lévő órahatár (kezdés/vég),
-    /// plusz a tartó / következő óra végéig 5 percenként (élő visszaszámlálás).
+    /// Timeline-pillanatok: most + minden hátra lévő mai órahatár
+    /// (kezdés/vég). Csak a határok: az élő visszaszámlálót a
+    /// Text(timerInterval:) magától tickeli reload nélkül, az 5 perces
+    /// köztes belépők csak a WidgetKit-költségkeretet égették (a
+    /// költségkeret kimerülése = beragadt, "meghalt" widget).
     /// A lista így magától továbbmegy órahatárokon át, késleltetett
     /// rendszer-újratöltés mellett is. Max `cap` elem, időrendben.
     static func timelineMoments(now: Date, lessons: [TimetableWidgetStore.Lesson], calendar: Calendar = .current, cap: Int = 61) -> [Date] {
@@ -32,13 +35,6 @@ enum TimetableWidgetLogic {
         for l in todays {
             if l.start > now { moments.insert(l.start) }
             if l.end > now { moments.insert(l.end) }
-        }
-        if let anchor = todays.first(where: { $0.end > now }) {
-            var t = now.addingTimeInterval(5 * 60)
-            while t < anchor.end, moments.count < cap - 1 {
-                moments.insert(t)
-                t = t.addingTimeInterval(5 * 60)
-            }
         }
         guard !moments.isEmpty else { return [] }
         return [now] + Array(moments.sorted().prefix(cap - 1))

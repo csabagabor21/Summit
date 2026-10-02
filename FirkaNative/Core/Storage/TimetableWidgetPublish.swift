@@ -122,6 +122,8 @@ enum TimetableWidgetPublish {
     /// Ha a snapshotban nincs több jövőbeli óra (pl. péntek este a heti
     /// cache kimerült), a következő 7 napot egyben lehúzza és mergeli —
     /// így a widget a holnapi / hétfői napot mutatja, nem "Mára vége"-t.
+    /// A merge után timeline-reload is kell (a mergeFuture — shared
+    /// fájl, WidgetKit nélkül — nem tölt újra).
     static func prefetchUpcomingIfExhausted(now: Date, kreta: KretaClient, iss: String) async {
         if let snap = TimetableWidgetStore.load(),
            snap.lessons.contains(where: { $0.start > now }) { return }

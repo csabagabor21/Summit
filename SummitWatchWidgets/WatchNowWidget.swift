@@ -276,8 +276,18 @@ private struct WatchNowView: View {
             } else {
                 switch calc.state {
                 case .empty:
-                    if let note = validNote {
+                    if let note = activeNote {
                         noteCard(note)
+                    } else if let fl = nextFutureLesson {
+                        Text(noteDayUpper(fl.start))
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        titleRow(fl)
+                        Text(shortTime(fl.start))
+                            .font(.caption2.weight(.bold).monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     } else {
                         Label("Ma nincs több órád", systemImage: "moon.zzz.fill")
                             .font(.headline.weight(.semibold)).lineLimit(1)
@@ -421,6 +431,24 @@ private struct WatchNowView: View {
         return note
     }
 
+    /// Legközelebbi jövőbeli óra a teljes hétből (az üres állapothoz).
+    private var nextFutureLesson: TimetableWidgetStore.Lesson? {
+        entry.lessons
+            .filter { $0.start > entry.effectiveNow && !$0.subject.trimmingCharacters(in: .whitespaces).isEmpty }
+            .sorted { $0.start < $1.start }
+            .first
+    }
+
+    /// Aktív jegyzet: csak akkor mutatjuk, ha a jegyzet napja egybeesik
+    /// a legközelebbi jövőbeli óra napjával — különben a jegyzet (pl.
+    /// keddi esemény) eltakarná a közelebbi órát (pl. hétfő 8:00).
+    /// Ha nincs ismert jövőbeli óra, a jegyzet mehet (nincs mit takarni).
+    private var activeNote: TimetableWidgetStore.NextDayNote? {
+        guard let note = validNote else { return nil }
+        guard let fl = nextFutureLesson else { return note }
+        return Calendar.current.isDate(note.day, inSameDayAs: fl.start) ? note : nil
+    }
+
     private func noteIcon(_ kind: String) -> String {
         switch kind {
         case "exam": return "doc.text.fill"
@@ -517,8 +545,10 @@ private struct WatchNowView: View {
                 .tint(statusTint(n))
             }
         case .empty:
-            if let note = validNote {
+            if let note = activeNote {
                 Image(systemName: note.totalCount == 1 ? noteIcon(note.items.first?.kind ?? "") : "bell.badge.fill")
+            } else if nextFutureLesson != nil {
+                Image(systemName: "calendar")
             } else {
                 Image(systemName: "moon.zzz.fill")
             }
@@ -576,11 +606,14 @@ private struct WatchNowView: View {
         guard entry.hasSnapshot, !entry.lessons.isEmpty else { return "Most: nyisd meg az appot" }
         switch calc.state {
         case .empty:
-            if let note = validNote {
+            if let note = activeNote {
                 if note.totalCount == 1, let item = note.items.first {
                     return "\(noteDayShort(note.day)): \(item.title)"
                 }
                 return "\(noteDayShort(note.day)): \(noteSummary(note))"
+            }
+            if let fl = nextFutureLesson {
+                return "\(noteDayShort(fl.start)): \(fl.subject) • \(shortTime(fl.start))"
             }
             return "Ma nincs több órád"
         case .morning:
@@ -603,9 +636,11 @@ private struct WatchNowView: View {
         case .duringBreak, .morning:
             return "→ \(cornerAbbr) \(shortRemaining)"
         case .empty:
-            if let note = validNote {
-                let icon = note.totalCount == 1 ? (note.items.first?.kind == "event" ? "🎟" : "📝") : "🔔"
-                return "\(icon) \(noteDayShort(note.day))"
+            if let note = activeNote {
+                return "🔔 \(noteDayShort(note.day))"
+            }
+            if let fl = nextFutureLesson {
+                return "→ \(noteDayShort(fl.start)) \(shortTime(fl.start))"
             }
             return "VÉGE"
         }
