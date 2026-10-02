@@ -34,13 +34,15 @@ struct WatchNowEntry: TimelineEntry {
     var hasSnapshot: Bool
     /// A következő tanítási nap rendkívüliségei (ha ma nincs több óra).
     var note: TimetableWidgetStore.NextDayNote?
+    /// A mai nap rendkívüliségei (reggel tanítás előtt).
+    var todayInfo: TimetableWidgetStore.NextDayNote?
 }
 
 struct WatchNowProvider: TimelineProvider {
     func placeholder(in context: Context) -> WatchNowEntry {
         WatchNowEntry(
             date: Date(), effectiveNow: Date(), lessons: Self.sampleLessons(),
-            tasks: nil, accentHex: 0x4A90E2, hasSnapshot: false, note: nil
+            tasks: nil, accentHex: 0x4A90E2, hasSnapshot: false, note: nil, todayInfo: nil
         )
     }
 
@@ -71,6 +73,7 @@ struct WatchNowProvider: TimelineProvider {
         var accent = 0x4A90E2
         var hasSnapshot = false
         var note: TimetableWidgetStore.NextDayNote?
+        var todayInfo: TimetableWidgetStore.NextDayNote?
         if let data = WatchSharedStore.data(forKey: WatchSharedStore.timetableKey),
            let snap = try? JSONDecoder().decode(TimetableWidgetStore.Snapshot.self, from: data),
            !snap.lessons.isEmpty {
@@ -78,6 +81,7 @@ struct WatchNowProvider: TimelineProvider {
             accent = snap.accentHex == 0 ? 0x4A90E2 : snap.accentHex
             hasSnapshot = true
             note = snap.nextNote
+            todayInfo = snap.todayInfo
         }
         var tasks: WatchTasksSnapshot?
         if let data = WatchSharedStore.data(forKey: WatchSharedStore.tasksKey),
@@ -91,12 +95,12 @@ struct WatchNowProvider: TimelineProvider {
         if preview {
             return WatchNowEntry(
                 date: date, effectiveNow: effective, lessons: Self.sampleLessons(),
-                tasks: nil, accentHex: accent, hasSnapshot: false, note: nil
+                tasks: nil, accentHex: accent, hasSnapshot: false, note: nil, todayInfo: nil
             )
         }
         return WatchNowEntry(
             date: date, effectiveNow: effective, lessons: lessons, tasks: tasks,
-            accentHex: accent, hasSnapshot: hasSnapshot, note: note
+            accentHex: accent, hasSnapshot: hasSnapshot, note: note, todayInfo: todayInfo
         )
     }
 
@@ -293,7 +297,11 @@ private struct WatchNowView: View {
                             .font(.headline.weight(.semibold)).lineLimit(1)
                     }
                 case .morning:
-                    if let n = calc.next {
+                    // Reggel tanítás előtt: a mai esemény az első — ha nincs,
+                    // a normál "mi fog történni" (első óra + visszaszámláló).
+                    if let info = validToday {
+                        noteCard(info, dayName: "MA")
+                    } else if let n = calc.next {
                         titleRow(n)
                         progressLine(tint: statusTint(n), index: n.index)
                         nextLine(n)
@@ -449,6 +457,14 @@ private struct WatchNowView: View {
         return Calendar.current.isDate(note.day, inSameDayAs: fl.start) ? note : nil
     }
 
+    /// Mai infó reggelre: csak ha tényleg mára szól.
+    private var validToday: TimetableWidgetStore.NextDayNote? {
+        guard let info = entry.todayInfo,
+              info.totalCount > 0 || info.noSchoolName != nil else { return nil }
+        guard Calendar.current.isDate(info.day, inSameDayAs: entry.effectiveNow) else { return nil }
+        return info
+    }
+
     private func noteIcon(_ kind: String) -> String {
         switch kind {
         case "exam": return "doc.text.fill"
@@ -491,13 +507,14 @@ private struct WatchNowView: View {
     }
 
     @ViewBuilder
-    private func noteCard(_ n: TimetableWidgetStore.NextDayNote) -> some View {
+    private func noteCard(_ n: TimetableWidgetStore.NextDayNote, dayName: String? = nil) -> some View {
+        let header = dayName ?? noteDayUpper(n.day)
         if let ns = n.noSchoolName {
             HStack(spacing: 4) {
                 Image(systemName: "house.fill")
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(.secondary)
-                Text(noteDayUpper(n.day))
+                Text(header)
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -517,7 +534,7 @@ private struct WatchNowView: View {
                 Image(systemName: noteIcon(item.kind))
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(item.kind == "cancelled" ? .red : .orange)
-                Text(noteDayUpper(n.day))
+                Text(header)
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -534,7 +551,7 @@ private struct WatchNowView: View {
                 Image(systemName: "bell.badge.fill")
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(.orange)
-                Text(noteDayUpper(n.day))
+                Text(header)
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -560,7 +577,9 @@ private struct WatchNowView: View {
                 .tint(statusTint(c))
             }
         case .duringBreak, .morning:
-            if let n = calc.next {
+            if calc.state == .morning, let info = validToday {
+                Image(systemName: info.totalCount == 1 ? noteIcon(info.items.first?.kind ?? "") : "bell.badge.fill")
+            } else if let n = calc.next {
                 Gauge(value: calc.progress) {
                     Text(n.index).font(.caption2.weight(.bold).monospacedDigit())
                 } currentValueLabel: {
@@ -650,6 +669,12 @@ private struct WatchNowView: View {
             }
             return "Ma nincs több órád"
         case .morning:
+            if let info = validToday {
+                if info.totalCount == 1, let item = info.items.first {
+                    return "Ma: \(item.title)"
+                }
+                return "Ma: \(noteSummary(info))"
+            }
             if let n = calc.next { return "Első: \(n.subject) • \(shortTime(n.start))" }
             return "Ma nincs több órád"
         case .duringLesson:
@@ -666,7 +691,15 @@ private struct WatchNowView: View {
         switch calc.state {
         case .duringLesson:
             return "\(cornerTitle) • \(shortRemaining)"
-        case .duringBreak, .morning:
+        case .duringBreak:
+            return "→ \(cornerAbbr) \(shortRemaining)"
+        case .morning:
+            if let info = validToday {
+                if info.totalCount == 1, let kind = info.items.first?.kind {
+                    return "\(kind == "event" ? "🎟" : "📝") Ma"
+                }
+                return "🔔 Ma"
+            }
             return "→ \(cornerAbbr) \(shortRemaining)"
         case .empty:
             if let note = activeNote {
@@ -748,6 +781,6 @@ private extension Color {
 } timeline: {
     WatchNowEntry(
         date: Date(), effectiveNow: Date(), lessons: WatchNowProvider.sampleLessons(),
-        tasks: nil, accentHex: 0x4A90E2, hasSnapshot: true, note: nil
+        tasks: nil, accentHex: 0x4A90E2, hasSnapshot: true, note: nil, todayInfo: nil
     )
 }

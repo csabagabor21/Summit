@@ -953,18 +953,32 @@ private struct SchoolDayView: View {
                     .font(.headline.weight(.semibold)).lineLimit(1)
                 Text("A napi infó az app megnyitása után érkezik.")
                     .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            } else if !remaining.isEmpty {
+                if let info = validInfo {
+                    dayCard(info, dayName: "MA")
+                } else {
+                    statusHeader("MA")
+                    Text(remainingText)
+                        .font(.headline.weight(.bold)).lineLimit(1)
+                    Text(subLine)
+                        .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                }
+            } else if !entry.todayLessons.isEmpty {
+                // Tanítás véget ért: már a holnap számít, a mai infó csak tartalék.
+                if let note = validNext {
+                    dayCard(note, dayName: dayLabel(note.day).uppercased())
+                } else if let info = validInfo {
+                    dayCard(info, dayName: "MA")
+                } else {
+                    Label("Mára vége", systemImage: "moon.zzz.fill")
+                        .font(.headline.weight(.semibold)).lineLimit(1)
+                }
             } else if let info = validInfo {
                 dayCard(info, dayName: "MA")
-            } else if !remaining.isEmpty {
-                statusHeader("MA")
-                Text(remainingText)
-                    .font(.headline.weight(.bold)).lineLimit(1)
-                Text(subLine)
-                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             } else if let note = validNext {
                 dayCard(note, dayName: dayLabel(note.day).uppercased())
             } else {
-                Label("Mára vége", systemImage: "moon.zzz.fill")
+                Label("Ma nincs tanítás", systemImage: "calendar.badge.clock")
                     .font(.headline.weight(.semibold)).lineLimit(1)
             }
             Spacer(minLength: 0)
@@ -1055,11 +1069,15 @@ private struct SchoolDayView: View {
 
     @ViewBuilder
     private var circularView: some View {
-        if validInfo != nil {
-            Image(systemName: "calendar.badge.exclamationmark")
-        } else if !remaining.isEmpty {
-            Text("\(remaining.count)")
-                .font(.title3.weight(.bold).monospacedDigit())
+        if !remaining.isEmpty {
+            if validInfo != nil {
+                Image(systemName: "calendar.badge.exclamationmark")
+            } else {
+                Text("\(remaining.count)")
+                    .font(.title3.weight(.bold).monospacedDigit())
+            }
+        } else if validNext != nil {
+            Image(systemName: "bell.badge.fill")
         } else {
             Image(systemName: "moon.zzz.fill")
         }
@@ -1067,28 +1085,40 @@ private struct SchoolDayView: View {
 
     private var inlineText: String {
         guard entry.hasSnapshot || validInfo != nil else { return "Nyisd meg az appot" }
-        if let info = validInfo {
-            if info.totalCount == 1, let item = info.items.first {
-                return "Ma: \(item.title)"
-            }
-            return "Ma: \(daySummary(info))"
+        if !remaining.isEmpty {
+            if let info = validInfo { return todayLine(info) }
+            return remainingText
         }
-        if !remaining.isEmpty { return remainingText }
-        if let note = validNext {
-            let day = dayLabel(note.day)
-            if let ns = note.noSchoolName {
-                if note.totalCount == 0 { return "\(day): \(ns)" }
-                let rest = note.totalCount == 1
-                    ? (note.items.first.map(dayItemLine) ?? "")
-                    : daySummary(note)
-                return "\(day): \(ns) • \(rest)"
-            }
-            if note.totalCount == 1, let item = note.items.first {
-                return "\(day): \(item.title)"
-            }
-            return "\(day): \(daySummary(note))"
+        if !entry.todayLessons.isEmpty {
+            if let note = validNext { return nextInlineLine(note) }
+            if let info = validInfo { return todayLine(info) }
+            return "Mára vége"
         }
-        return "Mára vége"
+        if let info = validInfo { return todayLine(info) }
+        if let note = validNext { return nextInlineLine(note) }
+        return "Ma nincs tanítás"
+    }
+
+    private func todayLine(_ info: TimetableWidgetStore.NextDayNote) -> String {
+        if info.totalCount == 1, let item = info.items.first {
+            return "Ma: \(dayItemLine(item))"
+        }
+        return "Ma: \(daySummary(info))"
+    }
+
+    private func nextInlineLine(_ note: TimetableWidgetStore.NextDayNote) -> String {
+        let day = dayLabel(note.day)
+        if let ns = note.noSchoolName {
+            if note.totalCount == 0 { return "\(day): \(ns)" }
+            let rest = note.totalCount == 1
+                ? (note.items.first.map(dayItemLine) ?? "")
+                : daySummary(note)
+            return "\(day): \(ns) • \(rest)"
+        }
+        if note.totalCount == 1, let item = note.items.first {
+            return "\(day): \(item.title)"
+        }
+        return "\(day): \(daySummary(note))"
     }
 
     // MARK: Segédek (önállóak — a Most-nézet privátjai nem látszanak ide)
