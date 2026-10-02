@@ -32,13 +32,15 @@ struct WatchNowEntry: TimelineEntry {
     var tasks: WatchTasksSnapshot?
     var accentHex: Int
     var hasSnapshot: Bool
+    /// A következő tanítási nap rendkívüliségei (ha ma nincs több óra).
+    var note: TimetableWidgetStore.NextDayNote?
 }
 
 struct WatchNowProvider: TimelineProvider {
     func placeholder(in context: Context) -> WatchNowEntry {
         WatchNowEntry(
             date: Date(), effectiveNow: Date(), lessons: Self.sampleLessons(),
-            tasks: nil, accentHex: 0x4A90E2, hasSnapshot: false
+            tasks: nil, accentHex: 0x4A90E2, hasSnapshot: false, note: nil
         )
     }
 
@@ -68,12 +70,14 @@ struct WatchNowProvider: TimelineProvider {
         var lessons: [TimetableWidgetStore.Lesson] = []
         var accent = 0x4A90E2
         var hasSnapshot = false
+        var note: TimetableWidgetStore.NextDayNote?
         if let data = WatchSharedStore.data(forKey: WatchSharedStore.timetableKey),
            let snap = try? JSONDecoder().decode(TimetableWidgetStore.Snapshot.self, from: data),
            !snap.lessons.isEmpty {
             lessons = snap.lessons
             accent = snap.accentHex == 0 ? 0x4A90E2 : snap.accentHex
             hasSnapshot = true
+            note = snap.nextNote
         }
         var tasks: WatchTasksSnapshot?
         if let data = WatchSharedStore.data(forKey: WatchSharedStore.tasksKey),
@@ -87,12 +91,12 @@ struct WatchNowProvider: TimelineProvider {
         if preview {
             return WatchNowEntry(
                 date: date, effectiveNow: effective, lessons: Self.sampleLessons(),
-                tasks: nil, accentHex: accent, hasSnapshot: false
+                tasks: nil, accentHex: accent, hasSnapshot: false, note: nil
             )
         }
         return WatchNowEntry(
             date: date, effectiveNow: effective, lessons: lessons, tasks: tasks,
-            accentHex: accent, hasSnapshot: hasSnapshot
+            accentHex: accent, hasSnapshot: hasSnapshot, note: note
         )
     }
 
@@ -272,8 +276,12 @@ private struct WatchNowView: View {
             } else {
                 switch calc.state {
                 case .empty:
-                    Label("Ma nincs több órád", systemImage: "moon.zzz.fill")
-                        .font(.headline.weight(.semibold)).lineLimit(1)
+                    if let note = validNote {
+                        noteCard(note)
+                    } else {
+                        Label("Ma nincs több órád", systemImage: "moon.zzz.fill")
+                            .font(.headline.weight(.semibold)).lineLimit(1)
+                    }
                 case .morning:
                     if let n = calc.next {
                         titleRow(n)
@@ -401,6 +409,89 @@ private struct WatchNowView: View {
         }
     }
 
+    // MARK: Következő napi kártya — ha ma nincs több óra
+    // 1 tétel = teljes kártya (cím + alcím), több = summary at-a-glance
+    // ("2 dolgozat • 1 helyettesítés"). Lejárt napra nem mutat semmit.
+
+    /// Még érvényes jegyzet: a napja ma vagy később van.
+    private var validNote: TimetableWidgetStore.NextDayNote? {
+        guard let note = entry.note, note.totalCount > 0 else { return nil }
+        let cal = Calendar.current
+        guard cal.startOfDay(for: note.day) >= cal.startOfDay(for: entry.effectiveNow) else { return nil }
+        return note
+    }
+
+    private func noteIcon(_ kind: String) -> String {
+        switch kind {
+        case "exam": return "doc.text.fill"
+        case "cancelled": return "xmark.circle.fill"
+        case "substituted": return "person.2.fill"
+        case "event": return "ticket.fill"
+        default: return "bell.badge.fill"
+        }
+    }
+
+    /// "HOLNAP" / napnév nagybetűvel a kártya fejlécébe.
+    private func noteDayUpper(_ d: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInTomorrow(d) { return "HOLNAP" }
+        let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "EEEE"
+        return f.string(from: d).uppercased()
+    }
+
+    /// "Holnap" / napnév az egysorosokba.
+    private func noteDayShort(_ d: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInTomorrow(d) { return "Holnap" }
+        let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "EEEE"
+        return f.string(from: d).capitalized
+    }
+
+    /// Summary több tételre: "2 dolgozat • 1 helyettesítés".
+    private func noteSummary(_ n: TimetableWidgetStore.NextDayNote) -> String {
+        var parts: [String] = []
+        if n.examCount > 0 { parts.append("\(n.examCount) dolgozat") }
+        if n.cancelledCount > 0 { parts.append("\(n.cancelledCount) elmaradó óra") }
+        if n.substitutedCount > 0 { parts.append("\(n.substitutedCount) helyettesítés") }
+        if n.eventCount > 0 { parts.append("\(n.eventCount) esemény") }
+        return parts.joined(separator: " • ")
+    }
+
+    @ViewBuilder
+    private func noteCard(_ n: TimetableWidgetStore.NextDayNote) -> some View {
+        if n.totalCount == 1, let item = n.items.first {
+            HStack(spacing: 4) {
+                Image(systemName: noteIcon(item.kind))
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(item.kind == "cancelled" ? .red : .orange)
+                Text(noteDayUpper(n.day))
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Text(item.title)
+                .font(.headline.weight(.bold)).lineLimit(1)
+                .truncationMode(.tail)
+            if !item.subtitle.isEmpty {
+                Text(item.subtitle)
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            }
+        } else {
+            HStack(spacing: 4) {
+                Image(systemName: "bell.badge.fill")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.orange)
+                Text(noteDayUpper(n.day))
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Text(noteSummary(n))
+                .font(.headline.weight(.bold)).lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+    }
+
     // MARK: Kör — progress-gyűrű + hátralévő idő
     @ViewBuilder
     private var circularView: some View {
@@ -426,7 +517,11 @@ private struct WatchNowView: View {
                 .tint(statusTint(n))
             }
         case .empty:
-            Image(systemName: "moon.zzz.fill")
+            if let note = validNote {
+                Image(systemName: note.totalCount == 1 ? noteIcon(note.items.first?.kind ?? "") : "bell.badge.fill")
+            } else {
+                Image(systemName: "moon.zzz.fill")
+            }
         }
     }
 
@@ -481,6 +576,12 @@ private struct WatchNowView: View {
         guard entry.hasSnapshot, !entry.lessons.isEmpty else { return "Most: nyisd meg az appot" }
         switch calc.state {
         case .empty:
+            if let note = validNote {
+                if note.totalCount == 1, let item = note.items.first {
+                    return "\(noteDayShort(note.day)): \(item.title)"
+                }
+                return "\(noteDayShort(note.day)): \(noteSummary(note))"
+            }
             return "Ma nincs több órád"
         case .morning:
             if let n = calc.next { return "Első: \(n.subject) • \(shortTime(n.start))" }
@@ -502,6 +603,10 @@ private struct WatchNowView: View {
         case .duringBreak, .morning:
             return "→ \(cornerAbbr) \(shortRemaining)"
         case .empty:
+            if let note = validNote {
+                let icon = note.totalCount == 1 ? (note.items.first?.kind == "event" ? "🎟" : "📝") : "🔔"
+                return "\(icon) \(noteDayShort(note.day))"
+            }
             return "VÉGE"
         }
     }
@@ -574,6 +679,6 @@ private extension Color {
 } timeline: {
     WatchNowEntry(
         date: Date(), effectiveNow: Date(), lessons: WatchNowProvider.sampleLessons(),
-        tasks: nil, accentHex: 0x4A90E2, hasSnapshot: true
+        tasks: nil, accentHex: 0x4A90E2, hasSnapshot: true, note: nil
     )
 }

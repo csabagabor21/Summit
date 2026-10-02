@@ -25,6 +25,9 @@ struct TimetableView: View {
     @State private var isLoading = true
     @State private var loadError: String? = nil
     @State private var flashedLessonID: String?
+    /// Koppintott óra fullscreen részletezője (tanár, időpont, ikon,
+    /// házi + dolgozat) — nil = zárva.
+    @State private var selectedLesson: LessonItem?
     @State private var suppressAutoJumpUntil = Date.distantPast // házi-deeplink alatt nincs okos ugrás
     @State private var flashPulse = false
     @State private var scrollProxy: ScrollViewProxy?
@@ -189,6 +192,36 @@ struct TimetableView: View {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
             withAnimation { flashedLessonID = nil; flashPulse = false }
+        }
+    }
+    /// Handoff-helyreállítás: a küldő eszköz hetére/napjára áll,
+    /// az okos ugrás nem szól bele; ha óraid is jött, a hét adatainak
+    /// megérkezte után odagörget és villant (mint a jumpToLesson).
+    private func applyHandoffPosition(week: Int, weekday: Int, lessonID: String?) {
+        suppressAutoJumpUntil = Date().addingTimeInterval(10)
+        userHasNavigated = true
+        withAnimation(SummitMotion.page) {
+            weekOffset = week
+            selectedDay = weekday
+        }
+        guard let id = lessonID else { return }
+        Task {
+            for _ in 0..<40 {
+                if lessons.contains(where: { $0.id == id }) { break }
+                try? await Task.sleep(nanoseconds: 250_000_000)
+            }
+            guard lessons.contains(where: { $0.id == id }) else { return }
+            withAnimation(SummitMotion.page) {
+                flashedLessonID = id
+                flashPulse = false
+                scrollProxy?.scrollTo(id, anchor: .center)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                withAnimation(.easeInOut(duration: 0.45).repeatCount(3, autoreverses: true)) { flashPulse = true }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+                withAnimation { flashedLessonID = nil; flashPulse = false }
+            }
         }
     }
     private var currentWeekRangeText: String {
@@ -476,10 +509,39 @@ struct TimetableView: View {
                 scrollProxy = proxy
                 // Másik eszközről szinkronizált tannaptár is itt érkezik meg.
                 schoolEvents = SchoolEventsStore.load()
-                // Tabra lépéskor mindig a mai nap (első betöltés alatt a
-                // load() intézi az okos ugrást — az enterTimetable olyankor
-                // korán visszatér).
-                enterTimetable()
+                if let p = HandoffCenter.shared.takeTimetable() {
+                    // Másik eszközről folytatás: a küldő hét/nap/óra
+                    // áll helyre az okos ugrás helyett.
+                    applyHandoffPosition(week: p.week, weekday: p.day, lessonID: p.lesson)
+                } else {
+                    // Tabra lépéskor mindig a mai nap (első betöltés alatt a
+                    // load() intézi az okos ugrást — az enterTimetable olyankor
+                    // korán visszatér).
+                    enterTimetable()
+                }
+                HandoffCenter.shared.setTimetablePosition(weekOffset: weekOffset, weekday: selectedDay)
+            }
+            // Hét/nap-lapozás + részletező-nyitás hirdetése Continuityhez.
+            .onChange(of: weekOffset) { _, w in
+                HandoffCenter.shared.setTimetablePosition(weekOffset: w, weekday: selectedDay, lessonID: selectedLesson?.id)
+            }
+            .onChange(of: selectedDay) { _, d in
+                HandoffCenter.shared.setTimetablePosition(weekOffset: weekOffset, weekday: d, lessonID: selectedLesson?.id)
+            }
+            .onChange(of: selectedLesson) { _, l in
+                HandoffCenter.shared.setTimetablePosition(weekOffset: weekOffset, weekday: selectedDay, lessonID: l?.id)
+            }
+            // Óra-részletező: a koppintott óra fullscreen nézete (tanár,
+            // időpont, ikon, házi + dolgozat).
+            .fullScreenCover(item: $selectedLesson) { lesson in
+                LessonDetailSheet(
+                    lesson: lesson,
+                    homework: homework(for: lesson),
+                    exam: exam(for: lesson),
+                    examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false,
+                    colors: colors,
+                    scheme: scheme
+                )
             }
             // Live Activity sync EGYKEZES: csak a HomeView írja (ugyanaz az AppStorage kulcs!).
             // Két író (Home + Timetable eltérő nap locked lessons-szel) egymást ütötte:
@@ -497,6 +559,15 @@ struct TimetableView: View {
                 let deadline = Date(timeIntervalSince1970: deadlineTS)
                 let hwId = info["hwId"] as? String
                 Task { await jumpToLesson(subject: subject, deadline: deadline, hwId: hwId) }
+            }
+            // Continuity-folytatás (élő nézet): a küldő hét/nap/órája.
+            // A pendinget is ürítjük — a direkt kézbesítés nyert.
+            .onReceive(NotificationCenter.default.publisher(for: SummitHandoff.restoreTimetable)) { notif in
+                HandoffCenter.shared.pendingTimetable = nil
+                let week = notif.userInfo?["week"] as? Int ?? 0
+                let day = notif.userInfo?["day"] as? Int ?? 2
+                let lesson = notif.userInfo?["lesson"] as? String
+                applyHandoffPosition(week: week, weekday: day, lessonID: lesson)
             }
             }
         }
@@ -566,7 +637,8 @@ struct TimetableView: View {
                         exam: exam(for: lesson),
                         isFlashing: isFlash,
                         flashPulse: flashPulse,
-                        examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false
+                        examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false,
+                        onSelect: { selectedLesson = lesson }
                     )
                     .id(lesson.id)
                     .padding(.vertical, 5)
@@ -593,7 +665,8 @@ struct TimetableView: View {
                             exam: exam(for: lesson),
                             isFlashing: isFlash,
                             flashPulse: flashPulse,
-                            examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false
+                            examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false,
+                            onSelect: { selectedLesson = lesson }
                         )
                         .id(lesson.id)
                         .padding(.vertical, 5)
@@ -735,10 +808,10 @@ struct TimetableView: View {
     /// (A mapping + reload a TimetableWidgetPublish-ban; a BG-ébresztés
     /// ugyanoda mergeli a mai napot.)
     private func publishWidgetSnapshot() {
-        TimetableWidgetPublish.publishWeek(lessons, homeworks: homeworks, exams: displayExams)
+        TimetableWidgetPublish.publishWeek(lessons, homeworks: homeworks, exams: displayExams, events: schoolEvents, eventsVisible: schoolEventsVisible)
         // Apple Watch: ugyanez a heti anyag megy az órára is — a státusz-
         // flagekkel (felmentett zöld, dolgozat szürke), mint a telefonon.
-        WatchSyncSender.pushTimetable(lessons, homeworks: homeworks, exams: displayExams)
+        WatchSyncSender.pushTimetable(lessons, homeworks: homeworks, exams: displayExams, events: schoolEvents, eventsVisible: schoolEventsVisible)
         // Iskolai események az óra órarend-tetejére (ugyanaz a lista).
         WatchSyncSender.pushSchoolEvents(events: schoolEvents, visible: schoolEventsVisible)
     }
@@ -845,6 +918,8 @@ private struct TimetableRow: View {
     var flashPulse: Bool = false
     /// Hiányzás miatt átütemezett (pótló) dolgozat — piros a pill háttere.
     var examRolled: Bool = false
+    /// Sorkoppintás → részletező (a pillek testvér-gombok, nem részei).
+    var onSelect: () -> Void = {}
 
     private var isCancelled: Bool { lesson.isCancelled }
     private var isSubstituted: Bool { lesson.isSubstituted }
@@ -933,10 +1008,14 @@ private struct TimetableRow: View {
             .frame(width: 38)
             .padding(.top, 2)
 
-            // CENTER CARD — editorial content
+            // CENTER CARD — editorial content. A fejléc ÖNÁLLÓ gomb
+            // (részletező-nyitás); a feladat/dolgozat-pillek a TESTVÉREI,
+            // nem a részei — beágyazott Button nem tüzelne megbízhatóan,
+            // és a VoiceOver egybeolvasztaná őket.
             VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .top, spacing: 10) {
-                    VStack(alignment: .leading, spacing: 4) {
+                Button(action: { print("SUMMIT-ROW-TAP \(lesson.id)"); onSelect() }) {
+                    HStack(alignment: .top, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 4) {
                         // Badge row — felmentett is zöld, elmarad piros, helyettesítés narancs
                         if let lbl = badgeLabel {
                             Text(lbl.uppercased())
@@ -973,53 +1052,7 @@ private struct TimetableRow: View {
                                 .lineLimit(1)
                         }
 
-                        // Feladat pill — óra neve alatt, tap → Feladatok tab
-                        if let hw = homework {
-                            Button {
-                                NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ["flash": hw.id])
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "checklist")
-                                        .font(.caption2.weight(.semibold))
-                                    Text(hw.plainTitle.isEmpty ? "Házi feladat" : hw.plainTitle)
-                                        .font(.caption.weight(.medium))
-                                        .lineLimit(1)
-                                }
-                                .foregroundStyle(scheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.72))
-                                .padding(.horizontal, 8).padding(.vertical, 5)
-                                .background(
-                                    Capsule()
-                                        .fill(scheme == .dark ? Color.white.opacity(0.14) : Color.black.opacity(0.06))
-                                        .overlay(Capsule().strokeBorder(Color.primary.opacity(scheme == .dark ? 0.12 : 0.08), lineWidth: 1))
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.top, 2)
                         }
-                        // Dolgozat pill — tap → Feladatok/Dolgozatok tab
-                        if let ex = exam {
-                            Button {
-                                NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ["segment": "exams", "flash": ex.id])
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "doc.text.fill")
-                                        .font(.caption2.weight(.semibold))
-                                    Text(ex.plainDescription.isEmpty ? ex.mode : "\(ex.mode): \(ex.plainDescription)")
-                                        .font(.caption.weight(.medium))
-                                        .lineLimit(1)
-                                }
-                                .foregroundStyle(scheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.72))
-                                .padding(.horizontal, 8).padding(.vertical, 5)
-                                .background(
-                                    Capsule()
-                                        .fill((examRolled ? Color.red : Color.orange).opacity(scheme == .dark ? 0.22 : 0.14))
-                                        .overlay(Capsule().strokeBorder((examRolled ? Color.red : Color.orange).opacity(scheme == .dark ? 0.35 : 0.25), lineWidth: 1))
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.top, 2)
-                        }
-                    }
                     Spacer(minLength: 8)
                     // Time — editorial stacked
                     VStack(alignment: .trailing, spacing: 1) {
@@ -1030,6 +1063,58 @@ private struct TimetableRow: View {
                             .font(.caption2.weight(.medium).monospacedDigit())
                             .foregroundStyle(.tertiary)
                     }
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("lesson-row-\(lesson.id)")
+                .accessibilityLabel("\(lesson.subject), \(lesson.index). óra")
+                // Feladat pill — a fejléc alatt, tap → Feladatok tab
+                if let hw = homework {
+                    Button {
+                        NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ["flash": hw.id])
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checklist")
+                                .font(.caption2.weight(.semibold))
+                            Text(hw.plainTitle.isEmpty ? "Házi feladat" : hw.plainTitle)
+                                .font(.caption.weight(.medium))
+                                .lineLimit(1)
+                        }
+                        .foregroundStyle(scheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.72))
+                        .padding(.horizontal, 8).padding(.vertical, 5)
+                        .background(
+                            Capsule()
+                                .fill(scheme == .dark ? Color.white.opacity(0.14) : Color.black.opacity(0.06))
+                                .overlay(Capsule().strokeBorder(Color.primary.opacity(scheme == .dark ? 0.12 : 0.08), lineWidth: 1))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Házi feladat – \(hw.subject)")
+                    .padding(.top, 2)
+                }
+                // Dolgozat pill — tap → Feladatok/Dolgozatok tab
+                if let ex = exam {
+                    Button {
+                        NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ["segment": "exams", "flash": ex.id])
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "doc.text.fill")
+                                .font(.caption2.weight(.semibold))
+                            Text(ex.plainDescription.isEmpty ? ex.mode : "\(ex.mode): \(ex.plainDescription)")
+                                .font(.caption.weight(.medium))
+                                .lineLimit(1)
+                        }
+                        .foregroundStyle(scheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.72))
+                        .padding(.horizontal, 8).padding(.vertical, 5)
+                        .background(
+                            Capsule()
+                                .fill((examRolled ? Color.red : Color.orange).opacity(scheme == .dark ? 0.22 : 0.14))
+                                .overlay(Capsule().strokeBorder((examRolled ? Color.red : Color.orange).opacity(scheme == .dark ? 0.35 : 0.25), lineWidth: 1))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Dolgozat – \(ex.subject): \(ex.mode)")
+                    .padding(.top, 2)
                 }
 
                 // Current progress — követi a kiemelőszínt (accent)
@@ -1097,3 +1182,243 @@ private struct TimetableLiquidProgress: View {
 }
 
 // glassEffectID morph — előkészítve későbbi finom animhoz (jelenleg transition elég)
+
+// MARK: - Tantárgy-ikon a részletezőhöz (SF Symbols, régóta létező készlet)
+private enum LessonSubjectIcon {
+    static func symbol(for subject: String) -> String {
+        let s = subject.lowercased()
+        if s.contains("matek") || s.contains("matematika") { return "function" }
+        if s.contains("magyar") || s.contains("irodalom") || s.contains("nyelvtan") { return "book.fill" }
+        if s.contains("töri") || s.contains("történelem") { return "building.columns.fill" }
+        if s.contains("angol") || s.contains("német") || s.contains("olasz")
+            || s.contains("francia") || s.contains("spanyol") || s.contains("orosz")
+            || s.contains("nyelv") { return "globe" }
+        if s.contains("fizika") { return "atom" }
+        if s.contains("kémia") || s.contains("kemia") { return "flask.fill" }
+        if s.contains("biológia") || s.contains("biologia") || s.contains("környezet") { return "leaf.fill" }
+        if s.contains("földrajz") || s.contains("föld") { return "map.fill" }
+        if s.contains("informatika") || s.contains("digitális") || s.contains("info") { return "laptopcomputer" }
+        if s.contains("testnevelés") || s.contains("testneveles") || s.contains("tesi") { return "figure.run" }
+        if s.contains("ének") || s.contains("enek") || s.contains("zene") { return "music.note" }
+        if s.contains("rajz") || s.contains("vizuális") || s.contains("vizualis") { return "paintbrush.fill" }
+        if s.contains("filozófia") || s.contains("filozofia") || s.contains("etika") { return "lightbulb.fill" }
+        if s.contains("osztályfőnöki") || s.contains("osztalyfonoki") { return "person.2.fill" }
+        return "book.closed.fill"
+    }
+}
+
+// MARK: - Óra-részletező — koppintásra nyíló fullscreen nézet
+// Hero-ikon + státusz, óra- adatok (tanár, időpont, terem, óraszám),
+// a hozzá tartozó házi és dolgozat, "Megnyitás" gombokkal.
+private struct LessonDetailSheet: View {
+    let lesson: LessonItem
+    let homework: HomeworkItem?
+    let exam: ExamItem?
+    let examRolled: Bool
+    let colors: AppColors
+    let scheme: ColorScheme
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var hSize
+    private var isPad: Bool { hSize == .regular }
+
+    private var isCancelled: Bool { lesson.isCancelled }
+    private var isSubstituted: Bool { lesson.isSubstituted }
+    private var isExempted: Bool { ExemptedStore.isExempted(lesson.subject) }
+    private var isCurrent: Bool { lesson.start <= Date() && Date() <= lesson.end }
+
+    private var heroBase: Color {
+        if isExempted { return .green }
+        if isCancelled { return .red }
+        if isSubstituted { return .orange }
+        if isCurrent { return .blue }
+        return colors.accent
+    }
+
+    private var statusBadge: (text: String, color: Color)? {
+        if isExempted { return ("Felmentett", .green) }
+        if isCancelled { return ("Elmarad", .red) }
+        if isSubstituted { return ("Helyettesítés", .orange) }
+        if isCurrent { return ("Most", .blue) }
+        return nil
+    }
+
+    private var dayLine: String {
+        let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "EEEE • MMM d."
+        return f.string(from: lesson.start).capitalized
+    }
+    private var timeLine: String {
+        let t = DateFormatter(); t.locale = Locale(identifier: "hu_HU"); t.dateFormat = "H:mm"
+        return "\(t.string(from: lesson.start)) – \(t.string(from: lesson.end)) • \(lesson.index). óra"
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                // HERO — gradiens ikon + tárgy + nap/idő + státusz
+                Section {
+                    VStack(spacing: 12) {
+                        Image(systemName: LessonSubjectIcon.symbol(for: lesson.subject))
+                            .font(.system(size: 44, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 104, height: 104)
+                            .background {
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [heroBase, heroBase.opacity(0.55)],
+                                            startPoint: .topLeading, endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .shadow(color: heroBase.opacity(0.35), radius: 18, y: 8)
+                            }
+                        Text(lesson.subject)
+                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .foregroundStyle((isCancelled || isExempted) ? .secondary : .primary)
+                            .strikethrough(isCancelled || isExempted, color: .secondary)
+                            .multilineTextAlignment(.center)
+                        Text(dayLine)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text(timeLine)
+                            .font(.subheadline.weight(.medium).monospacedDigit())
+                            .foregroundStyle(.secondary)
+                        if let badge = statusBadge {
+                            Text(badge.text.uppercased())
+                                .font(.caption2.weight(.bold))
+                                .tracking(0.5)
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .background(Capsule().fill(badge.color))
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
+
+                // ÓRA ADATAI
+                Section("Óra adatai") {
+                    detailRow(icon: "person.fill", title: "Tanár", value: lesson.teacher.isEmpty ? "—" : lesson.teacher)
+                    if isSubstituted, let orig = lesson.originalTeacher, !orig.isEmpty {
+                        detailRow(icon: "person.fill.badge.plus", title: "Eredeti tanár", value: orig)
+                    }
+                    detailRow(icon: "door.left.hand.open", title: "Terem", value: lesson.room.isEmpty ? "—" : lesson.room)
+                    detailRow(icon: "clock.fill", title: "Időpont", value: timeLine)
+                }
+
+                // HÁZI
+                Section("Házi feladat") {
+                    if let hw = homework {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(HomeworkHTML.formatted(hw.title))
+                                .font(.callout)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            if !hw.teacher.isEmpty {
+                                Label(hw.teacher, systemImage: "person.fill")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            Button { openTasks(flash: hw.id) } label: {
+                                Label("Megnyitás a Feladatokban", systemImage: "checklist")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(colors.accent)
+                                    .padding(.horizontal, 12).padding(.vertical, 8)
+                                    .background(Capsule().strokeBorder(colors.accent.opacity(0.35), lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.top, 2)
+                        }
+                        .padding(.vertical, 4)
+                    } else {
+                        Label("Ehhez az órához nincs házi", systemImage: "checklist")
+                            .font(.callout).foregroundStyle(.secondary)
+                    }
+                }
+
+                // DOLGOZAT
+                Section("Dolgozat") {
+                    if let ex = exam {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 6) {
+                                Text(ex.mode).font(.callout.weight(.semibold))
+                                if examRolled {
+                                    Text("Pótló").font(.caption2.weight(.bold)).foregroundStyle(.red)
+                                        .padding(.horizontal, 8).padding(.vertical, 4)
+                                        .background(Capsule().fill(Color.red.opacity(0.12)))
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            if !ex.plainDescription.isEmpty {
+                                Text(ex.plainDescription)
+                                    .font(.callout).foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            if !ex.teacher.isEmpty {
+                                Label(ex.teacher, systemImage: "person.fill")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            Button { openTasks(segment: "exams", flash: ex.id) } label: {
+                                Label("Megnyitás a Dolgozatokban", systemImage: "doc.text.fill")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(colors.accent)
+                                    .padding(.horizontal, 12).padding(.vertical, 8)
+                                    .background(Capsule().strokeBorder(colors.accent.opacity(0.35), lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.top, 2)
+                        }
+                        .padding(.vertical, 4)
+                    } else {
+                        Label("Ehhez az órához nincs dolgozat", systemImage: "doc.text")
+                            .font(.callout).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
+            .padding(.horizontal, MacSupport.sidePadding)
+            .frame(maxWidth: .infinity)
+            .summitListChrome(colors: colors)
+            .navigationTitle(lesson.subject)
+            .navigationBarTitleDisplayMode(.inline)
+            .summitToolbarBackground()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Kész") { dismiss() }
+                }
+            }
+            .accessibilityIdentifier("lesson-detail")
+            .onAppear { print("SUMMIT-DETAIL-APPEARED \(lesson.id)") }
+        }
+        .tint(colors.accent)
+    }
+
+    private func detailRow(icon: String, title: String, value: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(colors.accent)
+                .frame(width: 24)
+            Text(title)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 8)
+            Text(value)
+                .font(.callout.weight(.semibold))
+                .multilineTextAlignment(.trailing)
+        }
+        .padding(.vertical, 2)
+    }
+
+    /// A részletező előbb csukódik, aztán megy a deeplink — különben a
+    /// cover a Feladatok fölött ragadna.
+    private func openTasks(segment: String? = nil, flash: String) {
+        dismiss()
+        var ui: [String: Any] = ["flash": flash]
+        if let segment { ui["segment"] = segment }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            NotificationCenter.default.post(
+                name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ui)
+        }
+    }
+}

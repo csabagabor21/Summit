@@ -59,6 +59,37 @@ enum TimetableWidgetStore {
         }
     }
 
+    /// "Ha ma nincs több óra" kártya: a következő tanítási nap
+    /// rendkívüliségei prioritás-sorrendben — dolgozat > elmaradó /
+    /// helyettesített óra > iskolai esemény. A fő app számolja, a
+    /// widgetek csak mutatják, ha a napja még nem múlt el. 1 tétel =
+    /// teljes kártya (cím + alcím), több tétel = summary ("2 dolgozat •
+    /// 1 helyettesítés") at-a-glance. Részletes listák nem utaznak,
+    /// csak ez a kivonat + darabszámok.
+    struct NextDayItem: Codable {
+        /// "exam" | "cancelled" | "substituted" | "event".
+        var kind: String
+        /// Dolgozat tárgya / óra tárgya / esemény címe.
+        var title: String
+        /// Dolgozat módja / "3. óra elmarad" / esemény alcíme.
+        var subtitle: String
+    }
+
+    struct NextDayNote: Codable {
+        /// A következő tanítási nap (nap eleje).
+        var day: Date
+        /// Max 3 tétel, prioritás-sorrendben (a summaryhez elég).
+        var items: [NextDayItem]
+        /// Darabszámok aznap — a summary ezekből épül ("2 dolgozat •
+        /// 1 helyettesítés"). Több lehet, mint items.
+        var examCount: Int
+        var cancelledCount: Int
+        var substitutedCount: Int
+        var eventCount: Int
+
+        var totalCount: Int { examCount + cancelledCount + substitutedCount + eventCount }
+    }
+
     struct Snapshot: Codable {
         var savedAt: Date
         var accentHex: Int
@@ -68,15 +99,18 @@ enum TimetableWidgetStore {
         /// a widget is az eltolt idő szerint rajzol.
         var previewActive: Bool = false
         var previewMinutes: Double = 540
+        var nextNote: NextDayNote? = nil
 
-        // Régi snapshotokban még nincs preview-kulcs — decodeIfPresent,
-        // különben egy frissítés után az első appnyitásig üres lenne a widget.
+        // Régi snapshotokban még nincs preview/note-kulcs —
+        // decodeIfPresent, különben egy frissítés után az első
+        // appnyitásig üres lenne a widget.
         enum CodingKeys: String, CodingKey {
-            case savedAt, accentHex, lessons, previewActive, previewMinutes
+            case savedAt, accentHex, lessons, previewActive, previewMinutes, nextNote
         }
-        init(savedAt: Date, accentHex: Int, lessons: [Lesson], previewActive: Bool = false, previewMinutes: Double = 540) {
+        init(savedAt: Date, accentHex: Int, lessons: [Lesson], previewActive: Bool = false, previewMinutes: Double = 540, nextNote: NextDayNote? = nil) {
             self.savedAt = savedAt; self.accentHex = accentHex; self.lessons = lessons
             self.previewActive = previewActive; self.previewMinutes = previewMinutes
+            self.nextNote = nextNote
         }
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -85,6 +119,7 @@ enum TimetableWidgetStore {
             lessons = try c.decode([Lesson].self, forKey: .lessons)
             previewActive = try c.decodeIfPresent(Bool.self, forKey: .previewActive) ?? false
             previewMinutes = try c.decodeIfPresent(Double.self, forKey: .previewMinutes) ?? 540
+            nextNote = try c.decodeIfPresent(NextDayNote.self, forKey: .nextNote)
         }
     }
 

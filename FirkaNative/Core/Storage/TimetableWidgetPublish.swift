@@ -43,14 +43,67 @@ enum TimetableWidgetPublish {
         return (active, minutes)
     }
 
+    /// Következő tanítási nap rendkívüliségei a "ma nincs több óra"
+    /// kártyához — dolgozat > elmaradó / helyettesített óra > iskolai
+    /// esemény. Nil = semmi rendkívüli (vagy nincs több nap a cache-ben).
+    static func nextDayNote(
+        lessons: [LessonItem],
+        exams: [ExamItem] = [],
+        events: [SchoolEvent] = [],
+        eventsVisible: Bool = true,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> TimetableWidgetStore.NextDayNote? {
+        let today = calendar.startOfDay(for: now)
+        let futureDays = Set(lessons.map { calendar.startOfDay(for: $0.start) })
+            .filter { $0 > today }.sorted()
+        guard let nextDay = futureDays.first else { return nil }
+        let dayLessons = lessons.filter { calendar.isDate($0.start, inSameDayAs: nextDay) }
+        let dayExams = exams.filter { calendar.isDate($0.date, inSameDayAs: nextDay) }
+            .sorted { $0.date < $1.date }
+        let dayEvents = eventsVisible ? SchoolEventsStore.events(on: nextDay, from: events) : []
+        let cancelled = dayLessons.filter { $0.isCancelled }.sorted { $0.start < $1.start }
+        let substituted = dayLessons.filter { !$0.isCancelled && $0.isSubstituted }
+            .sorted { $0.start < $1.start }
+        guard !dayExams.isEmpty || !cancelled.isEmpty || !substituted.isEmpty || !dayEvents.isEmpty else { return nil }
+        var ordered: [TimetableWidgetStore.NextDayItem] = []
+        ordered += dayExams.map {
+            TimetableWidgetStore.NextDayItem(kind: "exam", title: $0.subject, subtitle: friendlyExamMode($0.mode))
+        }
+        ordered += cancelled.map {
+            let idx = $0.index.trimmingCharacters(in: .whitespaces)
+            return TimetableWidgetStore.NextDayItem(
+                kind: "cancelled", title: $0.subject,
+                subtitle: idx.isEmpty ? "Elmarad" : "\(idx). óra elmarad")
+        }
+        ordered += substituted.map {
+            let idx = $0.index.trimmingCharacters(in: .whitespaces)
+            return TimetableWidgetStore.NextDayItem(
+                kind: "substituted", title: $0.subject,
+                subtitle: idx.isEmpty ? "Helyettesítés" : "\(idx). óra • helyettesítés")
+        }
+        ordered += dayEvents.map {
+            TimetableWidgetStore.NextDayItem(kind: "event", title: $0.title, subtitle: $0.subtitle)
+        }
+        return TimetableWidgetStore.NextDayNote(
+            day: nextDay,
+            items: Array(ordered.prefix(3)),
+            examCount: dayExams.count,
+            cancelledCount: cancelled.count,
+            substitutedCount: substituted.count,
+            eventCount: dayEvents.count
+        )
+    }
+
     /// Teljes heti snapshot írása (TimetableView.load() végéről).
-    static func publishWeek(_ lessons: [LessonItem], homeworks: [HomeworkItem] = [], exams: [ExamItem] = []) {
+    static func publishWeek(_ lessons: [LessonItem], homeworks: [HomeworkItem] = [], exams: [ExamItem] = [], events: [SchoolEvent] = [], eventsVisible: Bool = true) {
         guard !lessons.isEmpty else { return }
         let preview = previewState()
         TimetableWidgetStore.save(TimetableWidgetStore.Snapshot(
             savedAt: Date(), accentHex: currentAccentHex(),
             lessons: fromLessons(lessons, homeworks: homeworks, exams: exams),
-            previewActive: preview.active, previewMinutes: preview.minutes
+            previewActive: preview.active, previewMinutes: preview.minutes,
+            nextNote: nextDayNote(lessons: lessons, exams: exams, events: events, eventsVisible: eventsVisible)
         ))
         WidgetCenter.shared.reloadTimelines(ofKind: TimetableWidgetStore.kind)
     }

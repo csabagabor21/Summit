@@ -26,6 +26,8 @@ struct TimetableWidgetEntry: TimelineEntry {
     var dayDate: Date
     var accentHex: Int
     var hasSnapshot: Bool
+    /// A következő tanítási nap rendkívüliségei (ha ma nincs több óra).
+    var note: TimetableWidgetStore.NextDayNote?
 }
 
 struct TimetableWidgetProvider: TimelineProvider {
@@ -33,7 +35,7 @@ struct TimetableWidgetProvider: TimelineProvider {
         let now = Date()
         return TimetableWidgetEntry(
             date: now, effectiveNow: now, dayLessons: Self.sampleLessons(),
-            dayDate: now, accentHex: 0x4A90E2, hasSnapshot: false
+            dayDate: now, accentHex: 0x4A90E2, hasSnapshot: false, note: nil
         )
     }
 
@@ -69,7 +71,7 @@ struct TimetableWidgetProvider: TimelineProvider {
         guard let snap = TimetableWidgetStore.load(), !snap.lessons.isEmpty else {
             return TimetableWidgetEntry(
                 date: now, effectiveNow: now, dayLessons: preview ? Self.sampleLessons() : [],
-                dayDate: now, accentHex: 0x4A90E2, hasSnapshot: false
+                dayDate: now, accentHex: 0x4A90E2, hasSnapshot: false, note: nil
             )
         }
         let (day, lessons) = TimetableWidgetLogic.pickDay(now: now, lessons: snap.lessons)
@@ -85,7 +87,7 @@ struct TimetableWidgetProvider: TimelineProvider {
         return TimetableWidgetEntry(
             date: now, effectiveNow: effective, dayLessons: lessons, dayDate: day,
             accentHex: snap.accentHex == 0 ? 0x4A90E2 : snap.accentHex,
-            hasSnapshot: true
+            hasSnapshot: true, note: snap.nextNote
         )
     }
 
@@ -264,8 +266,12 @@ private struct TimetableWidgetView: View {
             } else {
                 switch nowCalc.state {
                 case .empty:
-                    Label("Ma nincs több órád", systemImage: "moon.zzz.fill")
-                        .font(.headline.weight(.semibold)).lineLimit(1)
+                    if let note = validNote {
+                        noteCard(note)
+                    } else {
+                        Label("Ma nincs több órád", systemImage: "moon.zzz.fill")
+                            .font(.headline.weight(.semibold)).lineLimit(1)
+                    }
                 case .duringLesson:
                     if let c = nowCalc.current {
                         subjectLine(c)
@@ -287,7 +293,9 @@ private struct TimetableWidgetView: View {
                         progressLine(tint: statusTint(n))
                     }
                 case .upcoming:
-                    if let n = nowCalc.next {
+                    if let note = validNote {
+                        noteCard(note)
+                    } else if let n = nowCalc.next {
                         statusHeader(dayLabel(n.start).uppercased())
                         subjectLine(n)
                         staticLine(nowCalc.remainingText)
@@ -330,6 +338,72 @@ private struct TimetableWidgetView: View {
         Text(s)
             .font(.caption2.weight(.bold).monospacedDigit())
             .foregroundStyle(.secondary).lineLimit(1)
+    }
+
+    // MARK: Következő napi kártya — ha ma nincs több óra
+    // 1 tétel = teljes kártya (cím + alcím), több = summary at-a-glance.
+
+    /// Még érvényes jegyzet: a napja ma vagy később van.
+    private var validNote: TimetableWidgetStore.NextDayNote? {
+        guard let note = entry.note, note.totalCount > 0 else { return nil }
+        let cal = Calendar.current
+        guard cal.startOfDay(for: note.day) >= cal.startOfDay(for: entry.effectiveNow) else { return nil }
+        return note
+    }
+
+    private func noteIcon(_ kind: String) -> String {
+        switch kind {
+        case "exam": return "doc.text.fill"
+        case "cancelled": return "xmark.circle.fill"
+        case "substituted": return "person.2.fill"
+        case "event": return "ticket.fill"
+        default: return "bell.badge.fill"
+        }
+    }
+
+    /// Summary több tételre: "2 dolgozat • 1 helyettesítés".
+    private func noteSummary(_ n: TimetableWidgetStore.NextDayNote) -> String {
+        var parts: [String] = []
+        if n.examCount > 0 { parts.append("\(n.examCount) dolgozat") }
+        if n.cancelledCount > 0 { parts.append("\(n.cancelledCount) elmaradó óra") }
+        if n.substitutedCount > 0 { parts.append("\(n.substitutedCount) helyettesítés") }
+        if n.eventCount > 0 { parts.append("\(n.eventCount) esemény") }
+        return parts.joined(separator: " • ")
+    }
+
+    @ViewBuilder
+    private func noteCard(_ n: TimetableWidgetStore.NextDayNote) -> some View {
+        if n.totalCount == 1, let item = n.items.first {
+            HStack(spacing: 4) {
+                Image(systemName: noteIcon(item.kind))
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(item.kind == "cancelled" ? .red : .orange)
+                Text(dayLabel(n.day).uppercased())
+                    .font(.caption2.weight(.bold)).tracking(0.8)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Text(item.title)
+                .font(.headline.weight(.bold)).lineLimit(1)
+                .truncationMode(.tail)
+            if !item.subtitle.isEmpty {
+                Text(item.subtitle)
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            }
+        } else {
+            HStack(spacing: 4) {
+                Image(systemName: "bell.badge.fill")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.orange)
+                Text(dayLabel(n.day).uppercased())
+                    .font(.caption2.weight(.bold)).tracking(0.8)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Text(noteSummary(n))
+                .font(.headline.weight(.bold)).lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
     }
 
     /// Következő óra egy sorban: nyíl + terem + pötty + tárgy. Csak óra
@@ -406,7 +480,11 @@ private struct TimetableWidgetView: View {
                 .tint(statusColor(n))
             }
         case .empty:
-            Image(systemName: "moon.zzz.fill")
+            if let note = validNote {
+                Image(systemName: note.totalCount == 1 ? noteIcon(note.items.first?.kind ?? "") : "bell.badge.fill")
+            } else {
+                Image(systemName: "moon.zzz.fill")
+            }
         }
     }
 
@@ -426,15 +504,25 @@ private struct TimetableWidgetView: View {
         }
     }
 
+    /// Egysoros jegyzet-szöveg ("Holnap: Matek" / "Holnap: 2 dolgozat").
+    private func noteLine(_ n: TimetableWidgetStore.NextDayNote) -> String {
+        if n.totalCount == 1, let item = n.items.first {
+            return "\(dayLabel(n.day)): \(item.title)"
+        }
+        return "\(dayLabel(n.day)): \(noteSummary(n))"
+    }
+
     private var inlineText: String {
         guard entry.hasSnapshot, !entry.dayLessons.isEmpty else { return "Most: nyisd meg az appot" }
         switch nowCalc.state {
         case .empty:
+            if let note = validNote { return noteLine(note) }
             return "Ma nincs több órád"
         case .morning:
             if let n = nowCalc.next { return "Első: \(n.subject) • \(shortTime(n.start))" }
             return "Ma nincs több órád"
         case .upcoming:
+            if let note = validNote { return noteLine(note) }
             if let n = nowCalc.next { return "\(dayLabel(n.start)): \(n.subject) • \(shortTime(n.start))" }
             return "Ma nincs több órád"
         case .duringLesson:
@@ -671,6 +759,6 @@ private extension Color {
 } timeline: {
     TimetableWidgetEntry(
         date: Date(), effectiveNow: Date(), dayLessons: TimetableWidgetProvider.sampleLessons(),
-        dayDate: Date(), accentHex: 0x4A90E2, hasSnapshot: true
+        dayDate: Date(), accentHex: 0x4A90E2, hasSnapshot: true, note: nil
     )
 }
