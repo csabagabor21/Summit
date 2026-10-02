@@ -266,13 +266,13 @@ private struct TimetableWidgetView: View {
                 case .morning, .upcoming:
                     if let n = nowCalc.next {
                         titleRow(n)
-                        progressLine(tint: statusTint(n), index: n.index)
+                        progressLine(tint: statusTint(n))
                         nextLine(n)
                     }
                 case .duringLesson:
                     if let c = nowCalc.current {
                         titleRow(c)
-                        progressLine(tint: statusTint(c), index: c.index)
+                        progressLine(tint: statusTint(c))
                         if let n = nowCalc.next {
                             nextLine(n)
                         }
@@ -280,7 +280,7 @@ private struct TimetableWidgetView: View {
                 case .duringBreak:
                     if let n = nowCalc.next {
                         titleRow(n)
-                        progressLine(tint: statusTint(n), index: n.index)
+                        progressLine(tint: statusTint(n))
                         nextLine(n)
                     }
                 }
@@ -309,27 +309,17 @@ private struct TimetableWidgetView: View {
         }
     }
 
-    /// Balra az óraszám, mellette a vékony accent-csík, ALATTA az élő
-    /// visszaszámláló ("27:54", másodpercenként tickel, reload nélkül).
-    /// A zárképernyőn a rendszer vékonyra rendereli a csíkot, ezért a
-    /// szám nem ülhet rajta (szétvágódna) — az órával ellentétben itt
-    /// nincs overlay, a szám külön áll bal oldalt.
-    private func progressLine(tint: Color, index: String) -> some View {
-        HStack(spacing: 8) {
-            if !index.isEmpty {
-                Text("\(index).")
-                    .font(.headline.weight(.bold).monospacedDigit())
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                ProgressView(value: nowCalc.progress)
-                    .tint(tint)
-                countdownText
-                    .font(.caption2.weight(.bold).monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
+    /// Vékony accent-csík, ALATTA az élő visszaszámláló ("27:54",
+    /// másodpercenként tickel, reload nélkül). Óraszám sehol: a
+    /// zárképernyős csík túl vékony a rajta ülő számhoz.
+    private func progressLine(tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ProgressView(value: nowCalc.progress)
+                .tint(tint)
+            countdownText
+                .font(.caption2.weight(.bold).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
     }
 
