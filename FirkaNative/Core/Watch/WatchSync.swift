@@ -53,14 +53,14 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
     /// Heti órarend az órára (a widget-snapshot ugyanaz a mapping —
     /// a státusz-flagekkel: felmentett zöld, dolgozat szürke — plusz a
     /// következő nap rendkívüliségei a "ma nincs több óra" kártyához).
-    static func pushTimetable(_ lessons: [LessonItem], homeworks: [HomeworkItem] = [], exams: [ExamItem] = [], events: [SchoolEvent] = [], eventsVisible: Bool = true) {
+    static func pushTimetable(_ lessons: [LessonItem], homeworks: [HomeworkItem] = [], exams: [ExamItem] = [], events: [SchoolEvent] = [], eventsVisible: Bool = true, noSchoolDays: [TimetableWidgetStore.NoSchoolDay] = []) {
         guard WCSession.isSupported(), !lessons.isEmpty else { return }
         let snapshot = TimetableWidgetStore.Snapshot(
             savedAt: Date(),
             accentHex: TimetableWidgetPublish.currentAccentHex(),
             lessons: TimetableWidgetPublish.fromLessons(lessons, homeworks: homeworks, exams: exams),
-            nextNote: TimetableWidgetPublish.nextDayNote(lessons: lessons, exams: exams, events: events, eventsVisible: eventsVisible),
-            todayInfo: TimetableWidgetPublish.todayNote(lessons: lessons, exams: exams, events: events, eventsVisible: eventsVisible)
+            nextNote: TimetableWidgetPublish.nextDayNote(lessons: lessons, exams: exams, events: events, eventsVisible: eventsVisible, noSchoolDays: noSchoolDays),
+            todayInfo: TimetableWidgetPublish.todayNote(lessons: lessons, exams: exams, events: events, eventsVisible: eventsVisible, noSchoolDays: noSchoolDays)
         )
         pushSnapshot(snapshot)
     }

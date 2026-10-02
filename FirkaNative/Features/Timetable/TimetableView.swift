@@ -811,10 +811,11 @@ struct TimetableView: View {
     /// (A mapping + reload a TimetableWidgetPublish-ban; a BG-ébresztés
     /// ugyanoda mergeli a mai napot.)
     private func publishWidgetSnapshot() {
-        TimetableWidgetPublish.publishWeek(lessons, homeworks: homeworks, exams: displayExams, events: schoolEvents, eventsVisible: schoolEventsVisible)
+        let noSchool = TimetableWidgetPublish.noSchoolDays(from: calendarDays)
+        TimetableWidgetPublish.publishWeek(lessons, homeworks: homeworks, exams: displayExams, events: schoolEvents, eventsVisible: schoolEventsVisible, noSchoolDays: noSchool)
         // Apple Watch: ugyanez a heti anyag megy az órára is — a státusz-
         // flagekkel (felmentett zöld, dolgozat szürke), mint a telefonon.
-        WatchSyncSender.pushTimetable(lessons, homeworks: homeworks, exams: displayExams, events: schoolEvents, eventsVisible: schoolEventsVisible)
+        WatchSyncSender.pushTimetable(lessons, homeworks: homeworks, exams: displayExams, events: schoolEvents, eventsVisible: schoolEventsVisible, noSchoolDays: noSchool)
         // Iskolai események az óra órarend-tetejére (ugyanaz a lista).
         WatchSyncSender.pushSchoolEvents(events: schoolEvents, visible: schoolEventsVisible)
     }
@@ -838,7 +839,12 @@ struct TimetableView: View {
         guard !iss.isEmpty, iss != "unknown" else { lessons = []; homeworks = []; exams = []; return }
         let monday = currentMonday
         let start = monday
-        let end = Calendar.current.date(byAdding: .day, value: 7, to: monday)! // vasárnap 00:00 = teljes hét
+        // +8 nap (jövő hétfő 00:00): a KRÉTA datumIg-határa a peremnapot
+        // levághatja — a +1 nap ráhagyás miatt a következő hétfő órái és
+        // naptári bejegyzése (pl. tanítás nélküli nap) is biztosan lejön.
+        // A heti nézet a 7 napos dayTags-szel szűr, a plusz nap csak a
+        // widget-jegyzetnek és a következő-óra számolásnak kell.
+        let end = Calendar.current.date(byAdding: .day, value: 8, to: monday)!
         async let tt = kreta.fetchTimetable(iss: iss, from: start, to: end)
         async let hw = kreta.fetchHomework(iss: iss)
         async let ex = kreta.fetchExams(iss: iss)

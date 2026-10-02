@@ -425,7 +425,7 @@ private struct WatchNowView: View {
 
     /// Még érvényes jegyzet: a napja ma vagy később van.
     private var validNote: TimetableWidgetStore.NextDayNote? {
-        guard let note = entry.note, note.totalCount > 0 else { return nil }
+        guard let note = entry.note, note.totalCount > 0 || note.noSchoolName != nil else { return nil }
         let cal = Calendar.current
         guard cal.startOfDay(for: note.day) >= cal.startOfDay(for: entry.effectiveNow) else { return nil }
         return note
@@ -454,7 +454,7 @@ private struct WatchNowView: View {
         case "exam": return "doc.text.fill"
         case "cancelled": return "xmark.circle.fill"
         case "substituted": return "person.2.fill"
-        case "event": return "ticket.fill"
+        case "event": return "calendar.badge.clock"
         default: return "bell.badge.fill"
         }
     }
@@ -485,9 +485,34 @@ private struct WatchNowView: View {
         return parts.joined(separator: " • ")
     }
 
+    /// Egy tétel alcím-sora: "Fogadóóra • 17:00 – 19:00".
+    private func noteItemLine(_ item: TimetableWidgetStore.NextDayItem) -> String {
+        item.subtitle.isEmpty ? item.title : "\(item.title) • \(item.subtitle)"
+    }
+
     @ViewBuilder
     private func noteCard(_ n: TimetableWidgetStore.NextDayNote) -> some View {
-        if n.totalCount == 1, let item = n.items.first {
+        if let ns = n.noSchoolName {
+            HStack(spacing: 4) {
+                Image(systemName: "house.fill")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                Text(noteDayUpper(n.day))
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Text(ns)
+                .font(.headline.weight(.bold)).lineLimit(1)
+                .minimumScaleFactor(0.8)
+            if n.totalCount == 1, let item = n.items.first {
+                Text(noteItemLine(item))
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            } else if n.totalCount > 1 {
+                Text(noteSummary(n))
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            }
+        } else if n.totalCount == 1, let item = n.items.first {
             HStack(spacing: 4) {
                 Image(systemName: noteIcon(item.kind))
                     .font(.caption2.weight(.bold))
@@ -607,10 +632,18 @@ private struct WatchNowView: View {
         switch calc.state {
         case .empty:
             if let note = activeNote {
-                if note.totalCount == 1, let item = note.items.first {
-                    return "\(noteDayShort(note.day)): \(item.title)"
+                let day = noteDayShort(note.day)
+                if let ns = note.noSchoolName {
+                    if note.totalCount == 0 { return "\(day): \(ns)" }
+                    let rest = note.totalCount == 1
+                        ? (note.items.first.map(noteItemLine) ?? "")
+                        : noteSummary(note)
+                    return "\(day): \(ns) • \(rest)"
                 }
-                return "\(noteDayShort(note.day)): \(noteSummary(note))"
+                if note.totalCount == 1, let item = note.items.first {
+                    return "\(day): \(item.title)"
+                }
+                return "\(day): \(noteSummary(note))"
             }
             if let fl = nextFutureLesson {
                 return "\(noteDayShort(fl.start)): \(fl.subject) • \(shortTime(fl.start))"
@@ -637,7 +670,8 @@ private struct WatchNowView: View {
             return "→ \(cornerAbbr) \(shortRemaining)"
         case .empty:
             if let note = activeNote {
-                return "🔔 \(noteDayShort(note.day))"
+                let icon = note.noSchoolName != nil ? "🏫" : "🔔"
+                return "\(icon) \(noteDayShort(note.day))"
             }
             if let fl = nextFutureLesson {
                 return "→ \(noteDayShort(fl.start)) \(shortTime(fl.start))"

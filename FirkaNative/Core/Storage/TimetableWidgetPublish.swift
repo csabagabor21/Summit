@@ -43,9 +43,8 @@ enum TimetableWidgetPublish {
         return (active, minutes)
     }
 
-    /// Egy adott nap rendkívüliségei — dolgozat > elmaradó /
-    /// helyettesített óra > iskolai esemény, vagy esemény-első
-    /// felállásban (a "Mai nap" widget kérése: ha van esemény, az látszik).
+    /// Egy adott nap rendkívüliségei — az iskolai esemény MINDIG
+    /// legfelül, utána dolgozat, elmaradó óra, helyettesítés.
     /// Nil = semmi rendkívüli aznap.
     static func dayNote(
         forDay day: Date,
@@ -53,7 +52,6 @@ enum TimetableWidgetPublish {
         exams: [ExamItem] = [],
         events: [SchoolEvent] = [],
         eventsVisible: Bool = true,
-        eventsFirst: Bool = false,
         calendar: Calendar = .current
     ) -> TimetableWidgetStore.NextDayNote? {
         let dayLessons = lessons.filter { calendar.isDate($0.start, inSameDayAs: day) }
@@ -82,12 +80,7 @@ enum TimetableWidgetPublish {
         let eventItems = dayEvents.map {
             TimetableWidgetStore.NextDayItem(kind: "event", title: $0.title, subtitle: $0.subtitle)
         }
-        let ordered: [TimetableWidgetStore.NextDayItem]
-        if eventsFirst {
-            ordered = eventItems + examItems + cancelledItems + substitutedItems
-        } else {
-            ordered = examItems + cancelledItems + substitutedItems + eventItems
-        }
+        let ordered = eventItems + examItems + cancelledItems + substitutedItems
         return TimetableWidgetStore.NextDayNote(
             day: calendar.startOfDay(for: day),
             items: Array(ordered.prefix(3)),
@@ -100,43 +93,102 @@ enum TimetableWidgetPublish {
 
     /// Következő tanítási nap rendkívüliségei a "ma nincs több óra"
     /// kártyához. Nil = semmi rendkívüli (vagy nincs több nap a cache-ben).
+    /// Naptári infókból (KRÉTA NaptariNapok) a tanítás nélküli
+    /// hétköznapok listája a widget-snapshotba. Hétvégét nem jelölünk
+    /// (az magától értetődik), csak hétfő–pénteket.
+    static func noSchoolDays(
+        from infos: [SchoolDayInfo],
+        calendar: Calendar = .current
+    ) -> [TimetableWidgetStore.NoSchoolDay] {
+        var seen = Set<Date>()
+        var out: [TimetableWidgetStore.NoSchoolDay] = []
+        for info in infos where !info.isTimetableDay {
+            let day = calendar.startOfDay(for: info.date)
+            let wd = calendar.component(.weekday, from: day)
+            guard (2...6).contains(wd), seen.insert(day).inserted else { continue }
+            let name = info.typeName.trimmingCharacters(in: .whitespacesAndNewlines)
+            out.append(TimetableWidgetStore.NoSchoolDay(
+                day: day, name: name.isEmpty ? "Tanítás nélküli nap" : name))
+        }
+        return out.sorted { $0.day < $1.day }
+    }
+
+    /// Tanítás nélküli jelölés rátétele a napi jegyzetre: ha aznap nincs
+    /// órája, de a tanév rendje jelöli, a kártya címe a típusnév lesz
+    /// ("Tanítás nélküli munkanap"), az események az alcímbe kerülnek.
+    /// Órák mellett a jelölés nem számít (oda kell menni).
+    private static func attachNoSchool(
+        _ note: TimetableWidgetStore.NextDayNote?,
+        day: Date,
+        lessons: [LessonItem],
+        events: [SchoolEvent],
+        eventsVisible: Bool,
+        noSchoolDays: [TimetableWidgetStore.NoSchoolDay],
+        calendar: Calendar
+    ) -> TimetableWidgetStore.NextDayNote? {
+        var note = note
+        let hasLessons = lessons.contains { calendar.isDate($0.start, inSameDayAs: day) }
+        guard !hasLessons,
+              let ns = noSchoolDays.first(where: { calendar.isDate($0.day, inSameDayAs: day) }) else { return note }
+        if note == nil {
+            let dayEvents = eventsVisible ? SchoolEventsStore.events(on: day, from: events) : []
+            let items = dayEvents.prefix(3).map {
+                TimetableWidgetStore.NextDayItem(kind: "event", title: $0.title, subtitle: $0.subtitle)
+            }
+            note = TimetableWidgetStore.NextDayNote(
+                day: calendar.startOfDay(for: day), items: Array(items),
+                examCount: 0, cancelledCount: 0, substitutedCount: 0,
+                eventCount: dayEvents.count, noSchoolName: ns.name)
+        } else {
+            note?.noSchoolName = ns.name
+        }
+        return note
+    }
+
+    /// Következő érdemi nap a "ma nincs több óra" kártyához: tanítási
+    /// nap órákkal, vagy tanítás nélküli hétköznap (órák nélkül is).
+    /// Nil = semmi (vagy nincs több nap a cache-ben).
     static func nextDayNote(
         lessons: [LessonItem],
         exams: [ExamItem] = [],
         events: [SchoolEvent] = [],
         eventsVisible: Bool = true,
+        noSchoolDays: [TimetableWidgetStore.NoSchoolDay] = [],
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> TimetableWidgetStore.NextDayNote? {
         let today = calendar.startOfDay(for: now)
-        let futureDays = Set(lessons.map { calendar.startOfDay(for: $0.start) })
-            .filter { $0 > today }.sorted()
-        guard let nextDay = futureDays.first else { return nil }
-        return dayNote(forDay: nextDay, lessons: lessons, exams: exams, events: events, eventsVisible: eventsVisible, calendar: calendar)
+        var candidates = Set(lessons.map { calendar.startOfDay(for: $0.start) })
+        for ns in noSchoolDays where ns.day > today { candidates.insert(ns.day) }
+        guard let nextDay = candidates.filter({ $0 > today }).sorted().first else { return nil }
+        let note = dayNote(forDay: nextDay, lessons: lessons, exams: exams, events: events, eventsVisible: eventsVisible, calendar: calendar)
+        return attachNoSchool(note, day: nextDay, lessons: lessons, events: events, eventsVisible: eventsVisible, noSchoolDays: noSchoolDays, calendar: calendar)
     }
 
-    /// Mai nap rendkívüliségei a "Mai nap" widgetnek (esemény-első).
+    /// Mai nap rendkívüliségei a "Mai nap" widgetnek.
     static func todayNote(
         lessons: [LessonItem],
         exams: [ExamItem] = [],
         events: [SchoolEvent] = [],
         eventsVisible: Bool = true,
+        noSchoolDays: [TimetableWidgetStore.NoSchoolDay] = [],
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> TimetableWidgetStore.NextDayNote? {
-        dayNote(forDay: now, lessons: lessons, exams: exams, events: events, eventsVisible: eventsVisible, eventsFirst: true, calendar: calendar)
+        let note = dayNote(forDay: now, lessons: lessons, exams: exams, events: events, eventsVisible: eventsVisible, calendar: calendar)
+        return attachNoSchool(note, day: now, lessons: lessons, events: events, eventsVisible: eventsVisible, noSchoolDays: noSchoolDays, calendar: calendar)
     }
 
     /// Teljes heti snapshot írása (TimetableView.load() végéről).
-    static func publishWeek(_ lessons: [LessonItem], homeworks: [HomeworkItem] = [], exams: [ExamItem] = [], events: [SchoolEvent] = [], eventsVisible: Bool = true) {
+    static func publishWeek(_ lessons: [LessonItem], homeworks: [HomeworkItem] = [], exams: [ExamItem] = [], events: [SchoolEvent] = [], eventsVisible: Bool = true, noSchoolDays: [TimetableWidgetStore.NoSchoolDay] = []) {
         guard !lessons.isEmpty else { return }
         let preview = previewState()
         TimetableWidgetStore.save(TimetableWidgetStore.Snapshot(
             savedAt: Date(), accentHex: currentAccentHex(),
             lessons: fromLessons(lessons, homeworks: homeworks, exams: exams),
             previewActive: preview.active, previewMinutes: preview.minutes,
-            nextNote: nextDayNote(lessons: lessons, exams: exams, events: events, eventsVisible: eventsVisible),
-            todayInfo: todayNote(lessons: lessons, exams: exams, events: events, eventsVisible: eventsVisible)
+            nextNote: nextDayNote(lessons: lessons, exams: exams, events: events, eventsVisible: eventsVisible, noSchoolDays: noSchoolDays),
+            todayInfo: todayNote(lessons: lessons, exams: exams, events: events, eventsVisible: eventsVisible, noSchoolDays: noSchoolDays)
         ))
         WidgetCenter.shared.reloadTimelines(ofKind: TimetableWidgetStore.kind)
         WidgetCenter.shared.reloadTimelines(ofKind: TimetableWidgetStore.dayKind)

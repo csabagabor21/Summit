@@ -62,8 +62,8 @@ enum TimetableWidgetStore {
     }
 
     /// "Ha ma nincs több óra" kártya: a következő tanítási nap
-    /// rendkívüliségei prioritás-sorrendben — dolgozat > elmaradó /
-    /// helyettesített óra > iskolai esemény. A fő app számolja, a
+    /// rendkívüliségei prioritás-sorrendben — esemény > dolgozat >
+    /// elmaradó óra > helyettesítés. A fő app számolja, a
     /// widgetek csak mutatják, ha a napja még nem múlt el. 1 tétel =
     /// teljes kártya (cím + alcím), több tétel = summary ("2 dolgozat •
     /// 1 helyettesítés") at-a-glance. Részletes listák nem utaznak,
@@ -77,6 +77,16 @@ enum TimetableWidgetStore {
         var subtitle: String
     }
 
+    /// Tanítás nélküli hétköznap (tanév rendje, KRÉTA NaptariNapok) —
+    /// az órarend ilyet nem ír (nincs órája), a widget viszont kiírja
+    /// ("Hétfő / Tanítás nélküli munkanap").
+    struct NoSchoolDay: Codable {
+        /// Nap eleje.
+        var day: Date
+        /// Típusnév a KRÉTÁ-tól ("Tanítás nélküli munkanap").
+        var name: String
+    }
+
     struct NextDayNote: Codable {
         /// A következő tanítási nap (nap eleje).
         var day: Date
@@ -88,6 +98,9 @@ enum TimetableWidgetStore {
         var cancelledCount: Int
         var substitutedCount: Int
         var eventCount: Int
+        /// Ha a nap órák nélkül is jelölt (tanítás nélküli): a típusnév
+        /// a kártya címe, az események az alcímbe kerülnek.
+        var noSchoolName: String? = nil
 
         var totalCount: Int { examCount + cancelledCount + substitutedCount + eventCount }
     }
@@ -103,8 +116,7 @@ enum TimetableWidgetStore {
         var previewMinutes: Double = 540
         var nextNote: NextDayNote? = nil
         /// A mai nap rendkívüliségei (ugyanaz a típus, day = ma) — a
-        /// "Mai nap" widgetnek: esemény > dolgozat > óraváltozás sorrend
-        /// helyett itt esemény-első a felállás (lásd dayNote).
+        /// "Mai nap" widgetnek.
         var todayInfo: NextDayNote? = nil
 
         // Régi snapshotokban még nincs preview/note-kulcs —

@@ -345,7 +345,7 @@ private struct TimetableWidgetView: View {
 
     /// Még érvényes jegyzet: a napja ma vagy később van.
     private var validNote: TimetableWidgetStore.NextDayNote? {
-        guard let note = entry.note, note.totalCount > 0 else { return nil }
+        guard let note = entry.note, note.totalCount > 0 || note.noSchoolName != nil else { return nil }
         let cal = Calendar.current
         guard cal.startOfDay(for: note.day) >= cal.startOfDay(for: entry.effectiveNow) else { return nil }
         return note
@@ -372,7 +372,7 @@ private struct TimetableWidgetView: View {
         case "exam": return "doc.text.fill"
         case "cancelled": return "xmark.circle.fill"
         case "substituted": return "person.2.fill"
-        case "event": return "ticket.fill"
+        case "event": return "calendar.badge.clock"
         default: return "bell.badge.fill"
         }
     }
@@ -387,9 +387,34 @@ private struct TimetableWidgetView: View {
         return parts.joined(separator: " • ")
     }
 
+    /// Egy tétel alcím-sora: "Fogadóóra • 17:00 – 19:00".
+    private func noteItemLine(_ item: TimetableWidgetStore.NextDayItem) -> String {
+        item.subtitle.isEmpty ? item.title : "\(item.title) • \(item.subtitle)"
+    }
+
     @ViewBuilder
     private func noteCard(_ n: TimetableWidgetStore.NextDayNote) -> some View {
-        if n.totalCount == 1, let item = n.items.first {
+        if let ns = n.noSchoolName {
+            HStack(spacing: 4) {
+                Image(systemName: "house.fill")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                Text(dayLabel(n.day).uppercased())
+                    .font(.caption2.weight(.bold)).tracking(0.8)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Text(ns)
+                .font(.headline.weight(.bold)).lineLimit(1)
+                .minimumScaleFactor(0.8)
+            if n.totalCount == 1, let item = n.items.first {
+                Text(noteItemLine(item))
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            } else if n.totalCount > 1 {
+                Text(noteSummary(n))
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            }
+        } else if n.totalCount == 1, let item = n.items.first {
             HStack(spacing: 4) {
                 Image(systemName: noteIcon(item.kind))
                     .font(.caption2.weight(.bold))
@@ -522,10 +547,18 @@ private struct TimetableWidgetView: View {
 
     /// Egysoros jegyzet-szöveg ("Holnap: Matek" / "Holnap: 2 dolgozat").
     private func noteLine(_ n: TimetableWidgetStore.NextDayNote) -> String {
-        if n.totalCount == 1, let item = n.items.first {
-            return "\(dayLabel(n.day)): \(item.title)"
+        let day = dayLabel(n.day)
+        if let ns = n.noSchoolName {
+            if n.totalCount == 0 { return "\(day): \(ns)" }
+            let rest = n.totalCount == 1
+                ? (n.items.first.map(noteItemLine) ?? "")
+                : noteSummary(n)
+            return "\(day): \(ns) • \(rest)"
         }
-        return "\(dayLabel(n.day)): \(noteSummary(n))"
+        if n.totalCount == 1, let item = n.items.first {
+            return "\(day): \(item.title)"
+        }
+        return "\(day): \(noteSummary(n))"
     }
 
     private var inlineText: String {
@@ -885,7 +918,7 @@ private struct SchoolDayView: View {
 
     /// Mai infó, ha tényleg mára szól (publikálás óta nem fordult a nap).
     private var validInfo: TimetableWidgetStore.NextDayNote? {
-        guard let info = entry.info, info.totalCount > 0 else { return nil }
+        guard let info = entry.info, info.totalCount > 0 || info.noSchoolName != nil else { return nil }
         let cal = Calendar.current
         guard cal.isDate(info.day, inSameDayAs: now) else { return nil }
         return info
@@ -893,7 +926,7 @@ private struct SchoolDayView: View {
 
     /// Tartalék-jegyzet nap végére (mint a Most-widgetnél).
     private var validNext: TimetableWidgetStore.NextDayNote? {
-        guard let note = entry.next, note.totalCount > 0 else { return nil }
+        guard let note = entry.next, note.totalCount > 0 || note.noSchoolName != nil else { return nil }
         let cal = Calendar.current
         guard cal.startOfDay(for: note.day) >= cal.startOfDay(for: now) else { return nil }
         return note
@@ -947,7 +980,26 @@ private struct SchoolDayView: View {
     /// 1 tétel = teljes kártya, több = summary ("2 dolgozat").
     @ViewBuilder
     private func dayCard(_ n: TimetableWidgetStore.NextDayNote, dayName: String) -> some View {
-        if n.totalCount == 1, let item = n.items.first {
+        if let ns = n.noSchoolName {
+            HStack(spacing: 4) {
+                Image(systemName: "house.fill")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                Text(dayName)
+                    .font(.caption2.weight(.bold)).tracking(0.8)
+                    .foregroundStyle(.secondary).lineLimit(1)
+            }
+            Text(ns)
+                .font(.headline.weight(.bold)).lineLimit(1)
+                .minimumScaleFactor(0.8)
+            if n.totalCount == 1, let item = n.items.first {
+                Text(dayItemLine(item))
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            } else if n.totalCount > 1 {
+                Text(daySummary(n))
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            }
+        } else if n.totalCount == 1, let item = n.items.first {
             HStack(spacing: 4) {
                 Image(systemName: noteIcon(item.kind))
                     .font(.caption2.weight(.bold))
@@ -1023,22 +1075,34 @@ private struct SchoolDayView: View {
         }
         if !remaining.isEmpty { return remainingText }
         if let note = validNext {
-            if note.totalCount == 1, let item = note.items.first {
-                return "\(dayLabel(note.day)): \(item.title)"
+            let day = dayLabel(note.day)
+            if let ns = note.noSchoolName {
+                if note.totalCount == 0 { return "\(day): \(ns)" }
+                let rest = note.totalCount == 1
+                    ? (note.items.first.map(dayItemLine) ?? "")
+                    : daySummary(note)
+                return "\(day): \(ns) • \(rest)"
             }
-            return "\(dayLabel(note.day)): \(daySummary(note))"
+            if note.totalCount == 1, let item = note.items.first {
+                return "\(day): \(item.title)"
+            }
+            return "\(day): \(daySummary(note))"
         }
         return "Mára vége"
     }
 
     // MARK: Segédek (önállóak — a Most-nézet privátjai nem látszanak ide)
 
+    private func dayItemLine(_ item: TimetableWidgetStore.NextDayItem) -> String {
+        item.subtitle.isEmpty ? item.title : "\(item.title) • \(item.subtitle)"
+    }
+
     private func noteIcon(_ kind: String) -> String {
         switch kind {
         case "exam": return "doc.text.fill"
         case "cancelled": return "xmark.circle.fill"
         case "substituted": return "person.2.fill"
-        case "event": return "ticket.fill"
+        case "event": return "calendar.badge.clock"
         default: return "bell.badge.fill"
         }
     }
