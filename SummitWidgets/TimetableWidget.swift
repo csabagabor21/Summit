@@ -309,25 +309,27 @@ private struct TimetableWidgetView: View {
         }
     }
 
-    /// Vékony accent-csík (szám nélkül) + mellette "5. • 27:54":
-    /// az óraszám és az élő visszaszámláló egy szövegben. A zárképernyőn
-    /// a rendszer vékonyra rendereli a csíkot, amin a rajta ülő szám
-    /// szétvágódna — ezért az órával ellentétben itt nincs overlay.
+    /// Balra az óraszám, mellette a vékony accent-csík, ALATTA az élő
+    /// visszaszámláló ("27:54", másodpercenként tickel, reload nélkül).
+    /// A zárképernyőn a rendszer vékonyra rendereli a csíkot, ezért a
+    /// szám nem ülhet rajta (szétvágódna) — az órával ellentétben itt
+    /// nincs overlay, a szám külön áll bal oldalt.
     private func progressLine(tint: Color, index: String) -> some View {
-        HStack(spacing: 6) {
-            ProgressView(value: nowCalc.progress)
-                .tint(tint)
+        HStack(spacing: 8) {
             if !index.isEmpty {
                 Text("\(index).")
-                    .font(.caption2.weight(.bold).monospacedDigit())
+                    .font(.headline.weight(.bold).monospacedDigit())
                     .foregroundStyle(.primary)
                     .lineLimit(1)
-                Text("•").foregroundStyle(.tertiary).font(.caption2)
             }
-            countdownText
-                .font(.caption2.weight(.bold).monospacedDigit())
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 2) {
+                ProgressView(value: nowCalc.progress)
+                    .tint(tint)
+                countdownText
+                    .font(.caption2.weight(.bold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
         }
     }
 
