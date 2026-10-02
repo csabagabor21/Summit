@@ -309,13 +309,13 @@ private struct TimetableWidgetView: View {
         }
     }
 
-    /// Vékony accent-csík, ALATTA az élő visszaszámláló ("27:54",
-    /// másodpercenként tickel, reload nélkül). Óraszám sehol: a
-    /// zárképernyős csík túl vékony a rajta ülő számhoz.
+    /// Rövid vékony accent-csík, MELLETTE az élő visszaszámláló
+    /// ("27:54", másodpercenként tickel, reload nélkül). Óraszám sehol.
     private func progressLine(tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        HStack(spacing: 6) {
             ProgressView(value: nowCalc.progress)
                 .tint(tint)
+                .frame(width: 100)
             countdownText
                 .font(.caption2.weight(.bold).monospacedDigit())
                 .foregroundStyle(.secondary)
