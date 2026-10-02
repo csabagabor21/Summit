@@ -10,5 +10,6 @@ struct SummitWidgetsBundle: WidgetBundle {
         // Legacy fallback nem kell regisztrálni külön — az ActivityConfiguration
         // az iOS verzió alapján választ.
         TimetableWidget()
+        SchoolDayWidget()
     }
 }

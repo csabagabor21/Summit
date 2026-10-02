@@ -11,6 +11,8 @@ enum TimetableWidgetStore {
     static let snapshotKey = "widget.timetable.snapshot.v1"
     /// WidgetKit kind — mindkét target innen olvassa (nincs shared framework).
     static let kind = "TimetableWidget"
+    /// A "Mai nap" lock screen widget kind-ja.
+    static let dayKind = "SchoolDayWidget"
 
     struct Lesson: Codable, Hashable {
         var id: String
@@ -100,17 +102,21 @@ enum TimetableWidgetStore {
         var previewActive: Bool = false
         var previewMinutes: Double = 540
         var nextNote: NextDayNote? = nil
+        /// A mai nap rendkívüliségei (ugyanaz a típus, day = ma) — a
+        /// "Mai nap" widgetnek: esemény > dolgozat > óraváltozás sorrend
+        /// helyett itt esemény-első a felállás (lásd dayNote).
+        var todayInfo: NextDayNote? = nil
 
         // Régi snapshotokban még nincs preview/note-kulcs —
         // decodeIfPresent, különben egy frissítés után az első
         // appnyitásig üres lenne a widget.
         enum CodingKeys: String, CodingKey {
-            case savedAt, accentHex, lessons, previewActive, previewMinutes, nextNote
+            case savedAt, accentHex, lessons, previewActive, previewMinutes, nextNote, todayInfo
         }
-        init(savedAt: Date, accentHex: Int, lessons: [Lesson], previewActive: Bool = false, previewMinutes: Double = 540, nextNote: NextDayNote? = nil) {
+        init(savedAt: Date, accentHex: Int, lessons: [Lesson], previewActive: Bool = false, previewMinutes: Double = 540, nextNote: NextDayNote? = nil, todayInfo: NextDayNote? = nil) {
             self.savedAt = savedAt; self.accentHex = accentHex; self.lessons = lessons
             self.previewActive = previewActive; self.previewMinutes = previewMinutes
-            self.nextNote = nextNote
+            self.nextNote = nextNote; self.todayInfo = todayInfo
         }
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -120,6 +126,7 @@ enum TimetableWidgetStore {
             previewActive = try c.decodeIfPresent(Bool.self, forKey: .previewActive) ?? false
             previewMinutes = try c.decodeIfPresent(Double.self, forKey: .previewMinutes) ?? 540
             nextNote = try c.decodeIfPresent(NextDayNote.self, forKey: .nextNote)
+            todayInfo = try c.decodeIfPresent(NextDayNote.self, forKey: .todayInfo)
         }
     }
 

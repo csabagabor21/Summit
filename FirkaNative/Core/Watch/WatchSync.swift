@@ -59,7 +59,8 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
             savedAt: Date(),
             accentHex: TimetableWidgetPublish.currentAccentHex(),
             lessons: TimetableWidgetPublish.fromLessons(lessons, homeworks: homeworks, exams: exams),
-            nextNote: TimetableWidgetPublish.nextDayNote(lessons: lessons, exams: exams, events: events, eventsVisible: eventsVisible)
+            nextNote: TimetableWidgetPublish.nextDayNote(lessons: lessons, exams: exams, events: events, eventsVisible: eventsVisible),
+            todayInfo: TimetableWidgetPublish.todayNote(lessons: lessons, exams: exams, events: events, eventsVisible: eventsVisible)
         )
         pushSnapshot(snapshot)
     }

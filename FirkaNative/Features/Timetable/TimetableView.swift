@@ -550,6 +550,9 @@ struct TimetableView: View {
             .onReceive(NotificationCenter.default.publisher(for: SchoolEventsStore.changedNotification)) { _ in
                 schoolEvents = SchoolEventsStore.load()
                 WatchSyncSender.pushSchoolEvents(events: schoolEvents, visible: schoolEventsVisible)
+                // A "Mai nap" widget és a jegyzetkártya eseményfüggő —
+                // import/kapcsoló után újrapublikálunk (hálózat nélkül).
+                publishWidgetSnapshot()
             }
             .id(exemptedTick)
             .onReceive(NotificationCenter.default.publisher(for: switchToTimetable)) { notif in

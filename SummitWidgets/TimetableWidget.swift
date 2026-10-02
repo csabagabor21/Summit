@@ -778,3 +778,302 @@ private extension Color {
         dayDate: Date(), accentHex: 0x4A90E2, hasSnapshot: true, note: nil
     )
 }
+
+// MARK: - Mai nap widget — általános napi infó az aktuális óra helyett
+// Lock screenre: ha van mai iskolai esemény, azt mutatja; különben a mai
+// dolgozatokat; különben a hátralévő órákat ("Még 3 órád van"). Óra alatt
+// sem az aktuális órát írja — ez a Most-kártya kistestvére, nem ikre.
+// Adat: ugyanaz a snapshot (mai lecke-lista + todayInfo + nextNote).
+struct SchoolDayWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: TimetableWidgetStore.dayKind, provider: SchoolDayProvider()) { entry in
+            SchoolDayView(entry: entry)
+        }
+        .configurationDisplayName("Mai nap")
+        .description("Mai események, dolgozatok és hátralévő órák — nem az aktuális óra.")
+        .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
+    }
+}
+
+struct SchoolDayEntry: TimelineEntry {
+    var date: Date
+    var effectiveNow: Date
+    var todayLessons: [TimetableWidgetStore.Lesson]
+    /// Mai rendkívüliségek (esemény-első sorrendben).
+    var info: TimetableWidgetStore.NextDayNote?
+    /// Tartalék nap végére (mint a Most-widget jegyzete).
+    var next: TimetableWidgetStore.NextDayNote?
+    var accentHex: Int
+    var hasSnapshot: Bool
+}
+
+struct SchoolDayProvider: TimelineProvider {
+    func placeholder(in context: Context) -> SchoolDayEntry {
+        let now = Date()
+        return SchoolDayEntry(
+            date: now, effectiveNow: now, todayLessons: TimetableWidgetProvider.sampleLessons(),
+            info: nil, next: nil, accentHex: 0x4A90E2, hasSnapshot: false
+        )
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (SchoolDayEntry) -> Void) {
+        completion(makeEntry(at: Date(), preview: context.isPreview))
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<SchoolDayEntry>) -> Void) {
+        let now = Date()
+        guard let snap = TimetableWidgetStore.load(), !snap.lessons.isEmpty, !snap.previewActive else {
+            let entry = makeEntry(at: now, preview: false)
+            let refresh = TimetableWidgetLogic.nextRefresh(now: now, effectiveNow: entry.effectiveNow, lessons: entry.todayLessons)
+            completion(Timeline(entries: [entry], policy: .after(refresh)))
+            return
+        }
+        let dates = TimetableWidgetLogic.timelineMoments(now: now, lessons: snap.lessons)
+        guard !dates.isEmpty else {
+            let entry = makeEntry(at: now, preview: false)
+            let refresh = TimetableWidgetLogic.nextRefresh(now: now, effectiveNow: entry.effectiveNow, lessons: snap.lessons)
+            completion(Timeline(entries: [entry], policy: .after(refresh)))
+            return
+        }
+        completion(Timeline(entries: dates.map { makeEntry(at: $0, preview: false) }, policy: .atEnd))
+    }
+
+    private func makeEntry(at date: Date, preview: Bool) -> SchoolDayEntry {
+        let now = date
+        guard let snap = TimetableWidgetStore.load(), !snap.lessons.isEmpty else {
+            return SchoolDayEntry(
+                date: now, effectiveNow: now,
+                todayLessons: preview ? TimetableWidgetProvider.sampleLessons() : [],
+                info: nil, next: nil, accentHex: 0x4A90E2, hasSnapshot: false
+            )
+        }
+        let effective: Date
+        if snap.previewActive {
+            let base = Calendar.current.startOfDay(for: now)
+            effective = base.addingTimeInterval(snap.previewMinutes * 60)
+        } else {
+            effective = now
+        }
+        let cal = Calendar.current
+        let today = snap.lessons
+            .filter { cal.isDate($0.start, inSameDayAs: effective) }
+            .filter { !$0.subject.trimmingCharacters(in: .whitespaces).isEmpty }
+            .sorted { $0.start < $1.start }
+        return SchoolDayEntry(
+            date: now, effectiveNow: effective, todayLessons: today,
+            info: snap.todayInfo, next: snap.nextNote,
+            accentHex: snap.accentHex == 0 ? 0x4A90E2 : snap.accentHex,
+            hasSnapshot: true
+        )
+    }
+}
+
+private struct SchoolDayView: View {
+    let entry: SchoolDayEntry
+    @Environment(\.widgetFamily) private var family
+
+    private var now: Date { entry.effectiveNow }
+    private var remaining: [TimetableWidgetStore.Lesson] {
+        entry.todayLessons.filter { $0.end > now }.sorted { $0.start < $1.start }
+    }
+    private var current: TimetableWidgetStore.Lesson? {
+        remaining.first(where: { $0.start <= now && $0.end >= now })
+    }
+    private var next: TimetableWidgetStore.Lesson? {
+        entry.todayLessons.sorted { $0.start < $1.start }.first(where: { $0.start > now })
+    }
+
+    /// Mai infó, ha tényleg mára szól (publikálás óta nem fordult a nap).
+    private var validInfo: TimetableWidgetStore.NextDayNote? {
+        guard let info = entry.info, info.totalCount > 0 else { return nil }
+        let cal = Calendar.current
+        guard cal.isDate(info.day, inSameDayAs: now) else { return nil }
+        return info
+    }
+
+    /// Tartalék-jegyzet nap végére (mint a Most-widgetnél).
+    private var validNext: TimetableWidgetStore.NextDayNote? {
+        guard let note = entry.next, note.totalCount > 0 else { return nil }
+        let cal = Calendar.current
+        guard cal.startOfDay(for: note.day) >= cal.startOfDay(for: now) else { return nil }
+        return note
+    }
+
+    var body: some View {
+        switch family {
+        case .accessoryCircular:
+            circularView
+        case .accessoryInline:
+            Text(inlineText).lineLimit(1)
+        default:
+            rectangularView
+        }
+    }
+
+    // MARK: Téglalap — esemény > dolgozat > hátralévő órák
+
+    private var rectangularView: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Spacer(minLength: 0)
+            if !entry.hasSnapshot && entry.todayLessons.isEmpty && validInfo == nil {
+                Text("Nyisd meg az appot")
+                    .font(.headline.weight(.semibold)).lineLimit(1)
+                Text("A napi infó az app megnyitása után érkezik.")
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            } else if let info = validInfo {
+                dayCard(info, dayName: "MA")
+            } else if !remaining.isEmpty {
+                statusHeader("MA")
+                Text(remainingText)
+                    .font(.headline.weight(.bold)).lineLimit(1)
+                Text(subLine)
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            } else if let note = validNext {
+                dayCard(note, dayName: dayLabel(note.day).uppercased())
+            } else {
+                Label("Mára vége", systemImage: "moon.zzz.fill")
+                    .font(.headline.weight(.semibold)).lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .containerBackground(for: .widget) {
+            LinearGradient(
+                colors: [.white.opacity(0.16), .white.opacity(0.03)],
+                startPoint: .top, endPoint: .bottom
+            )
+        }
+    }
+
+    /// 1 tétel = teljes kártya, több = summary ("2 dolgozat").
+    @ViewBuilder
+    private func dayCard(_ n: TimetableWidgetStore.NextDayNote, dayName: String) -> some View {
+        if n.totalCount == 1, let item = n.items.first {
+            HStack(spacing: 4) {
+                Image(systemName: noteIcon(item.kind))
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(item.kind == "cancelled" ? .red : .orange)
+                Text(dayName)
+                    .font(.caption2.weight(.bold)).tracking(0.8)
+                    .foregroundStyle(.secondary).lineLimit(1)
+            }
+            Text(item.title)
+                .font(.headline.weight(.bold)).lineLimit(1)
+                .truncationMode(.tail)
+            if !item.subtitle.isEmpty {
+                Text(item.subtitle)
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            }
+        } else {
+            HStack(spacing: 4) {
+                Image(systemName: "bell.badge.fill")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.orange)
+                Text(dayName)
+                    .font(.caption2.weight(.bold)).tracking(0.8)
+                    .foregroundStyle(.secondary).lineLimit(1)
+            }
+            Text(daySummary(n))
+                .font(.headline.weight(.bold)).lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+    }
+
+    private var remainingText: String {
+        let c = remaining.count
+        return c == 1 ? "Még 1 órád van" : "Még \(c) órád van"
+    }
+
+    private var subLine: String {
+        if let cur = current {
+            return "Most: \(cur.subject)"
+        }
+        if let nxt = next {
+            return "Kövi: \(nxt.subject) • \(shortTime(nxt.start))"
+        }
+        return ""
+    }
+
+    private func statusHeader(_ s: String) -> some View {
+        Text(s)
+            .font(.caption2.weight(.bold)).tracking(0.8)
+            .foregroundStyle(.secondary).lineLimit(1)
+    }
+
+    // MARK: Kör + egysoros
+
+    @ViewBuilder
+    private var circularView: some View {
+        if validInfo != nil {
+            Image(systemName: "calendar.badge.exclamationmark")
+        } else if !remaining.isEmpty {
+            Text("\(remaining.count)")
+                .font(.title3.weight(.bold).monospacedDigit())
+        } else {
+            Image(systemName: "moon.zzz.fill")
+        }
+    }
+
+    private var inlineText: String {
+        guard entry.hasSnapshot || validInfo != nil else { return "Nyisd meg az appot" }
+        if let info = validInfo {
+            if info.totalCount == 1, let item = info.items.first {
+                return "Ma: \(item.title)"
+            }
+            return "Ma: \(daySummary(info))"
+        }
+        if !remaining.isEmpty { return remainingText }
+        if let note = validNext {
+            if note.totalCount == 1, let item = note.items.first {
+                return "\(dayLabel(note.day)): \(item.title)"
+            }
+            return "\(dayLabel(note.day)): \(daySummary(note))"
+        }
+        return "Mára vége"
+    }
+
+    // MARK: Segédek (önállóak — a Most-nézet privátjai nem látszanak ide)
+
+    private func noteIcon(_ kind: String) -> String {
+        switch kind {
+        case "exam": return "doc.text.fill"
+        case "cancelled": return "xmark.circle.fill"
+        case "substituted": return "person.2.fill"
+        case "event": return "ticket.fill"
+        default: return "bell.badge.fill"
+        }
+    }
+
+    private func daySummary(_ n: TimetableWidgetStore.NextDayNote) -> String {
+        var parts: [String] = []
+        if n.examCount > 0 { parts.append("\(n.examCount) dolgozat") }
+        if n.cancelledCount > 0 { parts.append("\(n.cancelledCount) elmaradó óra") }
+        if n.substitutedCount > 0 { parts.append("\(n.substitutedCount) helyettesítés") }
+        if n.eventCount > 0 { parts.append("\(n.eventCount) esemény") }
+        return parts.joined(separator: " • ")
+    }
+
+    private func dayLabel(_ d: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInTomorrow(d) { return "Holnap" }
+        let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "EEEE"
+        return f.string(from: d).capitalized
+    }
+
+    private func shortTime(_ d: Date) -> String {
+        d.formatted(date: .omitted, time: .shortened)
+    }
+}
+
+#Preview(as: .accessoryRectangular) {
+    SchoolDayWidget()
+} timeline: {
+    SchoolDayEntry(
+        date: Date(), effectiveNow: Date(),
+        todayLessons: TimetableWidgetProvider.sampleLessons(),
+        info: TimetableWidgetStore.NextDayNote(
+            day: Date(), items: [TimetableWidgetStore.NextDayItem(kind: "event", title: "Kirándulás", subtitle: "Egész nap • Városliget")],
+            examCount: 0, cancelledCount: 0, substitutedCount: 0, eventCount: 1
+        ),
+        next: nil, accentHex: 0x4A90E2, hasSnapshot: true
+    )
+}
