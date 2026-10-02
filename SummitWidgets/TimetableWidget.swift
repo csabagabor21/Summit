@@ -12,7 +12,7 @@ struct TimetableWidget: Widget {
         }
         .configurationDisplayName("Órarend")
         .description("A mai / következő tanítási nap órái az app órarend-nézetéből.")
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .accessoryRectangular])
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }
 
@@ -114,6 +114,97 @@ struct TimetableWidgetProvider: TimelineProvider {
     }
 }
 
+// MARK: - MOST-számítás — az órai WatchNowCalc iPhone-portja
+// Ugyanazok az állapotok és szövegek: tartó óra + progress + "X perc van
+// hátra", szünet + "X perc múlva kezdődik", reggel az első, nap végén
+// "Ma nincs több órád". Plusz egy iPhone-saját állapot: a provider olykor
+// jövőbeli napot választ (holnap listája a home screenen) — ilyenkor nincs
+// élő fázis, a csík mellett a nap + időpont áll ("Holnap • 8:00").
+// Feladat-részletek (dolgozat/házi címe) az iPhone-snapshotban nincsenek,
+// csak a hasAssignment-flag — azt az attachedLine használja.
+private struct PhoneNowCalc {
+    enum State { case empty, morning, upcoming, duringLesson, duringBreak }
+    var state: State = .empty
+    var current: TimetableWidgetStore.Lesson?
+    var next: TimetableWidgetStore.Lesson?
+    var previous: TimetableWidgetStore.Lesson?
+    var progress: Double = 0
+    var remainingText: String = ""
+    /// Az aktuális fázis fix intervalluma az ÉLŐ visszaszámlálóhoz.
+    /// Nil = nincs mutatnivaló fázis (pl. jövőbeli nap).
+    var phase: ClosedRange<Date>? = nil
+
+    private static func formatRemaining(_ minutes: Int, past: Bool) -> String {
+        if minutes <= 0 { return past ? "Vége" : "Kezdődik" }
+        return past ? "\(minutes) perc van hátra" : "\(minutes) perc múlva kezdődik"
+    }
+
+    init(lessons: [TimetableWidgetStore.Lesson], now: Date, calendar: Calendar = .current) {
+        let filtered = lessons
+            .filter { !$0.subject.trimmingCharacters(in: .whitespaces).isEmpty }
+            .sorted { $0.start < $1.start }
+        guard !filtered.isEmpty else { return }
+        if let cur = filtered.first(where: { $0.start <= now && $0.end >= now }) {
+            state = .duringLesson; current = cur
+            let total = cur.end.timeIntervalSince(cur.start)
+            progress = total > 0 ? min(1, max(0, now.timeIntervalSince(cur.start) / total)) : 0
+            remainingText = Self.formatRemaining(Int(ceil(cur.end.timeIntervalSince(now) / 60)), past: true)
+            phase = cur.start...cur.end
+            next = filtered.first(where: { $0.start > now })
+            previous = filtered.last(where: { $0.end < now })
+        } else if let nxt = filtered.first(where: { $0.start > now }) {
+            let prev = filtered.last(where: { $0.end < now })
+            if let p = prev, nxt.start.timeIntervalSince(p.end) > 0 {
+                state = .duringBreak
+                let total = nxt.start.timeIntervalSince(p.end)
+                progress = total > 0 ? min(1, max(0, now.timeIntervalSince(p.end) / total)) : 0
+                remainingText = Self.formatRemaining(Int(ceil(nxt.start.timeIntervalSince(now) / 60)), past: false)
+                if p.end <= nxt.start { phase = p.end...nxt.start }
+            } else if now < filtered.first!.start {
+                let first = filtered.first!
+                if calendar.isDate(first.start, inSameDayAs: now) {
+                    state = .morning
+                    let morningStart = calendar.date(bySettingHour: 7, minute: 0, second: 0, of: now) ?? now
+                    if morningStart <= first.start { phase = morningStart...first.start }
+                    let total = first.start.timeIntervalSince(morningStart)
+                    if total > 0, now >= morningStart {
+                        progress = min(1, max(0, now.timeIntervalSince(morningStart) / total))
+                    }
+                    let rem = Int(ceil(first.start.timeIntervalSince(now) / 60))
+                    if rem > 180 {
+                        state = .empty
+                        remainingText = ""
+                    } else {
+                        remainingText = Self.formatRemaining(rem, past: false)
+                    }
+                } else {
+                    // Jövőbeli nap (pl. holnapi lista): statikus nap + időpont.
+                    state = .upcoming
+                    let label: String
+                    if calendar.isDateInTomorrow(first.start) {
+                        label = "Holnap"
+                    } else {
+                        let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "EEEE"
+                        label = f.string(from: first.start).capitalized
+                    }
+                    remainingText = "\(label) • \(first.start.formatted(date: .omitted, time: .shortened))"
+                }
+            } else {
+                state = .duringBreak
+                if let p = prev {
+                    let total = nxt.start.timeIntervalSince(p.end)
+                    progress = total > 0 ? min(1, max(0, now.timeIntervalSince(p.end) / total)) : 0
+                    remainingText = Self.formatRemaining(Int(ceil(nxt.start.timeIntervalSince(now) / 60)), past: false)
+                    if p.end <= nxt.start { phase = p.end...nxt.start }
+                }
+            }
+            next = nxt; previous = prev
+        } else {
+            state = .empty
+        }
+    }
+}
+
 // MARK: - Nézet
 
 // Natív átlátszó liquid glass: nincs saját háttér, a rendszer adja az
@@ -125,6 +216,9 @@ private struct TimetableWidgetView: View {
 
     private var accent: Color { Color(widgetHex: UInt(entry.accentHex)) }
     private var now: Date { entry.effectiveNow }
+    private var nowCalc: PhoneNowCalc {
+        PhoneNowCalc(lessons: entry.dayLessons, now: entry.effectiveNow)
+    }
 
     private var currentID: String? {
         entry.dayLessons.first(where: { $0.start <= now && $0.end >= now })?.id
@@ -135,8 +229,12 @@ private struct TimetableWidgetView: View {
 
     var body: some View {
         switch family {
+        case .accessoryCircular:
+            circularView
         case .accessoryRectangular:
             accessoryView
+        case .accessoryInline:
+            inlineView
         case .systemSmall:
             smallView
         case .systemLarge:
@@ -146,27 +244,230 @@ private struct TimetableWidgetView: View {
         }
     }
 
-    // MARK: Lock screen — következő óra egy sorban
+    // MARK: Lock screen — az órai Smart Stack "Most" tükre, egy az egyben
+    // Ugyanaz a layout, mint a WatchNowWidget rectangularView-ja: cím-sor
+    // (tárgy • terem) + számos accent-csík élő visszaszámlálóval + következő
+    // óra sora + számonkérés-jelzés. Különbség: az iPhone-snapshot csak egy
+    // hasAssignment-flaget hordoz (dolgozat/házi részletei nélkül), ezért a
+    // kártya alján összevont "Számonkérés" sor áll a két részletes sor helyett.
     private var accessoryView: some View {
-        Group {
-            if let cur = entry.dayLessons.first(where: { $0.id == currentID }) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("MOST • \(cur.index). ÓRA")
-                        .font(.caption2.weight(.bold))
-                    Text("\(cur.subject) • \(cur.room)")
-                        .font(.headline.weight(.semibold)).lineLimit(1)
-                }
-            } else if let nxt = nextLesson {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("KÖVETKEZŐ • \(nxt.start.formatted(date: .omitted, time: .shortened))")
-                        .font(.caption2.weight(.bold))
-                    Text("\(nxt.subject) • \(nxt.room)")
-                        .font(.headline.weight(.semibold)).lineLimit(1)
-                }
+        VStack(alignment: .leading, spacing: 3) {
+            Spacer(minLength: 0)
+            if !entry.hasSnapshot && entry.dayLessons.isEmpty {
+                Text("Nyisd meg az appot")
+                    .font(.headline.weight(.semibold)).lineLimit(1)
+                Text("Az órarend az app megnyitása után érkezik.")
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             } else {
-                Text(dayTitle).font(.headline.weight(.semibold)).lineLimit(1)
+                switch nowCalc.state {
+                case .empty:
+                    Label("Ma nincs több órád", systemImage: "moon.zzz.fill")
+                        .font(.headline.weight(.semibold)).lineLimit(1)
+                case .morning, .upcoming:
+                    if let n = nowCalc.next {
+                        titleRow(n)
+                        progressLine(tint: statusTint(n), index: n.index)
+                        nextLine(n)
+                    }
+                case .duringLesson:
+                    if let c = nowCalc.current {
+                        titleRow(c)
+                        progressLine(tint: statusTint(c), index: c.index)
+                        if let n = nowCalc.next {
+                            nextLine(n)
+                        }
+                    }
+                case .duringBreak:
+                    if let n = nowCalc.next {
+                        titleRow(n)
+                        progressLine(tint: statusTint(n), index: n.index)
+                        nextLine(n)
+                    }
+                }
+                attachedLine
             }
+            Spacer(minLength: 0)
         }
+        .containerBackground(for: .widget) {
+            LinearGradient(
+                colors: [.white.opacity(0.16), .white.opacity(0.03)],
+                startPoint: .top, endPoint: .bottom
+            )
+        }
+    }
+
+    /// Cím-sor: tárgy + kis pötty + terem (mint az órán).
+    private func titleRow(_ l: TimetableWidgetStore.Lesson) -> some View {
+        HStack(spacing: 4) {
+            Text(l.subject)
+                .font(.headline.weight(.bold)).lineLimit(1)
+                .truncationMode(.tail)
+            Text("•").foregroundStyle(.tertiary).font(.caption2)
+            Text(l.room.isEmpty ? l.teacher : l.room)
+                .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+        }
+    }
+
+    /// Accent-csík + RAJTA az óraszám + mellette az élő visszaszámláló
+    /// ("35:00", másodpercenként tickel, reload nélkül) — mint az órán.
+    private func progressLine(tint: Color, index: String) -> some View {
+        HStack(spacing: 6) {
+            ProgressView(value: nowCalc.progress)
+                .tint(tint)
+                .overlay(alignment: .leading) {
+                    if !index.isEmpty {
+                        Text("\(index).")
+                            .font(.system(size: 11, weight: .bold).monospacedDigit())
+                            .foregroundStyle(.white)
+                            .padding(.leading, 6)
+                    }
+                }
+            countdownText
+                .font(.caption2.weight(.bold).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+    }
+
+    /// Következő óra egy sorban: nyíl + terem + pötty + tárgy (mint az órán).
+    private func nextLine(_ n: TimetableWidgetStore.Lesson) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "arrow.right.circle.fill")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.secondary)
+                .offset(x: -2)
+            let room = n.room.isEmpty ? n.teacher : n.room
+            if !room.isEmpty {
+                Text(room)
+                    .font(.caption2.weight(.bold).monospacedDigit())
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                Text("•").foregroundStyle(.tertiary).font(.caption2)
+            }
+            Text(n.subject)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+    }
+
+    /// Számonkérés-jelzés a kártya alján, az órai dolgozat/házi sorok helyén.
+    @ViewBuilder
+    private var attachedLine: some View {
+        if let anchor = nowCalc.current ?? nowCalc.next, anchor.hasAssignment {
+            Label("Számonkérés ehhez az órához", systemImage: "exclamationmark.triangle.fill")
+                .font(.caption2.weight(.semibold)).foregroundStyle(.orange).lineLimit(1)
+        }
+    }
+
+    // MARK: Kör — progress-gyűrű + hátralévő idő (mint az órán)
+    @ViewBuilder
+    private var circularView: some View {
+        switch nowCalc.state {
+        case .duringLesson:
+            if let c = nowCalc.current {
+                Gauge(value: nowCalc.progress) {
+                    Text(c.index).font(.caption2.weight(.bold).monospacedDigit())
+                } currentValueLabel: {
+                    countdownText.font(.caption2.weight(.bold).monospacedDigit())
+                }
+                .gaugeStyle(.accessoryCircular)
+                .tint(statusColor(c))
+            }
+        case .duringBreak, .morning, .upcoming:
+            if let n = nowCalc.next {
+                Gauge(value: nowCalc.progress) {
+                    Text(n.index).font(.caption2.weight(.bold).monospacedDigit())
+                } currentValueLabel: {
+                    countdownText.font(.caption2.weight(.bold).monospacedDigit())
+                }
+                .gaugeStyle(.accessoryCircular)
+                .tint(statusColor(n))
+            }
+        case .empty:
+            Image(systemName: "moon.zzz.fill")
+        }
+    }
+
+    // MARK: Egysoros — a zárképernyő óra fölötti sávjába (mint az órán)
+    private var inlineView: some View {
+        inlineBody.lineLimit(1)
+    }
+
+    @ViewBuilder
+    private var inlineBody: some View {
+        if let phase = nowCalc.phase, !isPreviewShift,
+           entry.hasSnapshot, !entry.dayLessons.isEmpty,
+           nowCalc.state == .duringLesson, let c = nowCalc.current {
+            Text("Most: \(c.subject) • ") + Text(timerInterval: phase, countsDown: true)
+        } else {
+            Text(inlineText)
+        }
+    }
+
+    private var inlineText: String {
+        guard entry.hasSnapshot, !entry.dayLessons.isEmpty else { return "Most: nyisd meg az appot" }
+        switch nowCalc.state {
+        case .empty:
+            return "Ma nincs több órád"
+        case .morning:
+            if let n = nowCalc.next { return "Első: \(n.subject) • \(shortTime(n.start))" }
+            return "Ma nincs több órád"
+        case .upcoming:
+            if let n = nowCalc.next { return "\(dayLabel(n.start)): \(n.subject) • \(shortTime(n.start))" }
+            return "Ma nincs több órád"
+        case .duringLesson:
+            if let c = nowCalc.current { return "Most: \(c.subject) • \(nowCalc.remainingText)" }
+            return "Ma nincs több órád"
+        case .duringBreak:
+            if let n = nowCalc.next { return "Szünet • \(n.subject) \(shortTime(n.start))" }
+            return "Ma nincs több órád"
+        }
+    }
+
+    /// Élő visszaszámláló ("35:00"): a rendszer magától újrarajzolja,
+    /// timeline-reload nélkül. Fázis nélkül a statikus szöveg marad.
+    @ViewBuilder
+    private var countdownText: some View {
+        if let phase = nowCalc.phase, !isPreviewShift {
+            Text(timerInterval: phase, countsDown: true)
+        } else {
+            Text(shortRemaining)
+        }
+    }
+
+    private var shortRemaining: String {
+        // "42 perc van hátra" → "42 p"; dátumos ("Holnap • 8:00") marad.
+        let parts = nowCalc.remainingText.split(separator: " ")
+        if let first = parts.first, Int(first) != nil { return "\(first) p" }
+        return nowCalc.remainingText
+    }
+
+    /// Dev idő-csúszka aktív? Ilyenkor az élő timer rossz értéket mutatna,
+    /// ezért statikus marad.
+    private var isPreviewShift: Bool {
+        abs(entry.effectiveNow.timeIntervalSince(entry.date)) > 60
+    }
+
+    /// "Holnap" / napnév a jövőbeli naphoz ("Hétfő"), ma nincs használva.
+    private func dayLabel(_ d: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInTomorrow(d) { return "Holnap" }
+        let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "EEEE"
+        return f.string(from: d).capitalized
+    }
+
+    private func shortTime(_ d: Date) -> String {
+        d.formatted(date: .omitted, time: .shortened)
+    }
+
+    private func statusTint(_ l: TimetableWidgetStore.Lesson) -> Color {
+        if l.isCancelled { return .red }
+        if l.isSubstituted { return .orange }
+        return accent
     }
 
     // MARK: Small — csak a lényeg: státusz színnel, tárgy, idő

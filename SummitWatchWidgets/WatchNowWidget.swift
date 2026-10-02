@@ -448,17 +448,33 @@ private struct WatchNowView: View {
         }
     }
 
+    // MARK: Sarok-komplikáció — tantárgy + óraszám + élő visszaszámláló
+    // A sima "15 p" helyett kontextus is van: "MAT 2. • 12:34" (óra alatt),
+    // "→ ANG 04:12" (szünetben/reggel, nyíl = következőre vár),
+    // "VÉGE" nap végén. Az élő timer magától tickel, reload nélkül.
     private var cornerView: some View {
-        Group {
-            if let phase = calc.phase, !isPreviewShift {
-                Text(timerInterval: phase, countsDown: true)
-            } else {
-                Text(cornerText)
+        cornerBody
+            .font(.caption2.weight(.bold).monospacedDigit())
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+    }
+
+    @ViewBuilder
+    private var cornerBody: some View {
+        if !entry.hasSnapshot || entry.lessons.isEmpty {
+            Text("SUMMIT")
+        } else if let phase = calc.phase, !isPreviewShift {
+            switch calc.state {
+            case .duringLesson:
+                Text("\(cornerTitle) • ") + Text(timerInterval: phase, countsDown: true)
+            case .duringBreak, .morning:
+                Text("→ \(cornerAbbr) ") + Text(timerInterval: phase, countsDown: true)
+            case .empty:
+                Text("VÉGE")
             }
+        } else {
+            Text(cornerText)
         }
-        .font(.caption2.weight(.bold).monospacedDigit())
-        .lineLimit(1)
-        .minimumScaleFactor(0.7)
     }
 
     private var inlineText: String {
@@ -479,12 +495,31 @@ private struct WatchNowView: View {
     }
 
     private var cornerText: String {
+        guard entry.hasSnapshot, !entry.lessons.isEmpty else { return "SUMMIT" }
         switch calc.state {
-        case .duringLesson, .duringBreak, .morning:
-            return shortRemaining
+        case .duringLesson:
+            return "\(cornerTitle) • \(shortRemaining)"
+        case .duringBreak, .morning:
+            return "→ \(cornerAbbr) \(shortRemaining)"
         case .empty:
-            return "Vége"
+            return "VÉGE"
         }
+    }
+
+    /// Sarokba való 3 betűs tantárgy-rövidítés: "Matematika" → "MAT",
+    /// "Angol nyelv" → "ANG". A tartó / következő óra tárgyából.
+    private var cornerAbbr: String {
+        let subject = (calc.current ?? calc.next)?.subject ?? ""
+        let first = subject.split(separator: " ").first.map(String.init) ?? ""
+        let letters = first.filter { $0.isLetter }
+        guard !letters.isEmpty else { return "ÓRA" }
+        return String(letters.prefix(3)).uppercased()
+    }
+
+    /// "MAT 2." vagy óraszám nélkül csak "MAT" — dupla szóköz nélkül.
+    private var cornerTitle: String {
+        let idx = (calc.current ?? calc.next)?.index ?? ""
+        return idx.isEmpty ? cornerAbbr : "\(cornerAbbr) \(idx)."
     }
 
     private var shortRemaining: String {
