@@ -1,3 +1,4 @@
+import QuartzCore
 import SwiftUI
 import UIKit
 
@@ -170,80 +171,100 @@ struct GradeCelebrationView: View {
     }
 }
 
-// MARK: - Könnyű konfetti (függőség nélkül)
-private struct ConfettiView: View {
+// MARK: - Natív konfetti (Apple CAEmitterLayer, függőség nélkül)
+// - A rendszer QuartzCore részecskemotorja rajzolja (GPU), nem 48 kézzel
+//   animált SwiftUI-nézet — iOS-en és Mac Catalysten is ugyanaz.
+// - Felülről, teljes szélességben záporozik ~1.8 mp-ig, aztán a szemek
+//   kihullanak (lifetime) — nincs kézi eltüntetés.
+private struct ConfettiView: UIViewRepresentable {
     let tint: Color
-    @State private var fall = false
-    @State private var gone = false
-    private struct Piece: Identifiable {
-        let id = UUID()
-        let x: Double // 0...1 relatív
-        let delay: Double
-        let duration: Double
-        let w: Double
-        let h: Double
-        let colorIdx: Int
-        let round: Bool
+    @Environment(\.displayScale) private var displayScale
+
+    func makeUIView(context: Context) -> NativeConfettiView {
+        let view = NativeConfettiView()
+        view.start(tint: UIColor(tint), scale: displayScale)
+        return view
     }
-    // Visszafogott mennyiség (48): ünnepi, de nem zúdul az arcodba.
-    private var pieces: [Piece] {
-        (0..<48).map { i in
-            let r1 = Double((i * 37 + 11) % 100) / 100.0
-            let r2 = Double((i * 53 + 29) % 100) / 100.0
-            let r3 = Double((i * 71 + 47) % 100) / 100.0
-            return Piece(
-                x: r1,
-                delay: 0.15 + r2 * 1.1,
-                duration: 2.2 + r3 * 1.2,
-                w: 5 + r2 * 6,
-                h: 8 + r3 * 8,
-                colorIdx: i % 5,
-                round: i % 3 == 0
-            )
-        }
+
+    func updateUIView(_ uiView: NativeConfettiView, context: Context) {}
+}
+
+private final class NativeConfettiView: UIView {
+    private let emitter = CAEmitterLayer()
+    private var started = false
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
     }
-    private func color(_ idx: Int) -> Color {
-        switch idx {
-        case 0: return tint
-        case 1: return .white
-        case 2: return .yellow
-        case 3: return tint.opacity(0.65)
-        default: return .orange
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        emitter.frame = bounds
+        emitter.emitterPosition = CGPoint(x: bounds.midX, y: -10)
+        emitter.emitterSize = CGSize(width: bounds.width, height: 1)
+    }
+
+    func start(tint: UIColor, scale: CGFloat) {
+        guard !started else { return }
+        started = true
+        emitter.emitterShape = .line
+        emitter.emitterMode = .surface
+        emitter.birthRate = 1
+        emitter.emitterCells = makeCells(tint: tint, scale: scale)
+        layer.addSublayer(emitter)
+        setNeedsLayout()
+        layoutIfNeeded()
+        // Zápor, aztán elapad: az új szemek születése leáll, a meglévők
+        // a lifetime végére kihullanak és elhalványulnak.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { [weak self] in
+            self?.emitter.birthRate = 0
         }
     }
 
-    var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                ForEach(pieces) { p in
-                    Group {
-                        if p.round {
-                            Circle().fill(color(p.colorIdx))
-                        } else {
-                            RoundedRectangle(cornerRadius: 2.5).fill(color(p.colorIdx))
-                        }
-                    }
-                    .frame(width: p.w, height: p.h)
-                    .position(
-                        x: p.x * geo.size.width,
-                        y: fall ? geo.size.height + 40 : -40
-                    )
-                    .rotationEffect(.degrees(fall ? 360 : 0))
-                    .animation(
-                        .linear(duration: p.duration).delay(p.delay),
-                        value: fall
-                    )
-                }
-            }
-            .opacity(gone ? 0 : 1)
-            .onAppear { fall = true }
-            .task {
-                // A konfetti végighullik (~4.5s), csak utána halványul el.
-                try? await Task.sleep(nanoseconds: 4_500_000_000)
-                if Task.isCancelled { return }
-                withAnimation(.easeOut(duration: 0.8)) { gone = true }
-            }
+    private func makeCells(tint: UIColor, scale: CGFloat) -> [CAEmitterCell] {
+        let palette: [UIColor] = [
+            tint,
+            .white,
+            .systemYellow,
+            .systemOrange,
+            tint.withAlphaComponent(0.65),
+        ]
+        let rect = particleImage(size: CGSize(width: 9, height: 13), radius: 2.5, scale: scale)
+        let dot = particleImage(size: CGSize(width: 9, height: 9), radius: 4.5, scale: scale)
+        return palette.enumerated().map { i, color in
+            let cell = CAEmitterCell()
+            cell.contents = (i % 3 == 2 ? dot : rect)?.cgImage
+            cell.color = color.cgColor
+            cell.birthRate = 9
+            cell.lifetime = 4.5
+            cell.lifetimeRange = 1.5
+            cell.velocity = 260
+            cell.velocityRange = 120
+            cell.emissionLongitude = .pi / 2 // lefelé
+            cell.emissionRange = .pi / 5
+            cell.spin = 4 // pörgés-forgás, ettől lesz konfetti-érzet
+            cell.spinRange = 5
+            cell.scale = 0.9
+            cell.scaleRange = 0.45
+            cell.yAcceleration = 140 // gravitáció
+            cell.alphaSpeed = -0.2 // a végén elhalványul
+            return cell
         }
-        .allowsHitTesting(false)
+    }
+
+    private func particleImage(size: CGSize, radius: CGFloat, scale: CGFloat) -> UIImage? {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = scale > 0 ? scale : 2
+        format.opaque = false
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            UIColor.white.setFill()
+            UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: radius).fill()
+        }
     }
 }
