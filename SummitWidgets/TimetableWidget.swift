@@ -244,14 +244,16 @@ private struct TimetableWidgetView: View {
         }
     }
 
-    // MARK: Lock screen — az órai Smart Stack "Most" tükre, egy az egyben
-    // Ugyanaz a layout, mint a WatchNowWidget rectangularView-ja: cím-sor
-    // (tárgy • terem) + számos accent-csík élő visszaszámlálóval + következő
-    // óra sora + számonkérés-jelzés. Különbség: az iPhone-snapshot csak egy
-    // hasAssignment-flaget hordoz (dolgozat/házi részletei nélkül), ezért a
-    // kártya alján összevont "Számonkérés" sor áll a két részletes sor helyett.
+    // MARK: Lock screen — "Most" kártya 3 sorban
+    // A téglalap-slot kb. 160×76 pt: egy státusz-fejléc + egy cím + egy
+    // info-sor fér el kényelmesen. Ezért nincs külön "következő óra" sor:
+    // szünetben/reggel a mutatott óra MAGA a következő, a duplikált cím
+    // (tárgy felül + "→ tárgy" alul) volt a fura. Különbség az órához
+    // képest: az iPhone-snapshot csak egy hasAssignment-flaget hordoz
+    // (dolgozat/házi részletei nélkül), ezért a kártya alján összevont
+    // "Számonkérés" sor áll a két részletes órai sor helyett.
     private var accessoryView: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 2) {
             Spacer(minLength: 0)
             if !entry.hasSnapshot && entry.dayLessons.isEmpty {
                 Text("Nyisd meg az appot")
@@ -263,25 +265,29 @@ private struct TimetableWidgetView: View {
                 case .empty:
                     Label("Ma nincs több órád", systemImage: "moon.zzz.fill")
                         .font(.headline.weight(.semibold)).lineLimit(1)
-                case .morning, .upcoming:
-                    if let n = nowCalc.next {
-                        titleRow(n)
-                        progressLine(tint: statusTint(n))
-                        nextLine(n)
-                    }
                 case .duringLesson:
                     if let c = nowCalc.current {
-                        titleRow(c)
+                        statusHeader("MOST")
+                        subjectLine(c)
                         progressLine(tint: statusTint(c))
-                        if let n = nowCalc.next {
-                            nextLine(n)
-                        }
                     }
                 case .duringBreak:
                     if let n = nowCalc.next {
-                        titleRow(n)
+                        statusHeader("SZÜNET")
+                        subjectLine(n)
                         progressLine(tint: statusTint(n))
-                        nextLine(n)
+                    }
+                case .morning:
+                    if let n = nowCalc.next {
+                        statusHeader("ELSŐ ÓRA")
+                        subjectLine(n)
+                        progressLine(tint: statusTint(n))
+                    }
+                case .upcoming:
+                    if let n = nowCalc.next {
+                        statusHeader(dayLabel(n.start).uppercased())
+                        subjectLine(n)
+                        staticLine(nowCalc.remainingText)
                     }
                 }
                 attachedLine
@@ -296,8 +302,15 @@ private struct TimetableWidgetView: View {
         }
     }
 
-    /// Cím-sor: tárgy + kis pötty + terem (mint az órán).
-    private func titleRow(_ l: TimetableWidgetStore.Lesson) -> some View {
+    /// Státusz-fejléc kiskapitálissal: MOST / SZÜNET / ELSŐ ÓRA / HOLNAP.
+    private func statusHeader(_ s: String) -> some View {
+        Text(s)
+            .font(.caption2.weight(.bold)).tracking(0.8)
+            .foregroundStyle(.secondary).lineLimit(1)
+    }
+
+    /// Cím-sor: tárgy + kis pötty + terem.
+    private func subjectLine(_ l: TimetableWidgetStore.Lesson) -> some View {
         HStack(spacing: 4) {
             Text(l.subject)
                 .font(.headline.weight(.bold)).lineLimit(1)
@@ -307,6 +320,13 @@ private struct TimetableWidgetView: View {
                 .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
         }
+    }
+
+    /// Statikus info-sor élő fázis nélkül (jövőbeli nap: "Holnap • 8:00").
+    private func staticLine(_ s: String) -> some View {
+        Text(s)
+            .font(.caption2.weight(.bold).monospacedDigit())
+            .foregroundStyle(.secondary).lineLimit(1)
     }
 
     /// Rövid vékony accent-csík, MELLETTE az élő visszaszámláló
@@ -320,30 +340,6 @@ private struct TimetableWidgetView: View {
                 .font(.caption2.weight(.bold).monospacedDigit())
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
-        }
-    }
-
-    /// Következő óra egy sorban: nyíl + terem + pötty + tárgy (mint az órán).
-    private func nextLine(_ n: TimetableWidgetStore.Lesson) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: "arrow.right.circle.fill")
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(.secondary)
-                .offset(x: -2)
-            let room = n.room.isEmpty ? n.teacher : n.room
-            if !room.isEmpty {
-                Text(room)
-                    .font(.caption2.weight(.bold).monospacedDigit())
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                Text("•").foregroundStyle(.tertiary).font(.caption2)
-            }
-            Text(n.subject)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.tail)
         }
     }
 
