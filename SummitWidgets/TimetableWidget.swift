@@ -268,7 +268,6 @@ private struct TimetableWidgetView: View {
                         .font(.headline.weight(.semibold)).lineLimit(1)
                 case .duringLesson:
                     if let c = nowCalc.current {
-                        statusHeader("MOST")
                         subjectLine(c)
                         progressLine(tint: statusTint(c))
                         if let n = nowCalc.next, n.id != c.id {
