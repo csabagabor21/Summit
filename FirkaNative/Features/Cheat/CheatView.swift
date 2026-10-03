@@ -74,7 +74,7 @@ struct CheatView: View {
                     Section {
                         ForEach(sheets) { sheet in
                             NavigationLink {
-                                CheatSheetView(sheetID: sheet.id, exams: exams, subjects: subjects, showCloseButton: false)
+                                CheatSheetView(sheetID: sheet.id, exams: exams, subjects: subjects)
                             } label: {
                                 VStack(alignment: .leading, spacing: 4) {
                                     HStack {

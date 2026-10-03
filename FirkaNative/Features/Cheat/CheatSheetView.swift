@@ -14,9 +14,6 @@ struct CheatSheetView: View {
     let sheetID: String
     let exams: [ExamItem]
     let subjects: [String]
-    /// Sheetként nyitva (órarend-részletező, dolgozat-sor) kell a zárógomb —
-    /// különben csak lehúzással csukható. (NavigationLinknél nem kell.)
-    let showCloseButton: Bool
     @Environment(\.dismiss) private var dismiss
     @State private var sheet: CheatSheet?
     @State private var importing = false
@@ -133,20 +130,19 @@ struct CheatSheetView: View {
                 .navigationTitle(s.title)
                 .navigationBarTitleDisplayMode(.large)
                 .toolbar {
-                    if showCloseButton {
-                        // X a sarokban (az ünneplőkártya mintája): swipe
-                        // nélkül is egyértelmű a kiút a sheetből.
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button { dismiss() } label: {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 15, weight: .bold))
-                                    .foregroundStyle(.secondary)
-                                    .frame(width: 34, height: 34)
-                                    .background(Circle().fill(Color.primary.opacity(0.08)))
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Bezárás")
+                    // Mindig van X a sarokban (az ünneplőkártya mintája):
+                    // sheetből zár, listából visszalép — swipe nélkül is
+                    // egyértelmű a kiút a lapról.
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 34, height: 34)
+                                .background(Circle().fill(Color.primary.opacity(0.08)))
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Bezárás")
                     }
                 }
                 .fileImporter(isPresented: $importing,

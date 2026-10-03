@@ -194,7 +194,7 @@ struct NotesView: View {
             }
             // 3) Dolgozat-jegyzetlap — a sori Jegyzet-gomb nyitja.
             .sheet(item: $openedSheet) { ref in
-                CheatSheetView(sheetID: ref.id, exams: exams, subjects: subjects, showCloseButton: true)
+                CheatSheetView(sheetID: ref.id, exams: exams, subjects: subjects)
             }
             .onReceive(NotificationCenter.default.publisher(for: CustomTasksStore.changedNotification)) { _ in
                 reloadCustom()

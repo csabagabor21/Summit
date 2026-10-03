@@ -1481,7 +1481,7 @@ private struct LessonDetailSheet: View {
                 resolveKnownSheet()
             }
             .sheet(item: $openedSheet) { ref in
-                CheatSheetView(sheetID: ref.id, exams: exams, subjects: [], showCloseButton: true)
+                CheatSheetView(sheetID: ref.id, exams: exams, subjects: [])
             }
         }
         .tint(colors.accent)
