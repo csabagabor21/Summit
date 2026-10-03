@@ -143,19 +143,20 @@ struct CheatView: View {
                     .environmentObject(session)
                     .environmentObject(kreta)
                     .environmentObject(completed)
-                    // Bezáráskor a függő utánküldést törölni kell — különben
-                    // a 0,4 mp-es versenyablakban befutó duplikátum visszanyit.
-                    .onDisappear { TaskRelay.cancelRelay() }
             }
             .onReceive(NotificationCenter.default.publisher(for: switchToTasks)) { notif in
+                // Őr a relé-hurok ellen: a saját újraküldésünk is ideér —
+                // azt már nem küldjük tovább (különben 0,4 mp-enként
+                // újraindulna a szegmens + villanás, örökké).
                 guard !showingTasks else { return }
-                // Relay-dedup: ugyanaz a relayID csak egyszer nyithat — a
-                // késve befutó duplikátum (pl. a MainTab egyszeri
-                // utánküldése) bezárás után sem nyithat újra. Saját
-                // újraküldés már nincs: a MainTab ütemezése fedi a lusta
-                // NotesView-t is, így nincs relé-hurok.
-                if let id = TaskRelay.relayID(of: notif.userInfo), !TaskRelay.claim(id) { return }
                 showingTasks = true
+                // A NotesView még nem él a coverben — a notifot
+                // újraküldjük, hogy a szegmens + villanás hasson.
+                if let info = notif.userInfo {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                        NotificationCenter.default.post(name: switchToTasks, object: nil, userInfo: info)
+                    }
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: CheatStore.changedNotification)) { _ in
                 sheets = CheatStore.load()

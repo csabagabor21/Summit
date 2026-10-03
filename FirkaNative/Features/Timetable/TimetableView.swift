@@ -28,10 +28,6 @@ struct TimetableView: View {
     /// Koppintott óra fullscreen részletezője (tanár, időpont, ikon,
     /// házi + dolgozat) — nil = zárva.
     @State private var selectedLesson: LessonItem?
-    /// Napoztató swipe épp aktív: amíg a húzás tart (plusz rövid
-    /// lecsengés), a sor-gombok nem tüzelhetnek — különben a napváltó
-    /// swipe felengedésekor egy "random" óra részletezője nyílna.
-    @State private var daySwipeActive = false
     @State private var suppressAutoJumpUntil = Date.distantPast // házi-deeplink alatt nincs okos ugrás
     @State private var flashPulse = false
     @State private var scrollProxy: ScrollViewProxy?
@@ -451,18 +447,7 @@ struct TimetableView: View {
             .summitListChrome(colors: colors)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 24, coordinateSpace: .local)
-                    .onChanged { value in
-                        // Vízszintes húzás = napoztatás indul: a sor-gombok
-                        // némulnak, hogy a felengedés ne nyisson részletezőt.
-                        let dx = value.translation.width
-                        let dy = value.translation.height
-                        if abs(dx) > abs(dy) && abs(dx) > 24 { daySwipeActive = true }
-                    }
                     .onEnded { value in
-                        // Lecsengés: a gomb-felengedés még a tiltás alá essen.
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                            daySwipeActive = false
-                        }
                         let dx = value.translation.width
                         let dy = value.translation.height
                         guard abs(dx) > abs(dy), abs(dx) > 52 else { return }
@@ -555,10 +540,7 @@ struct TimetableView: View {
                     exam: exam(for: lesson),
                     examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false,
                     colors: colors,
-                    scheme: scheme,
-                    kreta: kreta,
-                    exams: exams,
-                    weekLessons: lessons
+                    scheme: scheme
                 )
             }
             // Live Activity sync EGYKEZES: csak a HomeView írja (ugyanaz az AppStorage kulcs!).
@@ -659,9 +641,7 @@ struct TimetableView: View {
                         isFlashing: isFlash,
                         flashPulse: flashPulse,
                         examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false,
-                        onSelect: { selectedLesson = lesson },
-                        swipeActive: daySwipeActive,
-                        examDone: exam(for: lesson).map { ExamExpiry.isExpired($0, lessons: lessons) } ?? false
+                        onSelect: { selectedLesson = lesson }
                     )
                     .id(lesson.id)
                     .padding(.vertical, 5)
@@ -689,9 +669,7 @@ struct TimetableView: View {
                             isFlashing: isFlash,
                             flashPulse: flashPulse,
                             examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false,
-                            onSelect: { selectedLesson = lesson },
-                            swipeActive: daySwipeActive,
-                            examDone: exam(for: lesson).map { ExamExpiry.isExpired($0, lessons: lessons) } ?? false
+                            onSelect: { selectedLesson = lesson }
                         )
                         .id(lesson.id)
                         .padding(.vertical, 5)
@@ -872,14 +850,8 @@ struct TimetableView: View {
         async let ex = kreta.fetchExams(iss: iss)
         async let calD = kreta.fetchCalendarDays(iss: iss, from: start, to: end)
         let (ttR, hwR, exR, calR) = await (tt, hw, ex, calD)
-        let weekTT = deduped(ttR)
-        lessons = weekTT
-        // Csatolmány-dúsítás (Feladatok-tab mintája): a KRÉTA a fájlokat
-        // gyakran csak az órarendi elemre teszi, a házi-payloadban semmi
-        // sincs — a részletező és a jegyzetgyártás ugyanazt a dúsított
-        // listát kapja, különben a csatolmány sosem jut el az AI-ig.
-        let mergedHW = HomeworkLessonAttachments.merged(hwR, lessons: weekTT)
-        homeworks = await kreta.fetchHomeworkDetails(mergedHW, iss: iss)
+        lessons = deduped(ttR)
+        homeworks = hwR
         exams = exR
         // Naptári napok beolvasztása dátum szerint (a hét friss adata nyer,
         // a többi hét megmarad — a keresés úgyis nap-pontos).
@@ -957,12 +929,6 @@ private struct TimetableRow: View {
     var examRolled: Bool = false
     /// Sorkoppintás → részletező (a pillek testvér-gombok, nem részei).
     var onSelect: () -> Void = {}
-    /// Napoztató swipe épp aktív — ilyenkor a sor semmire sem tüzelhet
-    /// (a felengedés koppintásnak látszana, random órát nyitna).
-    var swipeActive: Bool = false
-    /// A sor dolgozata lejárt (Kész tab) — a pille oda visz, nem a
-    /// Dolgozatok szegmensbe.
-    var examDone: Bool = false
 
     private var isCancelled: Bool { lesson.isCancelled }
     private var isSubstituted: Bool { lesson.isSubstituted }
@@ -1056,11 +1022,7 @@ private struct TimetableRow: View {
             // nem a részei — beágyazott Button nem tüzelne megbízhatóan,
             // és a VoiceOver egybeolvasztaná őket.
             VStack(alignment: .leading, spacing: 0) {
-                Button(action: {
-                    // Swipe-felengedés nem nyithat részletezőt.
-                    guard !swipeActive else { return }
-                    print("SUMMIT-ROW-TAP \(lesson.id)"); onSelect()
-                }) {
+                Button(action: { print("SUMMIT-ROW-TAP \(lesson.id)"); onSelect() }) {
                     HStack(alignment: .top, spacing: 10) {
                         VStack(alignment: .leading, spacing: 4) {
                         // Badge row — felmentett is zöld, elmarad piros, helyettesítés narancs
@@ -1118,8 +1080,7 @@ private struct TimetableRow: View {
                 // Feladat pill — a fejléc alatt, tap → Feladatok tab
                 if let hw = homework {
                     Button {
-                        guard !swipeActive else { return }
-                        TaskRelay.post(flash: hw.id)
+                        NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ["flash": hw.id])
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "checklist")
@@ -1143,10 +1104,7 @@ private struct TimetableRow: View {
                 // Dolgozat pill — tap → Feladatok/Dolgozatok tab
                 if let ex = exam {
                     Button {
-                        guard !swipeActive else { return }
-                        // Lejárt dolgozat a Készben van — oda viszünk, nem
-                        // a (múlt órára üres) Dolgozatok szegmensbe.
-                        TaskRelay.post(segment: examDone ? "done" : "exams", flash: ex.id)
+                        NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ["segment": "exams", "flash": ex.id])
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "doc.text.fill")
@@ -1268,18 +1226,9 @@ private struct LessonDetailSheet: View {
     let examRolled: Bool
     let colors: AppColors
     let scheme: ColorScheme
-    let kreta: KretaClient
-    let exams: [ExamItem]
-    /// A hét órái: a házi órarendi fájljainak feloldásához kell.
-    let weekLessons: [LessonItem]
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var hSize
     private var isPad: Bool { hSize == .regular }
-    @State private var noteWorking = false
-    @State private var noteError: String?
-    @State private var openedSheet: CheatSheetRef?
-    /// Már létező lap ehhez az órához / dolgozathoz (nem duplázunk).
-    @State private var knownSheetID: String?
 
     private var isCancelled: Bool { lesson.isCancelled }
     private var isSubstituted: Bool { lesson.isSubstituted }
@@ -1378,7 +1327,6 @@ private struct LessonDetailSheet: View {
                                 Label(hw.teacher, systemImage: "person.fill")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
-                            AttachmentsBlock(attachments: hw.attachments, ownerId: hw.id)
                             Button { openTasks(flash: hw.id) } label: {
                                 Label("Megnyitás a Feladatokban", systemImage: "checklist")
                                     .font(.caption.weight(.semibold))
@@ -1418,12 +1366,7 @@ private struct LessonDetailSheet: View {
                                 Label(ex.teacher, systemImage: "person.fill")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
-                            AttachmentsBlock(attachments: ex.attachments, ownerId: ex.id)
-                            Button {
-                                // Lejárt dolgozat a Készben van — múlt óráról
-                                // oda viszünk, nem a Dolgozatok szegmensbe.
-                                openTasks(segment: ExamExpiry.isExpired(ex, lessons: weekLessons) ? "done" : "exams", flash: ex.id)
-                            } label: {
+                            Button { openTasks(segment: "exams", flash: ex.id) } label: {
                                 Label("Megnyitás a Dolgozatokban", systemImage: "doc.text.fill")
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(colors.accent)
@@ -1437,25 +1380,6 @@ private struct LessonDetailSheet: View {
                     } else {
                         Label("Ehhez az órához nincs dolgozat", systemImage: "doc.text")
                             .font(.callout).foregroundStyle(.secondary)
-                    }
-                }
-
-                // TANULÓJEGYZET — a lap ehhez az órához / dolgozathoz
-                // rendelve nyílik; csatolmányból az AI azonnal megírja.
-                Section("Tanulójegyzet") {
-                    NoteCTAButton(
-                        title: knownSheetID == nil ? "Jegyzet készítése" : "Jegyzet megnyitása",
-                        working: noteWorking,
-                        accent: colors.accent
-                    ) { Task { await makeNote() } }
-                    .padding(.vertical, 4)
-                    .accessibilityIdentifier("lesson-note-button")
-                    if knownSheetID == nil, !noteWorking {
-                        Text(noteSubtitle)
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    if let err = noteError {
-                        Text(err).font(.caption).foregroundStyle(.red)
                     }
                 }
             }
@@ -1473,70 +1397,9 @@ private struct LessonDetailSheet: View {
                 }
             }
             .accessibilityIdentifier("lesson-detail")
-            .onAppear {
-                print("SUMMIT-DETAIL-APPEARED \(lesson.id)")
-                resolveKnownSheet()
-            }
-            .onReceive(NotificationCenter.default.publisher(for: CheatStore.changedNotification)) { _ in
-                resolveKnownSheet()
-            }
-            .sheet(item: $openedSheet) { ref in
-                CheatSheetView(sheetID: ref.id, exams: exams, subjects: [])
-            }
+            .onAppear { print("SUMMIT-DETAIL-APPEARED \(lesson.id)") }
         }
         .tint(colors.accent)
-    }
-
-    /// Alcím a jegyzet-gomb alá: hány csatolmányból dolgozik az AI.
-    private var noteSubtitle: String {
-        let n = (exam?.attachments.count ?? 0) + (homework?.attachments.count ?? 0)
-        if n > 0 {
-            return n == 1
-                ? "1 csatolmányból az AI készíti el a jegyzetet."
-                : "\(n) csatolmányból az AI készíti el a jegyzetet."
-        }
-        return "Üres lap nyílik az órához — anyagot te töltesz fel."
-    }
-
-    private var lessonTitleFallback: String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "hu_HU")
-        f.dateFormat = "MMM d."
-        return "\(lesson.subject) • \(f.string(from: lesson.start))"
-    }
-
-    private func resolveKnownSheet() {
-        knownSheetID = CheatAutoNote.existingSheetID(
-            exam: exam, homework: homework,
-            lessonSubject: lesson.subject, lessonTitleFallback: lessonTitleFallback,
-            exams: exams, lessonIndex: Int(lesson.index), lessonDate: lesson.start)
-    }
-
-    /// Jegyzetlap nyitása / gyártása az órához: dolgozathoz rendelve,
-    /// különben az órához; csatolmányból az AI azonnal megírja.
-    private func makeNote() async {
-        if let known = knownSheetID {
-            openedSheet = CheatSheetRef(id: known)
-            return
-        }
-        noteWorking = true
-        noteError = nil
-        let res = await CheatAutoNote.makeSheet(
-            exam: exam,
-            homework: homework,
-            lessonSubject: lesson.subject,
-            lessonTitleFallback: lessonTitleFallback,
-            lessonDate: lesson.start,
-            lessonTeacher: lesson.teacher,
-            weekLessons: weekLessons,
-            exams: exams,
-            lessonIndex: Int(lesson.index),
-            kreta: kreta
-        )
-        noteWorking = false
-        noteError = res.aiError
-        knownSheetID = res.id
-        openedSheet = CheatSheetRef(id: res.id)
     }
 
     private func detailRow(icon: String, title: String, value: String) -> some View {
@@ -1560,10 +1423,11 @@ private struct LessonDetailSheet: View {
     /// cover a Feladatok fölött ragadna.
     private func openTasks(segment: String? = nil, flash: String) {
         dismiss()
-        // A részletező előbb csukódik (0,35 mp), aztán megy a relé-kérés —
-        // a friss relayID + hop:0 miatt ez önálló, hurokmentes láncot indít.
+        var ui: [String: Any] = ["flash": flash]
+        if let segment { ui["segment"] = segment }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            TaskRelay.post(segment: segment, flash: flash)
+            NotificationCenter.default.post(
+                name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ui)
         }
     }
 }

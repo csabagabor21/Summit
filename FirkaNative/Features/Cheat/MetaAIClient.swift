@@ -123,10 +123,8 @@ enum MetaAIClient {
         }
     }
 
-    /// Témajegyzékek generálása az anyagok szövegéből. A `context` a
-    /// kiinduló feladat (házi/dolgozat/óra szövege) — nem anyag, hanem
-    /// súlyozás: a jegyzet pont azt fedje le, amit a feladat kér.
-    static func generateTopics(subject: String, title: String, materials: [CheatMaterial], context: String = "") async throws -> [CheatTopic] {
+    /// Témajegyzékek generálása az anyagok szövegéből.
+    static func generateTopics(subject: String, title: String, materials: [CheatMaterial]) async throws -> [CheatTopic] {
         // Szolgáltató-választás: saját kulcs → Meta, különben a közös
         // Firebase-es Gemini-tartalék (ha az sem érhető el, nincs generálás).
         let target: URL
@@ -149,10 +147,8 @@ enum MetaAIClient {
         // Képek: pdf-oldalak rasterizálva + feltöltött fotók (multimodális).
         let imageURLs = Self.imageDataURLs(for: materials)
         guard !corpus.isEmpty || !imageURLs.isEmpty else { throw AIError.noMaterial }
-        let contextBlock = context.trimmingCharacters(in: .whitespacesAndNewlines)
         let prompt = """
         Tantárgy: \(subject). Témakör: \(title).
-        \(contextBlock.isEmpty ? "" : "KIINDULÓ FELADAT (a jegyzet erre készül — ez a mérvadó, erre menjen a hangsúly):\n\(contextBlock)\n")
         Az alábbi tananyagból készíts tanulható jegyzetet magyarul.
         Bontsd 3-8 témára (pl. életrajz, fő művek, elemzés).
         TARTALOM: semmit ne hagyj ki — ami az anyagban benne van, az

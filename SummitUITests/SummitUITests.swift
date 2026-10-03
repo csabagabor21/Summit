@@ -93,57 +93,22 @@ final class SummitUITests: XCTestCase {
             shot("detail-nincs-orarend"); return
         }
         // A fejléc önálló gomb (testvér-pillekkel), ezért buttons-ként látszik.
-        // Hétvégén az adott nap üres — hétköznapokra lapozunk (demo-adat
-        // minden hétköznapra generálódik), amíg sort nem találunk.
         let rows = app.buttons.matching(
             NSPredicate(format: "identifier BEGINSWITH %@", "lesson-row-"))
-        if rows.count == 0 {
-            for day in ["Hétfő", "Kedd", "Szerda", "Csütörtök", "Péntek"] {
-                let seg = app.buttons[day]
-                guard seg.waitForExistence(timeout: 3) else { break }
-                seg.tap()
-                Thread.sleep(forTimeInterval: 1.0)
-                if rows.count > 0 { break }
-            }
-        }
         guard rows.count > 0 else { shot("detail-nincs-ora"); return }
-        shot("detail-05-lista")
-        // A lista a tabra lépés / napváltás után még mozoghat (okos
-        // napugrás + lapozó animáció) — álló célpontra koppintunk,
-        // többször is, amíg a részletező meg nem nyílik.
+        // A lista a tabra lépés után még mozoghat (okos napugrás animációja) —
+        // elintézzük, hogy álló célpontra koppintsunk.
+        Thread.sleep(forTimeInterval: 1.5)
+        rows.element(boundBy: 0).tap()
         let detail = app.collectionViews["lesson-detail"]
-        // Biztosan látható sor: a találatok közt lehet halott/duplikált
-        // elem is (több match, mint óra) — csak a kártyazónába eső,
-        // koppintható sort tapicskoljuk.
-        let candidates = rows.allElementsBoundByIndex.filter { r in
-            r.exists && r.isHittable && r.frame.minY > 380 && r.frame.maxY < 700
+        if !detail.waitForExistence(timeout: 5) {
+            // Egyszeri újrapróbálkozás friss lekérdezéssel.
+            rows.element(boundBy: 0).tap()
         }
-        guard let target = candidates.first else { shot("detail-nincs-lathato-sor"); return }
-        var opened = false
-        for i in 0..<4 {
-            Thread.sleep(forTimeInterval: 1.5)
-            target.tap()
-            if i == 0 { shot("detail-06-tap-utan") }
-            if detail.waitForExistence(timeout: 4) { opened = true; break }
-        }
-        XCTAssertTrue(opened)
+        XCTAssertTrue(detail.waitForExistence(timeout: 5))
         // A részletező tartalma: tanár-sor és házi/dolgozat szekció.
         XCTAssertTrue(app.staticTexts["Tanár"].waitForExistence(timeout: 5))
         shot("detail-10-nyitva")
-        // Tanulójegyzet-belépő: a lista alján, görgetés után érhető el;
-        // koppintásra lap nyílik (csatolmányból az AI írja meg — a lap
-        // akkor is kinyílik, ha az AI épp dolgozik vagy hibázik).
-        detail.swipeUp()
-        let note = app.buttons["lesson-note-button"]
-        if !note.waitForExistence(timeout: 3) { detail.swipeUp() }
-        XCTAssertTrue(note.waitForExistence(timeout: 5))
-        note.tap()
-        // A lap saját "Bezárás" gombja bizonyítja a nyitást (a részletező
-        // "Kész" gombjától eltérő cím, nincs ütközés).
-        let sheetClose = app.navigationBars.buttons["Bezárás"]
-        XCTAssertTrue(sheetClose.waitForExistence(timeout: 45))
-        shot("detail-15-jegyzetlap")
-        sheetClose.tap()
         app.buttons["Kész"].tap()
         XCTAssertFalse(detail.waitForExistence(timeout: 5))
         shot("detail-20-csukva")

@@ -101,10 +101,12 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         didReceive response: UNNotificationResponse
     ) async {
         let info = response.notification.request.content.userInfo
-        // Dolgozat-koppintás → Feladatok/Dolgozatok tab (relé-azonosítóval,
-        // hogy a cover bezárása után ne nyíljon vissza).
+        // Dolgozat-koppintás → Feladatok/Dolgozatok tab
         if (info["kind"] as? String) == "exams" {
-            TaskRelay.post(segment: "exams")
+            NotificationCenter.default.post(
+                name: Notification.Name("summit.switchToTasks"),
+                object: nil, userInfo: ["segment": "exams"]
+            )
             return
         }
         guard let grade = Self.gradeFromUserInfo(info) else { return }
