@@ -51,28 +51,26 @@ struct MainTabView: View {
             #if targetEnvironment(macCatalyst)
             selected = 5
             #else
+            // Utánküldés CSAK hop:0-ra, EGYSZER (TaskRelay) — a hop:1-es
+            // duplikátum már nem ütemez tovább, különben végtelen 0,4 mp-es
+            // lánc zárná vissza a covert bezárás után is.
+            let hop = TaskRelay.hop(of: notif.userInfo)
             if watchAvailability.showTab {
                 selected = 3
                 // A Watch-tab (CheatView) lusta: ha még sosem jártál ott,
-                // nem él, így az értesítés elveszne — újraküldjük, hogy a
-                // frissen született CheatView is kinyissa a Feladatok-covert.
-                // (Már élő nézetnél az őre nyeli le, nincs hurok.)
-                if let info = notif.userInfo {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                        NotificationCenter.default.post(name: switchToTasks, object: nil, userInfo: info)
-                    }
+                // nem él, így az értesítés elveszne — az egyszeri
+                // utánküldés ébreszti fel a frissen született CheatView-t.
+                if hop == 0 {
+                    TaskRelay.scheduleRelay((notif.userInfo as? [String: Any]) ?? [:])
                 }
             } else if !showingTasksCover {
                 // Óra nélküli iPhone: nincs Watch tab, így a CheatView
                 // cover-reléje sem él — a Feladatok ilyenkor itt, coverben
-                // nyílik. Az értesítést EGYSZER továbbküldjük, hogy a
-                // NotesView szegmense + sorvillanása hasson; a saját
-                // újraküldésünket az őr feltartóztatja (nincs hurok).
+                // nyílik. Az egyszeri utánküldés a NotesView szegmensének
+                // + sorvillanásának kell (akkorra már él a cover).
                 showingTasksCover = true
-                if let info = notif.userInfo {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                        NotificationCenter.default.post(name: switchToTasks, object: nil, userInfo: info)
-                    }
+                if hop == 0 {
+                    TaskRelay.scheduleRelay((notif.userInfo as? [String: Any]) ?? [:])
                 }
             }
             #endif
@@ -85,6 +83,9 @@ struct MainTabView: View {
                 .environmentObject(session)
                 .environmentObject(kreta)
                 .environmentObject(completed)
+                // Bezáráskor a függő utánküldést törölni kell — különben
+                // a 0,4 mp-es versenyablakban befutó duplikátum visszanyit.
+                .onDisappear { TaskRelay.cancelRelay() }
         }
         // Watch tab nélkül nincs min állni: ha épp azon álltál, amikor
         // eltűnt (párosítás törlése), vissza a Főoldalra (különben üres

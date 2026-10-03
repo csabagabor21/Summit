@@ -44,6 +44,11 @@ struct NotesView: View {
     @State private var expandedIDs: Set<String> = []
     @State private var flashedID: String?
     @State private var flashPulse = false
+    /// Dolgozat-sori jegyzet-gomb: megnyitandó / gyártandó lap + állapot.
+    @State private var noteExam: ExamItem?
+    @State private var noteWorking = false
+    @State private var noteError: String?
+    @State private var openedSheet: CheatSheetRef?
     @State private var scrollProxy: ScrollViewProxy?
     private let switchToTasks = Notification.Name("summit.switchToTasks")
     @Environment(\.colorScheme) var scheme
@@ -185,6 +190,10 @@ struct NotesView: View {
                     prefillPeriod: pendingLesson.flatMap { Int($0.index) }
                 )
             }
+            // 3) Dolgozat-jegyzetlap — a sori Jegyzet-gomb nyitja.
+            .sheet(item: $openedSheet) { ref in
+                CheatSheetView(sheetID: ref.id, exams: exams, subjects: subjects, showCloseButton: true)
+            }
             .onReceive(NotificationCenter.default.publisher(for: CustomTasksStore.changedNotification)) { _ in
                 reloadCustom()
             }
@@ -232,6 +241,26 @@ struct NotesView: View {
             }
         }
         .tint(colors.accent)
+    }
+
+    /// Dolgozat-sori Jegyzet-gomb: meglévő lap nyílik, különben gyártás
+    /// (csatolmány-letöltés + AI) ugyanazzal az identitással, mint az
+    /// órarend-részletező — nincs duplázás a két belépési pont között.
+    private func makeExamNote(_ exam: ExamItem) async {
+        if let old = CheatAutoNote.existingSheetID(examId: exam.id) {
+            openedSheet = CheatSheetRef(id: old)
+            return
+        }
+        noteWorking = true
+        noteError = nil
+        let res = await CheatAutoNote.makeSheet(
+            exam: exam, homework: nil,
+            lessonSubject: exam.subject, lessonTitleFallback: exam.subject,
+            lessonDate: exam.date, kreta: kreta
+        )
+        noteWorking = false
+        noteError = res.aiError
+        openedSheet = CheatSheetRef(id: res.id)
     }
 
     /// Kiemelőszínű flash + odagörgetés az órarendből átjött feladathoz/dolgozathoz.
@@ -531,16 +560,31 @@ struct NotesView: View {
                         Label(exam.groupName, systemImage: "person.2.fill")
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    Button {
-                        NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": exam.subject, "deadline": exam.date.timeIntervalSince1970])
-                    } label: {
-                        Label("Mutatás az órarendben", systemImage: "calendar")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(colors.accent)
-                            .padding(.horizontal, 12).padding(.vertical, 8)
-                            .background(Capsule().strokeBorder(colors.accent.opacity(0.35), lineWidth: 1))
+                    HStack(spacing: 10) {
+                        Button {
+                            NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": exam.subject, "deadline": exam.date.timeIntervalSince1970])
+                        } label: {
+                            Label("Mutatás az órarendben", systemImage: "calendar")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(colors.accent)
+                                .padding(.horizontal, 12).padding(.vertical, 8)
+                                .background(Capsule().strokeBorder(colors.accent.opacity(0.35), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        NoteCTAButton(
+                            title: "Jegyzet",
+                            working: noteWorking && noteExam?.id == exam.id,
+                            accent: colors.accent
+                        ) {
+                            noteExam = exam
+                            Task { await makeExamNote(exam) }
+                        }
+                        .disabled(noteWorking)
+                        .accessibilityIdentifier("exam-note-button")
                     }
-                    .buttonStyle(.plain)
+                    if let err = noteError, noteExam?.id == exam.id {
+                        Text(err).font(.caption).foregroundStyle(.red)
+                    }
                     AttachmentsBlock(attachments: exam.attachments, ownerId: exam.id)
                 } else {
                     Text(exam.plainDescription.isEmpty ? exam.mode : "\(exam.mode) • \(exam.plainDescription)")

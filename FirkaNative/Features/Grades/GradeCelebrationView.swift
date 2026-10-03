@@ -172,26 +172,30 @@ struct GradeCelebrationView: View {
 }
 
 // MARK: - Natív konfetti (Apple CAEmitterLayer, függőség nélkül)
-// - A rendszer QuartzCore részecskemotorja rajzolja (GPU), nem 48 kézzel
-//   animált SwiftUI-nézet — iOS-en és Mac Catalysten is ugyanaz.
-// - Felülről, teljes szélességben záporozik ~1.8 mp-ig, aztán a szemek
-//   kihullanak (lifetime) — nincs kézi eltüntetés.
+// - A rendszer QuartzCore részecskemotorja rajzolja (GPU), nem kézzel
+//   animált SwiftUI-nézetek — iOS-en és Mac Catalysten is ugyanaz.
+// - Ünnepi recept: fentről zápor + két oldalsó ágyú lő befelé-felfelé,
+//   ~2.5 mp születés, aztán a szemek kihullanak és a layerek
+//   eltűnnek (nincs ottfelejtett emitter).
+// - Mozgásérzékenység (Reduce Motion) mellett néma: csak a kártya animál.
 private struct ConfettiView: UIViewRepresentable {
     let tint: Color
     @Environment(\.displayScale) private var displayScale
 
-    func makeUIView(context: Context) -> NativeConfettiView {
-        let view = NativeConfettiView()
-        view.start(tint: UIColor(tint), scale: displayScale)
-        return view
+    func makeUIView(context: Context) -> CelebrationConfettiView {
+        CelebrationConfettiView()
     }
 
-    func updateUIView(_ uiView: NativeConfettiView, context: Context) {}
+    func updateUIView(_ uiView: CelebrationConfettiView, context: Context) {
+        uiView.startIfNeeded(tint: UIColor(tint), scale: displayScale)
+    }
 }
 
-private final class NativeConfettiView: UIView {
-    private let emitter = CAEmitterLayer()
+private final class CelebrationConfettiView: UIView {
+    private var emitters: [CAEmitterLayer] = []
     private var started = false
+    /// Születés-hossz: eddig jönnek új szemek, utána elapad.
+    private let burstSeconds: TimeInterval = 2.5
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -205,62 +209,129 @@ private final class NativeConfettiView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        emitter.frame = bounds
-        emitter.emitterPosition = CGPoint(x: bounds.midX, y: -10)
-        emitter.emitterSize = CGSize(width: bounds.width, height: 1)
+        layoutEmitters()
     }
 
-    func start(tint: UIColor, scale: CGFloat) {
+    func startIfNeeded(tint: UIColor, scale: CGFloat) {
         guard !started else { return }
+        // Valós méret kell (a makeUIView-kor még .zero) — a következő
+        // layoutra újra próbáljuk; a Reduce Motion-nál indulunk sem.
+        guard bounds.width > 10, bounds.height > 10 else {
+            setNeedsLayout()
+            return
+        }
         started = true
-        emitter.emitterShape = .line
-        emitter.emitterMode = .surface
-        emitter.birthRate = 1
-        emitter.emitterCells = makeCells(tint: tint, scale: scale)
-        layer.addSublayer(emitter)
-        setNeedsLayout()
-        layoutIfNeeded()
-        // Zápor, aztán elapad: az új szemek születése leáll, a meglévők
-        // a lifetime végére kihullanak és elhalványulnak.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { [weak self] in
-            self?.emitter.birthRate = 0
+        guard !UIAccessibility.isReduceMotionEnabled else { return }
+        let s = scale > 0 ? scale : 2
+        emitters = [topRain(tint: tint, scale: s),
+                    sideCannon(tint: tint, scale: s, left: true),
+                    sideCannon(tint: tint, scale: s, left: false)]
+        emitters.forEach { layer.addSublayer($0) }
+        layoutEmitters()
+        // Elapadás + takarítás: a születés leáll, a kihullott szemek
+        // után a layerek sem maradnak ott.
+        DispatchQueue.main.asyncAfter(deadline: .now() + burstSeconds) { [weak self] in
+            self?.emitters.forEach { $0.birthRate = 0 }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + burstSeconds + 6) { [weak self] in
+            self?.emitters.forEach { $0.removeFromSuperlayer() }
+            self?.emitters = []
         }
     }
 
-    private func makeCells(tint: UIColor, scale: CGFloat) -> [CAEmitterCell] {
-        let palette: [UIColor] = [
-            tint,
-            .white,
-            .systemYellow,
-            .systemOrange,
-            tint.withAlphaComponent(0.65),
-        ]
-        let rect = particleImage(size: CGSize(width: 9, height: 13), radius: 2.5, scale: scale)
-        let dot = particleImage(size: CGSize(width: 9, height: 9), radius: 4.5, scale: scale)
-        return palette.enumerated().map { i, color in
+    /// Emitter-pozíciók a mindenkori mérethez (forgatásra is jó).
+    private func layoutEmitters() {
+        guard emitters.count == 3 else { return }
+        let w = bounds.width, h = bounds.height
+        let rain = emitters[0]
+        rain.frame = bounds
+        rain.emitterPosition = CGPoint(x: w / 2, y: -12)
+        rain.emitterSize = CGSize(width: w, height: 1)
+        let left = emitters[1], right = emitters[2]
+        left.frame = bounds
+        left.emitterPosition = CGPoint(x: -8, y: h * 0.72)
+        right.frame = bounds
+        right.emitterPosition = CGPoint(x: w + 8, y: h * 0.72)
+    }
+
+    /// Fentről, teljes szélességben záporozó eső.
+    private func topRain(tint: UIColor, scale: CGFloat) -> CAEmitterLayer {
+        let e = CAEmitterLayer()
+        e.emitterShape = .line
+        e.emitterMode = .surface
+        e.birthRate = 1
+        e.emitterCells = rainCells(tint: tint, scale: scale)
+        return e
+    }
+
+    /// Oldalsó ágyú: pontról, befelé-felfelé lő (klasszikus partiágyú).
+    private func sideCannon(tint: UIColor, scale: CGFloat, left: Bool) -> CAEmitterLayer {
+        let e = CAEmitterLayer()
+        e.emitterShape = .point
+        e.emitterMode = .surface
+        e.birthRate = 1
+        e.emitterCells = cannonCells(tint: tint, scale: scale, left: left)
+        return e
+    }
+
+    private func palette(tint: UIColor) -> [UIColor] {
+        [tint, .white, .systemYellow, .systemOrange, .systemPink,
+         tint.withAlphaComponent(0.7)]
+    }
+
+    private func rainCells(tint: UIColor, scale: CGFloat) -> [CAEmitterCell] {
+        let rect = particleImage(size: CGSize(width: 12, height: 16), radius: 3, scale: scale)
+        let dot = particleImage(size: CGSize(width: 11, height: 11), radius: 5.5, scale: scale)
+        return palette(tint: tint).enumerated().map { i, color in
             let cell = CAEmitterCell()
             cell.contents = (i % 3 == 2 ? dot : rect)?.cgImage
             cell.color = color.cgColor
-            cell.birthRate = 9
-            cell.lifetime = 4.5
+            cell.birthRate = 7
+            cell.lifetime = 5.0
             cell.lifetimeRange = 1.5
-            cell.velocity = 260
-            cell.velocityRange = 120
+            cell.velocity = 300
+            cell.velocityRange = 140
             cell.emissionLongitude = .pi / 2 // lefelé
-            cell.emissionRange = .pi / 5
-            cell.spin = 4 // pörgés-forgás, ettől lesz konfetti-érzet
-            cell.spinRange = 5
-            cell.scale = 0.9
-            cell.scaleRange = 0.45
-            cell.yAcceleration = 140 // gravitáció
-            cell.alphaSpeed = -0.2 // a végén elhalványul
+            cell.emissionRange = .pi / 6
+            cell.spin = 5 // pörgés-forgás, ettől lesz konfetti-érzet
+            cell.spinRange = 6
+            cell.scale = 1.0
+            cell.scaleRange = 0.5
+            cell.yAcceleration = 220 // gravitáció
+            cell.alphaSpeed = -0.18 // a végén elhalványul
+            return cell
+        }
+    }
+
+    private func cannonCells(tint: UIColor, scale: CGFloat, left: Bool) -> [CAEmitterCell] {
+        let rect = particleImage(size: CGSize(width: 12, height: 16), radius: 3, scale: scale)
+        let dot = particleImage(size: CGSize(width: 11, height: 11), radius: 5.5, scale: scale)
+        // Balról jobbra-fel, jobbról balra-fel (radián, +x-től, +y lefelé).
+        let direction: CGFloat = left ? -.pi / 3 : -.pi + .pi / 3
+        return palette(tint: tint).enumerated().map { i, color in
+            let cell = CAEmitterCell()
+            cell.contents = (i % 3 == 2 ? dot : rect)?.cgImage
+            cell.color = color.cgColor
+            cell.birthRate = 12
+            cell.lifetime = 3.6
+            cell.lifetimeRange = 1.0
+            cell.velocity = 620
+            cell.velocityRange = 180
+            cell.emissionLongitude = direction
+            cell.emissionRange = .pi / 7
+            cell.spin = 7
+            cell.spinRange = 8
+            cell.scale = 1.0
+            cell.scaleRange = 0.5
+            cell.yAcceleration = 420
+            cell.alphaSpeed = -0.25
             return cell
         }
     }
 
     private func particleImage(size: CGSize, radius: CGFloat, scale: CGFloat) -> UIImage? {
         let format = UIGraphicsImageRendererFormat()
-        format.scale = scale > 0 ? scale : 2
+        format.scale = scale
         format.opaque = false
         return UIGraphicsImageRenderer(size: size, format: format).image { _ in
             UIColor.white.setFill()

@@ -14,6 +14,10 @@ struct CheatSheetView: View {
     let sheetID: String
     let exams: [ExamItem]
     let subjects: [String]
+    /// Sheetként nyitva (órarend-részletező, dolgozat-sor) kell a zárógomb —
+    /// különben csak lehúzással csukható. (NavigationLinknél nem kell.)
+    let showCloseButton: Bool
+    @Environment(\.dismiss) private var dismiss
     @State private var sheet: CheatSheet?
     @State private var importing = false
     @State private var importError: String?
@@ -128,6 +132,23 @@ struct CheatSheetView: View {
                 }
                 .navigationTitle(s.title)
                 .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    if showCloseButton {
+                        // X a sarokban (az ünneplőkártya mintája): swipe
+                        // nélkül is egyértelmű a kiút a sheetből.
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button { dismiss() } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 34, height: 34)
+                                    .background(Circle().fill(Color.primary.opacity(0.08)))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Bezárás")
+                        }
+                    }
+                }
                 .fileImporter(isPresented: $importing,
                               allowedContentTypes: [.plainText, .pdf, .image],
                               allowsMultipleSelection: true) { result in
@@ -177,8 +198,13 @@ struct CheatSheetView: View {
         genError = nil
         defer { generating = false }
         do {
+            // Dolgozathoz kötött lapnál a dolgozat szövege is kontextus —
+            // ugyanaz a súlyozás, mint az automatikus gyártásnál.
+            let ex = exams.first(where: { $0.id == c.examId })
+            let context = CheatAutoNote.taskContext(exam: ex, homework: nil)
             let topics = try await MetaAIClient.generateTopics(
-                subject: c.subject, title: c.title, materials: c.materials)
+                subject: c.subject, title: c.title, materials: c.materials,
+                context: context)
             c.topics = topics
             persist(c)
         } catch {

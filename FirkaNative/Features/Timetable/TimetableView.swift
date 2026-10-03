@@ -540,7 +540,10 @@ struct TimetableView: View {
                     exam: exam(for: lesson),
                     examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false,
                     colors: colors,
-                    scheme: scheme
+                    scheme: scheme,
+                    kreta: kreta,
+                    exams: exams,
+                    weekLessons: lessons
                 )
             }
             // Live Activity sync EGYKEZES: csak a HomeView írja (ugyanaz az AppStorage kulcs!).
@@ -850,8 +853,14 @@ struct TimetableView: View {
         async let ex = kreta.fetchExams(iss: iss)
         async let calD = kreta.fetchCalendarDays(iss: iss, from: start, to: end)
         let (ttR, hwR, exR, calR) = await (tt, hw, ex, calD)
-        lessons = deduped(ttR)
-        homeworks = hwR
+        let weekTT = deduped(ttR)
+        lessons = weekTT
+        // Csatolmány-dúsítás (Feladatok-tab mintája): a KRÉTA a fájlokat
+        // gyakran csak az órarendi elemre teszi, a házi-payloadban semmi
+        // sincs — a részletező és a jegyzetgyártás ugyanazt a dúsított
+        // listát kapja, különben a csatolmány sosem jut el az AI-ig.
+        let mergedHW = HomeworkLessonAttachments.merged(hwR, lessons: weekTT)
+        homeworks = await kreta.fetchHomeworkDetails(mergedHW, iss: iss)
         exams = exR
         // Naptári napok beolvasztása dátum szerint (a hét friss adata nyer,
         // a többi hét megmarad — a keresés úgyis nap-pontos).
@@ -1080,7 +1089,7 @@ private struct TimetableRow: View {
                 // Feladat pill — a fejléc alatt, tap → Feladatok tab
                 if let hw = homework {
                     Button {
-                        NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ["flash": hw.id])
+                        TaskRelay.post(flash: hw.id)
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "checklist")
@@ -1104,7 +1113,7 @@ private struct TimetableRow: View {
                 // Dolgozat pill — tap → Feladatok/Dolgozatok tab
                 if let ex = exam {
                     Button {
-                        NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ["segment": "exams", "flash": ex.id])
+                        TaskRelay.post(segment: "exams", flash: ex.id)
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "doc.text.fill")
@@ -1226,9 +1235,18 @@ private struct LessonDetailSheet: View {
     let examRolled: Bool
     let colors: AppColors
     let scheme: ColorScheme
+    let kreta: KretaClient
+    let exams: [ExamItem]
+    /// A hét órái: a házi órarendi fájljainak feloldásához kell.
+    let weekLessons: [LessonItem]
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var hSize
     private var isPad: Bool { hSize == .regular }
+    @State private var noteWorking = false
+    @State private var noteError: String?
+    @State private var openedSheet: CheatSheetRef?
+    /// Már létező lap ehhez az órához / dolgozathoz (nem duplázunk).
+    @State private var knownSheetID: String?
 
     private var isCancelled: Bool { lesson.isCancelled }
     private var isSubstituted: Bool { lesson.isSubstituted }
@@ -1327,6 +1345,7 @@ private struct LessonDetailSheet: View {
                                 Label(hw.teacher, systemImage: "person.fill")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
+                            AttachmentsBlock(attachments: hw.attachments, ownerId: hw.id)
                             Button { openTasks(flash: hw.id) } label: {
                                 Label("Megnyitás a Feladatokban", systemImage: "checklist")
                                     .font(.caption.weight(.semibold))
@@ -1366,6 +1385,7 @@ private struct LessonDetailSheet: View {
                                 Label(ex.teacher, systemImage: "person.fill")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
+                            AttachmentsBlock(attachments: ex.attachments, ownerId: ex.id)
                             Button { openTasks(segment: "exams", flash: ex.id) } label: {
                                 Label("Megnyitás a Dolgozatokban", systemImage: "doc.text.fill")
                                     .font(.caption.weight(.semibold))
@@ -1380,6 +1400,25 @@ private struct LessonDetailSheet: View {
                     } else {
                         Label("Ehhez az órához nincs dolgozat", systemImage: "doc.text")
                             .font(.callout).foregroundStyle(.secondary)
+                    }
+                }
+
+                // TANULÓJEGYZET — a lap ehhez az órához / dolgozathoz
+                // rendelve nyílik; csatolmányból az AI azonnal megírja.
+                Section("Tanulójegyzet") {
+                    NoteCTAButton(
+                        title: knownSheetID == nil ? "Jegyzet készítése" : "Jegyzet megnyitása",
+                        working: noteWorking,
+                        accent: colors.accent
+                    ) { Task { await makeNote() } }
+                    .padding(.vertical, 4)
+                    .accessibilityIdentifier("lesson-note-button")
+                    if knownSheetID == nil, !noteWorking {
+                        Text(noteSubtitle)
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let err = noteError {
+                        Text(err).font(.caption).foregroundStyle(.red)
                     }
                 }
             }
@@ -1397,9 +1436,67 @@ private struct LessonDetailSheet: View {
                 }
             }
             .accessibilityIdentifier("lesson-detail")
-            .onAppear { print("SUMMIT-DETAIL-APPEARED \(lesson.id)") }
+            .onAppear {
+                print("SUMMIT-DETAIL-APPEARED \(lesson.id)")
+                resolveKnownSheet()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: CheatStore.changedNotification)) { _ in
+                resolveKnownSheet()
+            }
+            .sheet(item: $openedSheet) { ref in
+                CheatSheetView(sheetID: ref.id, exams: exams, subjects: [], showCloseButton: true)
+            }
         }
         .tint(colors.accent)
+    }
+
+    /// Alcím a jegyzet-gomb alá: hány csatolmányból dolgozik az AI.
+    private var noteSubtitle: String {
+        let n = (exam?.attachments.count ?? 0) + (homework?.attachments.count ?? 0)
+        if n > 0 {
+            return n == 1
+                ? "1 csatolmányból az AI készíti el a jegyzetet."
+                : "\(n) csatolmányból az AI készíti el a jegyzetet."
+        }
+        return "Üres lap nyílik az órához — anyagot te töltesz fel."
+    }
+
+    private var lessonTitleFallback: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "hu_HU")
+        f.dateFormat = "MMM d."
+        return "\(lesson.subject) • \(f.string(from: lesson.start))"
+    }
+
+    private func resolveKnownSheet() {
+        knownSheetID = CheatAutoNote.existingSheetID(
+            exam: exam, homework: homework,
+            lessonSubject: lesson.subject, lessonTitleFallback: lessonTitleFallback)
+    }
+
+    /// Jegyzetlap nyitása / gyártása az órához: dolgozathoz rendelve,
+    /// különben az órához; csatolmányból az AI azonnal megírja.
+    private func makeNote() async {
+        if let known = knownSheetID {
+            openedSheet = CheatSheetRef(id: known)
+            return
+        }
+        noteWorking = true
+        noteError = nil
+        let res = await CheatAutoNote.makeSheet(
+            exam: exam,
+            homework: homework,
+            lessonSubject: lesson.subject,
+            lessonTitleFallback: lessonTitleFallback,
+            lessonDate: lesson.start,
+            lessonTeacher: lesson.teacher,
+            weekLessons: weekLessons,
+            kreta: kreta
+        )
+        noteWorking = false
+        noteError = res.aiError
+        knownSheetID = res.id
+        openedSheet = CheatSheetRef(id: res.id)
     }
 
     private func detailRow(icon: String, title: String, value: String) -> some View {
@@ -1423,11 +1520,10 @@ private struct LessonDetailSheet: View {
     /// cover a Feladatok fölött ragadna.
     private func openTasks(segment: String? = nil, flash: String) {
         dismiss()
-        var ui: [String: Any] = ["flash": flash]
-        if let segment { ui["segment"] = segment }
+        // A részletező előbb csukódik (0,35 mp), aztán megy a relé-kérés —
+        // a friss relayID + hop:0 miatt ez önálló, hurokmentes láncot indít.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            NotificationCenter.default.post(
-                name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ui)
+            TaskRelay.post(segment: segment, flash: flash)
         }
     }
 }
