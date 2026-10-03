@@ -1,12 +1,12 @@
 import SwiftUI
 
-// MARK: - Watch tab — tanulójegyzetek (SummitCheat)
+// MARK: - Watch — tanulójegyzetek (SummitCheat)
 // Dolgozatonkénti lapok: feltöltött anyagokból Meta AI-kulccsal
 // generált (vagy kézzel írt) témánkénti jegyzetek
 // (pl. "Babits Mihály" → "Életrajza", "Novellái"). A lapok az órára
 // is átmennek (Watch-szinkron → Jegyzet tab), a kulcs nélkül is
-// használható kézi jegyzetként. A Feladatok a Főoldalról nyílnak,
-// a régi deep-linkek továbbra is ide mutatnak (coverben nyílik).
+// használható kézi jegyzetként. Belépő: a Feladatok tetején,
+// a + gombbal szembeni toolbar-gomb (csak órával látszik).
 struct CheatView: View {
     @EnvironmentObject var theme: ThemeStore
     @EnvironmentObject var session: SessionStore
@@ -17,13 +17,18 @@ struct CheatView: View {
     @State private var subjects: [String] = []
     @State private var isLoading = true
     @State private var showingAdd = false
-    @State private var showingTasks = false
     @State private var apiKeyDraft = ""
     @State private var showKeyField = false
+    /// Sheetben nyitva kell az X a csukáshoz (a Feladatok toolbar-
+    /// gombja így nyitja) — tab-gyökérként nincs rá szükség.
+    let showCloseButton: Bool
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) var scheme
+    init(showCloseButton: Bool = false) {
+        self.showCloseButton = showCloseButton
+    }
     @Environment(\.horizontalSizeClass) private var hSize
     private var isPad: Bool { hSize == .regular }
-    private let switchToTasks = Notification.Name("summit.switchToTasks")
     var colors: AppColors { theme.colors(for: scheme) }
 
     var body: some View {
@@ -120,6 +125,14 @@ struct CheatView: View {
             .navigationBarTitleDisplayMode(.large)
             .summitToolbarBackground()
             .toolbar {
+                if showCloseButton {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark")
+                        }
+                        .accessibilityLabel("Bezárás")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showingAdd = true } label: {
                         Image(systemName: "plus")
@@ -130,32 +143,6 @@ struct CheatView: View {
             .sheet(isPresented: $showingAdd) {
                 AddCheatSheetView(exams: upcomingExams, subjects: subjects) { sheet in
                     CheatStore.upsert(sheet)
-                }
-            }
-            // A régi Feladatok-tab deep-linkjei (Főoldal, Órarend,
-            // értesítés) a 3-as tabra mutatnak — ez most a Watch:
-            // a Feladatok-lap nyílik, a szegmens/villanás továbbmegy.
-            .fullScreenCover(isPresented: $showingTasks) {
-                // Coverben "Kész" gomb is kell — nélküle a dolgozat-pillből
-                // ide jutva nincs kiút a nézetből.
-                NotesView(showCloseButton: true)
-                    .environmentObject(theme)
-                    .environmentObject(session)
-                    .environmentObject(kreta)
-                    .environmentObject(completed)
-            }
-            .onReceive(NotificationCenter.default.publisher(for: switchToTasks)) { notif in
-                // Őr a relé-hurok ellen: a saját újraküldésünk is ideér —
-                // azt már nem küldjük tovább (különben 0,4 mp-enként
-                // újraindulna a szegmens + villanás, örökké).
-                guard !showingTasks else { return }
-                showingTasks = true
-                // A NotesView még nem él a coverben — a notifot
-                // újraküldjük, hogy a szegmens + villanás hasson.
-                if let info = notif.userInfo {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                        NotificationCenter.default.post(name: switchToTasks, object: nil, userInfo: info)
-                    }
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: CheatStore.changedNotification)) { _ in

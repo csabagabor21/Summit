@@ -25,14 +25,84 @@ final class SummitUITests: XCTestCase {
         add(a)
     }
 
+    /// Bootstrap: tiszta szimulátoron demo módban bejelentkeztet, hogy a
+    /// többi teszt bejelentkezett állapotból induljon. Bejelentkezett
+    /// állapoton csak a consent-függönyt csukja le (ha épp fent van).
+    /// ABC-sorrendben ez fut először (test00…).
+    func test00DemoBejelentkezes() throws {
+        if app.tabBars.buttons["Főoldal"].waitForExistence(timeout: 10) {
+            shot("login-00-mar-bent")
+        } else {
+            let kretaLogin = app.buttons["Bejelentkezés E.KRÉTÁVAL"]
+            guard kretaLogin.waitForExistence(timeout: 15) else {
+                shot("login-nincs-login"); return
+            }
+            kretaLogin.tap()
+            guard app.navigationBars["e-KRÉTA"].waitForExistence(timeout: 10) else {
+                shot("login-nincs-weblap"); return
+            }
+            shot("login-10-weblap")
+            // Siker-ág: Demo gomb a toolbarban; hiba-ág (nincs hálózat):
+            // "Folytatás demo módban" a lap alján.
+            let demo = app.navigationBars["e-KRÉTA"].buttons["Demo"]
+            if demo.waitForExistence(timeout: 5) {
+                demo.tap()
+            } else {
+                let demoFallback = app.buttons["Folytatás demo módban"]
+                guard demoFallback.waitForExistence(timeout: 15) else {
+                    shot("login-nincs-demo"); return
+                }
+                demoFallback.tap()
+            }
+            guard app.tabBars.buttons["Főoldal"].waitForExistence(timeout: 15) else {
+                shot("login-nem-lepett-be"); return
+            }
+            shot("login-20-bent")
+        }
+        // Analitika-consent: amíg nincs döntés, függöny fedi a tabokat.
+        let decline = app.buttons["Kikapcsolva folytatom"]
+        if decline.waitForExistence(timeout: 5) {
+            decline.tap()
+        }
+        XCTAssertTrue(app.navigationBars["Főoldal"].waitForExistence(timeout: 10))
+        shot("login-30-fooldal")
+    }
+
     func testHomeEsTabok() throws {
         XCTAssertTrue(app.navigationBars["Főoldal"].waitForExistence(timeout: 25))
         shot("01-fooldal")
-        for tab in ["Jegyek", "Órarend", "Hiányzások", "Watch"] {
+        for tab in ["Jegyek", "Órarend", "Feladatok", "Hiányzások"] {
             app.tabBars.buttons[tab].tap()
             shot("tab-\(tab)")
         }
         app.tabBars.buttons["Főoldal"].tap()
+    }
+
+    /// Watch-belépő a Feladatok tetején: a + gombbal szembeni toolbar-gomb
+    /// sheetben nyitja a Watch-jegyzeteket, X-szel csukható. Laza ág: óra
+    /// nélkül a gomb nem látszik — ilyenkor csak screenshot készül.
+    func testWatchSheet() throws {
+        app.tabBars.buttons["Feladatok"].tap()
+        guard app.navigationBars["Feladatok"].waitForExistence(timeout: 15) else {
+            shot("watch-nincs-feladatok"); return
+        }
+        let watchButton = app.navigationBars["Feladatok"].buttons["Watch"]
+        guard watchButton.waitForExistence(timeout: 5) else {
+            shot("watch-nincs-gomb"); return
+        }
+        watchButton.tap()
+        let watchNav = app.navigationBars["Watch"]
+        XCTAssertTrue(watchNav.waitForExistence(timeout: 10))
+        shot("watch-10-nyitva")
+        // Többképkockás görgetés a Watch-sheetben is.
+        app.swipeUp()
+        shot("watch-12-gorgetve")
+        app.swipeDown()
+        let close = watchNav.buttons["Bezárás"]
+        XCTAssertTrue(close.waitForExistence(timeout: 5))
+        close.tap()
+        XCTAssertFalse(watchNav.waitForExistence(timeout: 5))
+        shot("watch-20-csukva")
     }
 
     /// Fantom-csere végig: tantárgy → jegyen balra swipe → Mi lett volna ha →
@@ -114,10 +184,11 @@ final class SummitUITests: XCTestCase {
         shot("detail-20-csukva")
     }
 
-    /// Feladatok-cover "Kész" gombja: órarendi dolgozat-pillből nyitva is
-    /// legyen kiút (a covernek nincs tab-sávja). Csak akkor fut végig, ha
-    /// a demo-állapotban van dolgozat-pill az órarenden — különben
-    /// screenshot + visszatérés (lásd fantom-teszt mintája).
+    /// Órarendi pill → Feladatok tab: a dolgozat/házi pillre koppintva
+    /// a Feladatok tab nyílik (nem cover — van tab-sáv, nincs Bezárás
+    /// gomb). Csak akkor fut végig, ha a demo-állapotban van pill az
+    /// órarenden — különben screenshot + visszatérés (lásd fantom-teszt
+    /// mintája).
     func testTasksCoverClose() throws {
         app.tabBars.buttons["Órarend"].tap()
         guard app.navigationBars["Órarend"].waitForExistence(timeout: 15) else {
@@ -127,35 +198,31 @@ final class SummitUITests: XCTestCase {
         let pills = app.buttons.matching(
             NSPredicate(format: "label CONTAINS %@", "Dolgozat"))
         guard pills.count > 0 else {
-            // Dolgozat-pill nélkül nincs cover-út — a házi-pill is megteszi.
+            // Dolgozat-pill nélkül a házi-pill is megteszi.
             let hwPills = app.buttons.matching(
                 NSPredicate(format: "label CONTAINS %@", "Házi"))
             guard hwPills.count > 0 else { shot("taskscover-nincs-pill"); return }
             hwPills.element(boundBy: 0).tap()
-            checkTasksCover()
+            checkTasksTab()
             return
         }
         pills.element(boundBy: 0).tap()
-        checkTasksCover()
+        checkTasksTab()
     }
 
-    /// A Feladatok-coveren ott a "Kész" gomb, és tényleg csuk.
-    private func checkTasksCover() {
+    /// A pill a Feladatok tabra visz: a tab sávja látszik és ki van
+    /// választva, a nézet címe Feladatok.
+    private func checkTasksTab() {
         let feladatok = app.navigationBars["Feladatok"]
         guard feladatok.waitForExistence(timeout: 10) else {
             shot("taskscover-nem-nyilt"); return
         }
         shot("taskscover-10-nyitva")
-        // Toolbar-gomb (a "Kész" szegmenssel ütközne, ezért Bezárás).
-        let kesz = app.navigationBars["Feladatok"].buttons["Bezárás"]
-        XCTAssertTrue(kesz.waitForExistence(timeout: 5))
-        kesz.tap()
-        if feladatok.waitForExistence(timeout: 5) {
-            // Még nyitva — az animáció nyelhette el a koppintást, egyszer újra.
-            kesz.tap()
-        }
-        // A cover csukódott (a mögöttes tab eszközfüggő: órarend vagy Watch).
-        XCTAssertFalse(feladatok.waitForExistence(timeout: 5))
-        shot("taskscover-20-csukva")
+        XCTAssertTrue(app.tabBars.buttons["Feladatok"].waitForExistence(timeout: 5))
+        // Többképkockás görgetés: a lista él és követi az ujjat.
+        app.swipeUp()
+        shot("taskscover-15-gorgetve")
+        app.swipeDown()
+        shot("taskscover-20-tabon")
     }
 }

@@ -113,26 +113,40 @@ struct AttachmentsBlock: View {
         }
     }
 }
-/// QuickLook-előnézet egyetlen helyi fájlra (+ rendszer-Megosztás gomb).
+/// QuickLook-előnézet egyetlen helyi fájlra (+ rendszer-Megosztás gomb
+/// és X a csukáshoz — enélkül csak bizonytalan lehúzással lehet kilépni).
 struct QuickLookPreview: UIViewControllerRepresentable {
     let url: URL
+    @Environment(\.dismiss) private var dismiss
 
     func makeUIViewController(context: Context) -> UINavigationController {
         let ql = QLPreviewController()
         ql.dataSource = context.coordinator
+        ql.navigationItem.leftBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "xmark"),
+            style: .plain,
+            target: context.coordinator,
+            action: #selector(Coord.doneTapped))
+        ql.navigationItem.leftBarButtonItem?.accessibilityLabel = "Bezárás"
         return UINavigationController(rootViewController: ql)
     }
 
     func updateUIViewController(_ nav: UINavigationController, context: Context) {}
 
-    func makeCoordinator() -> Coord { Coord(url: url) }
+    func makeCoordinator() -> Coord {
+        let c = Coord(url: url)
+        c.onDone = { dismiss() }
+        return c
+    }
 
     final class Coord: NSObject, QLPreviewControllerDataSource {
         let url: URL
+        var onDone: () -> Void = {}
         init(url: URL) { self.url = url }
         func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
         func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
             url as NSURL
         }
+        @objc func doneTapped() { onDone() }
     }
 }

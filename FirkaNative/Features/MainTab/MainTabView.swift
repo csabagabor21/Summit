@@ -24,12 +24,7 @@ struct MainTabView: View {
     @Environment(\.colorScheme) var scheme
     @State private var selected: Int = ProcessInfo.processInfo.arguments.contains("-FIRKA_ABSENCES") ? 4 : 0
     @ObservedObject private var notif = NotificationManager.shared
-    @ObservedObject private var watchAvailability = WatchAvailability.shared
     @EnvironmentObject var completed: CompletedStore
-    /// Óra nélküli iPhone-on nincs Watch tab (így a CheatView-cover sem
-    /// él) — ilyenkor a Feladatok coverben nyílik (lásd switchToTasks).
-    @State private var showingTasksCover = false
-    @Environment(\.scenePhase) private var scenePhase
     private let switchToTasks = Notification.Name("summit.switchToTasks")
     private let switchToTimetable = Notification.Name("summit.switchToTimetable")
     private let switchToGrades = Notification.Name("summit.switchToGrades")
@@ -48,54 +43,18 @@ struct MainTabView: View {
         // NINCS withAnimation(.spring) — a rendszer Liquid Glass morphja animál.
         // Custom spring felülírná a natív görbét és "cooked"-nak hat.
         .onReceive(NotificationCenter.default.publisher(for: switchToTasks)) { notif in
-            #if targetEnvironment(macCatalyst)
+            // A Feladatok rendes tab (Watch előtt): minden deep-link
+            // (órarendi pill, értesítés-koppintás, Handoff) ide visz.
             selected = 5
-            #else
-            if watchAvailability.showTab {
-                selected = 3
-                // A Watch-tab (CheatView) lusta: ha még sosem jártál ott,
-                // nem él, így az értesítés elveszne — újraküldjük, hogy a
-                // frissen született CheatView is kinyissa a Feladatok-covert.
-                // (Már élő nézetnél az őre nyeli le, nincs hurok.)
-                if let info = notif.userInfo {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                        NotificationCenter.default.post(name: switchToTasks, object: nil, userInfo: info)
-                    }
-                }
-            } else if !showingTasksCover {
-                // Óra nélküli iPhone: nincs Watch tab, így a CheatView
-                // cover-reléje sem él — a Feladatok ilyenkor itt, coverben
-                // nyílik. Az értesítést EGYSZER továbbküldjük, hogy a
-                // NotesView szegmense + sorvillanása hasson; a saját
-                // újraküldésünket az őr feltartóztatja (nincs hurok).
-                showingTasksCover = true
-                if let info = notif.userInfo {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                        NotificationCenter.default.post(name: switchToTasks, object: nil, userInfo: info)
-                    }
+            // A tab tartalma lusta: az első váltáskor a NotesView még
+            // nem él, így a szegmens/villanás elveszne — egyszer
+            // újraküldjük, hogy a már élő nézet is megkapja. A NotesView
+            // nem küld tovább, így nincs hurok.
+            if let info = notif.userInfo {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    NotificationCenter.default.post(name: switchToTasks, object: nil, userInfo: info)
                 }
             }
-            #endif
-        }
-        .fullScreenCover(isPresented: $showingTasksCover) {
-            // Coverben "Kész" gomb is kell — nélküle az órarendi
-            // dolgozat-pillből ide jutva nincs kiút a nézetből.
-            NotesView(showCloseButton: true)
-                .environmentObject(theme)
-                .environmentObject(session)
-                .environmentObject(kreta)
-                .environmentObject(completed)
-        }
-        // Watch tab nélkül nincs min állni: ha épp azon álltál, amikor
-        // eltűnt (párosítás törlése), vissza a Főoldalra (különben üres
-        // lapon ragadnál). A szinkronizált órajel (peerHasWatch) miatt
-        // a showTab-ot figyeljük, nem csak a helyi párosítást.
-        .onChange(of: watchAvailability.showTab) { _, has in
-            if !has, selected == 3 { selected = 0 }
-        }
-        .onAppear { watchAvailability.refresh() }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { watchAvailability.refresh() }
         }
         .onReceive(NotificationCenter.default.publisher(for: switchToTimetable)) { _ in
             selected = 2
@@ -104,24 +63,11 @@ struct MainTabView: View {
         // itt állítjuk, a pozíciót a cél-nézet (pending vagy direkt).
         .onReceive(NotificationCenter.default.publisher(for: SummitHandoff.selectTab)) { notif in
             let tab = notif.userInfo?["tab"] as? Int ?? 0
-            #if targetEnvironment(macCatalyst)
-            if tab == 5 {
-                selected = 5
-            } else if tab == 0 || tab == 1 || tab == 2 || tab == 4 {
+            if tab == 0 || tab == 1 || tab == 2 || tab == 4 || tab == 5 {
                 selected = tab
             }
-            // 3-as (Watch) Macen nincs külön tab — marad az aktuális.
-            #else
-            if tab == 5 {
-                // iPhone/iPad: a Feladatok coverben nyílik (a NotesView
-                // onAppear alkalmazza a pendingTasks-et) — ez MINDIG
-                // működik, a Watch-tab reléjétől függetlenül.
-                showingTasksCover = true
-            } else if tab == 0 || tab == 1 || tab == 2 || tab == 4 {
-                selected = tab
-            }
-            // 3-as (Watch) tab: csak órával jön — nélküle marad az aktuális.
-            #endif
+            // 3-as érték: nincs ilyen tab (a Watch a Feladatokról nyílik) —
+            // marad az aktuális.
         }
         .onChange(of: selected) { _, tab in
             // Minden tabváltást hirdetünk — a másik eszköz dockjában
@@ -177,24 +123,14 @@ struct MainTabView: View {
             Tab("Órarend", systemImage: "calendar", value: 2) {
                 TimetableView()
             }
-            Tab("Hiányzások", systemImage: "person.crop.rectangle.stack", value: 4) {
-                AbsencesView()
-            }
-            // Helyi vagy szinkronizált óra nélkül nincs Watch tab a
-            // dockban/sidebarban — Macen a telefon órája nyitja (jegyzet
-            // Macről is készíthető, átmegy a telefonra, onnan az órára).
-            if watchAvailability.showTab {
-                Tab("Watch", systemImage: "applewatch", value: 3) {
-                    CheatView()
-                }
-            }
-            #if targetEnvironment(macCatalyst)
-            // Macen van hely bőven: a Feladatok külön sidebar-elemet kap
-            // (iPhone-on a Főoldal- és Watch-tab linkjei visznek oda).
             Tab("Feladatok", systemImage: "checklist", value: 5) {
                 NotesView()
             }
-            #endif
+            Tab("Hiányzások", systemImage: "person.crop.rectangle.stack", value: 4) {
+                AbsencesView()
+            }
+            // Nincs több tab: a Watch a Feladatok tetejéről nyílik
+            // (toolbar-gomb a + gombbal szemben) — 6 tab már zsúfolt.
         }
         .tabViewStyle(.sidebarAdaptable)
         // Ne tegyél ide .toolbarBackground vagy .glassEffect-et:
@@ -208,10 +144,8 @@ struct MainTabView: View {
             HomeView().tabItem { Label("Főoldal", systemImage: "house.fill") }.tag(0)
             GradesView().tabItem { Label("Jegyek", systemImage: "star.fill") }.tag(1)
             TimetableView().tabItem { Label("Órarend", systemImage: "calendar") }.tag(2)
+            NotesView().tabItem { Label("Feladatok", systemImage: "checklist") }.tag(5)
             AbsencesView().tabItem { Label("Hiányzások", systemImage: "person.crop.rectangle.stack") }.tag(4)
-            if watchAvailability.showTab {
-                CheatView().tabItem { Label("Watch", systemImage: "applewatch") }.tag(3)
-            }
         }
     }
 }

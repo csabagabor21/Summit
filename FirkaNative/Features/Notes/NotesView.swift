@@ -5,6 +5,7 @@ struct NotesView: View {
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var kreta: KretaClient
     @EnvironmentObject var completed: CompletedStore
+    @ObservedObject private var watchAvailability = WatchAvailability.shared
     @State private var homeworks: [HomeworkItem] = []
     @State private var exams: [ExamItem] = []
     /// Saját (kézzel felvett) tételek — a KRÉTA-listákkal összefésülve jelennek meg.
@@ -14,6 +15,7 @@ struct NotesView: View {
     /// Létező tantárgyak (Jegyek-tab köre): a sheet csak ezekből enged választani.
     @State private var subjects: [String] = []
     @State private var showingAdd = false
+    @State private var showingWatch = false
     /// Óraválasztó a felvételhez: a pluszra előbb az órarend jön (nem naptár),
     /// a kiválasztott óra töltődik elő a felvevő lapon.
     @State private var showingPicker = false
@@ -33,13 +35,8 @@ struct NotesView: View {
 
     /// Főoldali "Összes dolgozat" deeplink: 1-gyel nyitva egyből a
     /// Dolgozatok szegmens jön (a tab és az értesítés-koppintás marad 0).
-    /// showCloseButton: coverben nyitva (Watch-tab nélküli iPhone, Watch-tab
-    /// reléje) kell a "Kész" gomb — különben a Feladatok nézetből nincs kiút.
-    let showCloseButton: Bool
-    @Environment(\.dismiss) private var dismiss
-    init(initialFilter: Int = 0, showCloseButton: Bool = false) {
+    init(initialFilter: Int = 0) {
         _filter = State(initialValue: initialFilter)
-        self.showCloseButton = showCloseButton
     }
     @State private var expandedIDs: Set<String> = []
     @State private var flashedID: String?
@@ -144,11 +141,16 @@ struct NotesView: View {
             .navigationBarTitleDisplayMode(.large)
             .summitToolbarBackground()
             .toolbar {
-                if showCloseButton {
-                    // "Bezárás", nem "Kész": a szegmens-control harmadik
-                    // eleme is Kész — a VoiceOver két egyforma gombot hallana.
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Bezárás") { dismiss() }
+                // Watch-belépő a + gombbal szemben, a másik oldalt —
+                // csak órával (helyi vagy szinkronizált) látszik.
+                // Sheetben nyílik a saját X-ével — pusholva a beágyazott
+                // NavigationStack miatt nem lenne látható visszaút.
+                if watchAvailability.showTab {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { showingWatch = true } label: {
+                            Image(systemName: "applewatch")
+                        }
+                        .accessibilityLabel("Watch")
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -185,6 +187,10 @@ struct NotesView: View {
                     prefillPeriod: pendingLesson.flatMap { Int($0.index) }
                 )
             }
+            // 3) Watch-jegyzetek — saját X-szel csukható (nincs tab-sáv).
+            .sheet(isPresented: $showingWatch) {
+                CheatView(showCloseButton: true)
+            }
             .onReceive(NotificationCenter.default.publisher(for: CustomTasksStore.changedNotification)) { _ in
                 reloadCustom()
             }
@@ -218,6 +224,9 @@ struct NotesView: View {
             // (a direkt értesítés a cover-animáció alatt elveszhet — a
             // pending ilyenkor ment meg). Utána a saját állapotot hirdetjük.
             .onAppear {
+                // Óra-párosítás az app futása alatt is változhat — a
+                // Watch-gomb láthatósága ettől függ.
+                watchAvailability.refresh()
                 if let p = HandoffCenter.shared.takeTasks() {
                     filter = p.segment
                     if let fid = p.flash {
