@@ -33,8 +33,13 @@ struct NotesView: View {
 
     /// Főoldali "Összes dolgozat" deeplink: 1-gyel nyitva egyből a
     /// Dolgozatok szegmens jön (a tab és az értesítés-koppintás marad 0).
-    init(initialFilter: Int = 0) {
+    /// showCloseButton: coverben nyitva (Watch-tab nélküli iPhone, Watch-tab
+    /// reléje) kell a "Kész" gomb — különben a Feladatok nézetből nincs kiút.
+    let showCloseButton: Bool
+    @Environment(\.dismiss) private var dismiss
+    init(initialFilter: Int = 0, showCloseButton: Bool = false) {
         _filter = State(initialValue: initialFilter)
+        self.showCloseButton = showCloseButton
     }
     @State private var expandedIDs: Set<String> = []
     @State private var flashedID: String?
@@ -139,6 +144,13 @@ struct NotesView: View {
             .navigationBarTitleDisplayMode(.large)
             .summitToolbarBackground()
             .toolbar {
+                if showCloseButton {
+                    // "Bezárás", nem "Kész": a szegmens-control harmadik
+                    // eleme is Kész — a VoiceOver két egyforma gombot hallana.
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Bezárás") { dismiss() }
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { pendingLesson = nil; showingPicker = true } label: {
                         Image(systemName: "plus")
@@ -187,6 +199,8 @@ struct NotesView: View {
             .refreshable { await load() }
             // Órarend-pillből érkezve a megfelelő szegmensre ugrik + kiemeli a sort
             .onReceive(NotificationCenter.default.publisher(for: switchToTasks)) { notif in
+                // Direkt kézbesítés nyert a Handoff-pendinggel szemben.
+                HandoffCenter.shared.pendingTasks = nil
                 if (notif.userInfo?["segment"] as? String) == "exams" {
                     filter = 1
                 } else {
@@ -200,6 +214,21 @@ struct NotesView: View {
                 }
             }
             .onAppear { scrollProxy = proxy }
+            // Continuity-folytatás: a küldő szegmense + villanó sora
+            // (a direkt értesítés a cover-animáció alatt elveszhet — a
+            // pending ilyenkor ment meg). Utána a saját állapotot hirdetjük.
+            .onAppear {
+                if let p = HandoffCenter.shared.takeTasks() {
+                    filter = p.segment
+                    if let fid = p.flash {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { flash(id: fid) }
+                    }
+                }
+                HandoffCenter.shared.setTasksPosition(segment: filter)
+            }
+            .onChange(of: filter) { _, seg in
+                HandoffCenter.shared.setTasksPosition(segment: seg)
+            }
             }
         }
         .tint(colors.accent)
@@ -255,7 +284,9 @@ struct NotesView: View {
         out += resolvedExams.items
             .filter { ExamExpiry.isExpired($0, now: nowTick, lessons: lessons) && $0.date >= examCutoff }
             .map { .exam($0) }
-        return out.sorted { $0.date < $1.date }
+        // Legújabb legfelül (nem a legrégebbi) — a Kész egy történet,
+        // a friss pipa érdekli a usert, nem a hónapos.
+        return out.sorted { $0.date > $1.date }
     }
     /// Dolgozatok átütemezéssel: ha a dolgozat napján hiányoztál, a
     /// következő olyan órán jelenik meg (piros háttérrel) — swipe-pal elvethető.
@@ -274,11 +305,15 @@ struct NotesView: View {
             .sorted { $0.date < $1.date }
     }
     // MARK: - Napra bontás (Feladatok, Dolgozatok, Kész — mindhárom)
-    private func groupByDay<T>(_ items: [T], date: (T) -> Date) -> [(day: Date, items: [T])] {
+    // A Kész csökkenő (legújabb nap és napon belül a legújabb tétel legfelül),
+    // az élő listák növekvő maradnak.
+    private func groupByDay<T>(_ items: [T], date: (T) -> Date, descending: Bool = false) -> [(day: Date, items: [T])] {
         let cal = Calendar.current
         let grouped = Dictionary(grouping: items) { cal.startOfDay(for: date($0)) }
-        return grouped.keys.sorted().map { day in
-            (day: day, items: grouped[day]!.sorted { date($0) < date($1) })
+        let days = descending ? grouped.keys.sorted(by: >) : grouped.keys.sorted()
+        return days.map { day in
+            let items = grouped[day]!.sorted { descending ? date($0) > date($1) : date($0) < date($1) }
+            return (day: day, items: items)
         }
     }
     var homeworkDayGroups: [(day: Date, items: [HomeworkItem])] {
@@ -288,7 +323,7 @@ struct NotesView: View {
         groupByDay(filteredExams) { $0.date }
     }
     var doneDayGroups: [(day: Date, items: [DoneEntry])] {
-        groupByDay(doneEntries) { $0.date }
+        groupByDay(doneEntries, date: { $0.date }, descending: true)
     }
     /// Napcím: Ma / Holnap / Tegnap, különben "szept. 22., hétfő" + darabszám.
     private func dayHeader(day: Date, count: Int) -> some View {

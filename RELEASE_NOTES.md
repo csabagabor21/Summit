@@ -1,5 +1,19 @@
 # Summit release notes
 
+## Build 62
+- Handoff: start on iPhone, continue on Mac (and back) — the other device opens the same tab and position, straight from the Dock icon.
+- The Watch tab now appears on Mac too when your iPhone has a paired watch, so study notes can start from the desktop as well.
+- The Watch Smart Stack widget is all-in-one now: school-event card in the morning, live lesson view with per-second countdown during class, tomorrow's note in the evening — and the corner complication shows context (subject + time) instead of bare minutes.
+- New "Today" Lock Screen widget: today's event, today's exam, remaining lessons — turning into the next-day note after the last lesson.
+- Widgets no longer get stuck after lesson transitions: the countdown ticks without reloads, tomorrow's card arrives on time, and days off school get their own card.
+- The new-grade celebration is real native Apple confetti now.
+- "What if" grades: swipe a grade to swap in a phantom value with a live average preview, discard it with a swipe.
+- Study-note AI reads the whole document: every PDF page goes to the model as an image, photos can be attached, no more cut-off text — and without your own key a free shared fallback answers.
+- Notes stay readable on the watch: fixed spacing, paragraph gaps, and garbled AI text blocks are cleaned automatically.
+- Tapping homework/exam pills without a paired watch now opens Tasks directly, with a close button so you never get stuck.
+- Sync is honest now: pull really reads the server (last-writer-wins), and the review account syncs too.
+- The Lock Screen card disappears right at the end of the last lesson instead of lingering for hours.
+
 ## Build 18
 - New Apple Watch Smart Stack widget ("Most"): the current lesson with live progress and remaining time, the next one during breaks, the first one in the morning — plus the day's homework/exam line, all in Hungarian.
 - The watch app now runs on older watches too (watchOS 10, Series 4 and up), and widgets keep showing the last known data instead of going blank.

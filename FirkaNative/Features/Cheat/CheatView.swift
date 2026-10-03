@@ -136,7 +136,9 @@ struct CheatView: View {
             // értesítés) a 3-as tabra mutatnak — ez most a Watch:
             // a Feladatok-lap nyílik, a szegmens/villanás továbbmegy.
             .fullScreenCover(isPresented: $showingTasks) {
-                NotesView()
+                // Coverben "Kész" gomb is kell — nélküle a dolgozat-pillből
+                // ide jutva nincs kiút a nézetből.
+                NotesView(showCloseButton: true)
                     .environmentObject(theme)
                     .environmentObject(session)
                     .environmentObject(kreta)

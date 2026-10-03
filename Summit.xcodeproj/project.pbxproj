@@ -655,7 +655,7 @@
 				B819DC522B5493DD13D46FD0 /* Frameworks */,
 				4F02A7F9F941C88A0AC69F36 /* Embed Foundation Extensions */,
 				4BE404A9FBC7EEDBE1508261 /* Embed Watch Content */,
-				1BE0609A0110A58FB875FFC1 /* Inject background refresh plist keys */,
+				1BE0609A0110A58FB875FFC1 /* Inject plist keys (BG refresh + Handoff) */,
 			);
 			buildRules = (
 			);
@@ -836,7 +836,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		1BE0609A0110A58FB875FFC1 /* Inject background refresh plist keys */ = {
+		1BE0609A0110A58FB875FFC1 /* Inject plist keys (BG refresh + Handoff) */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -845,14 +845,14 @@
 			);
 			inputPaths = (
 			);
-			name = "Inject background refresh plist keys";
+			name = "Inject plist keys (BG refresh + Handoff)";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Mac Catalyst builden az iOS háttér-kulcsok nem kellenek — kihagyjuk.\ncase \"${EFFECTIVE_PLATFORM_NAME:-}\" in *maccatalyst*) exit 0;; esac\n# A BGAppRefreshTask két tömb típusú plist-kulcsot igényel, amit az\n# INFOPLIST_KEY_* build settingek nem tudnak (csak stringet) — ezért\n# injektáljuk a legenerált Info.plist-be. plutil -insert atomi: mindig\n# a pontos típust írja. A PlistBuddy Delete/Add páros TILOS (egyszer\n# már Dict-té fajult a kulcs: Dict{0=fetch} → App Store upload-hiba).\n# Az aláírás ezután történik, így App Store / TestFlight buildeken\n# is érvényes marad.\nPLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n/usr/bin/plutil -remove UIBackgroundModes \"$PLIST\" 2>/dev/null || true\n/usr/bin/plutil -insert UIBackgroundModes -json '[\"fetch\"]' \"$PLIST\"\n/usr/bin/plutil -remove BGTaskSchedulerPermittedIdentifiers \"$PLIST\" 2>/dev/null || true\n/usr/bin/plutil -insert BGTaskSchedulerPermittedIdentifiers -json '[\"hu.flint.app.Flint.liveactivity-refresh\"]' \"$PLIST\"\n# Hangos ellenőrzés: rossz típus már a buildet buktassa, ne az uploadot.\nif ! /usr/libexec/PlistBuddy -c \"Print :UIBackgroundModes\" \"$PLIST\" 2>/dev/null | head -1 | grep -q \"^Array\"; then\n  echo \"error: UIBackgroundModes nem array a generált Info.plist-ben ($PLIST)\"\n  exit 1\nfi\n";
+			shellScript = "# Handoff (Continuity, \"hu.flint.view\"): a tevékenység-típust az\n# Info.plist-ben deklarálni kell (NSUserActivityTypes) — iOS-en ÉS\n# Catalyst-Macen is, különben a másik eszköz nem tudja folytatni.\n# Tömb típusú, ezért plutil-lal injektáljuk (INFOPLIST_KEY_* csak\n# stringet tud). A PlistBuddy Delete/Add páros TILOS (Dict-té fajulhat).\nPLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n/usr/bin/plutil -remove NSUserActivityTypes \"$PLIST\" 2>/dev/null || true\n/usr/bin/plutil -insert NSUserActivityTypes -json '[\"hu.flint.view\"]' \"$PLIST\"\n# Mac Catalyst builden az iOS háttér-kulcsok nem kellenek — eddig.\ncase \"${EFFECTIVE_PLATFORM_NAME:-}\" in *maccatalyst*) exit 0;; esac\n# A BGAppRefreshTask két tömb típusú plist-kulcsot igényel, amit az\n# INFOPLIST_KEY_* build settingek nem tudnak (csak stringet) — ezért\n# injektáljuk a legenerált Info.plist-be. plutil -insert atomi: mindig\n# a pontos típust írja. A PlistBuddy Delete/Add páros TILOS (egyszer\n# már Dict-té fajult a kulcs: Dict{0=fetch} → App Store upload-hiba).\n# Az aláírás ezután történik, így App Store / TestFlight buildeken\n# is érvényes marad.\n/usr/bin/plutil -remove UIBackgroundModes \"$PLIST\" 2>/dev/null || true\n/usr/bin/plutil -insert UIBackgroundModes -json '[\"fetch\"]' \"$PLIST\"\n/usr/bin/plutil -remove BGTaskSchedulerPermittedIdentifiers \"$PLIST\" 2>/dev/null || true\n/usr/bin/plutil -insert BGTaskSchedulerPermittedIdentifiers -json '[\"hu.flint.app.Flint.liveactivity-refresh\"]' \"$PLIST\"\n# Hangos ellenőrzés: rossz típus már a buildet buktassa, ne az uploadot.\nif ! /usr/libexec/PlistBuddy -c \"Print :UIBackgroundModes\" \"$PLIST\" 2>/dev/null | head -1 | grep -q \"^Array\"; then\n  echo \"error: UIBackgroundModes nem array a generált Info.plist-ben ($PLIST)\"\n  exit 1\nfi\nif ! /usr/libexec/PlistBuddy -c \"Print :NSUserActivityTypes\" \"$PLIST\" 2>/dev/null | head -1 | grep -q \"^Array\"; then\n  echo \"error: NSUserActivityTypes nem array a generált Info.plist-ben ($PLIST)\"\n  exit 1\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

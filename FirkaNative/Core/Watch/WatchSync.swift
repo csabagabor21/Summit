@@ -598,7 +598,7 @@ enum WatchSyncSender {
         )
     }
     static func activate() {}
-    static func pushTimetable(_: [LessonItem], homeworks _: [HomeworkItem] = [], exams _: [ExamItem] = []) {}
+    static func pushTimetable(_: [LessonItem], homeworks _: [HomeworkItem] = [], exams _: [ExamItem] = [], events _: [SchoolEvent] = [], eventsVisible _: Bool = true, noSchoolDays _: [TimetableWidgetStore.NoSchoolDay] = []) {}
     static func pushSnapshot(_: TimetableWidgetStore.Snapshot) {}
     static func pushGrades(grades _: [GradeItem], subjects _: [String]) {}
     static func pushTasks(homeworks _: [HomeworkItem], exams _: [ExamItem]) {}

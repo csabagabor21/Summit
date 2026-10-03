@@ -220,3 +220,124 @@ struct SummitApp: App {
         }
     }
 }
+
+// MARK: - SummitHandoff — Continuity (Handoff) minden eszköz között
+// Ha az iPhone-on az órarendben állsz, a Mac dockjában feljön a Summit
+// ikon, rákattintva a Mac-app ugyanott nyílik (tab + hét/nap + óra +
+// Feladatok-szegmens). Mindkét irányban, minden eszközön (iPhone/iPad/Mac
+// Catalyst — ugyanaz a Bundle ID, ugyanaz a tevékenység-típus).
+// Feltétel a gépeken: ugyanaz az iCloud-fiók + bekapcsolt Bluetooth/Wi-Fi.
+enum SummitHandoff {
+    /// Info.plist-ben is deklarálva (NSUserActivityTypes — lásd a
+    /// post-build scriptet), különben a másik eszköz nem folytathatja.
+    static let activityType = "hu.flint.view"
+    static let selectTab = Notification.Name("summit.selectTab")
+    static let restoreTimetable = Notification.Name("summit.restoreTimetable")
+}
+
+/// Egyetlen NSUserActivity-t hirdet (tab + órarend-pozíció + Feladatok-
+/// szegmens). Azonos payloadot nem publikál újra — ez állítja meg a
+/// vissza-pingpongot, amikor két eszköz egymástól veszi át az állapotot.
+final class HandoffCenter {
+    static let shared = HandoffCenter()
+    /// Fogadott, még fel nem dolgozott órarend-pozíció (a nézet még nem élt
+    /// az értesítéskor) — a TimetableView onAppear emészti fel, 15 mp-ig érvényes.
+    var pendingTimetable: (week: Int, day: Int, lesson: String?, at: Date)?
+    /// Ugyanez a Feladatokhoz (szegmens + villanó sor) — a NotesView onAppear emészti.
+    var pendingTasks: (segment: Int, flash: String?, at: Date)?
+    private var activity: NSUserActivity?
+    private var lastPayload: [AnyHashable: Any] = [:]
+    private init() {}
+
+    /// Tabváltás hirdetése (0 Főoldal, 1 Jegyek, 2 Órarend, 4 Hiányzások, 5 Feladatok).
+    func setTab(_ tab: Int) {
+        var p = lastPayload
+        p["tab"] = tab
+        if tab != 2 { p.removeValue(forKey: "week"); p.removeValue(forKey: "day"); p.removeValue(forKey: "lesson") }
+        if tab != 5 { p.removeValue(forKey: "seg"); p.removeValue(forKey: "flash") }
+        publish(p)
+    }
+
+    func setTimetablePosition(weekOffset: Int, weekday: Int, lessonID: String? = nil) {
+        var p = lastPayload
+        p["tab"] = 2
+        p["week"] = weekOffset
+        p["day"] = weekday
+        if let lessonID { p["lesson"] = lessonID } else { p.removeValue(forKey: "lesson") }
+        publish(p)
+    }
+
+    func setTasksPosition(segment: Int, flashID: String? = nil) {
+        var p = lastPayload
+        p["tab"] = 5
+        p["seg"] = segment
+        if let flashID { p["flash"] = flashID } else { p.removeValue(forKey: "flash") }
+        publish(p)
+    }
+
+    private func publish(_ payload: [AnyHashable: Any]) {
+        guard !NSDictionary(dictionary: lastPayload).isEqual(to: payload) else { return }
+        lastPayload = payload
+        let a: NSUserActivity
+        if let existing = activity {
+            a = existing
+        } else {
+            a = NSUserActivity(activityType: SummitHandoff.activityType)
+            a.title = "Summit"
+            a.isEligibleForHandoff = true
+            activity = a
+            a.becomeCurrent()
+        }
+        a.userInfo = payload
+        a.needsSave = true
+    }
+
+    /// Másik eszközről folytatás: a tabot a MainTabView, a pozíciót a
+    /// cél-nézet állítja helyre (élő nézet direkt értesítéssel, még meg
+    /// nem született nézet pending-gel).
+    static func handle(_ activity: NSUserActivity) {
+        guard activity.activityType == SummitHandoff.activityType,
+              let info = activity.userInfo else { return }
+        let now = Date()
+        let tab = info["tab"] as? Int ?? 0
+        if tab == 2 {
+            let pending = (
+                week: info["week"] as? Int ?? 0,
+                day: info["day"] as? Int ?? 2,
+                lesson: info["lesson"] as? String,
+                at: now
+            )
+            shared.pendingTimetable = pending
+            NotificationCenter.default.post(
+                name: SummitHandoff.restoreTimetable, object: nil,
+                userInfo: ["week": pending.week, "day": pending.day, "lesson": pending.lesson as Any])
+        } else if tab == 5 {
+            shared.pendingTasks = (
+                segment: info["seg"] as? Int ?? 0,
+                flash: info["flash"] as? String,
+                at: now
+            )
+        }
+        NotificationCenter.default.post(
+            name: SummitHandoff.selectTab, object: nil, userInfo: ["tab": tab])
+    }
+
+    /// Pending-ürítés 15 mp-es érvényességgel (öreg folytatás ne írja felül
+    /// a frisset — pl. később kézzel nyitott Feladatok szegmensét).
+    func takeTimetable() -> (week: Int, day: Int, lesson: String?)? {
+        guard let p = pendingTimetable, Date().timeIntervalSince(p.at) < 15 else {
+            pendingTimetable = nil
+            return nil
+        }
+        pendingTimetable = nil
+        return (p.week, p.day, p.lesson)
+    }
+    func takeTasks() -> (segment: Int, flash: String?)? {
+        guard let p = pendingTasks, Date().timeIntervalSince(p.at) < 15 else {
+            pendingTasks = nil
+            return nil
+        }
+        pendingTasks = nil
+        return (p.segment, p.flash)
+    }
+}

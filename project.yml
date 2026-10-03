@@ -19,18 +19,24 @@ targets:
     # Live Activity háttér-ébresztés (BGAppRefreshTask): óra/szünet végén
     # az app megnyitása nélkül is átkapcsol az activity.
     postBuildScripts:
-      - name: Inject background refresh plist keys
+      - name: Inject plist keys (BG refresh + Handoff)
         script: |
-          # Mac Catalyst builden az iOS háttér-kulcsok nem kellenek — kihagyjuk.
-          case "${EFFECTIVE_PLATFORM_NAME:-}" in *maccatalyst*) exit 0;; esac
-          # A BGAppRefreshTask két tömb típusú plist-kulcsot igényel, amit az
-          # INFOPLIST_KEY_* build settingek nem tudnak (csak stringet) — ezért
-          # injektáljuk a legenerált Info.plist-be. plutil -insert atomi: mindig
-          # a pontos típust írja. A PlistBuddy Delete/Add páros TILOS (egyszer
-          # már Dict-té fajult a kulcs: Dict{0=fetch} → App Store upload-hiba).
+          # Tömb típusú plist-kulcsokat az INFOPLIST_KEY_* build settingek nem
+          # tudnak (csak stringet) — ezért injektáljuk a legenerált
+          # Info.plist-be. plutil -insert atomi: mindig a pontos típust írja.
+          # A PlistBuddy Delete/Add páros TILOS (egyszer már Dict-té fajult
+          # egy kulcs: Dict{0=fetch} → App Store upload-hiba).
           # Az aláírás ezután történik, így App Store / TestFlight buildeken
           # is érvényes marad.
           PLIST="${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
+          # Handoff (Continuity, "hu.flint.view"): a tevékenység-típust az
+          # Info.plist-ben deklarálni kell (NSUserActivityTypes) — iOS-en ÉS
+          # Catalyst-Macen is, különben a másik eszköz nem tudja folytatni.
+          /usr/bin/plutil -remove NSUserActivityTypes "$PLIST" 2>/dev/null || true
+          /usr/bin/plutil -insert NSUserActivityTypes -json '["hu.flint.view"]' "$PLIST"
+          # Mac Catalyst builden az iOS háttér-kulcsok nem kellenek — eddig.
+          case "${EFFECTIVE_PLATFORM_NAME:-}" in *maccatalyst*) exit 0;; esac
+          # A BGAppRefreshTask két tömb típusú plist-kulcsot igényel (lásd fent).
           /usr/bin/plutil -remove UIBackgroundModes "$PLIST" 2>/dev/null || true
           /usr/bin/plutil -insert UIBackgroundModes -json '["fetch"]' "$PLIST"
           /usr/bin/plutil -remove BGTaskSchedulerPermittedIdentifiers "$PLIST" 2>/dev/null || true
@@ -38,6 +44,10 @@ targets:
           # Hangos ellenőrzés: rossz típus már a buildet buktassa, ne az uploadot.
           if ! /usr/libexec/PlistBuddy -c "Print :UIBackgroundModes" "$PLIST" 2>/dev/null | head -1 | grep -q "^Array"; then
             echo "error: UIBackgroundModes nem array a generált Info.plist-ben ($PLIST)"
+            exit 1
+          fi
+          if ! /usr/libexec/PlistBuddy -c "Print :NSUserActivityTypes" "$PLIST" 2>/dev/null | head -1 | grep -q "^Array"; then
+            echo "error: NSUserActivityTypes nem array a generált Info.plist-ben ($PLIST)"
             exit 1
           fi
     sources:

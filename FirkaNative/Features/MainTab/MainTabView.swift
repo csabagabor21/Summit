@@ -53,6 +53,15 @@ struct MainTabView: View {
             #else
             if watchAvailability.showTab {
                 selected = 3
+                // A Watch-tab (CheatView) lusta: ha még sosem jártál ott,
+                // nem él, így az értesítés elveszne — újraküldjük, hogy a
+                // frissen született CheatView is kinyissa a Feladatok-covert.
+                // (Már élő nézetnél az őre nyeli le, nincs hurok.)
+                if let info = notif.userInfo {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                        NotificationCenter.default.post(name: switchToTasks, object: nil, userInfo: info)
+                    }
+                }
             } else if !showingTasksCover {
                 // Óra nélküli iPhone: nincs Watch tab, így a CheatView
                 // cover-reléje sem él — a Feladatok ilyenkor itt, coverben
@@ -69,7 +78,9 @@ struct MainTabView: View {
             #endif
         }
         .fullScreenCover(isPresented: $showingTasksCover) {
-            NotesView()
+            // Coverben "Kész" gomb is kell — nélküle az órarendi
+            // dolgozat-pillből ide jutva nincs kiút a nézetből.
+            NotesView(showCloseButton: true)
                 .environmentObject(theme)
                 .environmentObject(session)
                 .environmentObject(kreta)
@@ -88,6 +99,39 @@ struct MainTabView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: switchToTimetable)) { _ in
             selected = 2
+        }
+        // Continuity (Handoff): másik eszközről folytatás — a tabot
+        // itt állítjuk, a pozíciót a cél-nézet (pending vagy direkt).
+        .onReceive(NotificationCenter.default.publisher(for: SummitHandoff.selectTab)) { notif in
+            let tab = notif.userInfo?["tab"] as? Int ?? 0
+            #if targetEnvironment(macCatalyst)
+            if tab == 5 {
+                selected = 5
+            } else if tab == 0 || tab == 1 || tab == 2 || tab == 4 {
+                selected = tab
+            }
+            // 3-as (Watch) Macen nincs külön tab — marad az aktuális.
+            #else
+            if tab == 5 {
+                // iPhone/iPad: a Feladatok coverben nyílik (a NotesView
+                // onAppear alkalmazza a pendingTasks-et) — ez MINDIG
+                // működik, a Watch-tab reléjétől függetlenül.
+                showingTasksCover = true
+            } else if tab == 0 || tab == 1 || tab == 2 || tab == 4 {
+                selected = tab
+            }
+            // 3-as (Watch) tab: csak órával jön — nélküle marad az aktuális.
+            #endif
+        }
+        .onChange(of: selected) { _, tab in
+            // Minden tabváltást hirdetünk — a másik eszköz dockjában
+            // ettől jön fel a Summit ikon az aktuális hellyel.
+            HandoffCenter.shared.setTab(tab)
+        }
+        .onAppear {
+            // Induláskor is legyen élő tevékenység (ne csak az első
+            // tabváltástól) — megnyitásra a másik eszköz már látja.
+            HandoffCenter.shared.setTab(selected)
         }
         .onReceive(NotificationCenter.default.publisher(for: switchToGrades)) { _ in
             selected = 1

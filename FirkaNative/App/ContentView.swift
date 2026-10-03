@@ -14,6 +14,11 @@ struct ContentView: View {
             }
         }
         .animation(SummitMotion.gentle, value: session.isLoggedIn)
+        // Continuity (Handoff): a másik eszközön álló Summit átveszi
+        // az aktuális tabot + pozíciót (lásd HandoffCenter.handle).
+        .onContinueUserActivity(SummitHandoff.activityType) { activity in
+            HandoffCenter.handle(activity)
+        }
     }
 
     private var content: some View {
