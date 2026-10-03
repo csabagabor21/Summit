@@ -10,6 +10,14 @@ Nincs kivétel: egy soros fix, UI-csiszolás, komment-átírás után is commit 
 Ne várj a userre, ne gyűjtögess több promptot egy commitba — egy feladat = egy commit. ez azért kell, hogyha a következő promt kinyír valamit, azonnal vissza tudjuk csinálni. Nem kell megvárni az engedélyt mivel ezzel rosszat nem tudsz tenni.
 A commit előtt `xcodebuild ... build` sikerrel kell futhasson (Simulator, Debug).
 
+## UI-tesztek (minden AI-asszisztensre vonatkozik)
+UI-teszt cuccot NE csináljatok, mert nem kell: se új UI-tesztet ne írjatok
+a `SummitUITests`-be, se a meglévőket ne futtassátok (`xcodebuild test`
+tilos erre a targetre). A meglévő UI-tesztfájlt csak akkor érintsétek, ha
+egy UI-változás miatt muszáj (pl. megszűnt tabra koppintana) — de új
+teszt-metódus, bootstrap-login vagy screenshot-kör nem kerül bele.
+Ellenőrzés = sima `xcodebuild ... build` (Simulator, Debug), az elég.
+
 ## Környezet
 A gépen már NEM beta, hanem rendes Xcode van: `/Applications/Xcode.app`
 (Xcode 27), az `xcode-select` is oda mutat — az `xcodebuild` hívások elé
