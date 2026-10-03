@@ -68,7 +68,7 @@ enum TimetableWidgetStore {
     /// teljes kártya (cím + alcím), több tétel = summary ("2 dolgozat •
     /// 1 helyettesítés") at-a-glance. Részletes listák nem utaznak,
     /// csak ez a kivonat + darabszámok.
-    struct NextDayItem: Codable {
+    struct NextDayItem: Codable, Equatable {
         /// "exam" | "cancelled" | "substituted" | "event".
         var kind: String
         /// Dolgozat tárgya / óra tárgya / esemény címe.
@@ -87,7 +87,7 @@ enum TimetableWidgetStore {
         var name: String
     }
 
-    struct NextDayNote: Codable {
+    struct NextDayNote: Codable, Equatable {
         /// A következő tanítási nap (nap eleje).
         var day: Date
         /// Max 3 tétel, prioritás-sorrendben (a summaryhez elég).
@@ -105,7 +105,7 @@ enum TimetableWidgetStore {
         var totalCount: Int { examCount + cancelledCount + substitutedCount + eventCount }
     }
 
-    struct Snapshot: Codable {
+    struct Snapshot: Codable, Equatable {
         var savedAt: Date
         var accentHex: Int
         /// A betöltött hét órái, időrendben (a widget választ napot belőle).
@@ -140,16 +140,32 @@ enum TimetableWidgetStore {
             nextNote = try c.decodeIfPresent(NextDayNote.self, forKey: .nextNote)
             todayInfo = try c.decodeIfPresent(NextDayNote.self, forKey: .todayInfo)
         }
+
+        /// Tartalmi egyezés a mentés-ritkításhoz: a savedAt minden mentéskor
+        /// most lenne, ezért nem számít (a widget-snapshot savedAt-ját
+        /// senki sem olvassa).
+        static func == (lhs: Snapshot, rhs: Snapshot) -> Bool {
+            lhs.accentHex == rhs.accentHex && lhs.lessons == rhs.lessons
+            && lhs.previewActive == rhs.previewActive && lhs.previewMinutes == rhs.previewMinutes
+            && lhs.nextNote == rhs.nextNote && lhs.todayInfo == rhs.todayInfo
+        }
     }
 
     private static var defaults: UserDefaults? {
         UserDefaults(suiteName: appGroupID)
     }
 
-    static func save(_ snapshot: Snapshot) {
+    /// Mentés + igaz, ha tényleg írt. Változatlan tartalomnál nem ír
+    /// (a WidgetKit napi reload-keretét minden felesleges kérés égeti —
+    /// a keret kimerülése = beragadt, magával nem továbbmenő widget).
+    /// A hívó csak íráskor kérjen `reloadTimelines`-t.
+    @discardableResult
+    static func save(_ snapshot: Snapshot) -> Bool {
+        if let old = load(), old == snapshot { return false }
         guard let defaults,
-              let data = try? JSONEncoder().encode(snapshot) else { return }
+              let data = try? JSONEncoder().encode(snapshot) else { return false }
         defaults.set(data, forKey: snapshotKey)
+        return true
     }
 
     static func load() -> Snapshot? {
@@ -161,6 +177,7 @@ enum TimetableWidgetStore {
 
     /// Jövőbeli órák beolvasztása: a múlt kidobva, újak duplikálás nélkül.
     /// Snapshot nélkül is létrehoz (van benne valós adat) — üreset sosem ír.
+    /// Változatlan tartalomnál false (nincs írás).
     @discardableResult
     static func mergeFuture(lessons: [Lesson], accentHex: Int, now: Date, calendar: Calendar = .current) -> Bool {
         let today = calendar.startOfDay(for: now)
@@ -171,16 +188,16 @@ enum TimetableWidgetStore {
         for l in lessons where ids.insert(l.id).inserted { existing.append(l) }
         existing.sort { $0.start < $1.start }
         guard !existing.isEmpty else { return false }
-        save(Snapshot(
+        return save(Snapshot(
             savedAt: Date(), accentHex: accentHex, lessons: existing,
             previewActive: base?.previewActive ?? false,
             previewMinutes: base?.previewMinutes ?? 540
         ))
-        return true
     }
 
     /// Egy nap óráinak cseréje a snapshotban (háttér-ébresztés: csak a mai
     /// napot húzza le, a hét többi napja marad). Nincs snapshot → false.
+    /// Változatlan tartalomnál is false (nincs írás).
     @discardableResult
     static func mergeDay(lessons: [Lesson], day: Date, accentHex: Int, calendar: Calendar = .current) -> Bool {
         guard var snap = load() else { return false }
@@ -189,7 +206,6 @@ enum TimetableWidgetStore {
         snap.lessons.sort { $0.start < $1.start }
         snap.accentHex = accentHex
         snap.savedAt = Date()
-        save(snap)
-        return true
+        return save(snap)
     }
 }

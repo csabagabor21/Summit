@@ -180,16 +180,18 @@ enum TimetableWidgetPublish {
     }
 
     /// Teljes heti snapshot írása (TimetableView.load() végéről).
+    /// Változatlan tartalomnál nincs írás és nincs reload-kérés sem
+    /// (lásd TimetableWidgetStore.save).
     static func publishWeek(_ lessons: [LessonItem], homeworks: [HomeworkItem] = [], exams: [ExamItem] = [], events: [SchoolEvent] = [], eventsVisible: Bool = true, noSchoolDays: [TimetableWidgetStore.NoSchoolDay] = []) {
         guard !lessons.isEmpty else { return }
         let preview = previewState()
-        TimetableWidgetStore.save(TimetableWidgetStore.Snapshot(
+        guard TimetableWidgetStore.save(TimetableWidgetStore.Snapshot(
             savedAt: Date(), accentHex: currentAccentHex(),
             lessons: fromLessons(lessons, homeworks: homeworks, exams: exams),
             previewActive: preview.active, previewMinutes: preview.minutes,
             nextNote: nextDayNote(lessons: lessons, exams: exams, events: events, eventsVisible: eventsVisible, noSchoolDays: noSchoolDays),
             todayInfo: todayNote(lessons: lessons, exams: exams, events: events, eventsVisible: eventsVisible, noSchoolDays: noSchoolDays)
-        ))
+        )) else { return }
         WidgetCenter.shared.reloadTimelines(ofKind: TimetableWidgetStore.kind)
         WidgetCenter.shared.reloadTimelines(ofKind: TimetableWidgetStore.dayKind)
     }
@@ -197,6 +199,7 @@ enum TimetableWidgetPublish {
     /// Mai nap mergelése háttér-ébresztésből (csak a mai szelet frissül).
     /// Csak akkor ír, ha már létezik snapshot (azaz a user egyszer
     /// megnyitotta az Órarendet) — üres állapotot nem kreál.
+    /// Változatlan tartalomnál nincs reload-kérés sem.
     static func mergeToday(_ lessons: [LessonItem], now: Date = Date()) {
         let dayLessons = lessons.filter { Calendar.current.isDate($0.start, inSameDayAs: now) }
         guard TimetableWidgetStore.mergeDay(
