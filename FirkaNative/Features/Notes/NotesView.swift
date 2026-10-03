@@ -46,6 +46,8 @@ struct NotesView: View {
     @State private var flashPulse = false
     /// Dolgozat-sori jegyzet-gomb: megnyitandó / gyártandó lap + állapot.
     @State private var noteExam: ExamItem?
+    /// Házi-sori jegyzet-gomb gyártási célja (a working-jelzéshez).
+    @State private var noteHw: HomeworkItem?
     @State private var noteWorking = false
     @State private var noteError: String?
     @State private var openedSheet: CheatSheetRef?
@@ -210,8 +212,12 @@ struct NotesView: View {
             .onReceive(NotificationCenter.default.publisher(for: switchToTasks)) { notif in
                 // Direkt kézbesítés nyert a Handoff-pendinggel szemben.
                 HandoffCenter.shared.pendingTasks = nil
+                // Múlt óráról jövet a dolgozat már a Készben van (lejárt-
+                // bucket) — a Dolgozatok szegmens üresen maradna alatta.
                 if (notif.userInfo?["segment"] as? String) == "exams" {
                     filter = 1
+                } else if (notif.userInfo?["segment"] as? String) == "done" {
+                    filter = 2
                 } else {
                     filter = 0
                 }
@@ -241,6 +247,27 @@ struct NotesView: View {
             }
         }
         .tint(colors.accent)
+    }
+
+    /// Házi-sori Jegyzet-gomb: az okos feloldás az aznapi, azonos tárgyú
+    /// dolgozathoz csatolja a lapot (ha van ilyen) — a fájlok gyakran
+    /// nem a dolgozaton, hanem egy külön házin vannak.
+    private func makeHomeworkNote(_ hw: HomeworkItem) async {
+        noteHw = hw
+        noteWorking = true
+        noteError = nil
+        let res = await CheatAutoNote.makeSheet(
+            exam: nil, homework: hw,
+            lessonSubject: hw.subject, lessonTitleFallback: hw.subject,
+            lessonDate: hw.deadline,
+            weekLessons: lessons, exams: exams,
+            lessonIndex: customPeriods[hw.id]
+                ?? HomeworkMatcher.lesson(for: hw, in: lessons).flatMap { Int($0.index) },
+            kreta: kreta
+        )
+        noteWorking = false
+        noteError = res.aiError
+        openedSheet = CheatSheetRef(id: res.id)
     }
 
     /// Dolgozat-sori Jegyzet-gomb: meglévő lap nyílik, különben gyártás
@@ -464,17 +491,33 @@ struct NotesView: View {
                         Label(hw.teacher, systemImage: "person.fill")
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    // Órarend-ugrás (a csatolmány-blokk fölött), majd a fájlok.
-                    Button {
-                        NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": hw.subject, "deadline": hw.deadline.timeIntervalSince1970, "hwId": hw.id])
-                    } label: {
-                        Label("Mutatás az órarendben", systemImage: "calendar")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(colors.accent)
-                            .padding(.horizontal, 12).padding(.vertical, 8)
-                            .background(Capsule().strokeBorder(colors.accent.opacity(0.35), lineWidth: 1))
+                    // Órarend-ugrás + jegyzetgyártás (a csatolmány-blokk
+                    // fölött), majd a fájlok.
+                    HStack(spacing: 10) {
+                        Button {
+                            NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": hw.subject, "deadline": hw.deadline.timeIntervalSince1970, "hwId": hw.id])
+                        } label: {
+                            Label("Mutatás az órarendben", systemImage: "calendar")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(colors.accent)
+                                .padding(.horizontal, 12).padding(.vertical, 8)
+                                .background(Capsule().strokeBorder(colors.accent.opacity(0.35), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        NoteCTAButton(
+                            title: "Jegyzet",
+                            working: noteWorking && noteHw?.id == hw.id,
+                            accent: colors.accent
+                        ) {
+                            noteHw = hw
+                            Task { await makeHomeworkNote(hw) }
+                        }
+                        .disabled(noteWorking)
+                        .accessibilityIdentifier("homework-note-button")
                     }
-                    .buttonStyle(.plain)
+                    if let err = noteError, noteHw?.id == hw.id {
+                        Text(err).font(.caption).foregroundStyle(.red)
+                    }
                     // Csatolt fájlok (PDF, kép…) — koppintásra QuickLook.
                     AttachmentsBlock(attachments: hw.attachments, ownerId: hw.id)
                 } else {

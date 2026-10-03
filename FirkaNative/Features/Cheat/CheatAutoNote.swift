@@ -53,6 +53,39 @@ enum CheatAutoNote {
         CheatStore.load().first { $0.examId == examId }?.id
     }
 
+    /// Okos dolgozat-feloldás: a fájlokat a KRÉTA gyakran nem a
+    /// dolgozathoz, hanem egy külön házihoz (vagy csak az órához) teszi.
+    /// Ha a laphoz nincs közvetlen dolgozat, megkeressük az adott nap +
+    /// tárgy dolgozatát (ExamMatcher-szabályok szerint: óraszám-tűzés,
+    /// különben nap-alap) — így a jegyzet ahhoz csatolódik (examId),
+    /// az ő csatolmányaival és kontextusával készül.
+    /// - Parameters:
+    ///   - day: a keresett nap (házi-határidő vagy az óra napja); nil
+    ///     esetén nincs feloldás (téves csatolás helyett inkább semmi).
+    static func resolveExam(
+        lessonIndex: Int? = nil,
+        day: Date?,
+        subject: String,
+        exams: [ExamItem],
+        calendar: Calendar = .current
+    ) -> ExamItem? {
+        guard let day, !exams.isEmpty else { return nil }
+        let sameDay = exams.filter {
+            SubjectMatcher.same($0.subject, subject)
+                && calendar.isDate($0.date, inSameDayAs: day)
+        }
+        if let li = lessonIndex,
+           let pinned = sameDay.first(where: { $0.lessonIndex != nil && $0.lessonIndex == li }) {
+            return pinned
+        }
+        if let unpinned = sameDay.first(where: { $0.lessonIndex == nil }) {
+            return unpinned
+        }
+        if sameDay.count == 1 { return sameDay[0] }
+        if lessonIndex == nil { return sameDay.first }
+        return nil
+    }
+
     /// Meglévő órai lap dolgozat nélkül (tárgy + cím egyezés) — a
     /// "Jegyzet készítése" újranyomása ne duplázzon.
     static func existingLessonSheetID(subject: String, title: String) -> String? {
@@ -120,15 +153,25 @@ enum CheatAutoNote {
     }
 
     /// Meglévő lap órához / dolgozathoz (ugyanaz az identitás, mint
-    /// gyártáskor) — duplikáció helyett ez nyílik.
+    /// gyártáskor) — duplikáció helyett ez nyílik. Közvetlen dolgozat
+    /// nélkül az okos feloldás is fut: az aznapi dolgozathoz kötött lap
+    /// is megtalálható.
     static func existingSheetID(
         exam: ExamItem?,
         homework: HomeworkItem?,
         lessonSubject: String,
-        lessonTitleFallback: String
+        lessonTitleFallback: String,
+        exams: [ExamItem] = [],
+        lessonIndex: Int? = nil,
+        lessonDate: Date? = nil
     ) -> String? {
+        let ex = exam ?? resolveExam(
+            lessonIndex: lessonIndex,
+            day: homework?.deadline ?? lessonDate,
+            subject: homework?.subject ?? lessonSubject,
+            exams: exams)
         let id = plannedIdentity(
-            exam: exam, homework: homework,
+            exam: ex, homework: homework,
             lessonSubject: lessonSubject, lessonTitleFallback: lessonTitleFallback)
         if let examId = id.examId { return existingSheetID(examId: examId) }
         return existingLessonSheetID(subject: id.subject, title: id.title)
@@ -155,8 +198,17 @@ enum CheatAutoNote {
         lessonDate: Date?,
         lessonTeacher: String? = nil,
         weekLessons: [LessonItem] = [],
+        exams: [ExamItem] = [],
+        lessonIndex: Int? = nil,
         kreta: KretaClient
     ) async -> (id: String, aiError: String?) {
+        // Okos feloldás: közvetlen dolgozat nélkül az aznapi, azonos
+        // tárgyú dolgozathoz csatolunk (a fájlok gyakran máshol vannak).
+        let exam = exam ?? resolveExam(
+            lessonIndex: lessonIndex,
+            day: homework?.deadline ?? lessonDate,
+            subject: homework?.subject ?? lessonSubject,
+            exams: exams)
         let id = plannedIdentity(
             exam: exam, homework: homework,
             lessonSubject: lessonSubject, lessonTitleFallback: lessonTitleFallback)
