@@ -14,7 +14,8 @@ import UIKit
 // - Mindig vizuális kísérővel (animáció, pipa, hibaüzenet) — a haptika
 //   sosem az egyetlen visszajelzés.
 // - Erősség-skála: .selection (választás) < light (visszavonás) <
-//   .success/.error (kimenet). Heavy-t sehol nem használunk.
+//   .success/.error (kimenet) < heavy (készre pipa — ez az egyetlen
+//   heavy-pont, direkt kérésre határozott).
 // - Nézetekben inkább a deklaratív `.sensoryFeedback(_, trigger:)`
 //   való ( lent `successHaptic(trigger:)` stb. ) — az imperatív
 //   `SummitHaptics.*()` csak oda kell, ahol nincs trigger-állapot
@@ -60,11 +61,17 @@ enum SummitHaptics {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
-    /// Feladat-pipa egyben: készre → success, levétel → light.
+    /// Határozott, feszes koppanás: készre pipálás, törlés-nyugta.
+    /// A skála legerősebb rövid tagja — csak tényleges commitra.
+    static func firm() {
+        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+    }
+
+    /// Feladat-pipa egyben: készre → határozott heavy, levétel → light.
     /// A hívó a VÁLTÁS ELŐTTI állapotból számolja az újat, és csak
     /// tényleges váltáskor hívja (dupla koppintás = egy rezzenés).
     static func taskToggled(markedDone: Bool) {
-        if markedDone { success() } else { light() }
+        if markedDone { firm() } else { light() }
     }
 }
 #endif
