@@ -125,6 +125,7 @@ struct HomeView: View {
                                 } else {
                                     ForEach(Array(examsSorted), id: \.id) { e in
                                         PadExamRow(exam: e, done: completed.isExamDone(e.id), colors: colors, scheme: scheme, rolled: vm.rolledExamIDs.contains(e.id)) {
+                                            SummitHaptics.taskToggled(markedDone: !completed.isExamDone(e.id))
                                             withAnimation(SummitMotion.snappy) { completed.toggleExam(e.id) }
                                         }
                                     }
@@ -139,6 +140,7 @@ struct HomeView: View {
                                 } else {
                                     ForEach(Array(hwSorted), id: \.id) { h in
                                         PadHomeworkRow(homework: h, done: completed.isHomeworkDone(h.id), colors: colors, scheme: scheme) {
+                                            if !h.isDone { SummitHaptics.taskToggled(markedDone: !completed.isHomeworkDone(h.id)) }
                                             withAnimation(SummitMotion.snappy) { completed.toggleHomework(h.id) }
                                         }
                                     }
@@ -174,8 +176,12 @@ struct HomeView: View {
                                 colors: colors,
                                 scheme: scheme,
                                 rolled: vm.rolledExamIDs.contains(e.id),
-                                onToggle: { withAnimation(SummitMotion.snappy) { completed.toggleExam(e.id) } },
+                                onToggle: {
+                                    SummitHaptics.taskToggled(markedDone: !completed.isExamDone(e.id))
+                                    withAnimation(SummitMotion.snappy) { completed.toggleExam(e.id) }
+                                },
                                 onTap: {
+                                    SummitHaptics.selection()
                                     NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": e.subject, "deadline": e.date.timeIntervalSince1970])
                                 }
                             )
@@ -206,8 +212,12 @@ struct HomeView: View {
                                 done: completed.isHomeworkDone(h.id),
                                 colors: colors,
                                 scheme: scheme,
-                                onToggle: { withAnimation(SummitMotion.snappy) { completed.toggleHomework(h.id) } },
+                                onToggle: {
+                                    if !h.isDone { SummitHaptics.taskToggled(markedDone: !completed.isHomeworkDone(h.id)) }
+                                    withAnimation(SummitMotion.snappy) { completed.toggleHomework(h.id) }
+                                },
                                 onTap: {
+                                    SummitHaptics.selection()
                                     NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": h.subject, "deadline": h.deadline.timeIntervalSince1970])
                                 }
                             )
@@ -389,6 +399,7 @@ private struct PadExamRow: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
+            SummitHaptics.selection()
             NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": exam.subject, "deadline": exam.date.timeIntervalSince1970])
         }
         .padding(10).background(cardBackground)
@@ -427,6 +438,7 @@ private struct PadHomeworkRow: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
+            SummitHaptics.selection()
             NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": homework.subject, "deadline": homework.deadline.timeIntervalSince1970])
         }
         .padding(10).background(cardBackground)
