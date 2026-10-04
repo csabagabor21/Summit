@@ -47,6 +47,9 @@ struct LoginView: View {
                 if let e = vm.error { Text(e).font(.footnote).foregroundStyle(.white).multilineTextAlignment(.center).padding(.bottom, 12).shadow(color: .black.opacity(0.5), radius: 4) }
             }
             .padding(.horizontal, 32)
+            // Sikertelen belépés = hibás kimenet: a VStack végig él, így a
+            // nil → üzenet váltás egyszeri error-rezzenést ad a szöveggel együtt.
+            .summitErrorHaptic(trigger: vm.error ?? "")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .tint(colors.accent)
@@ -137,6 +140,8 @@ struct LoginView: View {
                     Spacer()
                 }
                 .padding()
+                // Hibás jelszó = hibás kimenet: a sheet-tartalom végig él.
+                .summitErrorHaptic(trigger: reviewerError ?? "")
                 .navigationTitle("Bejelentkezés").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Mégse") { reviewerPass = ""; showReviewer = false } } }
             }.presentationDetents([.medium]).presentationDragIndicator(.visible)

@@ -57,6 +57,8 @@ struct NotesView: View {
                         Text("Feladatok").tag(0); Text("Dolgozatok").tag(1); Text("Kész").tag(2)
                     }
                     .pickerStyle(.segmented)
+                    // Szegmens-váltás = választás: finom selection-tick.
+                    .summitSelectionHaptic(trigger: filter)
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
                     .listRowSeparator(.hidden)
@@ -412,7 +414,12 @@ struct NotesView: View {
         let done = completed.isHomeworkDone(hw.id) || hw.isDone
         let expanded = expandedIDs.contains(hw.id)
         HStack(alignment: .top, spacing: 10) {
-            Button { withAnimation(SummitMotion.snappy) { completed.toggleHomework(hw.id) } } label: {
+            Button {
+                // Készre pipa = ünnepelt kimenet (success), levétel = könnyű
+                // koppanás. KRÉTA-kész tételnél nincs állapotváltás — ott néma.
+                if !hw.isDone { SummitHaptics.taskToggled(markedDone: !done) }
+                withAnimation(SummitMotion.snappy) { completed.toggleHomework(hw.id) }
+            } label: {
                 Image(systemName: done ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 22))
                     .foregroundStyle(done ? Color.green : .secondary)
@@ -499,7 +506,11 @@ struct NotesView: View {
         // Kipipálható (ready vagy-e), de a listában marad — nem tűnik el, mint a házi
         let ready = completed.isExamDone(exam.id)
         HStack(alignment: .top, spacing: 10) {
-            Button { withAnimation(SummitMotion.snappy) { completed.toggleExam(exam.id) } } label: {
+            Button {
+                // Mint a házi-pipa: készre → success, vissza → light.
+                SummitHaptics.taskToggled(markedDone: !ready)
+                withAnimation(SummitMotion.snappy) { completed.toggleExam(exam.id) }
+            } label: {
                 Image(systemName: ready ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 22))
                     .foregroundStyle(ready ? Color.green : .secondary)

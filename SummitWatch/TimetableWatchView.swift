@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(watchOS)
+import WatchKit
+#endif
 
 // MARK: - Órarend az órán — a telefonos editorial dizájn tükre, kompaktan
 // Liquid glass óraszám-kör + badge + tárgy + terem/tanár + idősáv.
@@ -148,7 +151,12 @@ struct TimetableWatchView: View {
         let idx = days.firstIndex(of: day)
         HStack(spacing: 6) {
             Button {
-                if let i = idx, i > 0 { selectedDay = days[i - 1] }
+                // Naplépés = választás: halk click, de csak ha tényleg
+                // lép (szinkron-választáskor és tiltott gombon néma).
+                if let i = idx, i > 0 {
+                    selectedDay = days[i - 1]
+                    WatchHaptics.tick()
+                }
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.caption.weight(.semibold))
@@ -158,7 +166,11 @@ struct TimetableWatchView: View {
             .buttonStyle(.plain)
             .disabled(idx == nil || idx == 0)
             Button {
-                selectedDay = cal.startOfDay(for: now)
+                let today = cal.startOfDay(for: now)
+                if selectedDay != today {
+                    selectedDay = today
+                    WatchHaptics.tick()
+                }
                 initializedForSavedAt = store.timetable?.savedAt
             } label: {
                 Text(dayTitle(day, now: now))
@@ -169,7 +181,10 @@ struct TimetableWatchView: View {
             }
             .buttonStyle(.plain)
             Button {
-                if let i = idx, i + 1 < days.count { selectedDay = days[i + 1] }
+                if let i = idx, i + 1 < days.count {
+                    selectedDay = days[i + 1]
+                    WatchHaptics.tick()
+                }
             } label: {
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))

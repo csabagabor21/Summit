@@ -153,7 +153,8 @@ struct GradeCelebrationView: View {
             }
         }
         .onAppear {
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            // Új jegy = ünnepelt kimenet: egyetlen success a konfettival együtt.
+            SummitHaptics.success()
             withAnimation(SummitMotion.gentle) { appeared = true }
             withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { pulse = true }
         }

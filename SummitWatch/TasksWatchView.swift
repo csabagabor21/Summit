@@ -77,6 +77,9 @@ struct TasksWatchView: View {
                     }
                 }
                 .listStyle(.plain)
+                // Sor lenyitása = választás: a legfinomabb tick. Más
+                // az órán nincs — a csukló erősít, a success is sok.
+                .sensoryFeedback(.selection, trigger: expandedIDs)
                 .refreshable { await store.requestSyncNow() }
             }
         }

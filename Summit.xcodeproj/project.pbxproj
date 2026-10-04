@@ -54,6 +54,7 @@
 		59A73912FB5FC521119948A1 /* CheatWatchPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EDBA687F00D8388CCBD4DDA /* CheatWatchPush.swift */; };
 		59D0B237EE99E92BF971A0E7 /* TimetableWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F58C017E930EDD41FA3F852 /* TimetableWidget.swift */; };
 		5A78E3853CEEDF8FC84A226A /* WatchGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = A942DFEBC3847AC7E6660452 /* WatchGlass.swift */; };
+		8C3D5E7F90A1B2C3D4E5F6A7 /* WatchHaptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B2C4D6E8F0A192B3C4D5E6F /* WatchHaptics.swift */; };
 		5C24A893E84C2752AE05C4C9 /* SummitLiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 952A77C87AE801894AD9FA0F /* SummitLiveActivityManager.swift */; };
 		5F20AD0975C509783B0C6515 /* KretaClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 749530AC3E1096307CE8ED24 /* KretaClient.swift */; };
 		6013DB0D27C473913404788B /* WatchAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 015E5B567EB1A1C82FE048AD /* WatchAvailability.swift */; };
@@ -85,6 +86,7 @@
 		9E88851079D387BDF0DFD963 /* SubjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 194B529DC564DF78077C938A /* SubjectDetailView.swift */; };
 		9F1C2EEE3787B2B981B5367E /* Student.swift in Sources */ = {isa = PBXBuildFile; fileRef = 290841CB6CF37C571738D5D8 /* Student.swift */; };
 		9F3F61CCD3F516DECF51FD51 /* SummitMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D59A6CCFD64FBB01C3CF5B5 /* SummitMotion.swift */; };
+		AE5F708192B3C4D5E6F70819 /* SummitHaptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D4E6F8091A2B3C4D5E6F7A8 /* SummitHaptics.swift */; };
 		A07B170986E9E0FA04EB2CD2 /* SummitWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95654B92402375A7D376E636 /* SummitWidgetsBundle.swift */; };
 		A32B70E7BA662076E86EF78E /* TimetableWatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45F417D93F92F1726B4C13A4 /* TimetableWatchView.swift */; };
 		A511E3F2998EBF35A1E28CAE /* ExamRollover.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFF09C4AC767DA00D3C3CD37 /* ExamRollover.swift */; };
@@ -216,6 +218,15 @@
 		39EBCE90E5E55CCF969EB995 /* LiveActivityBackgroundRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityBackgroundRefresh.swift; sourceTree = "<group>"; };
 		3ABCF5C0C06170BB971F626E /* SummitWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = SummitWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		3D59A6CCFD64FBB01C3CF5B5 /* SummitMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitMotion.swift; sourceTree = "<group>"; };
+		9D4E6F8091A2B3C4D5E6F7A8 /* SummitHaptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitHaptics.swift; sourceTree = "<group>"; };
+		BF60718293C4D5E6F708192A /* Feedback */ = {
+			isa = PBXGroup;
+			children = (
+				9D4E6F8091A2B3C4D5E6F7A8 /* SummitHaptics.swift */,
+			);
+			path = Feedback;
+			sourceTree = "<group>";
+		};
 		3E3BE3B35F7AD238DA07178B /* DeveloperView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperView.swift; sourceTree = "<group>"; };
 		3F58C017E930EDD41FA3F852 /* TimetableWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableWidget.swift; sourceTree = "<group>"; };
 		403733D1E79BF3F0BDF3A215 /* AnalyticsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsStore.swift; sourceTree = "<group>"; };
@@ -264,6 +275,7 @@
 		A861E0155EDA827AA2285902 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
 		A90965AE210BE420CCD2F989 /* WatchNowWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchNowWidget.swift; sourceTree = "<group>"; };
 		A942DFEBC3847AC7E6660452 /* WatchGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchGlass.swift; sourceTree = "<group>"; };
+		7B2C4D6E8F0A192B3C4D5E6F /* WatchHaptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHaptics.swift; sourceTree = "<group>"; };
 		AA71684B6DF0CFB5982A110F /* SchoolEventsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchoolEventsSection.swift; sourceTree = "<group>"; };
 		AEDFF37B0D30CD2AA0212E08 /* CheatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheatModels.swift; sourceTree = "<group>"; };
 		AFD363A0F8F101E59655A0B4 /* GradesWatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradesWatchView.swift; sourceTree = "<group>"; };
@@ -422,6 +434,7 @@
 				45F417D93F92F1726B4C13A4 /* TimetableWatchView.swift */,
 				F680942F0CC6A6002F0C67D4 /* WatchAppIcon.icon */,
 				A942DFEBC3847AC7E6660452 /* WatchGlass.swift */,
+				7B2C4D6E8F0A192B3C4D5E6F /* WatchHaptics.swift */,
 				78F66BBD733EBA04C7CB0856 /* WatchSyncStore.swift */,
 			);
 			path = SummitWatch;
@@ -582,6 +595,7 @@
 		CF231186DF00419FC07DB8F3 /* Core */ = {
 			isa = PBXGroup;
 			children = (
+				BF60718293C4D5E6F708192A /* Feedback */,
 				F5F2A779776DCD68ABC5348D /* Models */,
 				543BEB68D0EDE17F433EF23B /* Networking */,
 				EB8606EEC55060B92D11CA44 /* Storage */,
@@ -884,6 +898,7 @@
 				A32B70E7BA662076E86EF78E /* TimetableWatchView.swift in Sources */,
 				41298A0ADDBE2FADDA0E09E8 /* TimetableWidgetSnapshot.swift in Sources */,
 				5A78E3853CEEDF8FC84A226A /* WatchGlass.swift in Sources */,
+				8C3D5E7F90A1B2C3D4E5F6A7 /* WatchHaptics.swift in Sources */,
 				00510505FE37B8B54818307E /* WatchPayload.swift in Sources */,
 				E9854B23F285356AEC2118E4 /* WatchSyncStore.swift in Sources */,
 			);
@@ -953,6 +968,7 @@
 				A80924E518A695C4FF3762D7 /* SummitLiveActivityAttributes.swift in Sources */,
 				5C24A893E84C2752AE05C4C9 /* SummitLiveActivityManager.swift in Sources */,
 				9F3F61CCD3F516DECF51FD51 /* SummitMotion.swift in Sources */,
+				AE5F708192B3C4D5E6F70819 /* SummitHaptics.swift in Sources */,
 				8957515789A879317AE7291A /* SummitPushSync.swift in Sources */,
 				4FFD53DC763FFEA938592691 /* SummitSync.swift in Sources */,
 				03FCC54085DB4A47AF972877 /* SummitSyncKey.swift in Sources */,
