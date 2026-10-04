@@ -232,6 +232,7 @@ struct HomeView: View {
                 // és az egész „seamful" (széteső) érzetű.
                 await vm.refresh(kreta: kreta, user: session.selectedUser, completed: completed)
                 await summitSync.flushThenPull()
+                SummitHaptics.light()
             }
             .task {
                 // első indításkor a previewMinutes legyen a mostani idő (ne fix 09:00)

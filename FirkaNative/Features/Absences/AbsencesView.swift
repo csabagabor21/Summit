@@ -244,6 +244,7 @@ struct AbsencesView: View {
                             }
                             if unjustifiedItems.count > 3 {
                                 Button {
+                                    SummitHaptics.selection()
                                     withAnimation(SummitMotion.gentle) { unjustifiedExpanded.toggle() }
                                 } label: {
                                     HStack {
@@ -279,6 +280,7 @@ struct AbsencesView: View {
                         .contentShape(Rectangle())
                         .onTapGesture {
                             guard unjustifiedItems.count > 3 else { return }
+                            SummitHaptics.selection()
                             withAnimation(SummitMotion.gentle) { unjustifiedExpanded.toggle() }
                         }
                     }
@@ -310,6 +312,7 @@ struct AbsencesView: View {
                             }
                             if justifiedItems.count > 3 {
                                 Button {
+                                    SummitHaptics.selection()
                                     withAnimation(SummitMotion.gentle) { justifiedExpanded.toggle() }
                                 } label: {
                                     HStack {
@@ -345,6 +348,7 @@ struct AbsencesView: View {
                         .contentShape(Rectangle())
                         .onTapGesture {
                             guard justifiedItems.count > 3 else { return }
+                            SummitHaptics.selection()
                             withAnimation(SummitMotion.gentle) { justifiedExpanded.toggle() }
                         }
                     }
@@ -359,7 +363,10 @@ struct AbsencesView: View {
             .navigationBarTitleDisplayMode(.large)
             .summitToolbarBackground()
             .task { await load() }
-            .refreshable { await load() }
+            .refreshable {
+                await load()
+                SummitHaptics.light()
+            }
             .animation(SummitMotion.gentle, value: absences.count)
             .animation(SummitMotion.gentle, value: totalDelay)
         }

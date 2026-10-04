@@ -113,6 +113,15 @@ struct DiagnosticsView: View {
                 Text("Ha üres minden: a Főoldal lehúzása után ez mutatja, 401/404/üres-200/DNS-hiba áll-e mögötte.")
             }
             Section {
+                Button("Finom tick (selection)") { SummitHaptics.selection() }
+                Button("Sikeres (success)") { SummitHaptics.success() }
+                Button("Hibás (error)") { SummitHaptics.error() }
+            } header: {
+                Text("Haptika-teszt")
+            } footer: {
+                Text("Ha itt sem érzel semmit: iPhone Beállítások → Hangok és haptika → Rendszerhaptika legyen BE. Ha az BE van és ez rezeg, de máshol néma az app, szólj — akkor kódbug.")
+            }
+            Section {
                 if kreta.diagLog.isEmpty {
                     Text("Még nincs napló — húzd le a Főoldalt a frissítéshez.")
                         .font(.caption).foregroundStyle(.tertiary)

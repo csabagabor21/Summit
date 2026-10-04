@@ -188,7 +188,7 @@ struct SettingsView: View {
 
             summitIsland(header: "Iskolai események", footer: "0. óraként az órarend tetején. A kézi beállításod sosem íródik felül.", tour: .events, tourActive: tourIs(.events)) {
                 summitRow {
-                    Button { withAnimation(SummitMotion.snappy) { calendarExpanded.toggle() } } label: {
+                    Button { SummitHaptics.selection(); withAnimation(SummitMotion.snappy) { calendarExpanded.toggle() } } label: {
                         HStack {
                             Label("Tannaptár", systemImage: "calendar").font(.subheadline.weight(.medium))
                             Spacer()
@@ -224,7 +224,7 @@ struct SettingsView: View {
 
             summitIsland(header: "Fiók", tour: .account, tourActive: tourIs(.account)) {
                 summitRow {
-                    Button { withAnimation(SummitMotion.snappy) { accountExpanded.toggle() } } label: {
+                    Button { SummitHaptics.selection(); withAnimation(SummitMotion.snappy) { accountExpanded.toggle() } } label: {
                         HStack {
                             Label("Fiók", systemImage: "person.crop.circle").font(.subheadline.weight(.medium))
                             Spacer()
@@ -455,7 +455,10 @@ struct SettingsView: View {
             }
         }
         .task { await loadSubjects() }
-        .refreshable { await loadSubjects(force: true) }
+        .refreshable {
+            await loadSubjects(force: true)
+            SummitHaptics.light()
+        }
         .onAppear {
             thresholds = GradingLogic.loadThresholds()
             if draftIss.isEmpty { draftIss = session.selectedUser?.instituteCode ?? "" }

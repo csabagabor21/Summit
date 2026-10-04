@@ -183,11 +183,17 @@ struct SubjectDetailView: View {
                     // csere, fantomon az elvetés — kis x gomb nincs.
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if g.id.hasPrefix("phantom") {
-                            Button(role: .destructive) { dismissPhantom(g) } label: {
+                            Button(role: .destructive) {
+                                SummitHaptics.light()
+                                dismissPhantom(g)
+                            } label: {
                                 Label("Elvetés", systemImage: "trash")
                             }
                         } else {
-                            Button { replaceTarget = g; replaceValue = g.value } label: {
+                            Button {
+                                SummitHaptics.selection()
+                                replaceTarget = g; replaceValue = g.value
+                            } label: {
                                 Label("Mi lett volna ha", systemImage: "wand.and.stars")
                             }
                             .tint(.orange)
@@ -213,8 +219,8 @@ struct SubjectDetailView: View {
         .sheet(isPresented: $showAdd) {
             NavigationStack {
                 Form {
-                    Section("Érték") { Picker("Jegy", selection: $addValue) { ForEach(1...5, id: \.self) { Text("\($0)").tag($0) } }.pickerStyle(.segmented) }
-                    Section("Súly") { Picker("Súly", selection: $addWeight) { Text("100%").tag(100); Text("200%").tag(200); Text("50%").tag(50) }.pickerStyle(.segmented) }
+                    Section("Érték") { Picker("Jegy", selection: $addValue) { ForEach(1...5, id: \.self) { Text("\($0)").tag($0) } }.pickerStyle(.segmented).sensoryFeedback(.selection, trigger: addValue) }
+                    Section("Súly") { Picker("Súly", selection: $addWeight) { Text("100%").tag(100); Text("200%").tag(200); Text("50%").tag(50) }.pickerStyle(.segmented).sensoryFeedback(.selection, trigger: addWeight) }
                     Section { Text("Előnézet átlag: \(String(format: "%.2f", GradingLogic.weightedAverage(allGrades + [GradeItem(id: "phantom-\(UUID())", subject: subject, value: addValue, valueText: "\(addValue)", date: Date(), teacher: "", type: "Fantom", weight: addWeight, topic: "")])))").font(.callout).foregroundStyle(.secondary) }
                 }
                 .navigationTitle("Fantom jegy")
@@ -225,6 +231,8 @@ struct SubjectDetailView: View {
                         Button("Hozzáadás") {
                             let g = GradeItem(id: "phantom-\(UUID())", subject: subject, value: addValue, valueText: "\(addValue)", date: Date().addingTimeInterval(Double(phantom.count)*60), teacher: "Fantom", type: "Fantom", weight: addWeight, topic: "")
                             withAnimation(SummitMotion.gentle) { phantom.append(g) }
+                            // Fantom felvéve = ünnepelt kimenet (beesik a listába).
+                            SummitHaptics.success()
                             showAdd = false
                         }.tint(colors.accent)
                     }
@@ -284,6 +292,7 @@ private struct ReplaceGradeSheet: View {
                         ForEach(1...5, id: \.self) { Text("\($0)").tag($0) }
                     }
                     .pickerStyle(.segmented)
+                    .sensoryFeedback(.selection, trigger: value)
                 }
                 Section("Előnézet") {
                     Text(String(format: "Átlag: %.2f → kerekítve %d-es",
@@ -296,7 +305,10 @@ private struct ReplaceGradeSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Mégse") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Csere fantomra") { onReplace(value); dismiss() }
+                    Button("Csere fantomra") {
+                        SummitHaptics.success()
+                        onReplace(value); dismiss()
+                    }
                         .tint(theme.colors(for: scheme).accent)
                 }
             }

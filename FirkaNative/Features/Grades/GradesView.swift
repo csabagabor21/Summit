@@ -29,7 +29,12 @@ struct GradesView: View {
                 // Tabs — csak ha van félévi, különben teljesen rejtve
                 if !isLoading && !feleviGrades.isEmpty {
                     Section {
-                        Picker("", selection: $selectedTab) {
+                        // Egyedi binding: csak user-koppintásra tick —
+                        // az üres tabra való visszaugrás (onChange) néma.
+                        Picker("", selection: Binding(
+                            get: { selectedTab },
+                            set: { if $0 != selectedTab { SummitHaptics.selection() }; selectedTab = $0 }
+                        )) {
                             Text(GradeTab.evkozi.rawValue).tag(GradeTab.evkozi)
                             Text(GradeTab.felevi.rawValue).tag(GradeTab.felevi)
                             if !evvegiGrades.isEmpty {
@@ -230,7 +235,10 @@ struct GradesView: View {
             .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
             .summitListChrome(colors: colors)
-            .refreshable { await load() }
+            .refreshable {
+                await load()
+                SummitHaptics.light()
+            }
             .task { await load() }
             .navigationDestination(for: String.self) { subject in
                 SubjectDetailView(subject: subject, grades: gradesFor(subject))

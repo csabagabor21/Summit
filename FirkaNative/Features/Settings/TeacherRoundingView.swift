@@ -52,7 +52,10 @@ struct TeacherRoundingView: View {
         .navigationBarTitleDisplayMode(.large)
         .summitToolbarBackground()
         .task { await loadSubjects() }
-        .refreshable { await loadSubjects(force: true) }
+        .refreshable {
+            await loadSubjects(force: true)
+            SummitHaptics.light()
+        }
         .onAppear { thresholds = GradingLogic.loadThresholds() }
         .onChange(of: session.selectedId) { _, _ in Task { await loadSubjects(force: true) } }
     }

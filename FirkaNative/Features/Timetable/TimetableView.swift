@@ -117,6 +117,8 @@ struct TimetableView: View {
     /// (hétvége / nap vége → kövi tanítási nap). Direkt a cache-ből nem
     /// számolunk, mert az még a régi hetet mutathatná.
     private func goToSmartToday() {
+        // Csak user-koppintásból hívódik ("Ma" gomb, hétnév-tap).
+        SummitHaptics.selection()
         suppressAutoJumpUntil = .distantPast
         withAnimation(SummitMotion.page) { weekOffset = 0 }
         userHasNavigated = false
@@ -256,6 +258,7 @@ struct TimetableView: View {
                     HStack(spacing: 0) {
                         Button {
                             userHasNavigated = true
+                            SummitHaptics.selection()
                             withAnimation(SummitMotion.page) { weekOffset -= 1 }
                             Task { await load() }
                         } label: {
@@ -289,6 +292,7 @@ struct TimetableView: View {
 
                         Button {
                             userHasNavigated = true
+                            SummitHaptics.selection()
                             withAnimation(SummitMotion.page) { weekOffset += 1 }
                             Task { await load() }
                         } label: {
@@ -331,7 +335,13 @@ struct TimetableView: View {
 
                 // MARK: Day picker — ugyanaz az inset mint Notes/Home
                 Section {
-                    Picker("Nap", selection: $selectedDay) {
+                    // Egyedi binding: a setter CSAK user-koppintásra fut —
+                    // a programozott ugrások (enterTimetable, smartDay,
+                    // deeplink, Handoff) némák maradnak.
+                    Picker("Nap", selection: Binding(
+                        get: { selectedDay },
+                        set: { if $0 != selectedDay { SummitHaptics.selection() }; selectedDay = $0 }
+                    )) {
                         ForEach(2...6, id: \.self) { d in Text(days[d-2]).tag(d) }
                     }
                     .pickerStyle(.segmented)
@@ -452,6 +462,8 @@ struct TimetableView: View {
                         let dy = value.translation.height
                         guard abs(dx) > abs(dy), abs(dx) > 52 else { return }
                         userHasNavigated = true
+                        // Nap/het váltó swipe: csak tényleges lépéskor tick.
+                        let beforeWeek = weekOffset, beforeDay = selectedDay
                         withAnimation(SummitMotion.page) {
                             if dx < 0 {
                                 if let idx = dayTags.firstIndex(of: selectedDay), idx < dayTags.count - 1 {
@@ -471,6 +483,9 @@ struct TimetableView: View {
                                 }
                             }
                         }
+                        if weekOffset != beforeWeek || selectedDay != beforeDay {
+                            SummitHaptics.selection()
+                        }
                     }
             )
             .animation(SummitMotion.page, value: selectedDay)
@@ -479,6 +494,8 @@ struct TimetableView: View {
                 // Lehúzáskor a hiányzások is frissen jönnek (a pótláshoz).
                 cachedAbsences = nil
                 await load()
+                // Kézi frissítés vége: semleges "megvan"-koppanás.
+                SummitHaptics.light()
             }
             // Máshol (Feladatok tab, másik eszköz sync-kel) felvett/törölt
             // saját tétel az órarenden is azonnal látszódjon.

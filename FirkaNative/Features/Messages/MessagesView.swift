@@ -136,7 +136,10 @@ struct MessagesView: View {
             .navigationBarTitleDisplayMode(.large)
             .summitToolbarBackground()
             .task { await loadAll() }
-            .refreshable { await loadAll() }
+            .refreshable {
+                await loadAll()
+                SummitHaptics.light()
+            }
             .onChange(of: kreta.readMessageIDs) { _, ids in
                 messages = messages.map { ids.contains($0.id) ? $0.withRead() : $0 }
             }

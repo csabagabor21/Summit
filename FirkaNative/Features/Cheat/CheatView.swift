@@ -153,7 +153,10 @@ struct CheatView: View {
                 // A kulcs-sor eltűnéséhez / megjelenéséhez elég az újrarajz.
             }
             .task { await load() }
-            .refreshable { await load() }
+            .refreshable {
+                await load()
+                SummitHaptics.light()
+            }
         }
         .tint(colors.accent)
     }

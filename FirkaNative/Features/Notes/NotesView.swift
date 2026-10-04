@@ -53,12 +53,15 @@ struct NotesView: View {
             ScrollViewReader { proxy in
             List {
                 Section {
-                    Picker("", selection: $filter) {
+                    // Egyedi binding: a setter CSAK user-koppintásra fut —
+                    // a deeplink/Handoff szegmensugrás néma marad.
+                    Picker("", selection: Binding(
+                        get: { filter },
+                        set: { if $0 != filter { SummitHaptics.selection() }; filter = $0 }
+                    )) {
                         Text("Feladatok").tag(0); Text("Dolgozatok").tag(1); Text("Kész").tag(2)
                     }
                     .pickerStyle(.segmented)
-                    // Szegmens-váltás = választás: finom selection-tick.
-                    .summitSelectionHaptic(trigger: filter)
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
                     .listRowSeparator(.hidden)
@@ -204,7 +207,10 @@ struct NotesView: View {
             // a Készbe (a lejárt-határ a nowTick-től függ).
             .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { nowTick = $0 }
             .task { await load() }
-            .refreshable { await load() }
+            .refreshable {
+                await load()
+                SummitHaptics.light()
+            }
             // Órarend-pillből érkezve a megfelelő szegmensre ugrik + kiemeli a sort
             .onReceive(NotificationCenter.default.publisher(for: switchToTasks)) { notif in
                 // Direkt kézbesítés nyert a Handoff-pendinggel szemben.
@@ -404,6 +410,8 @@ struct NotesView: View {
         return huDateTime(exam.date)
     }
     private func toggleExpanded(_ id: String, expanded: Bool) {
+        // Chevron-sor lenyitása = választás: finom tick (csak user-tapból hívódik).
+        SummitHaptics.selection()
         withAnimation(SummitMotion.snappy) {
             if expanded { expandedIDs.remove(id) } else { expandedIDs.insert(id) }
         }
@@ -493,7 +501,11 @@ struct NotesView: View {
         .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if CustomTasksStore.isCustomId(hw.id) {
-                Button(role: .destructive) { CustomTasksStore.remove(id: hw.id) } label: {
+                Button(role: .destructive) {
+                    // Saját feladat törlése: semleges commit-koppanás.
+                    SummitHaptics.light()
+                    CustomTasksStore.remove(id: hw.id)
+                } label: {
                     Label("Törlés", systemImage: "trash")
                 }
             }
@@ -594,13 +606,19 @@ struct NotesView: View {
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             // Pótló átütemezés elvetése — az eredeti dátum marad
             if rolled {
-                Button { ExamRollover.dismiss(exam.id) } label: {
+                Button {
+                    SummitHaptics.light()
+                    ExamRollover.dismiss(exam.id)
+                } label: {
                     Label("Elvetés", systemImage: "xmark")
                 }
                 .tint(.orange)
             }
             if CustomTasksStore.isCustomId(exam.id) {
-                Button(role: .destructive) { CustomTasksStore.remove(id: exam.id) } label: {
+                Button(role: .destructive) {
+                    SummitHaptics.light()
+                    CustomTasksStore.remove(id: exam.id)
+                } label: {
                     Label("Törlés", systemImage: "trash")
                 }
             }
