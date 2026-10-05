@@ -1,7 +1,7 @@
 import SwiftUI
 
 // MARK: - Summit Watch — belépő
-// Három tab: Órarend + Jegyek + Jegyzet. Adat az iPhone-os Summitból jön
+// Négy tab: Órarend + Jegyek + Feladatok + Jegyzet. Adat az iPhone-os Summitból jön
 // WatchConnectivity applicationContext-tel (WatchSyncStore) —
 // az órán nincs bejelentkezés, nincs KRÉTA-hívás, nincs Live Activity
 // (az átmegy iPhone-ról).
@@ -33,13 +33,16 @@ struct WatchContentView: View {
                 GradesWatchView()
                     .tag(1)
                     .tabItem { Label("Jegyek", systemImage: "list.number") }
-                CheatWatchView()
+                TasksWatchView()
                     .tag(2)
+                    .tabItem { Label("Feladatok", systemImage: "checklist") }
+                CheatWatchView()
+                    .tag(3)
                     .tabItem { Label("Jegyzet", systemImage: "doc.text") }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             HStack(spacing: 7) {
-                ForEach(0..<3, id: \.self) { i in
+                ForEach(0..<4, id: \.self) { i in
                     Circle()
                         .fill(i == selectedTab ? Color.white : Color.white.opacity(0.35))
                         .frame(width: 8, height: 8)

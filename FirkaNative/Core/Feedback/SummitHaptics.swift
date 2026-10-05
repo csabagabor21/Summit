@@ -23,9 +23,11 @@ import UIKit
 //
 // Platformok:
 // - iPhone: Taptic Engine, teljes skála.
-// - Mac (Catalyst): ugyanez a kód fut — a rendszer a trackpadre
-//   képezi le (.selection/.success finom kattanás, ahol nincs
-//   Force Touch trackpad, ott néma — ez a graceful fallback).
+// - Mac (Catalyst): ugyanez a kód fut — az imperatív hívások itt
+//   direkt impact-generátorra mennek (success/warning → medium,
+//   error → heavy), mert az biztosan átmegy trackpad-kattanásba.
+//   Ahol nincs Force Touch trackpad (csak egér), ott fizikailag
+//   néma — ez a graceful fallback, nem bug.
 // - Watch: külön target, ezért az órai nézetek a beépített
 //   `.sensoryFeedback`-et használják közvetlenül (watchOS 10+,
 //   deployment target — nincs verziókapu). Az órán CSAK .selection
@@ -33,21 +35,36 @@ import UIKit
 //   soknak hat — az óra maradjon szinte néma.
 #if os(iOS)
 enum SummitHaptics {
-    /// Kimenet kész: új jegy megérkezett, feladat készre pipálva.
-    /// Egyszer, az ünnepléssel / pipával együtt.
+    /// Kimenet kész: új jegy megérkezett, fantom felvéve.
+    /// Egyszer, az ünnepléssel / listabeszúrással együtt.
+    /// Macen (Catalyst) medium impact — a notification-minta
+    /// trackpad-leképezése nem garantált, az impact igen.
     static func success() {
+        #if targetEnvironment(macCatalyst)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        #else
         UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #endif
     }
 
     /// Kimenet meghiúsult: belépési hiba, mentés elutasítva.
     /// Egyszer, a látható hibaüzenettel együtt.
+    /// Macen heavy impact (erős = baj), ugyanazért, mint fent.
     static func error() {
+        #if targetEnvironment(macCatalyst)
+        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+        #else
         UINotificationFeedbackGenerator().notificationOccurred(.error)
+        #endif
     }
 
     /// Figyelmeztető kimenet (ritka: pl. felülírás megerősítése).
     static func warning() {
+        #if targetEnvironment(macCatalyst)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        #else
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        #endif
     }
 
     /// Választás értékek közül (szegmens, napléptető, lenyíló sor).
