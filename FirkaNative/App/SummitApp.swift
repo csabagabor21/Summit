@@ -79,6 +79,12 @@ struct SummitApp: App {
                 .environmentObject(profileImages)
                 .environmentObject(analytics)
                 .environmentObject(summitSync)
+                // Mac-haptika relé: az imperatív SummitHaptics-hívások
+                // Catalysten ezeket a számlálókat pörgetik, a rendszer
+                // pedig trackpad-kattanást játszik rájuk. iPhone-on a
+                // triggerek sosem változnak, így ott némák maradnak.
+                .sensoryFeedback(.alignment, trigger: HapticRelay.shared.selectionTick)
+                .sensoryFeedback(.levelChange, trigger: HapticRelay.shared.commitTick)
                 .tint(theme.accent)
                 .preferredColorScheme(theme.mode.scheme)
                 .onAppear {

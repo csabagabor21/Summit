@@ -219,8 +219,8 @@ struct SubjectDetailView: View {
         .sheet(isPresented: $showAdd) {
             NavigationStack {
                 Form {
-                    Section("Érték") { Picker("Jegy", selection: $addValue) { ForEach(1...5, id: \.self) { Text("\($0)").tag($0) } }.pickerStyle(.segmented).sensoryFeedback(.selection, trigger: addValue) }
-                    Section("Súly") { Picker("Súly", selection: $addWeight) { Text("100%").tag(100); Text("200%").tag(200); Text("50%").tag(50) }.pickerStyle(.segmented).sensoryFeedback(.selection, trigger: addWeight) }
+                    Section("Érték") { Picker("Jegy", selection: $addValue) { ForEach(1...5, id: \.self) { Text("\($0)").tag($0) } }.pickerStyle(.segmented).summitSelectionHaptic(trigger: addValue) }
+                    Section("Súly") { Picker("Súly", selection: $addWeight) { Text("100%").tag(100); Text("200%").tag(200); Text("50%").tag(50) }.pickerStyle(.segmented).summitSelectionHaptic(trigger: addWeight) }
                     Section { Text("Előnézet átlag: \(String(format: "%.2f", GradingLogic.weightedAverage(allGrades + [GradeItem(id: "phantom-\(UUID())", subject: subject, value: addValue, valueText: "\(addValue)", date: Date(), teacher: "", type: "Fantom", weight: addWeight, topic: "")])))").font(.callout).foregroundStyle(.secondary) }
                 }
                 .navigationTitle("Fantom jegy")
@@ -292,7 +292,7 @@ private struct ReplaceGradeSheet: View {
                         ForEach(1...5, id: \.self) { Text("\($0)").tag($0) }
                     }
                     .pickerStyle(.segmented)
-                    .sensoryFeedback(.selection, trigger: value)
+                    .summitSelectionHaptic(trigger: value)
                 }
                 Section("Előnézet") {
                     Text(String(format: "Átlag: %.2f → kerekítve %d-es",
