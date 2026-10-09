@@ -34,7 +34,10 @@ final class HomeViewModel: ObservableObject {
         return "Jó estét"
     }
 
-    func refresh(kreta: KretaClient, user: AppUser?, completed: CompletedStore) async {
+    /// Tabváltáskor a HomeView `.task`-ja újra lefut — friss gyorstár-
+    /// találatnál a 6 adatsáv hálózat nélkül tér vissza. Lehúzás (`force`)
+    /// tényleges frissítés.
+    func refresh(kreta: KretaClient, user: AppUser?, completed: CompletedStore, force: Bool = false) async {
         // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből
         // (instituteCode "demo") — nincs külön demo-ág.
         guard let user else {
@@ -54,16 +57,16 @@ final class HomeViewModel: ObservableObject {
         }
 
         // A 6 adatsáv csendben, párhuzamosan jön — külön töltésjelző nélkül.
-        async let g = kreta.fetchGrades(iss: iss)
-        async let hw = kreta.fetchHomework(iss: iss)
-        async let ab = kreta.fetchAbsences(iss: iss)
-        async let ex = kreta.fetchExams(iss: iss)
-        async let msg = kreta.fetchMessages()
+        async let g = kreta.fetchGrades(iss: iss, force: force)
+        async let hw = kreta.fetchHomework(iss: iss, force: force)
+        async let ab = kreta.fetchAbsences(iss: iss, force: force)
+        async let ex = kreta.fetchExams(iss: iss, force: force)
+        async let msg = kreta.fetchMessages(force: force)
 
         let hadData = !(grades.isEmpty && homeworks.isEmpty && absences.isEmpty && exams.isEmpty && messages.isEmpty && lessonsToday.isEmpty)
         let start = Calendar.current.startOfDay(for: Date())
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start)!
-        async let tt = kreta.fetchTimetable(iss: iss, from: start, to: end)
+        async let tt = kreta.fetchTimetable(iss: iss, from: start, to: end, force: force)
         let (gradesR, hwR, abR, exR, msgR, ttR) = await (g, hw, ab, ex, msg, tt)
         if gradesR.isEmpty && hwR.isEmpty && abR.isEmpty && exR.isEmpty && msgR.isEmpty && ttR.isEmpty {
             if hadData {
@@ -96,7 +99,7 @@ final class HomeViewModel: ObservableObject {
         rawExamsAll = exR + CustomTasksStore.examItems(from: custom)
         rolloverLessons = ttR
         if Self.hasExamAbsenceOverlap(exams: rawExamsAll, absences: abR) {
-            rolloverLessons += await Self.extraRolloverLessons(kreta: kreta, iss: iss)
+            rolloverLessons += await Self.extraRolloverLessons(kreta: kreta, iss: iss, force: force)
         }
         applyRollover()
         // Helyi értesítés-diff az újakról (KRÉTA push nincs, ez polling-alapú)
@@ -177,7 +180,7 @@ final class HomeViewModel: ObservableObject {
     }
 
     /// Plusz 3 hét órarendje a pontos pótló-órához (csak átfedéskor).
-    private static func extraRolloverLessons(kreta: KretaClient, iss: String) async -> [LessonItem] {
+    private static func extraRolloverLessons(kreta: KretaClient, iss: String, force: Bool = false) async -> [LessonItem] {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
         return await withTaskGroup(of: [LessonItem].self) { group in
@@ -185,7 +188,7 @@ final class HomeViewModel: ObservableObject {
                 group.addTask {
                     let s = cal.date(byAdding: .day, value: w * 7, to: today)!
                     let e = cal.date(byAdding: .day, value: 7, to: s)!
-                    return await kreta.fetchTimetable(iss: iss, from: s, to: e)
+                    return await kreta.fetchTimetable(iss: iss, from: s, to: e, force: force)
                 }
             }
             var out: [LessonItem] = []

@@ -154,7 +154,7 @@ struct CheatView: View {
             }
             .task { await load() }
             .refreshable {
-                await load()
+                await load(force: true)
                 SummitHaptics.light()
             }
         }
@@ -172,15 +172,17 @@ struct CheatView: View {
         return "\(ex.subject) • \(ex.mode)"
     }
 
-    func load() async {
+    /// Újranyitáskor a `.task` újra lefut — friss gyorstár-találatnál ez
+    /// hálózat nélkül tér vissza. A váz csak üres listánál jön.
+    func load(force: Bool = false) async {
         sheets = CheatStore.load()
         CheatWatchPush.push(sheets)
         guard let user = session.selectedUser else { isLoading = false; return }
-        isLoading = true
+        if exams.isEmpty { isLoading = true }
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
-        async let ex = kreta.fetchExams(iss: iss)
-        async let subj = kreta.fetchAllSubjectNames(iss: iss)
-        async let gr = kreta.fetchGrades(iss: iss)
+        async let ex = kreta.fetchExams(iss: iss, force: force)
+        async let subj = kreta.fetchAllSubjectNames(iss: iss, force: force)
+        async let gr = kreta.fetchGrades(iss: iss, force: force)
         let (exR, subjR, grR) = await (ex, subj, gr)
         var all = exR + CustomTasksStore.examItems(from: CustomTasksStore.load())
         all.sort { $0.date < $1.date }

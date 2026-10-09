@@ -120,6 +120,9 @@ struct SummitApp: App {
                     // A szinkron fiókonkénti opt-in: váltáskor kikapcsol
                     // (a jelmondat marad, újbóli bekapcsolás ugyanoda köt).
                     summitSync.isEnabled = false
+                    // Válasz-gyorstár ürítése: a másik fiók adata nem
+                    // szivároghat át, és a friss belépés se kapjon avultat.
+                    kreta.invalidateCache()
                     kreta.accessToken = session.selectedUser?.accessToken
                     kreta.refreshToken = session.selectedUser?.refreshToken
                     kreta.instituteCode = session.selectedUser?.instituteCode

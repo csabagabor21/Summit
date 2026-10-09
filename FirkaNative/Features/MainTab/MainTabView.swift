@@ -48,11 +48,15 @@ struct MainTabView: View {
             selected = 5
             // A tab tartalma lusta: az első váltáskor a NotesView még
             // nem él, így a szegmens/villanás elveszne — egyszer
-            // újraküldjük, hogy a már élő nézet is megkapja. A NotesView
-            // nem küld tovább, így nincs hurok.
-            if let info = notif.userInfo {
+            // újraküldjük, hogy a már élő nézet is megkapja. A relézett
+            // példányon rajta a jel, így az már nem ütemez újat —
+            // különben végtelen 0,4 mp-es lánc rángatna vissza a
+            // Feladatokra, és onnan nem lehetne kilépni.
+            if let info = notif.userInfo, info["summit.relayed"] == nil {
+                var relayed = info
+                relayed["summit.relayed"] = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                    NotificationCenter.default.post(name: switchToTasks, object: nil, userInfo: info)
+                    NotificationCenter.default.post(name: switchToTasks, object: nil, userInfo: relayed)
                 }
             }
         }

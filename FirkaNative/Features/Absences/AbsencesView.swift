@@ -364,7 +364,7 @@ struct AbsencesView: View {
             .summitToolbarBackground()
             .task { await load() }
             .refreshable {
-                await load()
+                await load(force: true)
                 SummitHaptics.light()
             }
             .animation(SummitMotion.gentle, value: absences.count)
@@ -373,13 +373,16 @@ struct AbsencesView: View {
         .tint(colors.accent)
     }
 
-    func load() async {
+    /// Tabváltáskor a `.task` újra lefut — friss gyorstár-találatnál ez
+    /// hálózat nélkül tér vissza. A váz csak üres listánál jön; egyébként
+    /// a régi lista marad, az új adat dinamikusan beíródik.
+    func load(force: Bool = false) async {
         // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből.
         guard let user = session.selectedUser else { isLoading = false; return }
-        isLoading = true
-        let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         let hadData = !absences.isEmpty
-        let fetched = await kreta.fetchAbsences(iss: iss)
+        if !hadData { isLoading = true }
+        let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
+        let fetched = await kreta.fetchAbsences(iss: iss, force: force)
         // Totális fetch-hiba (lejárt token, offline): a legutóbbi lista marad,
         // nem ürül ki a Hiányzások tab egy sikertelen refresh-től.
         if !(fetched.isEmpty && hadData) { absences = fetched }

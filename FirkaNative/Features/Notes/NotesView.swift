@@ -208,7 +208,7 @@ struct NotesView: View {
             .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { nowTick = $0 }
             .task { await load() }
             .refreshable {
-                await load()
+                await load(force: true)
                 SummitHaptics.light()
             }
             // Órarend-pillből érkezve a megfelelő szegmensre ugrik + kiemeli a sort
@@ -625,26 +625,31 @@ struct NotesView: View {
         }
     }
 
-    func load() async {
+    /// Tabváltáskor a `.task` újra lefut — friss gyorstár-találatnál ez
+    /// hálózat nélkül tér vissza (a 15 hetes órarend-ablak is tárolt).
+    /// A váz csak üres listánál jön; egyébként a régi tételek maradnak,
+    /// és az új adat dinamikusan beíródik. Lehúzás (`force`) tényleges frissítés.
+    func load(force: Bool = false) async {
         // Saját tételek helyből jönnek — hálózati hibától függetlenül vannak.
         reloadCustom()
         // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből.
         guard let user = session.selectedUser else { isLoading = false; return }
-        isLoading=true; let iss=user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         let hadData = !(homeworks.isEmpty && exams.isEmpty)
+        if !hadData { isLoading = true }
+        let iss=user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         let prevHW = homeworks, prevEx = exams, prevAb = absences
-        async let hw = kreta.fetchHomework(iss: iss)
-        async let ex = kreta.fetchExams(iss: iss)
-        async let ab = kreta.fetchAbsences(iss: iss)
-        async let subj = kreta.fetchAllSubjectNames(iss: iss)
-        async let gr = kreta.fetchGrades(iss: iss)
+        async let hw = kreta.fetchHomework(iss: iss, force: force)
+        async let ex = kreta.fetchExams(iss: iss, force: force)
+        async let ab = kreta.fetchAbsences(iss: iss, force: force)
+        async let subj = kreta.fetchAllSubjectNames(iss: iss, force: force)
+        async let gr = kreta.fetchGrades(iss: iss, force: force)
         let (hwR, exR, abR, subjR, grR) = await (hw, ex, ab, subj, gr)
         // Totális fetch-hiba (lejárt token, offline): a legutóbbi lista marad,
         // nem ürül ki a Feladatok tab egy sikertelen refresh-től.
         if hwR.isEmpty && exR.isEmpty && hadData {
             homeworks = prevHW; exams = prevEx; absences = prevAb
         } else {
-            let (mergedHW, fetchedLessons) = await lessonAttachments(hwR, exams: exR, kreta: kreta, iss: iss, absences: abR)
+            let (mergedHW, fetchedLessons) = await lessonAttachments(hwR, exams: exR, kreta: kreta, iss: iss, absences: abR, force: force)
             homeworks = mergedHW; exams = exR; lessons = fetchedLessons
             absences = abR
         }
@@ -670,7 +675,7 @@ struct NotesView: View {
     /// nem csak a határidő napján — ezért a teljes listaablakot (-35 nap)
     /// plusz a határidőket nézzük át, heti darabokban, párhuzamosan.
     /// Üres/sikertelen órarendnél a házi-lista változatlanul marad.
-    private func lessonAttachments(_ hwR: [HomeworkItem], exams exR: [ExamItem], kreta: KretaClient, iss: String, absences abR: [AbsenceItem]) async -> ([HomeworkItem], [LessonItem]) {
+    private func lessonAttachments(_ hwR: [HomeworkItem], exams exR: [ExamItem], kreta: KretaClient, iss: String, absences abR: [AbsenceItem], force: Bool = false) async -> ([HomeworkItem], [LessonItem]) {
         guard !hwR.isEmpty || !exR.isEmpty else { return (hwR, []) }
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
@@ -704,7 +709,7 @@ struct NotesView: View {
         }
         let lessons: [LessonItem] = await withTaskGroup(of: [LessonItem].self) { group in
             for (s, e) in chunks {
-                group.addTask { await kreta.fetchTimetable(iss: iss, from: s, to: e) }
+                group.addTask { await kreta.fetchTimetable(iss: iss, from: s, to: e, force: force) }
             }
             var out: [LessonItem] = []
             for await part in group { out.append(contentsOf: part) }

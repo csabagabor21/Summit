@@ -236,7 +236,7 @@ struct GradesView: View {
             .frame(maxWidth: .infinity)
             .summitListChrome(colors: colors)
             .refreshable {
-                await load()
+                await load(force: true)
                 SummitHaptics.light()
             }
             .task { await load() }
@@ -304,14 +304,20 @@ struct GradesView: View {
     var trend: String { trendEvkozi }
     var trendColor: Color { trendColorEvkozi }
 
-    func load() async {
+    /// Tabváltáskor a `.task` újra lefut — de a gyorstár friss találatánál
+    /// ez hálózat nélkül, azonnal visszatér. A váz (placeholder) csak akkor
+    /// jön, ha még semmi mutatnivaló nincs; egyébként a régi jegyek
+    /// maradnak, és a háttérben érkező új adat dinamikusan beíródik.
+    /// Lehúzás (`force`) mindent megkerül — az tényleges frissítés.
+    func load(force: Bool = false) async {
         // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből.
         guard let user = session.selectedUser else { isLoading = false; return }
-        isLoading=true
+        let hadData = !grades.isEmpty
+        if !hadData { isLoading = true }
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         if iss.isEmpty || iss == "unknown" { isLoading=false; return }
-        async let gradesTask = kreta.fetchGrades(iss: iss)
-        async let subjectsTask = kreta.fetchAllSubjectNames(iss: iss)
+        async let gradesTask = kreta.fetchGrades(iss: iss, force: force)
+        async let subjectsTask = kreta.fetchAllSubjectNames(iss: iss, force: force)
         let (g, s) = await (gradesTask, subjectsTask)
         // Totális fetch-hiba (lejárt token, offline): a legutóbbi jegyek
         // maradnak, nem ürül ki a Jegyek tab egy sikertelen refresh-től.

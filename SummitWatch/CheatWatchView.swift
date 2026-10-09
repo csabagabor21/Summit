@@ -165,8 +165,12 @@ private struct CheatSheetTopicsView: View {
 // MARK: - Jegyzet fullscreen — OLED-fekete, Markdown-tagolással
 // A body Markdown-forrás (AI generálja: ## címek, listák, kiemelések),
 // ezért nem nyersen, hanem parsolva rajzoljuk — különben "##" látszana.
+// Görgetés: korona + dupla koppintás (laponként lejjebb, a végén
+// vissza a tetejére) — a kis kijelzőn a korona egyedül lassú.
 private struct CheatTopicDetailView: View {
     let topic: WatchCheatTopic
+    /// Dupla koppintás lapozó-pozíciója (bekezdés-index).
+    @State private var pageIndex = 0
 
     /// Bekezdések külön tömbben: a Markdown bekezdés-távolsága az órán
     /// nem ad látható lukat, ezért minden bekezdés saját Text fix
@@ -176,26 +180,50 @@ private struct CheatTopicDetailView: View {
         splitMarkdownParagraphs(topic.body).map { Para(raw: $0) }
     }
 
+    private var isEmpty: Bool {
+        topic.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            ScrollView {
-                if topic.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text("(üres)")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    if isEmpty {
+                        Text("(üres)")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                    } else {
+                        VStack(alignment: .leading, spacing: 10) {
+                            // Stabil index-ID-k: a Para.id minden
+                            // kiértékeléskor új UUID lenne, arra nem
+                            // lehet görgetni.
+                            ForEach(paragraphs.indices, id: \.self) { i in
+                                Text(paragraphs[i].rendered)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .id(i)
+                            }
+                            Text("Dupla koppintás: lapozás")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .padding(.top, 6)
+                        }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                } else {
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(paragraphs) { p in
-                            Text(p.rendered)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                }
+                // Dupla koppintás = lapozás lefelé (a végén vissza a
+                // tetejére). A user saját koppintása, ezért halk tick jár.
+                .onTapGesture(count: 2) {
+                    guard !isEmpty, !paragraphs.isEmpty else { return }
+                    WatchHaptics.tick()
+                    let next = pageIndex + 3
+                    pageIndex = next >= paragraphs.count ? 0 : next
+                    withAnimation { proxy.scrollTo(pageIndex, anchor: .top) }
                 }
             }
         }

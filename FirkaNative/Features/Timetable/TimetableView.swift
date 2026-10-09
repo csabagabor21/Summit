@@ -47,6 +47,10 @@ struct TimetableView: View {
     private var isPad: Bool { hSize == .regular }
     var colors: AppColors { theme.colors(for: scheme) }
     let days = ["Hétfő","Kedd","Szerda","Csütörtök","Péntek"]
+    /// Rövid napnevek a szegmens-választóba: az 5 teljes név iPhone-on
+    /// nem fér ki ("Csütör…"-re csonkolódna), a rövid alakok igen.
+    /// A fejlécben és a VoiceOverben marad a teljes név.
+    let dayShorts = ["Hét","Ked","Sze","Csü","Pén"]
     private let dayTags = Array(2...6)
     @AppStorage("home.demoPreviewActive") private var isPreviewActive = false
     @AppStorage("home.demoPreviewMinutes") private var previewMinutes: Double = 540
@@ -342,7 +346,7 @@ struct TimetableView: View {
                         get: { selectedDay },
                         set: { if $0 != selectedDay { SummitHaptics.selection() }; selectedDay = $0 }
                     )) {
-                        ForEach(2...6, id: \.self) { d in Text(days[d-2]).tag(d) }
+                        ForEach(2...6, id: \.self) { d in Text(dayShorts[d-2]).tag(d).accessibilityLabel(days[d-2]) }
                     }
                     .pickerStyle(.segmented)
                     .onChange(of: selectedDay) { _, _ in userHasNavigated = true }
@@ -493,7 +497,7 @@ struct TimetableView: View {
             .refreshable {
                 // Lehúzáskor a hiányzások is frissen jönnek (a pótláshoz).
                 cachedAbsences = nil
-                await load()
+                await load(force: true)
                 // Kézi frissítés vége: semleges "megvan"-koppanás.
                 SummitHaptics.light()
             }
@@ -769,14 +773,20 @@ struct TimetableView: View {
     func isCurrent(_ l: LessonItem) -> Bool { isCurrent(l, now: overrideNow ?? Date()) }
     func progress(for l: LessonItem) -> Double { progress(for: l, now: overrideNow ?? Date()) }
 
-    func load() async {
+    /// Tabváltáskor a `.task` újra lefut — friss gyorstár-találatnál ez
+    /// hálózat nélkül tér vissza. A váz csak üres nézetnél jön; egyébként
+    /// a régi hét marad, és az új adat dinamikusan beíródik. Lehúzás
+    /// (`force`) tényleges frissítés (a hiányzás-gyorstárat is nullázza).
+    func load(force: Bool = false) async {
         let entryOffset = weekOffset
         // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből
         // (a kért hétre csempézett órarenddel) — nincs külön demo-ág.
         // A házik/dolgozatok abszolút dátumosak, mint élesben: másik hétre
         // lapozva csak az órarend látszik (ahogy egy valós usernél is).
         guard let user = session.selectedUser else { isLoading = false; return }
-        isLoading = true
+        let hadLessons = !lessons.isEmpty
+        if !hadLessons { isLoading = true }
+        if force { cachedAbsences = nil }
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         if iss.isEmpty || iss == "unknown" {
             lessons = []; homeworks = []; exams = []
@@ -790,12 +800,12 @@ struct TimetableView: View {
         // a régit tartjuk meg — különben egy sikertelen refresh kiürítené a napot.
         let prevLessons = lessons, prevHW = homeworks, prevEx = exams
         let hadData = !(prevLessons.isEmpty && prevHW.isEmpty && prevEx.isEmpty)
-        await fetchWeek()
+        await fetchWeek(force: force)
         // Okos nap csak a 0. hétről indulva ÉS csak ha a user nem lapozott
         // kézzel: ha az utolsó mai óra lement / hétvége van, a következő
         // tanítási napra ugrunk — ha az másik hét, annak az adata is kell.
         if entryOffset == 0, !userHasNavigated, applySmartDay(), weekOffset != entryOffset {
-            await fetchWeek()
+            await fetchWeek(force: force)
         }
         // A hibaág a KRÉTA-adatokon dönt (a saját tételek helyből mindig
         // megvannak, azok nem takarhatják el a sikertelen lehúzást).
@@ -850,7 +860,7 @@ struct TimetableView: View {
     }
 
     /// Az aktuális weekOffset hetének lehúzása (KRÉTA: hétfő–vasárnap).
-    private func fetchWeek() async {
+    private func fetchWeek(force: Bool = false) async {
         guard let user = session.selectedUser else { return }
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         guard !iss.isEmpty, iss != "unknown" else { lessons = []; homeworks = []; exams = []; return }
@@ -862,10 +872,10 @@ struct TimetableView: View {
         // A heti nézet a 7 napos dayTags-szel szűr, a plusz nap csak a
         // widget-jegyzetnek és a következő-óra számolásnak kell.
         let end = Calendar.current.date(byAdding: .day, value: 8, to: monday)!
-        async let tt = kreta.fetchTimetable(iss: iss, from: start, to: end)
-        async let hw = kreta.fetchHomework(iss: iss)
-        async let ex = kreta.fetchExams(iss: iss)
-        async let calD = kreta.fetchCalendarDays(iss: iss, from: start, to: end)
+        async let tt = kreta.fetchTimetable(iss: iss, from: start, to: end, force: force)
+        async let hw = kreta.fetchHomework(iss: iss, force: force)
+        async let ex = kreta.fetchExams(iss: iss, force: force)
+        async let calD = kreta.fetchCalendarDays(iss: iss, from: start, to: end, force: force)
         let (ttR, hwR, exR, calR) = await (tt, hw, ex, calD)
         lessons = deduped(ttR)
         homeworks = hwR
@@ -879,7 +889,7 @@ struct TimetableView: View {
         }
         // Hiányzások a dolgozat-pótláshoz: hetet lapozva nem húzzuk újra.
         if cachedAbsences == nil {
-            cachedAbsences = await kreta.fetchAbsences(iss: iss)
+            cachedAbsences = await kreta.fetchAbsences(iss: iss, force: force)
         }
         mergeCustomTasks()
     }

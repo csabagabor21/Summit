@@ -240,7 +240,7 @@ struct HomeView: View {
                 // szinkronizálja (függő feltöltés + lehúzás) — különben
                 // a KRÉTA-adat friss, de a másik eszköz/Mac sora marad,
                 // és az egész „seamful" (széteső) érzetű.
-                await vm.refresh(kreta: kreta, user: session.selectedUser, completed: completed)
+                await vm.refresh(kreta: kreta, user: session.selectedUser, completed: completed, force: true)
                 await summitSync.flushThenPull()
                 SummitHaptics.light()
             }

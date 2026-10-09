@@ -137,7 +137,7 @@ struct MessagesView: View {
             .summitToolbarBackground()
             .task { await loadAll() }
             .refreshable {
-                await loadAll()
+                await loadAll(force: true)
                 SummitHaptics.light()
             }
             .onChange(of: kreta.readMessageIDs) { _, ids in
@@ -209,23 +209,26 @@ struct MessagesView: View {
         return JWT.instituteCode(from: user.accessToken) ?? ""
     }
 
-    func loadAll() async {
-        await loadMessages()
-        await loadNotes()
+    /// Tabváltáskor a `.task` újra lefut — friss gyorstár-találatnál ez
+    /// hálózat nélkül tér vissza. A váz csak üres listánál jön; egyébként
+    /// a régi üzenetek maradnak, az új dinamikusan beíródik.
+    func loadAll(force: Bool = false) async {
+        await loadMessages(force: force)
+        await loadNotes(force: force)
     }
 
-    func loadMessages() async {
+    func loadMessages(force: Bool = false) async {
         guard session.selectedUser != nil else { isLoadingMessages = false; return }
-        isLoadingMessages = true
-        messages = await kreta.fetchMessages(box: box)
+        if messages.isEmpty { isLoadingMessages = true }
+        messages = await kreta.fetchMessages(box: box, force: force)
         isLoadingMessages = false
     }
 
-    func loadNotes() async {
+    func loadNotes(force: Bool = false) async {
         let iss = instituteCode()
         guard !iss.isEmpty else { isLoadingNotes = false; return }
-        isLoadingNotes = true
-        notes = await kreta.fetchNotes(iss: iss)
+        if notes.isEmpty { isLoadingNotes = true }
+        notes = await kreta.fetchNotes(iss: iss, force: force)
         isLoadingNotes = false
     }
 }
