@@ -47,10 +47,6 @@ struct TimetableView: View {
     private var isPad: Bool { hSize == .regular }
     var colors: AppColors { theme.colors(for: scheme) }
     let days = ["Hétfő","Kedd","Szerda","Csütörtök","Péntek"]
-    /// Rövid napnevek a szegmens-választóba: az 5 teljes név iPhone-on
-    /// nem fér ki ("Csütör…"-re csonkolódna), a rövid alakok igen.
-    /// A fejlécben és a VoiceOverben marad a teljes név.
-    let dayShorts = ["Hét","Ked","Sze","Csü","Pén"]
     private let dayTags = Array(2...6)
     @AppStorage("home.demoPreviewActive") private var isPreviewActive = false
     @AppStorage("home.demoPreviewMinutes") private var previewMinutes: Double = 540
@@ -346,7 +342,7 @@ struct TimetableView: View {
                         get: { selectedDay },
                         set: { if $0 != selectedDay { SummitHaptics.selection() }; selectedDay = $0 }
                     )) {
-                        ForEach(2...6, id: \.self) { d in Text(dayShorts[d-2]).tag(d).accessibilityLabel(days[d-2]) }
+                        ForEach(2...6, id: \.self) { d in Text(days[d-2]).tag(d).lineLimit(1).minimumScaleFactor(0.9) }
                     }
                     .pickerStyle(.segmented)
                     .onChange(of: selectedDay) { _, _ in userHasNavigated = true }
