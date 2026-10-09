@@ -107,24 +107,33 @@ private struct WatchHomeworkRow: View {
                 .foregroundStyle(.secondary)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 5) {
-                    Text(hw.subject)
-                        .font(.subheadline.weight(.semibold))
-                        .lineLimit(1)
-                    if hw.isCustom {
-                        Text("SAJÁT")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.blue)
-                    }
-                    Spacer(minLength: 2)
-                    if hasText {
-                        Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.tertiary)
+                // Valódi gomb (nem onTapGesture): az AssistiveTouch-kézmozdulatok
+                // (csippentés = következő, ököl = kiválasztás), a rendszer
+                // Double Tap és a VoiceOver csak fókuszálható vezérlőre tud
+                // ráállni — puszta tap-gesztusra nem.
+                Button {
+                    if hasText { onToggle() }
+                } label: {
+                    HStack(spacing: 5) {
+                        Text(hw.subject)
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+                        if hw.isCustom {
+                            Text("SAJÁT")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.blue)
+                        }
+                        Spacer(minLength: 2)
+                        if hasText {
+                            Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                 }
-                .contentShape(Rectangle())
-                .onTapGesture { if hasText { onToggle() } }
+                .buttonStyle(.plain)
+                .disabled(!hasText)
+                .accessibilityHint(hasText ? (expanded ? "Becsukja a részleteket." : "Kinyitja a részleteket.") : "")
                 if expanded && hasText {
                     Text(hw.title)
                         .font(.caption)
@@ -200,29 +209,36 @@ private struct WatchExamRow: View {
                 .foregroundStyle(.orange)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 5) {
-                    Text(ex.subject)
-                        .font(.subheadline.weight(.semibold))
-                        .lineLimit(1)
-                    if ex.isCustom {
-                        Text("SAJÁT")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.blue)
-                    }
-                    if let n = ex.lessonIndex {
-                        Text("\(n). óra")
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer(minLength: 2)
-                    if hasText {
-                        Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.tertiary)
+                // Valódi gomb (nem onTapGesture): a kézmozdulatok és a
+                // VoiceOver csak fókuszálható vezérlőre tud ráállni.
+                Button {
+                    if hasText { onToggle() }
+                } label: {
+                    HStack(spacing: 5) {
+                        Text(ex.subject)
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+                        if ex.isCustom {
+                            Text("SAJÁT")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.blue)
+                        }
+                        if let n = ex.lessonIndex {
+                            Text("\(n). óra")
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 2)
+                        if hasText {
+                            Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                 }
-                .contentShape(Rectangle())
-                .onTapGesture { if hasText { onToggle() } }
+                .buttonStyle(.plain)
+                .disabled(!hasText)
+                .accessibilityHint(hasText ? (expanded ? "Becsukja a részleteket." : "Kinyitja a részleteket.") : "")
                 if expanded && hasText {
                     if !ex.mode.isEmpty {
                         Text(ex.mode)

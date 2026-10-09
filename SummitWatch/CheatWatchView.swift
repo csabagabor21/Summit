@@ -184,6 +184,17 @@ private struct CheatTopicDetailView: View {
         topic.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// Egy lapozásnyi bekezdés; az utolsó oldalon túl már a tetejére ugrunk.
+    private let pageStep = 3
+    private var isLastPage: Bool { pageIndex + pageStep >= paragraphs.count }
+
+    private func advancePage(_ proxy: ScrollViewProxy) {
+        guard !isEmpty, !paragraphs.isEmpty else { return }
+        WatchHaptics.tick()
+        pageIndex = isLastPage ? 0 : pageIndex + pageStep
+        withAnimation { proxy.scrollTo(pageIndex, anchor: .top) }
+    }
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -206,24 +217,28 @@ private struct CheatTopicDetailView: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .id(i)
                             }
-                            Text("Dupla koppintás: lapozás")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .padding(.top, 6)
+                            // Kézzel fogható lapozógomb: a kézmozdulatok
+                            // (csippentés + ököl), a rendszer Double Tap és a
+                            // VoiceOver csak ilyet tud kiválasztani — a
+                            // kijelző dupla koppintása megmarad bónusznak.
+                            Button(isLastPage ? "Vissza a tetejére" : "Következő oldal") {
+                                advancePage(proxy)
+                            }
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.top, 6)
+                            .buttonStyle(.plain)
+                            .accessibilityHint("Dupla koppintás is lapoz.")
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                     }
                 }
-                // Dupla koppintás = lapozás lefelé (a végén vissza a
-                // tetejére). A user saját koppintása, ezért halk tick jár.
+                // Kijelző-dupla koppintás = ugyanaz a lapozás (bónusz
+                // érintősöknek). A user saját koppintása, ezért halk tick jár.
                 .onTapGesture(count: 2) {
-                    guard !isEmpty, !paragraphs.isEmpty else { return }
-                    WatchHaptics.tick()
-                    let next = pageIndex + 3
-                    pageIndex = next >= paragraphs.count ? 0 : next
-                    withAnimation { proxy.scrollTo(pageIndex, anchor: .top) }
+                    advancePage(proxy)
                 }
             }
         }

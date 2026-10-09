@@ -165,6 +165,7 @@ struct TimetableWatchView: View {
             }
             .buttonStyle(.plain)
             .disabled(idx == nil || idx == 0)
+            .accessibilityLabel("Előző nap")
             Button {
                 let today = cal.startOfDay(for: now)
                 if selectedDay != today {
@@ -180,6 +181,7 @@ struct TimetableWatchView: View {
                     .fixedSize(horizontal: true, vertical: false)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Vissza a mai napra")
             Button {
                 if let i = idx, i + 1 < days.count {
                     selectedDay = days[i + 1]
@@ -193,6 +195,7 @@ struct TimetableWatchView: View {
             }
             .buttonStyle(.plain)
             .disabled(idx == nil || idx == days.count - 1)
+            .accessibilityLabel("Következő nap")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
