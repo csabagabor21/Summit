@@ -367,27 +367,25 @@ private struct WatchLessonRow: View {
                     .foregroundStyle((lesson.isCancelled || lesson.isExempted) ? .secondary : .primary)
                     .strikethrough((lesson.isCancelled || lesson.isExempted), color: .secondary)
                     .lineLimit(2)
-                HStack(spacing: 4) {
+                // A teremnév a fontos, az idősáv nem: a terem a teljes
+                // sorszélességet megkapja és legfeljebb két sorba törik
+                // ("Kollégium / gépterem"), az idősáv alatta külön sorban.
+                // Egymás mellett a pill olyan keskeny lenne, hogy még egy
+                // egész szó sem férne ki (szótag-elválasztás jönne).
+                VStack(alignment: .leading, spacing: 3) {
                     if !lesson.room.isEmpty {
                         Text(lesson.room)
                             .font(.caption2.weight(.bold).monospacedDigit())
                             .foregroundStyle(accent)
                             .padding(.horizontal, 5).padding(.vertical, 2)
                             .watchGlassCube(tint: accent.opacity(0.16))
-                            .lineLimit(1)
+                            .lineLimit(2)
                             .truncationMode(.tail)
-                            // A hosszú teremnév (pl. "Kollégium gépterem")
-                            // korábban fixedSize-zal kilógott a sorból és
-                            // levágódott — most összenyomódik, az idősáv
-                            // (layoutPriority + fixedSize) mindig látszik.
-                            .layoutPriority(0)
                     }
                     Text(timeRange)
                         .font(.caption2.monospacedDigit())
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                        .layoutPriority(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 if isCurrent {
