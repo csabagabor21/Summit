@@ -87,6 +87,20 @@ struct TimetableWatchView: View {
 
     // MARK: - Napválasztás
 
+    /// A "Ma" gomb célja: ma, ha még van hátra óra; különben a következő
+    /// órás nap (hétvégén pl. a hétfő). Sosem mutat üres napra, amíg van
+    /// órarendi adat — az üres nap + tiltott chevronok okozták a hétvégi
+    /// "meghalást".
+    private func maTarget(now: Date) -> Date {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: now)
+        if lessons.contains(where: { $0.end > now && cal.isDate($0.start, inSameDayAs: now) }) {
+            return today
+        }
+        if let next = days.first(where: { $0 > today }) { return next }
+        return days.last ?? today
+    }
+
     private func smartSelect(now: Date, force: Bool = false) {
         // Telefonnal azonosan: ha a mai órák még tartanak/hátravannak, ma;
         // különben a következő órás nap. Kézi lapozás után nem nyúlunk hozzá.
@@ -167,9 +181,13 @@ struct TimetableWatchView: View {
             .disabled(idx == nil || idx == 0)
             .accessibilityLabel("Előző nap")
             Button {
-                let today = cal.startOfDay(for: now)
-                if selectedDay != today {
-                    selectedDay = today
+                // Hétvégén / tanítás után a "Ma" üres napra állna (az órák
+                // listája elfogyna — ez nézett ki összeomlásnak, és a
+                // chevronok is beragadtak volna tiltva): ilyenkor a
+                // következő órás napra ugrik (smartSelect-logika).
+                let target = maTarget(now: now)
+                if selectedDay != target {
+                    selectedDay = target
                     WatchHaptics.tick()
                 }
                 initializedForSavedAt = store.timetable?.savedAt
@@ -357,13 +375,21 @@ private struct WatchLessonRow: View {
                             .padding(.horizontal, 5).padding(.vertical, 2)
                             .watchGlassCube(tint: accent.opacity(0.16))
                             .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
+                            .truncationMode(.tail)
+                            // A hosszú teremnév (pl. "Kollégium gépterem")
+                            // korábban fixedSize-zal kilógott a sorból és
+                            // levágódott — most összenyomódik, az idősáv
+                            // (layoutPriority + fixedSize) mindig látszik.
+                            .layoutPriority(0)
                     }
                     Text(timeRange)
                         .font(.caption2.monospacedDigit())
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(1)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 if isCurrent {
                     HStack(alignment: .center, spacing: 6) {
                         ProgressView(value: progress)

@@ -46,6 +46,9 @@ struct NotesView: View {
     @Environment(\.colorScheme) var scheme
     @Environment(\.horizontalSizeClass) private var hSize
     private var isPad: Bool { hSize == .regular }
+    /// Széles elrendezés (iPad / Mac): a Watch ilyenkor sidebar-tab,
+    /// nem toolbar-gomb (lásd MainTabView.watchTabVisible).
+    private var isWide: Bool { isPad || MacSupport.isMac }
     var colors: AppColors { theme.colors(for: scheme) }
 
     var body: some View {
@@ -147,10 +150,11 @@ struct NotesView: View {
             .summitToolbarBackground()
             .toolbar {
                 // Watch-belépő a + gombbal szemben, a másik oldalt —
-                // csak órával (helyi vagy szinkronizált) látszik.
+                // CSAK iPhone-on (compact): iPad-en és Mac-en a Watch
+                // saját sidebar-tabot kap (lásd MainTabView), itt nem kell.
                 // Sheetben nyílik a saját X-ével — pusholva a beágyazott
                 // NavigationStack miatt nem lenne látható visszaút.
-                if watchAvailability.showTab {
+                if watchAvailability.showTab && !isWide {
                     ToolbarItem(placement: .topBarLeading) {
                         Button { showingWatch = true } label: {
                             Image(systemName: "applewatch")

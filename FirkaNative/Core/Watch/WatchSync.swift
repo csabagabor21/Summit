@@ -460,8 +460,8 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
 
 // MARK: - Automatikus watch-frissítés az app megnyitásakor
 // A tabok megnyitása nélkül is menjen át az adat: induláskor és előtérbe
-// hozáskor (ritkítva) lehúzzuk az aktuális hetet + a jegyeket, és toljuk
-// az órára. Hálózat nélkül / üres válasznál a meglévő órai adat marad.
+// hozáskor (ritkítva) lehúzzuk az aktuális + a következő hetet + a jegyeket,
+// és toljuk az órára. Hálózat nélkül / üres válasznál a meglévő órai adat marad.
 @MainActor
 enum WatchAutoPush {
     private static let lastKey = "watch.autopush.last.v1"
@@ -532,13 +532,14 @@ enum WatchAutoPush {
             : user.instituteCode
         guard !iss.isEmpty, iss != "unknown" else { return }
 
-        // Aktuális hét (hétfő → +7 nap), mint a TimetableView.fetchWeek.
+        // Aktuális + következő hét (hétfő → +14 nap): az óra hétvégén is
+        // mutatja a hétfőt, és a kevés órás hét önmagában kevés lenne.
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
         let weekday = cal.component(.weekday, from: today)
         let mondayOffset = (weekday == 1 ? -6 : 2 - weekday)
         guard let monday = cal.date(byAdding: .day, value: mondayOffset, to: today),
-              let end = cal.date(byAdding: .day, value: 7, to: monday) else { return }
+              let end = cal.date(byAdding: .day, value: 14, to: monday) else { return }
         async let ttTask = kreta.fetchTimetable(iss: iss, from: monday, to: end)
         async let gradesTask = kreta.fetchGrades(iss: iss)
         async let subjectsTask = kreta.fetchAllSubjectNames(iss: iss)

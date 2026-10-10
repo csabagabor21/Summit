@@ -22,9 +22,16 @@ struct MainTabView: View {
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var kreta: KretaClient
     @Environment(\.colorScheme) var scheme
+    @Environment(\.horizontalSizeClass) private var hSize
     @State private var selected: Int = ProcessInfo.processInfo.arguments.contains("-FIRKA_ABSENCES") ? 4 : 0
     @ObservedObject private var notif = NotificationManager.shared
+    @ObservedObject private var watchAvailability = WatchAvailability.shared
     @EnvironmentObject var completed: CompletedStore
+    /// Széles elrendezés (iPad / Mac): itt a Watch saját sidebar-tabot kap.
+    /// iPhone-on (compact) nincs tab — ott a Watch a Feladatok bal felső
+    /// toolbar-gombjáról nyílik (lásd NotesView).
+    private var isWide: Bool { hSize == .regular || MacSupport.isMac }
+    private var watchTabVisible: Bool { watchAvailability.showTab && isWide }
     private let switchToTasks = Notification.Name("summit.switchToTasks")
     private let switchToTimetable = Notification.Name("summit.switchToTimetable")
     private let switchToGrades = Notification.Name("summit.switchToGrades")
@@ -69,9 +76,16 @@ struct MainTabView: View {
             let tab = notif.userInfo?["tab"] as? Int ?? 0
             if tab == 0 || tab == 1 || tab == 2 || tab == 4 || tab == 5 {
                 selected = tab
+            } else if tab == 3 {
+                // Watch-tab: széles elrendezésen saját tab van, iPhone-on
+                // a Feladatokra esik vissza (ott a toolbar-gomb nyitja).
+                selected = watchTabVisible ? 3 : 5
             }
-            // 3-as érték: nincs ilyen tab (a Watch a Feladatokról nyílik) —
-            // marad az aktuális.
+        }
+        .onChange(of: isWide) { _, wide in
+            // Szűk ablakra váltva (Split View) a Watch-tab eltűnik —
+            // nem maradhat érvénytelen kijelölés.
+            if !wide, selected == 3 { selected = 5 }
         }
         .onChange(of: selected) { _, tab in
             // Minden tabváltást hirdetünk — a másik eszköz dockjában
@@ -133,8 +147,14 @@ struct MainTabView: View {
             Tab("Hiányzások", systemImage: "person.crop.rectangle.stack", value: 4) {
                 AbsencesView()
             }
-            // Nincs több tab: a Watch a Feladatok tetejéről nyílik
-            // (toolbar-gomb a + gombbal szemben) — 6 tab már zsúfolt.
+            // Watch-tab CSAK széles elrendezésen (iPad / Mac sidebar) —
+            // iPhone-on nincs (ott a Feladatok bal felső toolbar-gombja
+            // nyitja, különben 6 tab már zsúfolt lenne).
+            if watchTabVisible {
+                Tab("Watch", systemImage: "applewatch", value: 3) {
+                    CheatView()
+                }
+            }
         }
         .tabViewStyle(.sidebarAdaptable)
         // Ne tegyél ide .toolbarBackground vagy .glassEffect-et:
@@ -150,6 +170,9 @@ struct MainTabView: View {
             TimetableView().tabItem { Label("Órarend", systemImage: "calendar") }.tag(2)
             NotesView().tabItem { Label("Feladatok", systemImage: "checklist") }.tag(5)
             AbsencesView().tabItem { Label("Hiányzások", systemImage: "person.crop.rectangle.stack") }.tag(4)
+            if watchTabVisible {
+                CheatView().tabItem { Label("Watch", systemImage: "applewatch") }.tag(3)
+            }
         }
     }
 }

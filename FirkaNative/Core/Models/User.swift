@@ -19,6 +19,15 @@ struct AppUser: Codable, Identifiable, Equatable {
 
     var displayName: String { name }
 
+    /// Fiókkulcs a duplikátum-irtáshoz és a fiókváltás-felismeréshez:
+    /// a stabil id-val egyező normalizálás, de a még UUID-s régi sorokra
+    /// is működik (azoknál a felhasználónév + intézmény dönt). Azonos
+    /// fiók új belépése így nem hagy duplikátumot és nem kapcsolja ki
+    /// a beállítás-szinkront.
+    var accountKey: String {
+        AppUser.stableId(username: username, instituteCode: instituteCode) ?? "id:\(id)"
+    }
+
     static var demo: AppUser {
         AppUser(id: "demo-user", name: "Demo Diák", username: "demo", instituteCode: "demo", role: "student", accessToken: "demo", refreshToken: "demo", accessTokenExpire: Date().addingTimeInterval(3600*24*365), studentName: "Demo Diák", schoolName: "Demo Iskola", schoolCity: "Budapest")
     }

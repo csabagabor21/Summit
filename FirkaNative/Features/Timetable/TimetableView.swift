@@ -841,6 +841,34 @@ struct TimetableView: View {
         WatchSyncSender.pushTimetable(lessons, homeworks: homeworks, exams: displayExams, events: schoolEvents, eventsVisible: schoolEventsVisible, noSchoolDays: noSchool)
         // Iskolai események az óra órarend-tetejére (ugyanaz a lista).
         WatchSyncSender.pushSchoolEvents(events: schoolEvents, visible: schoolEventsVisible)
+        // A 0. hétről a következő hét is megy az órára (háttérben, a nézet
+        // megvárása nélkül): egyetlen kevés órás hét önmagában kevés —
+        // hétvégén így is van mit mutatnia az órának.
+        if weekOffset == 0 { pushNextWeekToWatch() }
+    }
+
+    /// Következő heti órák az órára: a mostani heti anyag + a jövő hét
+    /// összefésülve (a házi/dolgozat/esemény-listák dátumfüggetlenek, azok
+    /// változatlanul mennek). Üres jövő hét = nincs második push.
+    private func pushNextWeekToWatch() {
+        guard let user = session.selectedUser else { return }
+        let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
+        guard !iss.isEmpty, iss != "unknown" else { return }
+        let cal = Calendar.current
+        let thisMonday = mondayOfWeek(offset: 0)
+        guard let nextMonday = cal.date(byAdding: .day, value: 7, to: thisMonday),
+              let nextEnd = cal.date(byAdding: .day, value: 8, to: nextMonday) else { return }
+        let current = lessons, hw = homeworks, ex = displayExams
+        let ev = schoolEvents, vis = schoolEventsVisible, days = calendarDays
+        Task {
+            async let tt = kreta.fetchTimetable(iss: iss, from: nextMonday, to: nextEnd)
+            async let cd = kreta.fetchCalendarDays(iss: iss, from: nextMonday, to: nextEnd)
+            let (nextLessons, nextCal) = await (tt, cd)
+            guard !nextLessons.isEmpty else { return }
+            let merged = deduped(current + nextLessons)
+            let noSchool = TimetableWidgetPublish.noSchoolDays(from: days + nextCal)
+            WatchSyncSender.pushTimetable(merged, homeworks: hw, exams: ex, events: ev, eventsVisible: vis, noSchoolDays: noSchool)
+        }
     }
 
     /// Saját tételek bekeverése a KRÉTA-listákba (mindig a store-ból,

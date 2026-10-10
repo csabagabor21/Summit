@@ -31,6 +31,13 @@ final class AuthViewModel: ObservableObject {
                 if let data = await kreta.probeInstitute(cand),
                    var u = AppUser.from(token: token, studentData: data) {
                     u.instituteCode = cand
+                    // Végleges, működő intézménnyel stabil id: a from() még
+                    // a tokenbeli (esetleg "unknown") kóddal számolt, így
+                    // újrabelépéskor is ugyanaz az id jön ki — a szinkron
+                    // nem kapcsol ki (lásd AppUser.stableId).
+                    if let sid = AppUser.stableId(username: u.username, instituteCode: cand) {
+                        u.id = sid
+                    }
                     kreta.instituteCode = cand
                     // Ha az adatlap nem adott nevet, a token névszerű
                     // claimjeiből pótoljuk — különben üres név ragad be.
@@ -51,7 +58,7 @@ final class AuthViewModel: ObservableObject {
                 kreta.diag("login: minden institut-próba elbukott (\(candidates.joined(separator: ",")))")
                 let name = (JWT.payload(token.access_token)?["name"] as? String) ?? "Diák"
                 let fb = candidates.first ?? "unknown"
-                user = AppUser(id: UUID().uuidString, name: name, username: name, instituteCode: fb, role: "student", accessToken: token.access_token, refreshToken: token.refresh_token ?? "", accessTokenExpire: Date().addingTimeInterval(Double((token.expires_in ?? 3600)-30)), studentName: name, schoolName: fb, schoolCity: "")
+                user = AppUser(id: AppUser.stableId(username: name, instituteCode: fb) ?? UUID().uuidString, name: name, username: name, instituteCode: fb, role: "student", accessToken: token.access_token, refreshToken: token.refresh_token ?? "", accessTokenExpire: Date().addingTimeInterval(Double((token.expires_in ?? 3600)-30)), studentName: name, schoolName: fb, schoolCity: "")
             }
             session.add(user!)
         } catch {

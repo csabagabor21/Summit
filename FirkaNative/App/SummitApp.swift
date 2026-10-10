@@ -117,9 +117,16 @@ struct SummitApp: App {
                     Task { await WatchAutoPush.refreshIfNeeded(session: session, kreta: kreta, completed: completed) }
                 }
                 .onChange(of: session.selectedId) { _, _ in
-                    // A szinkron fiókonkénti opt-in: váltáskor kikapcsol
+                    // A szinkron fiókonkénti opt-in: VALÓDI váltáskor kikapcsol
                     // (a jelmondat marad, újbóli bekapcsolás ugyanoda köt).
-                    summitSync.isEnabled = false
+                    // Azonos fiók új belépése (lejárt munkamenet → újra-login,
+                    // ilyenkor a stabil id miatt az id is gyakran azonos) nem
+                    // bántja: a SessionStore ezt jelzi, a szinkron marad.
+                    if session.sameAccountRelogin {
+                        session.sameAccountRelogin = false
+                    } else {
+                        summitSync.isEnabled = false
+                    }
                     // Válasz-gyorstár ürítése: a másik fiók adata nem
                     // szivároghat át, és a friss belépés se kapjon avultat.
                     kreta.invalidateCache()
@@ -258,7 +265,7 @@ final class HandoffCenter {
     private var lastPayload: [AnyHashable: Any] = [:]
     private init() {}
 
-    /// Tabváltás hirdetése (0 Főoldal, 1 Jegyek, 2 Órarend, 4 Hiányzások, 5 Feladatok).
+    /// Tabváltás hirdetése (0 Főoldal, 1 Jegyek, 2 Órarend, 3 Watch, 4 Hiányzások, 5 Feladatok).
     func setTab(_ tab: Int) {
         var p = lastPayload
         p["tab"] = tab

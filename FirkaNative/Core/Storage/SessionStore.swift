@@ -46,7 +46,19 @@ final class SessionStore: ObservableObject {
             UserDefaults.standard.set(data, forKey: key)
         }
     }
+    /// Azonos fiók új belépése (pl. lejárt munkamenet után): ilyenkor a
+    /// SummitApp selectedId-figyelője NEM kapcsolhatja ki a szinkront —
+    /// csak a valódi fiókváltás (eltérő accountKey) vagy a kijelentkezés.
+    var sameAccountRelogin: Bool = false
+
     func add(_ user: AppUser) {
+        if let cur = selectedId.flatMap({ id in users.first(where: { $0.id == id }) }),
+           cur.id != user.id, cur.accountKey == user.accountKey {
+            sameAccountRelogin = true
+        }
+        // Régi UUID-sor takarítása: azonos fiók nem maradhat duplikátumként
+        // (a stabil id bevezetése előtti belépések maradványa).
+        users.removeAll { $0.id != user.id && $0.accountKey == user.accountKey }
         if let idx = users.firstIndex(where: { $0.id == user.id }) { users[idx] = user }
         else { users.append(user) }
         selectedId = user.id
