@@ -367,25 +367,30 @@ private struct WatchLessonRow: View {
                     .foregroundStyle((lesson.isCancelled || lesson.isExempted) ? .secondary : .primary)
                     .strikethrough((lesson.isCancelled || lesson.isExempted), color: .secondary)
                     .lineLimit(2)
-                // A teremnév a fontos, az idősáv nem: a terem a teljes
-                // sorszélességet megkapja és legfeljebb két sorba törik
-                // ("Kollégium / gépterem"), az idősáv alatta külön sorban.
-                // Egymás mellett a pill olyan keskeny lenne, hogy még egy
-                // egész szó sem férne ki (szótag-elválasztás jönne).
-                VStack(alignment: .leading, spacing: 3) {
-                    if !lesson.room.isEmpty {
-                        Text(lesson.room)
-                            .font(.caption2.weight(.bold).monospacedDigit())
-                            .foregroundStyle(accent)
-                            .padding(.horizontal, 5).padding(.vertical, 2)
-                            .watchGlassCube(tint: accent.opacity(0.16))
-                            .lineLimit(2)
-                            .truncationMode(.tail)
+                // Az idősáv CSAK akkor kerül a terem ALÁ, ha a név nem fér
+                // ki mellette: rövid termeknél (B2, D3) marad az egysoros
+                // kompakt kép, hosszú névnél ("Kollégium gépterem") a terem
+                // a teljes szélességen, legfeljebb két sorba törve.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 4) {
+                        if !lesson.room.isEmpty {
+                            roomPill(lineLimit: 1)
+                        }
+                        Text(timeRange)
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
                     }
-                    Text(timeRange)
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 3) {
+                        if !lesson.room.isEmpty {
+                            roomPill(lineLimit: 2)
+                        }
+                        Text(timeRange)
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 if isCurrent {
@@ -403,6 +408,16 @@ private struct WatchLessonRow: View {
             }
         }
         .padding(.vertical, 3)
+    }
+
+    private func roomPill(lineLimit: Int) -> some View {
+        Text(lesson.room)
+            .font(.caption2.weight(.bold).monospacedDigit())
+            .foregroundStyle(accent)
+            .padding(.horizontal, 5).padding(.vertical, 2)
+            .watchGlassCube(tint: accent.opacity(0.16))
+            .lineLimit(lineLimit)
+            .truncationMode(.tail)
     }
 
     private var timeRange: String {
