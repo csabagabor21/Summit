@@ -325,6 +325,12 @@ private struct WatchNowView: View {
             }
             Spacer(minLength: 0)
         }
+        // A VStack önmagában csak tartalom-széles és a rendszer középre
+        // teszi a kártyában (ezért tűnt középre igazítottnak a
+        // "HOLNAP / Matek • A1 / 8:00" blokk) — teljes szélességre
+        // feszítve minden szöveges állapot balra igazodik.
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .multilineTextAlignment(.leading)
         // Mért aszimmetria kompenzálása: a rendszer tartalom-margója felül
         // ~12-13px, alul ~2-3px (saját szimulátor-mérés) — a -5 felhozza a
         // blokkot, így alul-felül egyforma a padding. Rövid állapotokban
@@ -359,6 +365,7 @@ private struct WatchNowView: View {
                 .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Accent-csík + RAJTA az óraszám (fehér szám a csík elején) + mellette
@@ -381,6 +388,7 @@ private struct WatchNowView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Következő óra egy sorban: nyíl + terem + pötty + tárgy
@@ -411,6 +419,7 @@ private struct WatchNowView: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Rögzített dolgozat/házi egy-egy sora — mint a telefonos kártya alján.
