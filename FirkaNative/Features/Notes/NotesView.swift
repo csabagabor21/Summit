@@ -190,7 +190,7 @@ struct NotesView: View {
                 AddCustomTaskSheet(
                     kind: filter == 1 ? .exam : .homework,
                     subjects: addSubjects,
-                    onSave: { reloadCustom() },
+                    onSave: { reloadCustom(); pendingLesson = nil },
                     prefillSubject: pendingLesson?.subject,
                     prefillDay: pendingLesson?.start,
                     prefillPeriod: pendingLesson.flatMap { Int($0.index) }
@@ -838,11 +838,19 @@ struct AddCustomTaskSheet: View {
     /// Hányadik tanóra aznap (1., 2., 3. …) — nem falióra-időpont.
     @State private var period: Int
 
+    /// Igaz, ha óraválasztóból nyitottuk: a tárgy + nap + óraszám a
+    /// kiválasztott órából jön, ezért a felvevő lapon már nem kérdezzük
+    /// újra — csak összefoglalóként mutatjuk.
+    private let isLessonBound: Bool
+
     init(kind: CustomTaskKind, subjects: [String], onSave: @escaping () -> Void,
          prefillSubject: String? = nil, prefillDay: Date? = nil, prefillPeriod: Int? = nil) {
         self.kind = kind
         self.subjects = subjects
         self.onSave = onSave
+        let trimmedSubject = prefillSubject?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let validPeriod = prefillPeriod.flatMap { (1...15).contains($0) ? $0 : nil }
+        self.isLessonBound = !trimmedSubject.isEmpty && prefillDay != nil && validPeriod != nil
         _selectedKind = State(initialValue: kind)
         _day = State(initialValue: prefillDay.map { Calendar.current.startOfDay(for: $0) } ?? Calendar.current.startOfDay(for: Date()))
         if let p = prefillSubject, !p.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -851,6 +859,14 @@ struct AddCustomTaskSheet: View {
             _subject = State(initialValue: first)
         }
         _period = State(initialValue: prefillPeriod.flatMap { (1...15).contains($0) ? $0 : nil } ?? 1)
+    }
+
+    /// Óraválasztóból jött összefoglaló dátuma (magyar formátum).
+    private var lessonBoundDateText: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "hu_HU")
+        f.dateFormat = "MMM d., EEEE"
+        return f.string(from: day).capitalized
     }
 
     private var isExam: Bool { selectedKind == .exam }
@@ -871,32 +887,41 @@ struct AddCustomTaskSheet: View {
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 }
-                Section("Tantárgy") {
-                    if subjects.isEmpty {
-                        Text("Még nincs tantárgy — húzd le a Jegyek tabot.")
-                            .font(.callout).foregroundStyle(.secondary)
-                    } else {
-                        Picker("Tantárgy", selection: $subject) {
-                            ForEach(subjects, id: \.self) { s in
-                                Text(s).tag(s)
+                if isLessonBound {
+                    Section("Óra") {
+                        Label("\(subject) • \(lessonBoundDateText) • \(period). óra", systemImage: "calendar")
+                            .font(.callout)
+                    }
+                } else {
+                    Section("Tantárgy") {
+                        if subjects.isEmpty {
+                            Text("Még nincs tantárgy — húzd le a Jegyek tabot.")
+                                .font(.callout).foregroundStyle(.secondary)
+                        } else {
+                            Picker("Tantárgy", selection: $subject) {
+                                ForEach(subjects, id: \.self) { s in
+                                    Text(s).tag(s)
+                                }
                             }
+                            .pickerStyle(.menu)
                         }
-                        .pickerStyle(.menu)
                     }
                 }
                 Section(isExam ? "Megnevezés" : "Leírás") {
                     TextField(isExam ? "Pl. Témazáró – Egyenletek" : "Pl. 5-ös fejezet vázlat",
                               text: $title, axis: .vertical)
                 }
-                Section("Nap") {
-                    DatePicker("Nap", selection: $day,
-                               in: Calendar.current.startOfDay(for: Date())...Date.distantFuture,
-                               displayedComponents: .date)
-                    .datePickerStyle(.graphical)
-                    .labelsHidden()
-                }
-                Section(isExam ? "Hányadik órában" : "Hányadik órára") {
-                    Stepper("\(period). óra", value: $period, in: 1...10)
+                if !isLessonBound {
+                    Section("Nap") {
+                        DatePicker("Nap", selection: $day,
+                                   in: Calendar.current.startOfDay(for: Date())...Date.distantFuture,
+                                   displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                        .labelsHidden()
+                    }
+                    Section(isExam ? "Hányadik órában" : "Hányadik órára") {
+                        Stepper("\(period). óra", value: $period, in: 1...15)
+                    }
                 }
             }
             .navigationTitle(isExam ? "Saját dolgozat" : "Saját feladat")
