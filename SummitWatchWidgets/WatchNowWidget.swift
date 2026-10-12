@@ -261,9 +261,8 @@ private struct WatchNowView: View {
     }
 
     // MARK: Smart Stack főnézet — cím (tárgy • terem) + számos csík + következő óra
-    // Óraszám-sor nincs: az óraszám külön címke a csík ELŐTT (nem rajta —
-    // a számlap színezése alatt a csíkon ülő szám olvashatatlan volt), a
-    // terem pedig a címben, kis pöttyel. A csík a kiemelőszínt (accent)
+    // Óraszám-sor nincs: az óraszám a csík elején, RAJTA ül (fehér szám),
+    // a terem pedig a címben, kis pöttyel. A csík a kiemelőszínt (accent)
     // veszi fel és élő (ProgressView(timerInterval:) — magától tickel),
     // a hátralévő idő élő visszaszámlálóként ("35:00",
     // Text(timerInterval:) — magától tickel) a csík MELLETT
@@ -355,8 +354,8 @@ private struct WatchNowView: View {
     }
 
     /// Cím-sor: tárgy + kis pötty + terem (az óraszám-sor helyett —
-    /// az óraszám a csík előtti külön címkén áll). A terem sosem nyomódik
-    /// össze, a tárgy vágódik (`tail`), ha szűk a hely.
+    /// az óraszám a csíkon ül). A terem sosem nyomódik össze,
+    /// a tárgy vágódik (`tail`), ha szűk a hely.
     private func titleRow(_ l: TimetableWidgetStore.Lesson) -> some View {
         HStack(spacing: 4) {
             Text(l.subject)
@@ -370,24 +369,19 @@ private struct WatchNowView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Óraszám + accent-csík + mellette az élő visszaszámláló ("35:00",
-    /// másodpercenként tickel, reload nélkül) — egy soron, külön "X perc
-    /// van hátra" sor nélkül. Az óraszám KÜLÖN címke a csík előtt (nem
-    /// rajta): a számlap ráerőltetett színezése alatt a csíkon ülő fehér
-    /// szám kontrasztja tört meg és a lekerekített véglevágta — így
-    /// rendszer-színnel mindig olvasható. A csík maga is élő: a fázis
-    /// intervallumára kötött ProgressView a visszaszámlálóval együtt,
-    /// másodpercenként tickel.
+    /// Accent-csík + RAJTA az óraszám (fehér szám a csík elején, mint eddig)
+    /// + mellette az élő visszaszámláló ("35:00", másodpercenként tickel,
+    /// reload nélkül) — egy soron, külön "X perc van hátra" sor nélkül.
+    /// A csík maga is élő: a fázis intervallumára kötött ProgressView a
+    /// visszaszámlálóval együtt, másodpercenként tickel. Két részlet
+    /// számít: a countsDown: true ÜRÍTENÉ a csíkot (visszafelé menne),
+    /// ezért false — így töltődik előre, mint a régi statikus érték; és
+    /// az alapértelmezett dátum-címkét üres nézetekkel nyomjuk el,
+    /// különben a csík maga is kirakna egy második számlálót a saját
+    /// visszaszámlálónk mellé.
     private func progressLine(tint: Color, index: String) -> some View {
         HStack(spacing: 6) {
-            if !index.isEmpty {
-                Text("\(index).")
-                    .font(.system(size: 11, weight: .bold).monospacedDigit())
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-            }
-            liveBar(tint: tint)
+            liveBar(tint: tint, index: index)
             countdownText
                 .font(.caption2.weight(.bold).monospacedDigit())
                 .foregroundStyle(.secondary)
@@ -396,17 +390,29 @@ private struct WatchNowView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Élő csík: a fázis intervallumára kötve magától, másodpercenként
-    /// tickel (timeline-reload nélkül). Preview-eltolásnál és fázis
-    /// nélkül marad a statikus pillanatnyi érték.
-    @ViewBuilder
-    private func liveBar(tint: Color) -> some View {
-        if let phase = calc.phase, !isPreviewShift {
-            ProgressView(timerInterval: phase, countsDown: true)
-                .tint(tint)
-        } else {
-            ProgressView(value: calc.progress)
-                .tint(tint)
+    /// Élő csík (fázisra kötve, timeline-reload nélkül tickel) vagy
+    /// statikus pillanatnyi érték preview-eltolásnál és fázis nélkül.
+    private func liveBar(tint: Color, index: String) -> some View {
+        Group {
+            if let phase = calc.phase, !isPreviewShift {
+                ProgressView(
+                    timerInterval: phase,
+                    countsDown: false,
+                    label: { EmptyView() },
+                    currentValueLabel: { EmptyView() }
+                )
+            } else {
+                ProgressView(value: calc.progress)
+            }
+        }
+        .tint(tint)
+        .overlay(alignment: .leading) {
+            if !index.isEmpty {
+                Text("\(index).")
+                    .font(.system(size: 11, weight: .bold).monospacedDigit())
+                    .foregroundStyle(.white)
+                    .padding(.leading, 6)
+            }
         }
     }
 
