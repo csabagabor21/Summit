@@ -406,6 +406,10 @@ private struct WatchNowView: View {
             }
         }
         .tint(tint)
+        // A HStack-ben a visszaszámláló-szöveg elvinné a helyet, a csík
+        // csak az ideális szélességét kapná (rövid maradna) — ezért
+        // kihúzzuk a teljes szabad szélességre (mint a régi képen).
+        .frame(maxWidth: .infinity)
         .overlay(alignment: .leading) {
             if !index.isEmpty {
                 Text("\(index).")
