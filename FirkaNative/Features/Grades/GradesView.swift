@@ -254,10 +254,10 @@ struct GradesView: View {
         .tint(colors.accent)
     }
 
-    // MARK: - Filtering by Tipus.Nev (evkozi_jegy_ertekeles / felevi / evvegi)
+    // MARK: - Filtering by típus (nyers kód és szép név is: "evkozi_jegy_ertekeles" / "Évközi értékelés")
     private func isEvkozi(_ g: GradeItem) -> Bool {
         let t = g.type.lowercased()
-        return t.contains("evkozi") || (!t.contains("felevi") && !t.contains("félévi") && !t.contains("év végi") && !t.contains("evvegi") && !t.contains("évvégi"))
+        return t.contains("evkozi") || t.contains("évközi") || (!t.contains("felevi") && !t.contains("félévi") && !t.contains("év végi") && !t.contains("evvegi") && !t.contains("évvégi"))
     }
     private func isFelevi(_ g: GradeItem) -> Bool {
         let t = g.type.lowercased()

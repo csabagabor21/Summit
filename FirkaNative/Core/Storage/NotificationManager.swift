@@ -275,7 +275,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             schedule(
                 id: "summit.grade.\(g.id)",
                 title: "Új jegy: \(g.valueText) (\(g.subject))",
-                body: [g.type, g.plainTopic, g.teacher].filter { !$0.isEmpty }.joined(separator: " • "),
+                body: [friendlyGradeType(g.type), g.plainTopic, g.teacher].filter { !$0.isEmpty }.joined(separator: " • "),
                 userId: userId, bumpBy: 1,
                 imageURL: gradeImageURL(value: g.value),
                 userInfo: Self.gradeUserInfo(g)
@@ -335,8 +335,15 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         )
     }
 
+    /// Utazás mód alatt semmi nem megy ki — a seen-készlet viszont LÉPTETVE
+    /// van (a diff alapja frissül), hogy hazatéréskor ne zúduljon rá a
+    /// userre az egész nyaralás alatti elmaradás.
     @discardableResult
     func checkGrades(_ grades: [GradeItem], userId: String) -> Int {
+        if TravelMode.isActive() {
+            _ = freshGradeItems(grades, userId: userId)
+            return 0
+        }
         let items = freshGradeItems(grades, userId: userId)
         guard !items.isEmpty else { return 0 }
         // A legfrissebb új jegyre fullscreen ünneplő kártya is jár.
@@ -349,6 +356,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
     @discardableResult
     func checkHomeworks(_ items: [HomeworkItem], userId: String) -> Int {
+        if TravelMode.isActive() {
+            _ = freshHomeworkItems(items, userId: userId)
+            return 0
+        }
         let freshItems = freshHomeworkItems(items, userId: userId)
         guard !freshItems.isEmpty else { return 0 }
         scheduleHomeworks(freshItems, userId: userId)
@@ -357,6 +368,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
     @discardableResult
     func checkExams(_ items: [ExamItem], userId: String) -> Int {
+        if TravelMode.isActive() {
+            _ = freshExamItems(items, userId: userId)
+            return 0
+        }
         let freshItems = freshExamItems(items, userId: userId)
         guard !freshItems.isEmpty else { return 0 }
         scheduleExams(freshItems, userId: userId)
@@ -365,6 +380,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
     @discardableResult
     func checkAbsences(_ items: [AbsenceItem], userId: String) -> Int {
+        if TravelMode.isActive() {
+            _ = freshAbsenceCount(items, userId: userId)
+            return 0
+        }
         let count = freshAbsenceCount(items, userId: userId)
         guard count > 0 else { return 0 }
         scheduleAbsences(count: count, userId: userId)
@@ -377,12 +396,22 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     /// A HomeViewModel.refresh és a háttér-ébresztés is ezt hívja.
     @discardableResult
     func checkAll(grades: [GradeItem], homeworks: [HomeworkItem], exams: [ExamItem], absences: [AbsenceItem], userId: String) -> Int {
+        // Utazás mód: a diff-alap léptetve, banner és ünneplő kártya nélkül.
+        if TravelMode.isActive() {
+            _ = freshGradeItems(grades, userId: userId)
+            _ = freshHomeworkItems(homeworks, userId: userId)
+            _ = freshExamItems(exams, userId: userId)
+            _ = freshAbsenceCount(absences, userId: userId)
+            return 0
+        }
         let fg = freshGradeItems(grades, userId: userId)
         let fh = freshHomeworkItems(homeworks, userId: userId)
         let fe = freshExamItems(exams, userId: userId)
         let fa = freshAbsenceCount(absences, userId: userId)
         let total = fg.count + fh.count + fe.count + fa
         guard total > 0 else { return 0 }
+        // Lépésnapló (helyi analitika, durva számokkal).
+        AnalyticsStore.recordStep("notify", detail: "\(fg.count) jegy \(fh.count) hazi \(fe.count) dolgozat \(fa) hianyzas")
         // A legfrissebb új jegyre fullscreen ünneplő kártya is jár.
         let latestGrade = fg.sorted(by: { $0.date > $1.date }).first
         if let latest = latestGrade {

@@ -15,7 +15,7 @@ enum TimetableWidgetPublish {
                 SubjectMatcher.same($0.subject, lesson.subject)
                 && cal.isDate($0.deadline, inSameDayAs: lesson.start)
             }
-            let sameDayExam = ExamMatcher.exam(for: lesson, in: exams) != nil
+            let sameDayExam = ExamMatcher.exam(for: lesson, in: exams, allLessons: lessons) != nil
             return TimetableWidgetStore.Lesson(
                 id: lesson.id, subject: lesson.subject, room: lesson.room, teacher: lesson.teacher,
                 index: lesson.index, start: lesson.start, end: lesson.end,

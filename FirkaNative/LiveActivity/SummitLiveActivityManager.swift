@@ -412,6 +412,14 @@ final class SummitLiveActivityManager: ObservableObject {
             }
             return false
         }
+        // Utazás mód: se activity, se szerver-terv — a futót is lezárjuk.
+        // A BG-lánc a lejárat után magától újraindul (a sync a lejárt
+        // intervallummal már nem találja aktívnak).
+        if TravelMode.isActive(at: now) {
+            lastAction = "Utazás mód — activity szünetel"
+            await endAllImpl(dismissalPolicy: .immediate)
+            return false
+        }
         let cal = Calendar.current
         let rawToday = lessons
             .filter { cal.isDate($0.start, inSameDayAs: now) }
@@ -450,6 +458,21 @@ final class SummitLiveActivityManager: ObservableObject {
             // semmi (mint az összes többi lezárási ágon).
             lastAction = today.isEmpty ? "Minden mai óra felmentett → lezárva" : "Mai órák vége → lezárva"
             await endAllImpl(dismissalPolicy: .immediate)
+            return false
+        }
+        // Korai kapu: az activity legfeljebb 30 perccel az ELSŐ óra előtt
+        // jelenhet meg. Hajnali appnyitás (pl. 6:00, első óra 8:00) nem
+        // indít kártyát — a BG-ébresztés az első óra előtti 30. percre
+        // van ütemezve, így a kártya magától megjelenik, amikor kell.
+        if cur == nil, let first = today.first,
+           first.start.timeIntervalSince(now) > 30 * 60 {
+            if let existing = Activity<SummitLiveActivityAttributes>.activities.first,
+               existing.attributes.dayKey == Self.dayKey(for: now) {
+                await endAllImpl(dismissalPolicy: .immediate)
+            }
+            lastAction = "Túl korai — az activity az első óra előtt 30 perccel indul"
+            LiveActivityBackgroundRefresh.scheduleBoundary(
+                lessonEnd: first.start.addingTimeInterval(-30 * 60), nextStart: nil, now: now)
             return false
         }
         let state = Self.makeState(today: today, current: cur, next: nxt, now: now)

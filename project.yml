@@ -144,6 +144,7 @@ targets:
       - path: FirkaNative/LiveActivity/SummitLiveActivityAttributes.swift
       - path: FirkaNative/Core/Storage/TimetableWidgetSnapshot.swift
       - path: FirkaNative/Core/Storage/TimetableWidgetLogic.swift
+      - path: FirkaNative/Core/Stats/VacationCountdown.swift
     settings:
       base:
         SWIFT_VERSION: "5.0"

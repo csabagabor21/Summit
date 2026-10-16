@@ -11,5 +11,6 @@ struct SummitWidgetsBundle: WidgetBundle {
         // az iOS verzió alapján választ.
         TimetableWidget()
         SchoolDayWidget()
+        VacationWidget()
     }
 }

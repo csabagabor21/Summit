@@ -37,6 +37,9 @@ struct SettingsView: View {
     @AppStorage("tour.settings.seen.v1") private var tourSeen = false
     @State private var accountExpanded = false // Fiók: egysoros, koppintásra nyílik
     @AppStorage("notify.enabled") private var notifyEnabled = true // Értesítések főkapcsolója
+    @State private var travelOn = false // Utazás mód kapcsoló
+    @State private var travelFrom = Calendar.current.startOfDay(for: Date())
+    @State private var travelTo = Calendar.current.startOfDay(for: Date().addingTimeInterval(7 * 86400))
     @State private var calendarExpanded = false // Iskolai események lenyíló
     @State private var tourStep: Int?
     var colors: AppColors { theme.colors(for: scheme) }
@@ -95,6 +98,24 @@ struct SettingsView: View {
                 }
                 Button("Mégse", role: .cancel) {}
                 } message: { Text("Új kép a Módosítással, vagy töröld a jelenlegit.") }
+
+            // Havi Wrapped-archívum: a banner csak elsejéig él, itt minden
+            // jegyes hónap visszanézhető (a jegyek gyorstárból jönnek).
+            summitIsland(header: "Havi összefoglalók") {
+                summitRow {
+                    NavigationLink {
+                        MonthlyArchiveView()
+                    } label: {
+                        HStack {
+                            Label("Havi összefoglalók", systemImage: "sparkles").font(.subheadline.weight(.medium))
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                        }
+                    }
+                    .tint(colors.accent)
+                }
+            }
 
             summitIsland(header: "Megjelenés", tour: .appearance, tourActive: tourIs(.appearance)) {
                 summitRow {
@@ -203,6 +224,38 @@ struct SettingsView: View {
                 if calendarExpanded {
                     summitDivider
                     summitRow { SchoolEventsSection() }
+                }
+            }
+
+            summitIsland(header: "Utazás mód", footer: "Amíg tart: se értesítés, se Live Activity, a widget üreset mutat. Lejárat után magától kikapcsol.") {
+                summitRow {
+                    Toggle(isOn: $travelOn) {
+                        Label("Utazás mód", systemImage: "airplane").font(.subheadline.weight(.medium))
+                    }
+                    .tint(colors.accent)
+                    .onChange(of: travelOn) { _, new in
+                        saveTravel()
+                        if new, TravelMode.isActive() {
+                            // Azonnal csend: a futó activity nem várja meg a következő syncet.
+                            Task { await SummitLiveActivityManager.shared.endAll(dismissalPolicy: .immediate) }
+                        }
+                    }
+                }
+                if travelOn {
+                    summitDivider
+                    summitRow {
+                        DatePicker("Mettől", selection: $travelFrom, displayedComponents: .date)
+                            .font(.subheadline.weight(.medium))
+                            .tint(colors.accent)
+                            .onChange(of: travelFrom) { _, _ in saveTravel() }
+                    }
+                    summitDivider
+                    summitRow {
+                        DatePicker("Meddig", selection: $travelTo, in: travelFrom..., displayedComponents: .date)
+                            .font(.subheadline.weight(.medium))
+                            .tint(colors.accent)
+                            .onChange(of: travelTo) { _, _ in saveTravel() }
+                    }
                 }
             }
 
@@ -461,6 +514,7 @@ struct SettingsView: View {
         }
         .onAppear {
             thresholds = GradingLogic.loadThresholds()
+            loadTravel()
             if draftIss.isEmpty { draftIss = session.selectedUser?.instituteCode ?? "" }
             if draftSchoolName.isEmpty { draftSchoolName = session.selectedUser?.schoolNameOverride ?? "" }
             // Első megnyitáskor magától indul a túra — utána csak a ? gombról.
@@ -483,6 +537,8 @@ struct SettingsView: View {
         .onChange(of: session.selectedId) { _, _ in Task { await loadSubjects(force: true) } }
         // Téma-változás: 2 mp-es összevont feltöltés, ha a szinkron él.
         // (Pull utáni alkalmazást a suppress-ablak szűri ki.)
+        // Másik eszközről jött utazás-állítás: a kapcsoló kövesse.
+        .onReceive(NotificationCenter.default.publisher(for: TravelMode.changedNotification)) { _ in loadTravel() }
         .onChange(of: theme.mode) { _, _ in summitSync.markDirty(.theme) }
         .onChange(of: theme.accentHex) { _, _ in summitSync.markDirty(.accentHex) }
         .onChange(of: theme.sizeCategoryKey) { _, _ in summitSync.markDirty(.sizeKey) }
@@ -503,6 +559,30 @@ struct SettingsView: View {
     /// Túra indítása a ? gombról — a `seen` flaget nem bántja.
     private func startTour() {
         tourStep = 0
+    }
+
+    // MARK: - Utazás mód
+
+    /// Mentett intervallum betöltése a kapcsolóba (lejárt beállítás magától eltűnik).
+    private func loadTravel() {
+        let d = UserDefaults.standard
+        if d.object(forKey: TravelMode.fromKey) != nil, d.object(forKey: TravelMode.toKey) != nil {
+            travelOn = true
+            travelFrom = Date(timeIntervalSince1970: d.double(forKey: TravelMode.fromKey))
+            travelTo = Date(timeIntervalSince1970: d.double(forKey: TravelMode.toKey))
+        } else {
+            travelOn = false
+        }
+    }
+
+    /// Kapcsoló/dátum mentése + szinkron-dirty. Kikapcsolás törli az intervallumot.
+    private func saveTravel() {
+        if travelOn {
+            TravelMode.set(from: travelFrom, to: travelTo)
+        } else {
+            TravelMode.clear()
+        }
+        summitSync.markDirty(.travelMode)
     }
 
     /// Fejlesztői mód feloldása: 10 tap a "Summit • Gábor Csaba" láblécre

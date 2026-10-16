@@ -27,6 +27,7 @@ enum SummitSyncField: String, CaseIterable {
     case cheatSheets
     case metaAIKey
     case examRollover
+    case travelMode
     case hasWatch
 
     /// A mező verzióbélyege a docban (`ts_theme` …). Régi docokban
@@ -104,6 +105,9 @@ final class SummitSync: ObservableObject {
     /// sérült adat ellen véd. A rules 500-at enged (régi kliensek
     /// felé opcionális mező).
     static let maxMetaAIKeyChars = 500
+    /// Utazás-intervallum plafon (karakter): "yyyy-MM-dd/yyyy-MM-dd"
+    /// 21 kar. A rules 32-t enged (régi kliensek felé opcionális mező).
+    static let maxTravelModeChars = 32
     /// Utoljára felküldött órajelenlét-érték: csak a helyi `true`
     /// válthat dirty-re (az óra nélküli eszköz — pl. a Mac — sosem
     /// jelöl, így nem írhatja felül a telefon `true`-ját `false`-szal).
@@ -268,6 +272,7 @@ final class SummitSync: ObservableObject {
         var cheatSheets: String
         var metaAIKey: String
         var examRollover: Bool
+        var travelMode: String
         var hasWatch: Bool
     }
 
@@ -292,6 +297,7 @@ final class SummitSync: ObservableObject {
             cheatSheets: CheatStore.syncString(CheatStore.load()),
             metaAIKey: String(MetaAIKeyStore.apiKey.prefix(Self.maxMetaAIKeyChars)),
             examRollover: Self.flag("exams.rolloverOnAbsence", default: true),
+            travelMode: TravelMode.syncString(),
             hasWatch: WatchAvailability.shared.hasWatch
         )
     }
@@ -397,6 +403,14 @@ final class SummitSync: ObservableObject {
             if let r = remote?.metaAIKeyRaw { return (r, remoteDate(for: .metaAIKey)) }
             return (local.metaAIKey, fieldTimestamps[SummitSyncField.metaAIKey.rawValue] ?? now)
         }()
+        // Utazás-intervallum: a régi docban még hiányozhat (nil) —
+        // olyankor a helyi érték a régi bélyegével megy. Üres string =
+        // kikapcsolt utazás mód (tudatos törlés).
+        let (tmV, tmTs): (String, Date) = {
+            if pending.contains(SummitSyncField.travelMode.rawValue) { return (local.travelMode, now) }
+            if let r = remote?.travelModeRaw { return (r, remoteDate(for: .travelMode)) }
+            return (local.travelMode, fieldTimestamps[SummitSyncField.travelMode.rawValue] ?? now)
+        }()
         // Órajelenlét: ragadós `true` — ha BÁRMELYIK oldalon van óra,
         // az marad (a Mac `false`-a sosem törölheti a telefon `true`-ját;
         // a párosítás végleges törlése így nem terjed — tudatos határ).
@@ -451,6 +465,7 @@ final class SummitSync: ObservableObject {
             "cheatSheets": str(chV),
             "metaAIKey": str(mkV),
             "examRollover": bool(erV),
+            "travelMode": str(tmV),
             "hasWatch": bool(watchV),
         ]
         let tsPairs: [(SummitSyncField, Date)] = [
@@ -461,7 +476,7 @@ final class SummitSync: ObservableObject {
             (.schoolEvents, seTs), (.schoolEventsShow, seShowTs),
             (.schoolEventsURL, seURLTs), (.customTasks, ctTs),
             (.cheatSheets, chTs), (.metaAIKey, mkTs), (.examRollover, erTs),
-            (.hasWatch, watchTs),
+            (.travelMode, tmTs), (.hasWatch, watchTs),
         ]
         for (f, d) in tsPairs { fields[f.tsKey] = ts(d) }
 
@@ -492,6 +507,7 @@ final class SummitSync: ObservableObject {
             legacy.removeValue(forKey: "cheatSheets")
             legacy.removeValue(forKey: "metaAIKey")
             legacy.removeValue(forKey: "examRollover")
+            legacy.removeValue(forKey: "travelMode")
             legacy.removeValue(forKey: "hasWatch")
             // A régi szabály a három per-típus kapcsolót követeli meg —
             // a főkapcsoló értékét mindháromba belemásoljuk, az új kulcs
@@ -627,6 +643,9 @@ final class SummitSync: ObservableObject {
         /// Meta AI-kulcs (`nil` = a régi docban még nincs mező —
         /// ilyenkor a helyi kulcs marad, nem törlünk).
         let metaAIKeyRaw: String?
+        /// Utazás-intervallum (`nil` = a régi docban még nincs mező —
+        /// ilyenkor a helyi beállítás marad, nem törlünk).
+        let travelModeRaw: String?
         /// Mezőnkénti bélyeg (`ts_*`, régi docban az `updatedAt`).
         let fieldDates: [String: Date]
     }
@@ -726,6 +745,13 @@ final class SummitSync: ObservableObject {
                   raw.count <= maxMetaAIKeyChars else { return nil }
             return raw
         }()
+        // Utazás-intervallum: régi docban hiányozhat (nil = helyi marad).
+        // Sérült (túl hosszú / nem string) mezőnél szintén a helyi marad.
+        let travelModeRaw: String? = {
+            guard let raw = data["travelMode"] as? String,
+                  raw.count <= maxTravelModeChars else { return nil }
+            return raw
+        }()
         // Dolgozat-pótlás kapcsoló: régi docban hiányozhat (nil = helyi marad).
         let examRollover = data["examRollover"] as? Bool
         // Órajelenlét: régi docban hiányozhat (nil = helyi peer-jel marad).
@@ -745,6 +771,7 @@ final class SummitSync: ObservableObject {
                        customTasksRaw: customTasksRaw,
                        cheatSheetsRaw: cheatSheetsRaw,
                        metaAIKeyRaw: metaAIKeyRaw,
+                       travelModeRaw: travelModeRaw,
                        fieldDates: fieldDates)
     }
 
@@ -840,6 +867,10 @@ final class SummitSync: ObservableObject {
             guard let raw = s("metaAIKey"), raw.count <= maxMetaAIKeyChars else { return nil }
             return raw
         }()
+        let travelModeRaw: String? = {
+            guard let raw = s("travelMode"), raw.count <= maxTravelModeChars else { return nil }
+            return raw
+        }()
         return Payload(updatedAt: updatedAt, updatedAtDate: updatedAtDate,
                        theme: theme, accentHex: accent, sizeKey: sizeKey,
                        photoRaw: photoRaw, photo: photo, photoDecodeFailed: photoDecodeFailed,
@@ -855,6 +886,7 @@ final class SummitSync: ObservableObject {
                        customTasksRaw: customTasksRaw,
                        cheatSheetsRaw: cheatSheetsRaw,
                        metaAIKeyRaw: metaAIKeyRaw,
+                       travelModeRaw: travelModeRaw,
                        fieldDates: fieldDates)
     }
 
@@ -927,6 +959,13 @@ final class SummitSync: ObservableObject {
             d.set(v, forKey: ExamRollover.enabledKey)
             NotificationCenter.default.post(name: ExamRollover.changedNotification, object: nil)
             applied.append(.examRollover)
+        }
+        // Utazás-intervallum: `nil` = régi doc, a helyi marad. Az
+        // alkalmazás maga postolja a változás-értesítést (Beállítások
+        // kapcsolója és a widget-tükör így követi).
+        if newer(.travelMode), let raw = p.travelModeRaw {
+            TravelMode.applySyncString(raw)
+            applied.append(.travelMode)
         }
         // Órajelenlét: `nil` = régi doc, a helyi peer-jel marad. `true`
         // érkezésekor a Mac is megmutatja a Watch tabot (jegyzetkészítés
@@ -1039,6 +1078,8 @@ final class SummitSync: ObservableObject {
             (CheatStore.changedNotification, [.cheatSheets]),
             // Meta AI-kulcs megadása, cseréje, törlése, távoli pull.
             (MetaAIKeyStore.changedNotification, [.metaAIKey]),
+            // Utazás-intervallum beállítása, törlése, távoli pull.
+            (TravelMode.changedNotification, [.travelMode]),
         ]
         for (name, fields) in map {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in

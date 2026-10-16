@@ -116,7 +116,7 @@ struct GradeCelebrationView: View {
                     Text(topicLine)
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(.secondary)
-                    Text("\(grade.type.isEmpty ? "Értékelés" : grade.type) • \(grade.teacher)")
+                    Text("\(friendlyGradeType(grade.type)) • \(grade.teacher)")
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.secondary)
                 }
@@ -155,6 +155,7 @@ struct GradeCelebrationView: View {
         .onAppear {
             // Új jegy = ünnepelt kimenet: egyetlen success a konfettival együtt.
             SummitHaptics.success()
+            AnalyticsStore.recordStep("grade_open", detail: "jegy_\(grade.value)")
             withAnimation(SummitMotion.gentle) { appeared = true }
             withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { pulse = true }
         }

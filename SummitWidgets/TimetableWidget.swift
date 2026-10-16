@@ -28,6 +28,29 @@ struct TimetableWidgetEntry: TimelineEntry {
     var hasSnapshot: Bool
     /// A következő tanítási nap rendkívüliségei (ha ma nincs több óra).
     var note: TimetableWidgetStore.NextDayNote?
+    /// Utazás mód: a widget üreset mutat ("Utazás mód — pihenj!").
+    var travelMode: Bool = false
+}
+
+// MARK: - Utazás-kapu (widget-oldal, Foundation-only)
+// A fő app a TravelMode intervallumot az App Groupba tükrözi; az extension
+// a fő app UserDefaults-át nem látja, ezért innen olvasunk.
+enum TravelGate {
+    static let fromKey = "travel.from.v1"
+    static let toKey = "travel.to.v1"
+
+    /// Aktív-e most az utazás mód; ha igen, meddig tart (a timeline addig kér újratöltést).
+    static func endIfActive(now: Date = Date()) -> Date? {
+        guard let d = UserDefaults(suiteName: TimetableWidgetStore.appGroupID),
+              let from = d.object(forKey: fromKey) as? Double,
+              let to = d.object(forKey: toKey) as? Double,
+              from > 0, to > 0, to >= from else { return nil }
+        let cal = Calendar.current
+        let fromDay = cal.startOfDay(for: Date(timeIntervalSince1970: from))
+        guard let toEnd = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: Date(timeIntervalSince1970: to))) else { return nil }
+        guard now >= fromDay && now < toEnd else { return nil }
+        return toEnd
+    }
 }
 
 struct TimetableWidgetProvider: TimelineProvider {
@@ -45,6 +68,12 @@ struct TimetableWidgetProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TimetableWidgetEntry>) -> Void) {
         let now = Date()
+        // Utazás mód: üres kártya + újratöltés a lejáratkor (max +8 óra).
+        if let travelEnd = TravelGate.endIfActive(now: now) {
+            let entry = travelEntry(at: now)
+            completion(Timeline(entries: [entry], policy: .after(min(travelEnd, now.addingTimeInterval(8 * 3600)))))
+            return
+        }
         guard let snap = TimetableWidgetStore.load(), !snap.lessons.isEmpty, !snap.previewActive else {
             // Nincs adat vagy dev idő-csúszka: egy belépő + rendszer-frissítés.
             let entry = makeEntry(at: now, preview: false)
@@ -66,8 +95,18 @@ struct TimetableWidgetProvider: TimelineProvider {
         completion(Timeline(entries: dates.map { makeEntry(at: $0, preview: false) }, policy: .atEnd))
     }
 
+    /// Üres utazás-belépő (órák és jegyzet nélkül).
+    private func travelEntry(at date: Date) -> TimetableWidgetEntry {
+        TimetableWidgetEntry(
+            date: date, effectiveNow: date, dayLessons: [],
+            dayDate: date, accentHex: 0x4A90E2, hasSnapshot: false, note: nil,
+            travelMode: true
+        )
+    }
+
     private func makeEntry(at date: Date, preview: Bool) -> TimetableWidgetEntry {
         let now = date
+        if TravelGate.endIfActive(now: now) != nil { return travelEntry(at: now) }
         guard let snap = TimetableWidgetStore.load(), !snap.lessons.isEmpty else {
             return TimetableWidgetEntry(
                 date: now, effectiveNow: now, dayLessons: preview ? Self.sampleLessons() : [],
@@ -230,19 +269,54 @@ private struct TimetableWidgetView: View {
     }
 
     var body: some View {
+        if entry.travelMode {
+            travelView
+        } else {
+            switch family {
+            case .accessoryCircular:
+                circularView
+            case .accessoryRectangular:
+                accessoryView
+            case .accessoryInline:
+                inlineView
+            case .systemSmall:
+                smallView
+            case .systemLarge:
+                listView(maxRows: 7)
+            default:
+                listView(maxRows: 3)
+            }
+        }
+    }
+
+    // MARK: Utazás mód — üres kártya órák helyett
+    @ViewBuilder
+    private var travelView: some View {
         switch family {
-        case .accessoryCircular:
-            circularView
-        case .accessoryRectangular:
-            accessoryView
         case .accessoryInline:
-            inlineView
-        case .systemSmall:
-            smallView
-        case .systemLarge:
-            listView(maxRows: 7)
+            Text("Utazás mód — pihenj!")
+        case .accessoryCircular:
+            VStack(spacing: 1) {
+                Image(systemName: "airplane")
+                    .font(.caption.weight(.semibold))
+                Text("Szünet")
+                    .font(.caption2.weight(.bold))
+            }
         default:
-            listView(maxRows: 3)
+            VStack(alignment: .leading, spacing: 2) {
+                Spacer(minLength: 0)
+                Label("Utazás mód", systemImage: "airplane")
+                    .font(.headline.weight(.semibold)).lineLimit(1)
+                Text("Pihenj — értesítés és élő óra szünetel.")
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(2)
+                Spacer(minLength: 0)
+            }
+            .containerBackground(for: .widget) {
+                LinearGradient(
+                    colors: [.white.opacity(0.16), .white.opacity(0.03)],
+                    startPoint: .top, endPoint: .bottom
+                )
+            }
         }
     }
 
@@ -562,6 +636,7 @@ private struct TimetableWidgetView: View {
     }
 
     private var inlineText: String {
+        if entry.travelMode { return "Utazás mód — pihenj!" }
         guard entry.hasSnapshot, !entry.dayLessons.isEmpty else { return "Most: nyisd meg az appot" }
         switch nowCalc.state {
         case .empty:
@@ -838,6 +913,8 @@ struct SchoolDayEntry: TimelineEntry {
     var next: TimetableWidgetStore.NextDayNote?
     var accentHex: Int
     var hasSnapshot: Bool
+    /// Utazás mód: a widget üreset mutat.
+    var travelMode: Bool = false
 }
 
 struct SchoolDayProvider: TimelineProvider {
@@ -855,6 +932,12 @@ struct SchoolDayProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<SchoolDayEntry>) -> Void) {
         let now = Date()
+        // Utazás mód: üres kártya + újratöltés a lejáratkor (max +8 óra).
+        if let travelEnd = TravelGate.endIfActive(now: now) {
+            let entry = travelEntry(at: now)
+            completion(Timeline(entries: [entry], policy: .after(min(travelEnd, now.addingTimeInterval(8 * 3600)))))
+            return
+        }
         guard let snap = TimetableWidgetStore.load(), !snap.lessons.isEmpty, !snap.previewActive else {
             let entry = makeEntry(at: now, preview: false)
             let refresh = TimetableWidgetLogic.nextRefresh(now: now, effectiveNow: entry.effectiveNow, lessons: entry.todayLessons)
@@ -871,8 +954,18 @@ struct SchoolDayProvider: TimelineProvider {
         completion(Timeline(entries: dates.map { makeEntry(at: $0, preview: false) }, policy: .atEnd))
     }
 
+    /// Üres utazás-belépő.
+    private func travelEntry(at date: Date) -> SchoolDayEntry {
+        SchoolDayEntry(
+            date: date, effectiveNow: date, todayLessons: [],
+            info: nil, next: nil, accentHex: 0x4A90E2, hasSnapshot: false,
+            travelMode: true
+        )
+    }
+
     private func makeEntry(at date: Date, preview: Bool) -> SchoolDayEntry {
         let now = date
+        if TravelGate.endIfActive(now: now) != nil { return travelEntry(at: now) }
         guard let snap = TimetableWidgetStore.load(), !snap.lessons.isEmpty else {
             return SchoolDayEntry(
                 date: now, effectiveNow: now,
@@ -933,13 +1026,48 @@ private struct SchoolDayView: View {
     }
 
     var body: some View {
+        if entry.travelMode {
+            travelView
+        } else {
+            switch family {
+            case .accessoryCircular:
+                circularView
+            case .accessoryInline:
+                Text(inlineText).lineLimit(1)
+            default:
+                rectangularView
+            }
+        }
+    }
+
+    // MARK: Utazás mód — üres kártya
+    @ViewBuilder
+    private var travelView: some View {
         switch family {
-        case .accessoryCircular:
-            circularView
         case .accessoryInline:
-            Text(inlineText).lineLimit(1)
+            Text("Utazás mód — pihenj!")
+        case .accessoryCircular:
+            VStack(spacing: 1) {
+                Image(systemName: "airplane")
+                    .font(.caption.weight(.semibold))
+                Text("Szünet")
+                    .font(.caption2.weight(.bold))
+            }
         default:
-            rectangularView
+            VStack(alignment: .leading, spacing: 2) {
+                Spacer(minLength: 0)
+                Label("Utazás mód", systemImage: "airplane")
+                    .font(.headline.weight(.semibold)).lineLimit(1)
+                Text("Pihenj — ma nincs sulis infó.")
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .containerBackground(for: .widget) {
+                LinearGradient(
+                    colors: [.white.opacity(0.16), .white.opacity(0.03)],
+                    startPoint: .top, endPoint: .bottom
+                )
+            }
         }
     }
 
@@ -1084,6 +1212,7 @@ private struct SchoolDayView: View {
     }
 
     private var inlineText: String {
+        if entry.travelMode { return "Utazás mód — pihenj!" }
         guard entry.hasSnapshot || validInfo != nil else { return "Nyisd meg az appot" }
         if !remaining.isEmpty {
             if let info = validInfo { return todayLine(info) }

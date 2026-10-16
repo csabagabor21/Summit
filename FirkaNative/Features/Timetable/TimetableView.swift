@@ -612,8 +612,8 @@ struct TimetableView: View {
     }
     private func exam(for lesson: LessonItem) -> ExamItem? {
         // Óraszámos dolgozat csak a saját órájára kerül (ExamMatcher),
-        // óraszám nélkül marad a nap-alapú csatolás.
-        ExamMatcher.exam(for: lesson, in: displayExams)
+        // óraszám nélkül naponta csak EGY órára (az aznapi legkorábbira).
+        ExamMatcher.exam(for: lesson, in: displayExams, allLessons: lessons)
     }
     private func hasAssignment(for lesson: LessonItem) -> Bool {
         let cal = Calendar.current
@@ -826,7 +826,28 @@ struct TimetableView: View {
             loadError = nil
         }
         publishWidgetSnapshot()
+        // Vakáció-visszaszámláló: csak a 0. hétről (lapozáskor nem),
+        // a widgetnek az App Groupba.
+        if weekOffset == 0 { refreshVacation(iss: iss) }
         isLoading = false
+    }
+
+    /// Vakáció-info a widgetnek: naptári napok most → aug. 31. (egyetlen
+    /// gyorstárazott kérés), tanítás nélküli hétköznapok a számoláshoz.
+    /// Demo/hiba esetén üres lista — a fallback (jún. 15.) akkor is él.
+    private func refreshVacation(iss: String) {
+        Task {
+            let end = VacationCountdown.rangeEnd(for: Date())
+            let days = await kreta.fetchCalendarDays(iss: iss, from: Date(), to: end)
+            let cal = Calendar.current
+            let offs = days.compactMap { info -> VacationCountdown.DayOff? in
+                guard !info.isTimetableDay else { return nil }
+                let day = cal.startOfDay(for: info.date)
+                guard (2...6).contains(cal.component(.weekday, from: day)) else { return nil }
+                return VacationCountdown.DayOff(day: day, name: info.typeName)
+            }
+            VacationCountdown.save(VacationCountdown.compute(daysOff: offs))
+        }
     }
 
     /// Widget-egykezesség: a heti snapshot csak innen íródik az App Groupba.

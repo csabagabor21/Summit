@@ -271,7 +271,7 @@ func splitMarkdownParagraphs(_ s: String) -> [String] {
 enum WatchGradeFilter {
     static func isEvkozi(_ g: WatchGrade) -> Bool {
         let t = g.type.lowercased()
-        return t.contains("evkozi") || (!t.contains("felevi") && !t.contains("félévi") && !t.contains("év végi") && !t.contains("evvegi") && !t.contains("évvégi"))
+        return t.contains("evkozi") || t.contains("évközi") || (!t.contains("felevi") && !t.contains("félévi") && !t.contains("év végi") && !t.contains("evvegi") && !t.contains("évvégi"))
     }
     static func evkozi(_ grades: [WatchGrade]) -> [WatchGrade] {
         grades.filter { $0.value != 0 && isEvkozi($0) }

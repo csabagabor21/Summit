@@ -374,7 +374,13 @@ enum ExamExpiry {
 /// óra kapja meg — különben minden aznapi, azonos tárgyú órára ráíródna.
 /// Óraszám nélküli dolgozatra marad a régi nap-alapú viselkedés.
 enum ExamMatcher {
-    static func exam(for lesson: LessonItem, in exams: [ExamItem], calendar: Calendar = .current) -> ExamItem? {
+    /// Melyik dolgozat tartozik az órához. Az óraszám NÉLKÜLI dolgozat
+    /// naponta CSAK EGY órához csatolódik (az aznapi legkorábbi, azonos
+    /// tárgyú órához) — különben egyetlen dolgozat minden aznapi órára
+    /// ráíródna (pl. egy pótolt dolgozat 5-ször jelent meg az órarendben).
+    /// Az egyértelműsítéshez az aznapi órák is kellenek (`allLessons`) —
+    /// nélkülük marad a régi, minden órára ráíró viselkedés.
+    static func exam(for lesson: LessonItem, in exams: [ExamItem], calendar: Calendar = .current, allLessons: [LessonItem]? = nil) -> ExamItem? {
         let sameDay = exams.filter {
             SubjectMatcher.same($0.subject, lesson.subject)
             && calendar.isDate($0.date, inSameDayAs: lesson.start)
@@ -382,17 +388,31 @@ enum ExamMatcher {
         if let pinned = sameDay.first(where: { $0.lessonIndex != nil && Int(lesson.index) == $0.lessonIndex }) {
             return pinned
         }
-        if let unpinned = sameDay.first(where: { $0.lessonIndex == nil }) {
-            return unpinned
+        // Óraszám nélküli jelölt: egy dolgozat, egy óra.
+        func single(_ e: ExamItem?) -> ExamItem? {
+            guard let e else { return nil }
+            guard let all = allLessons else { return e }
+            // Az aznapi, azonos tárgyú órák közül a legkorábbié a dolgozat.
+            let peers = all.filter {
+                SubjectMatcher.same($0.subject, lesson.subject)
+                && calendar.isDate($0.start, inSameDayAs: lesson.start)
+            }.sorted { $0.start < $1.start }
+            guard let first = peers.first else { return e }
+            return first.id == lesson.id ? e : nil
+        }
+        // Óraszámos, de NEM erre az órára tűzött dolgozat: szigorú tűzés,
+        // sehova sem kerül (a fenti exact-ág már nem találta meg a helyét).
+        // Csak az óraszám nélküliekre marad a napi-egy-óra fallback.
+        let unpinned = sameDay.filter { $0.lessonIndex == nil }
+        if let first = unpinned.first {
+            return single(first)
         }
         // Fallback, hogy a dolgozat sose tűnjön el némán az órarendről:
-        // - ha aznapra egyetlen dolgozat van ebből a tárgyból, az biztosan ide tartozik;
-        // - ha az óra sorszáma nem számozott ("-"), az óraszámos tűzés nem dönthető el,
-        //   ilyenkor az aznapi elsőt mutatjuk a semmi helyett.
+        // ha az óra sorszáma nem számozott ("-"), az óraszámos tűzés nem
+        // dönthető el — ilyenkor az aznapi elsőt mutatjuk a semmi helyett.
         // Több aznapi, eltérő óraszámú dolgozatnál marad a szigorú tűzés
         // (félrecsatolás helyett inkább ne színezzünk).
-        if sameDay.count == 1 { return sameDay[0] }
-        if Int(lesson.index) == nil { return sameDay.first }
+        if Int(lesson.index) == nil { return single(sameDay.first) }
         return nil
     }
 
@@ -712,6 +732,37 @@ func friendlyExamMode(_ raw: String) -> String {
     return words.prefix(1).uppercased() + words.dropFirst().lowercased()
 }
 
+/// KRÉTA nyers jegy-típus (pl. "evkozi_jegy_ertekeles") → szép magyar név.
+/// A KRÉTA a jegy típusát snake_case kódként adja — ezt tilos nyersen
+/// kipillezni (az ünneplő kártyán "evkozi_jegy_ertekeles" jelent meg).
+/// Már szép, szóközt tartalmazó névre idempotens (változatlanul hagyja).
+func friendlyGradeType(_ raw: String) -> String {
+    let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    if t.isEmpty { return "Értékelés" }
+    let key = t.lowercased()
+    let map: [String: String] = [
+        "evkozi_jegy_ertekeles": "Évközi értékelés",
+        "evkozi": "Évközi értékelés",
+        "felevi_ertekeles": "Félévi értékelés",
+        "felevi": "Félévi értékelés",
+        "félévi értékelés": "Félévi értékelés",
+        "evvegi_ertekeles": "Év végi értékelés",
+        "evvegi": "Év végi értékelés",
+        "ev_vegi_ertekeles": "Év végi értékelés",
+        "magatartas": "Magatartás",
+        "szorgalom": "Szorgalom",
+        "ertekeleles": "Értékelés",
+        "ertekeles": "Értékelés",
+        "évközi értékelés": "Évközi értékelés",
+        "év végi értékelés": "Év végi értékelés",
+    ]
+    if let m = map[key] { return m }
+    // Már szép név (szóköz van benne, nincs _): változatlanul.
+    if t.contains(" ") && !t.contains("_") { return t }
+    let words = t.replacingOccurrences(of: "_", with: " ").replacingOccurrences(of: "-", with: " ")
+    return words.prefix(1).uppercased() + words.dropFirst().lowercased()
+}
+
 /// KRÉTA nyers feljegyzés-típus (pl. "ElektronikusUzenet") → szép magyar név.
 /// A KRÉTA a típust kód-szerűen, egybeírva adja — ezt tilos nyersen
 /// kipillezni ("ElektronikusUzenet"). Ismeretlen kódra camelCase/snake_case
@@ -800,6 +851,14 @@ struct KretaGradeDTO: Decodable {
     let Tipus: TipusDTO?
     let Tema: String?
     func toItem() -> GradeItem {
+        // Típus: a Leiras a szép név (ha van), különben a Nev-kód
+        // barátságosítva — nyers snake_case ("evkozi_jegy_ertekeles")
+        // sosem kerülhet a UI-ra (ünneplő kártya, értesítés).
+        let prettyType: String = {
+            let l = (Tipus?.Leiras ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !l.isEmpty { return l }
+            return friendlyGradeType((Tipus?.Nev ?? Tipus?.Kod) ?? "")
+        }()
         return GradeItem(
             id: Uid ?? UUID().uuidString,
             subject: Tantargy?.Nev ?? "Ismeretlen",
@@ -807,7 +866,7 @@ struct KretaGradeDTO: Decodable {
             valueText: SzovegesErtek ?? "\(SzamErtek ?? 0)",
             date: KretaDateParser.parse(KeszitesDatuma ?? RogzitesDatuma) ?? Date(),
             teacher: (ErtekeloTanarNeve ?? "").trimmingCharacters(in: .whitespaces),
-            type: Tipus?.Nev ?? "Értékelés",
+            type: prettyType,
             weight: SulySzazalekErteke ?? 100,
             topic: (Tema ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         )

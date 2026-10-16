@@ -64,6 +64,45 @@ final class AnalyticsStore: ObservableObject {
     /// Esemény-cooldown: ugyanaz az esemény 5 percen belül egyszer küld.
     private var lastEventFire: [String: Date] = [:]
 
+    // MARK: - Lépésnapló (helyi, hozzájárulástól független)
+
+    /// Helyi lépés-gyűrű (utolsó 50): tabváltás, frissítés, értesítés,
+    /// utazás, Siri, ünneplő kártya — durva nevekkel, személyes adat
+    /// NÉLKÜL (tantárgynév, jegy-szöveg, tanárnév sosem kerül bele).
+    /// SZERVERRE NEM MEGY: a heartbeat-séma csak napi/consent/login
+    /// eseményeket ismer — a lépések a Diagnosztikában és az exportban
+    /// látszanak. Helyi naplózáshoz hozzájárulás nem kell (semmi nem
+    /// hagyja el a telefont), a szerver-küldés továbbra is opt-in.
+    static let stepsKey = "analytics.steps.v1"
+    static let stepsMax = 50
+    static let stepsChanged = Notification.Name("summit.analyticsStepsChanged")
+
+    /// Lépés rögzítése bárhonnan (main- és háttérszálról is hívható —
+    /// ezért nonisolated; a formázó lokális, mert a DateFormatter nem
+    /// szálbiztos, a UserDefaults/post viszont igen).
+    /// - Parameters:
+    ///   - name: durva eseménynév (`[a-z0-9_]+`, pl. "tab", "refresh").
+    ///   - detail: opcionális durva részlet (max 80 kar., PII nélkül).
+    nonisolated static func recordStep(_ name: String, detail: String? = nil) {
+        let clean = name.lowercased().filter { $0.isLetter || $0.isNumber || $0 == "_" }
+        guard !clean.isEmpty else { return }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "hu_HU")
+        f.dateFormat = "MM.dd HH:mm:ss"
+        var entry = "\(f.string(from: Date())) \(clean)"
+        if let d = detail?.trimmingCharacters(in: .whitespacesAndNewlines), !d.isEmpty {
+            entry += " " + String(d.prefix(80))
+        }
+        var steps = UserDefaults.standard.stringArray(forKey: stepsKey) ?? []
+        steps.append(entry)
+        if steps.count > stepsMax { steps.removeFirst(steps.count - stepsMax) }
+        UserDefaults.standard.set(steps, forKey: stepsKey)
+        NotificationCenter.default.post(name: stepsChanged, object: nil)
+    }
+
+    /// Friss lépések a Diagnosztika-tabnak (időrendben).
+    @Published var recentSteps: [String] = []
+
     init() {
         self.hasChosen = UserDefaults.standard.bool(forKey: Self.choiceKey)
         self.isEnabled = UserDefaults.standard.bool(forKey: Self.enabledKey)
@@ -76,6 +115,11 @@ final class AnalyticsStore: ObservableObject {
             let fresh = UUID().uuidString
             UserDefaults.standard.set(fresh, forKey: Self.installKey)
             self.installId = fresh
+        }
+        self.recentSteps = UserDefaults.standard.stringArray(forKey: Self.stepsKey) ?? []
+        NotificationCenter.default.addObserver(
+            forName: Self.stepsChanged, object: nil, queue: .main) { [weak self] _ in
+            self?.recentSteps = UserDefaults.standard.stringArray(forKey: Self.stepsKey) ?? []
         }
     }
 

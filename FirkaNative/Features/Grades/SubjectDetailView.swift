@@ -165,7 +165,7 @@ struct SubjectDetailView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(g.date.formatted(date: .abbreviated, time: .omitted) + " • \(g.weight)%").font(.caption.weight(.medium))
                                 if g.plainTopic.isEmpty {
-                                    Text(g.type).font(.caption2).foregroundStyle(.secondary)
+                                    Text(friendlyGradeType(g.type)).font(.caption2).foregroundStyle(.secondary)
                                 }
                             }
                             Spacer()

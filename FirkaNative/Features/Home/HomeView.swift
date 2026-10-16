@@ -19,6 +19,8 @@ struct HomeView: View {
     @AppStorage("developer.enabled") private var devMode = false
     @State private var exemptedTick = 0
     @State private var liveSyncTask: Task<Void, Never>?
+    /// Havi Wrapped kártya (banner koppintásból, elsejéig).
+    @State private var wrappedMonth: MonthlyWrapped.Month?
 
     var body: some View {
         let user = session.selectedUser ?? .demo
@@ -36,6 +38,40 @@ struct HomeView: View {
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 4, trailing: 16))
                     .listRowSeparator(.hidden)
+                }
+
+                // Havi Wrapped banner: elsejéig az előző hónap kártyája.
+                // 6-ától magától eltűnik (az archívum a Beállítások →
+                // profil alól mindig elérhető).
+                if let banner = MonthlyWrapped.bannerMonth(grades: vm.grades) {
+                    Section {
+                        Button {
+                            SummitHaptics.selection()
+                            AnalyticsStore.recordStep("wrapped_open", detail: banner.id)
+                            wrappedMonth = banner
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundStyle(colors.accent)
+                                    .frame(width: 30)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(banner.wrappedTitle)
+                                        .font(.subheadline.weight(.bold))
+                                    let st = MonthlyWrapped.stats(grades: vm.grades, month: banner)
+                                    Text("\(st.count) jegy • \(String(format: "%.1f", st.avg)) átlag")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(colors.surface)
+                        .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                        .listRowSeparator(.hidden)
+                    }
                 }
 
                 // Frissítési hiba (NEM halott munkamenet — arra ott a piros sáv):
@@ -277,6 +313,15 @@ struct HomeView: View {
             .onChange(of: exemptedTick) { _, _ in Task { await syncLiveActivity() } }
             // Dolgozat-pótlás kapcsoló/elvetés — hálózat nélkül újraszámol.
             .onReceive(NotificationCenter.default.publisher(for: ExamRollover.changedNotification)) { _ in vm.applyRollover() }
+            // Havi Wrapped kártya (banner koppintásból).
+            .fullScreenCover(item: $wrappedMonth) { m in
+                MonthlyWrappedCard(
+                    month: m,
+                    stats: MonthlyWrapped.stats(grades: vm.grades, month: m),
+                    onClose: { wrappedMonth = nil }
+                )
+                .environmentObject(theme)
+            }
             // Üzenet megnyitva → a csengő-jelvény azonnal csökken (frissítés nélkül is).
             .onChange(of: kreta.readMessageIDs) { _, ids in
                 vm.messages = vm.messages.map { ids.contains($0.id) ? $0.withRead() : $0 }
@@ -694,8 +739,9 @@ private struct HomeLiveCard: View {
     @ViewBuilder
     func attachedInfo(for lesson: LessonItem) -> some View {
         // Rögzítve van-e valami erre az órára — kanonikus egyeztetés (Matek <-> Matematika).
-        // Óraszámos dolgozat csak a saját órájára kerül (ExamMatcher).
-        let exam = ExamMatcher.exam(for: lesson, in: exams)
+        // Óraszámos dolgozat csak a saját órájára kerül; óraszám nélkül
+        // naponta csak egy órára (ExamMatcher + aznapi órák).
+        let exam = ExamMatcher.exam(for: lesson, in: exams, allLessons: lessons)
         let hw = homeworks.first { SubjectMatcher.same($0.subject, lesson.subject) && Calendar.current.isDate($0.deadline, inSameDayAs: lesson.start) }
         if exam != nil || hw != nil {
             VStack(alignment: .leading, spacing: 3) {
