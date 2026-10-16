@@ -12,7 +12,7 @@ struct VacationWidget: Widget {
             VacationWidgetView(entry: entry)
         }
         .configurationDisplayName("Vakáció")
-        .description("Hátralévő tanítási napok a nyári szünetig.")
+        .description("Hátralévő tanítási napok a következő szünetig.")
         .supportedFamilies([.systemSmall, .accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }
@@ -30,7 +30,8 @@ struct VacationWidgetProvider: TimelineProvider {
     func placeholder(in context: Context) -> VacationWidgetEntry {
         VacationWidgetEntry(date: Date(), info: VacationCountdown.Info(
             state: .countdown, daysLeft: 23,
-            targetDate: Date().addingTimeInterval(23 * 86400), computedAt: Date()))
+            targetDate: Date().addingTimeInterval(23 * 86400),
+            breakName: "Őszi szünet", computedAt: Date()))
     }
 
     func getSnapshot(in context: Context, completion: @escaping (VacationWidgetEntry) -> Void) {
@@ -64,29 +65,36 @@ private struct VacationWidgetView: View {
         }
     }
 
-    private var isSummer: Bool { entry.info?.state == .summer }
+    private var onBreak: Bool { entry.info?.state == .onBreak }
 
     private var headline: String {
         guard let info = entry.info else { return "–" }
         return "\(info.daysLeft)"
     }
 
+    /// „tanítási nap" / „nap még" — a szünet neve külön sorba kerül,
+    /// mert a KRÉTA-nevek („Tanítás nélküli munkanap") nem toldalékolhatók.
     private var subline: String {
         guard entry.info != nil else { return "Nyisd meg az appot" }
-        return isSummer ? "nap az iskolakezdésig" : "tanítási nap a nyárig"
+        return onBreak ? "nap még" : "tanítási nap"
+    }
+
+    private var detailLine: String {
+        guard let info = entry.info else { return "" }
+        return "\(info.breakName) • \(shortDate(info.targetDate))"
     }
 
     private var inlineText: String {
         guard let info = entry.info else { return "Vakáció" }
-        return isSummer
-            ? "Nyári szünet (\(info.daysLeft) nap)"
-            : "\(info.daysLeft) tanítási nap a nyárig"
+        return onBreak
+            ? "\(info.breakName) (\(info.daysLeft) nap)"
+            : "\(info.daysLeft) tanítási nap (\(info.breakName))"
     }
 
     private var smallView: some View {
         VStack(alignment: .leading, spacing: 2) {
             Spacer(minLength: 0)
-            Image(systemName: isSummer ? "sun.max.fill" : "airplane.departure")
+            Image(systemName: onBreak ? "sun.max.fill" : "airplane.departure")
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.orange)
             Text(headline)
@@ -96,7 +104,12 @@ private struct VacationWidgetView: View {
                 .minimumScaleFactor(0.6)
             Text(subline)
                 .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                .lineLimit(2)
+                .lineLimit(1)
+            if entry.info != nil {
+                Text(detailLine)
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -112,11 +125,11 @@ private struct VacationWidgetView: View {
         VStack(alignment: .leading, spacing: 2) {
             Spacer(minLength: 0)
             Label(
-                isSummer ? "Nyári szünet (\(headline) nap)" : "\(headline) tanítási nap a nyárig",
-                systemImage: isSummer ? "sun.max.fill" : "airplane.departure"
+                onBreak ? "\(headline) nap még" : "\(headline) tanítási nap",
+                systemImage: onBreak ? "sun.max.fill" : "airplane.departure"
             )
             .font(.headline.weight(.semibold)).lineLimit(1)
-            Text(entry.info.map { shortDate($0.targetDate) } ?? "Nyisd meg az appot")
+            Text(entry.info.map { _ in detailLine } ?? "Nyisd meg az appot")
                 .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             Spacer(minLength: 0)
         }
@@ -130,7 +143,7 @@ private struct VacationWidgetView: View {
 
     private var circularView: some View {
         VStack(spacing: 1) {
-            Image(systemName: isSummer ? "sun.max.fill" : "airplane.departure")
+            Image(systemName: onBreak ? "sun.max.fill" : "airplane.departure")
                 .font(.caption.weight(.semibold))
             Text(entry.info.map { "\($0.daysLeft)" } ?? "–")
                 .font(.title3.weight(.bold).monospacedDigit())
@@ -141,7 +154,7 @@ private struct VacationWidgetView: View {
         let f = DateFormatter()
         f.locale = Locale(identifier: "hu_HU")
         f.dateFormat = "MMM d."
-        return "Cél: \(f.string(from: d))"
+        return f.string(from: d)
     }
 }
 
@@ -150,5 +163,6 @@ private struct VacationWidgetView: View {
 } timeline: {
     VacationWidgetEntry(date: Date(), info: VacationCountdown.Info(
         state: .countdown, daysLeft: 23,
-        targetDate: Date().addingTimeInterval(23 * 86400), computedAt: Date()))
+        targetDate: Date().addingTimeInterval(23 * 86400),
+            breakName: "Őszi szünet", computedAt: Date()))
 }
