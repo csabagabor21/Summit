@@ -44,6 +44,14 @@ enum MonthlyWrapped {
         var bestSubject: (name: String, avg: Double)?
         /// Legtöbbet javult tárgy az előző hónaphoz (név, delta).
         var mostImproved: (name: String, delta: Double)?
+        /// Hiányzások (db), ebből igazolatlan.
+        var absences: Int
+        var unjustified: Int
+        /// Késések (db) és késési percek összege.
+        var lateCount: Int
+        var lateMinutes: Int
+        /// Dolgozatok a hónapban (bejelentett + pótolt, kijelzett dátum szerint).
+        var exams: Int
     }
 
     /// Hónapok a jegyekből (csak nem-0 jegyek, csökkenő sorrend).
@@ -58,12 +66,18 @@ enum MonthlyWrapped {
     }
 
     /// Egy hónap statisztikája (az előző havi javuláshoz az összes jegy kell).
-    static func stats(grades: [GradeItem], month: Month, calendar: Calendar = .current) -> Stats {
-        func inMonth(_ g: GradeItem, _ m: Month) -> Bool {
-            let c = calendar.dateComponents([.year, .month], from: g.date)
-            return c.year == m.year && c.month == m.month && g.value != 0
+    /// A dolgozatok/hiányzások a kijelzett dátum hónapja szerint számítanak.
+    static func stats(grades: [GradeItem], month: Month, exams: [ExamItem] = [], absences: [AbsenceItem] = [], calendar: Calendar = .current) -> Stats {
+        func inMonth(_ d: Date, _ m: Month) -> Bool {
+            let c = calendar.dateComponents([.year, .month], from: d)
+            return c.year == m.year && c.month == m.month
         }
-        let mine = grades.filter { inMonth($0, month) }
+        func inMonthGrade(_ g: GradeItem, _ m: Month) -> Bool {
+            inMonth(g.date, m) && g.value != 0
+        }
+        let mine = grades.filter { inMonthGrade($0, month) }
+        let monthAbsences = absences.filter { inMonth($0.date, month) }
+        let monthExams = exams.filter { inMonth($0.date, month) }
         let avg = mine.isEmpty ? 0 : GradingLogic.weightedAverage(mine)
         var dist: [Int: Int] = [:]
         for g in mine { dist[g.value, default: 0] += 1 }
@@ -81,14 +95,19 @@ enum MonthlyWrapped {
                 ? Month(year: month.year - 1, month: 12)
                 : Month(year: month.year, month: month.month - 1)
         }()
-        let prevBySubject = Dictionary(grouping: grades.filter { inMonth($0, prev) }, by: { $0.subject })
+        let prevBySubject = Dictionary(grouping: grades.filter { inMonthGrade($0, prev) }, by: { $0.subject })
         let improved: (name: String, delta: Double)? = bySubject.compactMap { (subject, list) -> (String, Double)? in
             guard let old = prevBySubject[subject], !old.isEmpty else { return nil }
             let d = GradingLogic.weightedAverage(list) - GradingLogic.weightedAverage(old)
             return d > 0.005 ? (subject, d) : nil
         }.max { $0.1 < $1.1 }
+        let lates = monthAbsences.compactMap { $0.delay }.filter { $0 > 0 }
         return Stats(count: mine.count, avg: avg, fives: dist[5] ?? 0,
-                     distribution: dist, bestSubject: best, mostImproved: improved)
+                     distribution: dist, bestSubject: best, mostImproved: improved,
+                     absences: monthAbsences.count,
+                     unjustified: monthAbsences.filter { !$0.isJustified }.count,
+                     lateCount: lates.count, lateMinutes: lates.reduce(0, +),
+                     exams: monthExams.count)
     }
 
     /// Banner-hónap: a hónap első 5 napján az előző hónap (ha volt jegy).
@@ -107,11 +126,11 @@ enum MonthlyWrapped {
     }
 }
 
-// MARK: - Wrapped-kártya (fullscreen, a design nyelvén)
+// MARK: - Wrapped-kártya (fullscreen, ellenőrző-könyv editorial)
 //
-// Ünnepi háttér + liquid glass kör nagy átlagszámmal (mint az újjegy-
-// kártya), alatta stat-sorok és eloszlás-sávok. Nincs konfetti:
-// ez áttekintő, nem ünnep.
+// Nem középre rendezett csillogás: balra zárt óriás-átlag, alatta
+// surface-csempék (az app kártyanyelvén), egybefüggő eloszlás-sáv,
+// jobb fent megosztás + bezárás. Belépés lépcsőzve (stagger).
 struct MonthlyWrappedCard: View {
     let month: MonthlyWrapped.Month
     let stats: MonthlyWrapped.Stats
@@ -119,132 +138,365 @@ struct MonthlyWrappedCard: View {
     @EnvironmentObject var theme: ThemeStore
     @Environment(\.colorScheme) var scheme
     @State private var appeared = false
+    @State private var shareItems: [Any] = []
+    @State private var showShare = false
 
     var colors: AppColors { theme.colors(for: scheme) }
     /// Az átlag színe az 1–5 skálán (mint a jegykörök).
-    private var avgColor: Color { colors.gradeColor(for: Int(stats.avg.rounded())) }
+    var avgColor: Color { colors.gradeColor(for: Int(stats.avg.rounded())) }
+    /// Eloszlás-színek a megosztott képnek is (explicit, env-független).
+    var distColors: [Int: Color] {
+        Dictionary(uniqueKeysWithValues: (1...5).map { ($0, colors.gradeColor(for: $0)) })
+    }
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [avgColor.opacity(scheme == .dark ? 0.38 : 0.28), colors.background],
-                startPoint: .top, endPoint: .bottom
-            )
-            .ignoresSafeArea()
-            VStack(spacing: 0) {
-                HStack {
-                    Spacer()
-                    Button(action: onClose) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .bold))
+            colors.background.ignoresSafeArea()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    // Felső sor: kicker + megosztás/bezárás
+                    HStack(alignment: .center) {
+                        Text(month.wrappedTitle.uppercased())
+                            .font(.caption.weight(.bold))
+                            .tracking(3)
                             .foregroundStyle(.secondary)
-                            .frame(width: 34, height: 34)
-                            .background(Circle().fill(Color.primary.opacity(0.08)))
+                        Spacer()
+                        Button {
+                            SummitHaptics.selection()
+                            share()
+                        } label: {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(colors.accent)
+                                .frame(width: 34, height: 34)
+                                .background(Circle().fill(colors.accent.opacity(0.14)))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Megosztás")
+                        Button(action: onClose) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 34, height: 34)
+                                .background(Circle().fill(Color.primary.opacity(0.08)))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Bezárás")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Bezárás")
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                Text(month.wrappedTitle.uppercased())
-                    .font(.caption.weight(.bold))
-                    .tracking(3)
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 6)
-                Spacer(minLength: 12)
-                // Hős: glass kör az átlaggal (új jegy-kártya stílus)
-                ZStack {
-                    Circle()
-                        .fill(avgColor.opacity(0.25))
-                        .blur(radius: 34)
-                        .frame(width: 190, height: 190)
-                    ZStack {
-                        Circle().fill(Color.clear)
-                            .glassEffect(.clear, in: .circle)
-                            .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1.6))
-                            .frame(width: 168, height: 168)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                    // Hős: hónap + óriás-átlag, balra zárva
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(month.title)
+                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                        Text("\(stats.count) jegy • \(stats.exams) dolgozat")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                    .stagger(appeared, 0)
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(String(format: "%.1f", stats.avg))
-                            .font(.system(size: 64, weight: .bold, design: .rounded))
+                            .font(.system(size: 92, weight: .bold, design: .rounded))
                             .foregroundStyle(avgColor)
                             .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                        Text("átlag")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(.secondary)
                     }
-                    .shadow(color: avgColor.opacity(0.35), radius: 24, y: 8)
+                    .padding(.horizontal, 20)
+                    .stagger(appeared, 0.08)
+
+                    // Csempék: surface-kártyák az app nyelvén
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                        wrappedTile(icon: "star.fill", tint: .yellow, value: "\(stats.fives)", label: "ötös",
+                                    sub: "\(stats.count) jegyből")
+                        wrappedTile(icon: "clock.fill", tint: .orange, value: "\(stats.absences)", label: "hiányzás",
+                                    sub: stats.unjustified == 0 ? "mind igazolt" : "\(stats.unjustified) igazolatlan")
+                        wrappedTile(icon: "alarm.fill", tint: .red, value: "\(stats.lateCount)", label: "késés",
+                                    sub: stats.lateCount == 0 ? "egyszer sem" : "\(stats.lateMinutes) perc")
+                        wrappedTile(icon: "doc.text.fill", tint: colors.accent, value: "\(stats.exams)", label: "dolgozat",
+                                    sub: "e hónapban")
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 14)
+                    .stagger(appeared, 0.16)
+
+                    // Sorok: legjobb + legtöbbet javult
+                    VStack(spacing: 0) {
+                        if let best = stats.bestSubject {
+                            wrappedRow(icon: "trophy.fill", tint: .yellow,
+                                       title: "Legjobb tárgyad",
+                                       value: "\(best.name) • \(String(format: "%.1f", best.avg))",
+                                       first: true)
+                        }
+                        if let imp = stats.mostImproved {
+                            if stats.bestSubject != nil { Divider().padding(.leading, 46) }
+                            wrappedRow(icon: "chart.line.uptrend.xyaxis", tint: .green,
+                                       title: "Legtöbbet javultál",
+                                       value: "\(imp.name) • +\(String(format: "%.1f", imp.delta))",
+                                       first: stats.bestSubject == nil)
+                        }
+                    }
+                    .background(colors.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .padding(.horizontal, 20)
+                    .padding(.top, 14)
+                    .stagger(appeared, 0.24)
+
+                    // Eloszlás: egybefüggő sáv + darabok
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("ELOSZLÁS")
+                            .font(.caption.weight(.bold))
+                            .tracking(2)
+                            .foregroundStyle(.secondary)
+                        WrappedDistBar(distribution: stats.distribution, colors: distColors)
+                        HStack(spacing: 12) {
+                            ForEach([5, 4, 3, 2, 1], id: \.self) { v in
+                                HStack(spacing: 4) {
+                                    Text("\(v)").font(.caption.weight(.bold))
+                                        .foregroundStyle(distColors[v] ?? .secondary)
+                                    Text("×\(stats.distribution[v] ?? 0)")
+                                        .font(.caption2.monospacedDigit())
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            Spacer()
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 18)
+                    .padding(.bottom, 30)
+                    .stagger(appeared, 0.32)
                 }
-                .scaleEffect(appeared ? 1 : 0.6)
-                .opacity(appeared ? 1 : 0)
-                Text("\(stats.count) jegy • \(stats.fives) ötös")
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 12)
-                    .opacity(appeared ? 1 : 0)
-                Spacer(minLength: 16)
-                // Stat-sorok + eloszlás
-                VStack(alignment: .leading, spacing: 10) {
-                    if let best = stats.bestSubject {
-                        wrappedRow(icon: "trophy.fill", tint: .yellow,
-                                   title: "Legjobb tárgyad",
-                                   value: "\(best.name) • \(String(format: "%.1f", best.avg))")
-                    }
-                    if let imp = stats.mostImproved {
-                        wrappedRow(icon: "chart.line.uptrend.xyaxis", tint: .green,
-                                   title: "Legtöbbet javultál",
-                                   value: "\(imp.name) • +\(String(format: "%.1f", imp.delta))")
-                    }
-                    distributionBars
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 28)
-                .opacity(appeared ? 1 : 0)
-                .animation(SummitMotion.entrance(delay: 0.15), value: appeared)
-                Spacer(minLength: 20)
             }
         }
         .onAppear {
             SummitHaptics.success()
             withAnimation(SummitMotion.gentle) { appeared = true }
         }
+        .sheet(isPresented: $showShare) {
+            ShareSheet(items: shareItems)
+                .presentationDetents([.medium, .large])
+        }
     }
 
-    private func wrappedRow(icon: String, tint: Color, title: String, value: String) -> some View {
-        HStack(spacing: 10) {
+    private func wrappedTile(icon: String, tint: Color, value: String, label: String, sub: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(tint)
+                Text(label)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            Text(value)
+                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(sub)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(colors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func wrappedRow(icon: String, tint: Color, title: String, value: String, first: Bool) -> some View {
+        HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(tint)
-                .frame(width: 24)
+                .frame(width: 22)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 Text(value).font(.subheadline.weight(.bold)).lineLimit(1)
             }
+            Spacer()
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 
-    private var distributionBars: some View {
-        let maxCount = max(1, stats.distribution.values.max() ?? 1)
-        return VStack(alignment: .leading, spacing: 6) {
-            ForEach([5, 4, 3, 2, 1], id: \.self) { v in
-                let n = stats.distribution[v] ?? 0
-                HStack(spacing: 8) {
-                    Text("\(v)")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(colors.gradeColor(for: v))
-                        .frame(width: 12)
-                    GeometryReader { geo in
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(colors.gradeColor(for: v).opacity(n == 0 ? 0.12 : 0.75))
-                            .frame(width: max(8, geo.size.width * CGFloat(n) / CGFloat(maxCount)))
-                            .frame(maxHeight: 10)
+    // MARK: Megosztás
+
+    /// Kártyakép + szöveg a rendszer-megosztóba (pl. üzenet, Insta-sztori).
+    private func share() {
+        let image = WrappedShareImage(
+            title: month.wrappedTitle, avg: stats.avg, avgColor: avgColor,
+            count: stats.count, fives: stats.fives,
+            absences: stats.absences, lateCount: stats.lateCount,
+            lateMinutes: stats.lateMinutes, exams: stats.exams,
+            bestSubject: stats.bestSubject?.name, bestAvg: stats.bestSubject?.avg,
+            distribution: stats.distribution, distColors: distColors
+        )
+        let renderer = ImageRenderer(content: image.frame(width: 390, height: 600))
+        renderer.scale = 3
+        var items: [Any] = []
+        if let uiImage = renderer.uiImage {
+            items.append(uiImage)
+        }
+        items.append("\(month.wrappedTitle): \(String(format: "%.1f", stats.avg)) átlag, \(stats.count) jegy — Summit")
+        AnalyticsStore.recordStep("wrapped_share", detail: month.id)
+        shareItems = items
+        showShare = true
+    }
+}
+
+/// Lépcsőzött belépés egy blokkra (késleltetett fade + csúszás).
+private struct Stagger: ViewModifier {
+    var appeared: Bool
+    var delay: Double
+    func body(content: Content) -> some View {
+        content
+            .opacity(appeared ? 1 : 0)
+            .offset(y: appeared ? 0 : 14)
+            .animation(SummitMotion.entrance(delay: delay), value: appeared)
+    }
+}
+
+private extension View {
+    func stagger(_ appeared: Bool, _ delay: Double) -> some View {
+        modifier(Stagger(appeared: appeared, delay: delay))
+    }
+}
+
+/// Egybefüggő eloszlás-sáv (5→1, jegyszínekkel), nulla darabbal is stabil.
+struct WrappedDistBar: View {
+    var distribution: [Int: Int]
+    var colors: [Int: Color]
+    var body: some View {
+        GeometryReader { geo in
+            let total = max(1, distribution.values.reduce(0, +))
+            HStack(spacing: 2) {
+                ForEach([5, 4, 3, 2, 1], id: \.self) { v in
+                    let n = distribution[v] ?? 0
+                    if n > 0 {
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(colors[v] ?? .secondary)
+                            .frame(width: max(10, geo.size.width * CGFloat(n) / CGFloat(total)))
+                            .frame(height: 12)
                     }
-                    .frame(height: 10)
-                    Text("\(n)")
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .frame(width: 20, alignment: .trailing)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(height: 12)
+    }
+}
+
+/// Megosztott kép (env-független, fix méret): sötét kártya, óriás-átlag,
+/// négy stat-sor, eloszlás-sáv, Summit-jel.
+struct WrappedShareImage: View {
+    var title: String
+    var avg: Double
+    var avgColor: Color
+    var count: Int
+    var fives: Int
+    var absences: Int
+    var lateCount: Int
+    var lateMinutes: Int
+    var exams: Int
+    var bestSubject: String?
+    var bestAvg: Double?
+    var distribution: [Int: Int]
+    var distColors: [Int: Color]
+
+    private var lateLabel: String {
+        if lateCount == 0 { return "késés" }
+        return "késés • \(lateMinutes) perc"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title.uppercased())
+                .font(.system(size: 15, weight: .bold))
+                .tracking(4)
+                .foregroundStyle(.white.opacity(0.6))
+            Text(String(format: "%.1f", avg))
+                .font(.system(size: 140, weight: .bold, design: .rounded))
+                .padding(.top, 4)
+                .foregroundStyle(avgColor)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Text("\(count) jegy • \(fives) ötös • \(exams) dolgozat")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.75))
+                .padding(.top, 2)
+            if let best = bestSubject, let ba = bestAvg {
+                Text("Legjobb: \(best) • \(String(format: "%.1f", ba))")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.75))
+                    .padding(.top, 2)
+            }
+            Spacer(minLength: 16)
+            VStack(alignment: .leading, spacing: 8) {
+                shareLine(value: "\(absences)", label: "hiányzás")
+                shareLine(value: "\(lateCount)", label: lateLabel)
+            }
+            WrappedDistBar(distribution: distribution, colors: distColors)
+                .padding(.top, 18)
+            Spacer(minLength: 20)
+            Text("SUMMIT")
+                .font(.system(size: 16, weight: .bold))
+                .tracking(6)
+                .foregroundStyle(.white.opacity(0.45))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(30)
+        .background(
+            LinearGradient(
+                colors: [Color(white: 0.12), Color(white: 0.05)],
+                startPoint: .top, endPoint: .bottom
+            )
+        )
+    }
+
+    private func shareLine(value: String, label: String) -> some View {
+        HStack(spacing: 8) {
+            Text(value)
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .monospacedDigit()
+            Text(label)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.white.opacity(0.65))
         }
     }
 }
 
+/// Rendszer-megosztó (UIActivityViewController) SwiftUI-ból.
+struct ShareSheet: UIViewControllerRepresentable {
+    var items: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let vc = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        // iPad: felugró horgony nélkül crashel — a billentyűzet fölé tesszük.
+        if let pop = vc.popoverPresentationController,
+           let window = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .flatMap({ $0.windows })
+            .first(where: { $0.isKeyWindow }) {
+            pop.sourceView = window.rootViewController?.view ?? window
+            let b = (window.rootViewController?.view ?? window).bounds
+            pop.sourceRect = CGRect(x: b.midX, y: b.maxY, width: 0, height: 0)
+            pop.permittedArrowDirections = []
+        }
+        return vc
+    }
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
 // MARK: - Havi archívum (profilból)
 //
 // Minden jegyes hónap, csökkenő sorrendben. A jegyeket gyorstárból
@@ -255,6 +507,8 @@ struct MonthlyArchiveView: View {
     @EnvironmentObject var theme: ThemeStore
     @Environment(\.colorScheme) var scheme
     @State private var grades: [GradeItem] = []
+    @State private var exams: [ExamItem] = []
+    @State private var absences: [AbsenceItem] = []
     @State private var opened: MonthlyWrapped.Month?
     var colors: AppColors { theme.colors(for: scheme) }
 
@@ -265,7 +519,7 @@ struct MonthlyArchiveView: View {
                     .font(.subheadline).foregroundStyle(.secondary)
             } else {
                 ForEach(MonthlyWrapped.months(grades: grades), id: \.id) { m in
-                    let st = MonthlyWrapped.stats(grades: grades, month: m)
+                    let st = MonthlyWrapped.stats(grades: grades, month: m, exams: exams, absences: absences)
                     Button {
                         SummitHaptics.selection()
                         AnalyticsStore.recordStep("wrapped_open", detail: m.id)
@@ -298,7 +552,7 @@ struct MonthlyArchiveView: View {
         .fullScreenCover(item: $opened) { m in
             MonthlyWrappedCard(
                 month: m,
-                stats: MonthlyWrapped.stats(grades: grades, month: m),
+                stats: MonthlyWrapped.stats(grades: grades, month: m, exams: exams, absences: absences),
                 onClose: { opened = nil }
             )
             .environmentObject(theme)
@@ -309,6 +563,12 @@ struct MonthlyArchiveView: View {
         guard let user = session.selectedUser else { return }
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         guard !iss.isEmpty, iss != "unknown" else { return }
-        grades = await kreta.fetchGrades(iss: iss)
+        // Gyorstáras lehúzások (tipikusan hálózat nélkül jönnek).
+        async let g = kreta.fetchGrades(iss: iss)
+        async let e = kreta.fetchExams(iss: iss)
+        async let a = kreta.fetchAbsences(iss: iss)
+        grades = await g
+        exams = await e
+        absences = await a
     }
 }

@@ -58,7 +58,7 @@ struct HomeView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(banner.wrappedTitle)
                                         .font(.subheadline.weight(.bold))
-                                    let st = MonthlyWrapped.stats(grades: vm.grades, month: banner)
+                                    let st = MonthlyWrapped.stats(grades: vm.grades, month: banner, exams: vm.exams, absences: vm.absences)
                                     Text("\(st.count) jegy • \(String(format: "%.1f", st.avg)) átlag")
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
@@ -317,7 +317,7 @@ struct HomeView: View {
             .fullScreenCover(item: $wrappedMonth) { m in
                 MonthlyWrappedCard(
                     month: m,
-                    stats: MonthlyWrapped.stats(grades: vm.grades, month: m),
+                    stats: MonthlyWrapped.stats(grades: vm.grades, month: m, exams: vm.exams, absences: vm.absences),
                     onClose: { wrappedMonth = nil }
                 )
                 .environmentObject(theme)
