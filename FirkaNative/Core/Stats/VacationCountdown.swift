@@ -110,6 +110,34 @@ enum VacationCountdown {
         }
     }
 
+    /// Iskolai eseménynaptárból szünet-napok: Magyarországon a szünetek
+    /// sokszor csak itt szerepelnek (a KRÉTA `NaptariNapok` üres), ezért a
+    /// számolás e nélkül a következő őszi/téli szünetet nem látná.
+    /// Csak a szünetre / tanítás nélküli napra utaló cím számít — más
+    /// program (kirándulás, fogadóóra…) nem szünet. Widget-targetben is
+    /// fordul: sima `(nap, cím)` párokat kér, nem `SchoolEvent`-et.
+    /// - Parameter events: nap `yyyy-MM-dd` formában + nyers eseménycím.
+    static func breakDays(fromSchoolEvents events: [(day: String, title: String)], calendar: Calendar = .current) -> [DayOff] {
+        let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.dateFormat = "yyyy-MM-dd"
+        return events.compactMap { e -> DayOff? in
+            let title = e.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !title.isEmpty, isBreakTitle(title),
+                  let parsed = fmt.date(from: e.day) else { return nil }
+            let day = calendar.startOfDay(for: parsed)
+            guard (2...6).contains(calendar.component(.weekday, from: day)) else { return nil }
+            return DayOff(day: day, name: title)
+        }
+    }
+
+    /// Szünet-jelölt cím? („Őszi szünet", „Téli szünet", „Tanítás nélküli
+    /// munkanap", …) — ékezet-érzéketlen, hogy az ICS-ékezetkavar se számítson.
+    static func isBreakTitle(_ title: String) -> Bool {
+        let f = title.folding(options: .diacriticInsensitive, locale: .current).lowercased()
+        return f.contains("szunet") || f.contains("tanitas nelkuli")
+    }
+
     /// Következő tanítási hétköznap az adott nap után (hétvége +
     /// KRÉTA-szünnapok átugrásával). Okt. 23. környéki lyukakra is jó.
     static func nextSchoolDay(after day: Date, offSet: Set<Date>, calendar: Calendar = .current) -> Date {

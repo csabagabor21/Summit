@@ -570,6 +570,14 @@ struct TimetableView: View {
                 // A "Mai nap" widget és a jegyzetkártya eseményfüggő —
                 // import/kapcsoló után újrapublikálunk (hálózat nélkül).
                 publishWidgetSnapshot()
+                // A vakáció-számláló az eseménynaptár szünet-napjaiból is
+                // dolgozik — import/sync után újraszámolunk, hogy a frissen
+                // megjött őszi/téli szünet azonnal látszódjon (a KRÉTA-lekérés
+                // gyorstárazott, ez nem plusz hálózat a gyakorlatban).
+                if weekOffset == 0, let user = session.selectedUser {
+                    let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
+                    if !iss.isEmpty, iss != "unknown" { refreshVacation(iss: iss) }
+                }
             }
             .id(exemptedTick)
             .onReceive(NotificationCenter.default.publisher(for: switchToTimetable)) { notif in
@@ -834,18 +842,33 @@ struct TimetableView: View {
 
     /// Vakáció-info a widgetnek: naptári napok most → aug. 31. (egyetlen
     /// gyorstárazott kérés), tanítás nélküli hétköznapok a számoláshoz.
-    /// Demo/hiba esetén üres lista — a fallback (jún. 15.) akkor is él.
+    /// A KRÉTA mellé az iskolai eseménynaptár szünet-napjai is bekerülnek:
+    /// Magyarországon a szünet sokszor csak ott szerepel (nyílt titok),
+    /// a KRÉTA `NaptariNapok` pedig üres — e nélkül a következő őszi/téli
+    /// szünet láthatatlan maradna. Demo/hiba esetén üres lista — a fallback
+    /// (jún. 15.) akkor is él.
     private func refreshVacation(iss: String) {
+        // @State-pillanatfelvétel a Task előtt (a Task már háttérben fut).
+        let eventsSnapshot = schoolEvents
         Task {
             let end = VacationCountdown.rangeEnd(for: Date())
             let days = await kreta.fetchCalendarDays(iss: iss, from: Date(), to: end)
             let cal = Calendar.current
-            let offs = days.compactMap { info -> VacationCountdown.DayOff? in
+            let kretaOffs = days.compactMap { info -> VacationCountdown.DayOff? in
                 guard !info.isTimetableDay else { return nil }
                 let day = cal.startOfDay(for: info.date)
                 guard (2...6).contains(cal.component(.weekday, from: day)) else { return nil }
                 return VacationCountdown.DayOff(day: day, name: info.typeName)
             }
+            let eventOffs = VacationCountdown.breakDays(
+                fromSchoolEvents: eventsSnapshot.map { ($0.day, $0.title) },
+                calendar: cal)
+            // Unió nap szerint; ütközésnél az eseménynaptár neve nyer
+            // (beszédesebb: „Őszi szünet" a „Tanítás nélküli munkanap" helyett).
+            var byDay: [Date: String] = [:]
+            for o in kretaOffs { byDay[cal.startOfDay(for: o.day)] = o.name }
+            for o in eventOffs { byDay[cal.startOfDay(for: o.day)] = o.name }
+            let offs = byDay.map { VacationCountdown.DayOff(day: $0.key, name: $0.value) }
             VacationCountdown.save(VacationCountdown.compute(daysOff: offs))
         }
     }
