@@ -730,9 +730,10 @@ struct WrappedPeakPage: View {
                 // csempénként külön glass, az renderel helyesen.
                 heroTile
                 Spacer(minLength: 10)
-                // Egyforma magas csempék: a késésnek nincs alcíme, így anélkül
-                // alacsonyabb kocka maradna a másik kettő mellett.
-                HStack(alignment: .top, spacing: 10) {
+                // Egyforma magas csempék: a késésnek nincs alcíme, helyette
+                // láthatatlan helykitöltő sor tartja a magasságot (nyújtás
+                // nélkül — az szétnyomná az egész sort).
+                HStack(spacing: 10) {
                     peakMini(icon: "star", value: "\(stats.fives)", label: "ötös",
                              sub: "\(stats.count) jegyből")
                     peakMini(icon: "clock", value: "\(stats.absences)", label: "hiányzás",
@@ -819,14 +820,13 @@ struct WrappedPeakPage: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.8))
                 .lineLimit(1)
-            if let sub {
-                Text(sub)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.65))
-                    .lineLimit(1)
-            }
+            Text(sub ?? " ")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.65))
+                .lineLimit(1)
+                .opacity(sub == nil ? 0 : 1)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .peakTile(forRender: forRender)
     }
