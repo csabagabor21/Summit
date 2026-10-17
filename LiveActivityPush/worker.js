@@ -18,6 +18,20 @@
 //      ha az app küld `end: true` entryt — a kártya nem ül 0:00-n a nap
 //      végén. (Az app-oldali párja a javaslatban.)
 //
+// 2026-10-15 — KV-írás audit (free tier: napi 1000 write az egész
+// accountra): két szivárgás szüntetve, mindkettő worker-oldalon, az app
+// által küldött/fogadott formátum változatlan (app-frissítés NEM kell):
+//   10. Config-hibás (403 / JWT -1) entryk backoff-fal próbálkoznak újra
+//      ([5p, 15p, 30p, 60p...]) percenkénti újraírás helyett — egy beragadt
+//      terv napi ~1440 írás helyett ~25-öt fogyaszt, és a kulcs javítása
+//      után magától feléled (az entry sosem lesz `sent`). Átmeneti hibák
+//      (pl. APNs 500) továbbra is percenként újrapróbálnak, max 10x.
+//   11. Duplikált `/plan`-feltöltés 0 írással megúszható: a tervhez
+//      `uploadHash` tartozik, azonos tartalmú re-upload (minden
+//      app-megnyitás!) sem terv-PUT-ot, sem index-PUT-ot nem csinál.
+//      A `clear()` ismétlése ugyanígy ingyenes.
+//   12. `/status` entrynként mutatja a `retryAt`-et (következő próba).
+//
 // 2026-09-18 — a „minden feltöltés rendben, mégsem vált a kártya” kör után
 // (az élő worker APNs 403 InvalidProviderToken-t kapott minden pushra):
 //   6. GET /selftest[?sandbox=1] → a kulcs/Key ID/Team ID hármas ellenőrzése
@@ -254,6 +268,10 @@ async function handleCron(env, nowMs = Date.now()) {
     let dirty = false;
     for (const en of rec.entries) {
       if (en.sent || typeof en.fireAt !== "number" || en.fireAt > now || !en.contentState) continue;
+      // Backoff: az előző kör elhalasztotta a következő próbát — most nincs
+      // teendő, és ami a KV-keret miatt számít: NINCS KV-írás sem.
+      // (Régi tervekben nincs `retryAt`, azok azonnal esedékesek, mint eddig.)
+      if (en.retryAt && en.retryAt > now) continue;
       const out = await sendPush(env, host, rec.pushToken, en);
       en.attempts = (en.attempts || 0) + 1;
       en.last = { at: now, status: out.status, body: out.body };
@@ -262,7 +280,20 @@ async function handleCron(env, nowMs = Date.now()) {
       // elfogyasztanák a 10 próbát, a határ 10 perc után „kiment”-re
       // váltana, és a kulcs javítása után sem pótolná magát aznap.
       const configError = out.status === 403 || out.status === -1;
-      if (out.r === "sent" || (en.attempts > 10 && !configError)) en.sent = true;
+      if (out.r === "sent" || (en.attempts > 10 && !configError)) {
+        en.sent = true;
+        delete en.retryAt;
+      } else if (configError) {
+        // Konfigurációs hiba: növekvő szünet [5p, 15p, 30p, 60p, 60p...].
+        // Egy beragadt terv így napi ~1440 KV-írás helyett ~25-öt fogyaszt,
+        // és a kulcs javítása után magától feléled (az entry sosem `sent`).
+        // Átmeneti hiba (pl. APNs 500) továbbra is a következő percben
+        // újrapróbál, pontosan mint eddig.
+        const steps = [300, 900, 1800, 3600];
+        en.retryAt = now + steps[Math.min(en.attempts - 1, steps.length - 1)];
+      } else {
+        delete en.retryAt;
+      }
       dirty = true;
     }
     if (dirty) await env.PLANS.put(e.k, JSON.stringify(rec));
@@ -286,6 +317,16 @@ function isPushToken(s) {
 
 function planKey(dayKey, userId, tag) {
   return tag ? `plan:${dayKey}:${userId}:${tag}` : `plan:${dayKey}:${userId}`;
+}
+
+/// Duplikált `/plan`-feltöltések kiszűréséhez: a feltöltés kanonikus
+/// alakjának SHA-256 lenyomata. Csak az app által küldött mezőkből
+/// (token, sandbox, határok) — a worker futásidejű mezői (sent, attempts,
+/// last, retryAt) nem részei, így egy már részben kiküldött terv
+/// változatlan re-uploadja is felismerhető.
+async function sha256hex(s) {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 function parseTag(t) {
@@ -312,7 +353,7 @@ async function handlePlan(request, env) {
     }
   }
   const key = planKey(body.dayKey, body.userId, parseTag(body.tag));
-  await env.PLANS.put(key, JSON.stringify({
+  const normUpload = {
     pushToken: body.pushToken || "",
     sandbox: body.sandbox === true,
     entries: entries.map((e) => ({
@@ -320,12 +361,37 @@ async function handlePlan(request, env) {
       staleDate: typeof e.staleDate === "number" ? e.staleDate : null,
       end: e.end === true,
     })),
-    updatedAt: Math.floor(Date.now() / 1000),
-  }));
+  };
+  const uploadHash = await sha256hex(JSON.stringify(normUpload));
   let next = null;
   for (const e of entries) {
     if (typeof e.fireAt === "number" && (next === null || e.fireAt < next)) next = e.fireAt;
   }
+  // Duplikált feltöltés (pl. minden app-megnyitás ugyanazt küldi): ha a
+  // tárolt terv pontosan ebből az uploadból született, nincs mit írni —
+  // 0 KV-írás. A `clear()` ismétlése ugyanígy ingyenes. Bármi változás
+  // (token, határ, sorrend) eltérő hash-t ad, akkor a régi úton megy tovább.
+  // Az app a választ nem dekódolja (csak a HTTP-státuszt nézi), így a plusz
+  // `deduped` mező rá nézve láthatatlan.
+  const prevRec = await env.PLANS.get(key, "json");
+  if (prevRec && prevRec.uploadHash === uploadHash) {
+    const prev = (await readIndex(env)) || [];
+    const found = prev.find((en) => en.k === key);
+    if (entries.length === 0) {
+      if (!found) return jsonRes({ ok: true, entries: 0, deduped: true });
+      await writeIndex(env, prev.filter((en) => en.k !== key));
+      return jsonRes({ ok: true, entries: 0, deduped: true });
+    }
+    if (found && found.next === next) return jsonRes({ ok: true, entries: entries.length, deduped: true });
+    if (found) { found.next = next; } else { prev.push({ k: key, next }); }
+    await writeIndex(env, prev);
+    return jsonRes({ ok: true, entries: entries.length, deduped: true });
+  }
+  await env.PLANS.put(key, JSON.stringify({
+    ...normUpload,
+    uploadHash,
+    updatedAt: Math.floor(Date.now() / 1000),
+  }));
   const prev = (await readIndex(env)) || [];
   if (entries.length === 0) {
     const kept = prev.filter((en) => en.k !== key);
@@ -365,6 +431,7 @@ async function handleStatus(url, env) {
     entries: (rec.entries || []).map((e) => ({
       fireAt: e.fireAt, end: e.end === true, sent: e.sent === true,
       attempts: e.attempts || 0, last: e.last || null,
+      retryAt: e.retryAt || null,
     })),
   });
 }
@@ -438,7 +505,7 @@ export default {
     if (request.method === "POST" && url.pathname === "/plan") return handlePlan(request, env);
     if (request.method === "GET" && url.pathname === "/status") return handleStatus(url, env);
     if (request.method === "GET" && url.pathname === "/selftest") return handleSelfTest(url, env);
-    return jsonRes({ ok: true, service: "summit-liveactivity-push", version: "2026-09-18" });
+    return jsonRes({ ok: true, service: "summit-liveactivity-push", version: "2026-10-15" });
   },
   async scheduled(_event, env, _ctx) {
     if (!env.APNS_KEY || !env.APNS_KEY_ID || !env.TEAM_ID || !env.BUNDLE_ID) {

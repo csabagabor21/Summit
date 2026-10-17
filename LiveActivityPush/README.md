@@ -56,7 +56,10 @@ Live Activity ettől még működik.)
   minden küldés; `400/410` = halott token (a worker leveszi a listáról),
   más hiba = következő percben újrapróbálja (max ~10x). A 403 és a
   JWT-hiba kivétel: ezek konfigurációs gondok, nem fogyasztják a 10 próbát,
-  így a secret javítása után a nap hátralévő határai maguktól kimennek.
+  így a secret javítása után a nap hátralévő határai maguktól kimennek —
+  viszont backoff-fal (5p, 15p, 30p, 60p...), hogy egy rossz kulcs ne egye
+  meg a napi KV-íráskeretet (2026-10-15). Azonos tartalmú re-upload
+  (pl. minden app-megnyitás) 0 KV-írással megúszható (`uploadHash`).
 - Health: https://calm-leaf-ff15.gaborcsabusz.workers.dev/ → `{"ok":true,"service":"summit-liveactivity-push","version":"2026-09-18"}`
   (ha a `version` régebbi, a dashboardon még a korábbi kód fut — újra kell deployolni).
 - **ELSŐ LÉPÉS push-hiba esetén — kulcs-ellenőrzés telefon nélkül:**
