@@ -28,6 +28,7 @@ enum SummitSyncField: String, CaseIterable {
     case metaAIKey
     case examRollover
     case travelMode
+    case wrappedStars
     case hasWatch
 
     /// A mező verzióbélyege a docban (`ts_theme` …). Régi docokban
@@ -55,7 +56,8 @@ enum SummitSyncField: String, CaseIterable {
 /// Live Activity kapcsoló, iskolai események (+ mutatás-kapcsoló és a
 /// mentett naptár-link, hogy a kézi felülírás linkje is átmenjen),
 /// saját feladatok/dolgozatok, tanulójegyzet-lapok, Meta AI-kulcs,
-/// dolgozat-pótlás kapcsoló, órajelenlét (párosított óra van-e ezen az
+/// dolgozat-pótlás kapcsoló, Wrapped-csillagok (melyik hónapra melyik
+/// kép van rögzítve), órajelenlét (párosított óra van-e ezen az
 /// eszközön — ebből tudja meg a Mac, hogy mutathatja a Watch tabot).
 @MainActor
 final class SummitSync: ObservableObject {
@@ -108,6 +110,9 @@ final class SummitSync: ObservableObject {
     /// Utazás-intervallum plafon (karakter): "yyyy-MM-dd/yyyy-MM-dd"
     /// 21 kar. A rules 32-t enged (régi kliensek felé opcionális mező).
     static let maxTravelModeChars = 32
+    /// Wrapped-csillag JSON-plafon (karakter): ~36 havi rögzítés fér bele.
+    /// A rules 4 000-et enged (régi kliensek felé opcionális mező).
+    static let maxWrappedStarsChars = 4_000
     /// Utoljára felküldött órajelenlét-érték: csak a helyi `true`
     /// válthat dirty-re (az óra nélküli eszköz — pl. a Mac — sosem
     /// jelöl, így nem írhatja felül a telefon `true`-ját `false`-szal).
@@ -273,6 +278,7 @@ final class SummitSync: ObservableObject {
         var metaAIKey: String
         var examRollover: Bool
         var travelMode: String
+        var wrappedStars: String
         var hasWatch: Bool
     }
 
@@ -298,6 +304,7 @@ final class SummitSync: ObservableObject {
             metaAIKey: String(MetaAIKeyStore.apiKey.prefix(Self.maxMetaAIKeyChars)),
             examRollover: Self.flag("exams.rolloverOnAbsence", default: true),
             travelMode: TravelMode.syncString(),
+            wrappedStars: WrappedStarStore.syncString(WrappedStarStore.loadStars()),
             hasWatch: WatchAvailability.shared.hasWatch
         )
     }
@@ -411,6 +418,14 @@ final class SummitSync: ObservableObject {
             if let r = remote?.travelModeRaw { return (r, remoteDate(for: .travelMode)) }
             return (local.travelMode, fieldTimestamps[SummitSyncField.travelMode.rawValue] ?? now)
         }()
+        // Wrapped-csillagok: a régi docban még hiányozhat (nil) — olyankor
+        // a helyi rögzítés a régi bélyegével megy. Üres `"{}"` = nincs
+        // csillag (a levétel is terjed).
+        let (wsV, wsTs): (String, Date) = {
+            if pending.contains(SummitSyncField.wrappedStars.rawValue) { return (local.wrappedStars, now) }
+            if let r = remote?.wrappedStarsRaw { return (r, remoteDate(for: .wrappedStars)) }
+            return (local.wrappedStars, fieldTimestamps[SummitSyncField.wrappedStars.rawValue] ?? now)
+        }()
         // Órajelenlét: ragadós `true` — ha BÁRMELYIK oldalon van óra,
         // az marad (a Mac `false`-a sosem törölheti a telefon `true`-ját;
         // a párosítás végleges törlése így nem terjed — tudatos határ).
@@ -466,6 +481,7 @@ final class SummitSync: ObservableObject {
             "metaAIKey": str(mkV),
             "examRollover": bool(erV),
             "travelMode": str(tmV),
+            "wrappedStars": str(wsV),
             "hasWatch": bool(watchV),
         ]
         let tsPairs: [(SummitSyncField, Date)] = [
@@ -476,7 +492,7 @@ final class SummitSync: ObservableObject {
             (.schoolEvents, seTs), (.schoolEventsShow, seShowTs),
             (.schoolEventsURL, seURLTs), (.customTasks, ctTs),
             (.cheatSheets, chTs), (.metaAIKey, mkTs), (.examRollover, erTs),
-            (.travelMode, tmTs), (.hasWatch, watchTs),
+            (.travelMode, tmTs), (.wrappedStars, wsTs), (.hasWatch, watchTs),
         ]
         for (f, d) in tsPairs { fields[f.tsKey] = ts(d) }
 
@@ -508,6 +524,7 @@ final class SummitSync: ObservableObject {
             legacy.removeValue(forKey: "metaAIKey")
             legacy.removeValue(forKey: "examRollover")
             legacy.removeValue(forKey: "travelMode")
+            legacy.removeValue(forKey: "wrappedStars")
             legacy.removeValue(forKey: "hasWatch")
             // A régi szabály a három per-típus kapcsolót követeli meg —
             // a főkapcsoló értékét mindháromba belemásoljuk, az új kulcs
@@ -646,6 +663,9 @@ final class SummitSync: ObservableObject {
         /// Utazás-intervallum (`nil` = a régi docban még nincs mező —
         /// ilyenkor a helyi beállítás marad, nem törlünk).
         let travelModeRaw: String?
+        /// Wrapped-csillag JSON (`nil` = a régi docban még nincs mező —
+        /// ilyenkor a helyi rögzítés marad, nem törlünk).
+        let wrappedStarsRaw: String?
         /// Mezőnkénti bélyeg (`ts_*`, régi docban az `updatedAt`).
         let fieldDates: [String: Date]
     }
@@ -752,6 +772,14 @@ final class SummitSync: ObservableObject {
                   raw.count <= maxTravelModeChars else { return nil }
             return raw
         }()
+        // Wrapped-csillagok: régi docban hiányozhat (nil = helyi marad).
+        // Sérült (túl hosszú / nem string) mezőnél szintén a helyi marad —
+        // csak az ép string (az üres `"{}"` is: az a csillagok törlése) alkalmazható.
+        let wrappedStarsRaw: String? = {
+            guard let raw = data["wrappedStars"] as? String,
+                  raw.count <= maxWrappedStarsChars else { return nil }
+            return raw
+        }()
         // Dolgozat-pótlás kapcsoló: régi docban hiányozhat (nil = helyi marad).
         let examRollover = data["examRollover"] as? Bool
         // Órajelenlét: régi docban hiányozhat (nil = helyi peer-jel marad).
@@ -772,6 +800,7 @@ final class SummitSync: ObservableObject {
                        cheatSheetsRaw: cheatSheetsRaw,
                        metaAIKeyRaw: metaAIKeyRaw,
                        travelModeRaw: travelModeRaw,
+                       wrappedStarsRaw: wrappedStarsRaw,
                        fieldDates: fieldDates)
     }
 
@@ -871,6 +900,10 @@ final class SummitSync: ObservableObject {
             guard let raw = s("travelMode"), raw.count <= maxTravelModeChars else { return nil }
             return raw
         }()
+        let wrappedStarsRaw: String? = {
+            guard let raw = s("wrappedStars"), raw.count <= maxWrappedStarsChars else { return nil }
+            return raw
+        }()
         return Payload(updatedAt: updatedAt, updatedAtDate: updatedAtDate,
                        theme: theme, accentHex: accent, sizeKey: sizeKey,
                        photoRaw: photoRaw, photo: photo, photoDecodeFailed: photoDecodeFailed,
@@ -887,6 +920,7 @@ final class SummitSync: ObservableObject {
                        cheatSheetsRaw: cheatSheetsRaw,
                        metaAIKeyRaw: metaAIKeyRaw,
                        travelModeRaw: travelModeRaw,
+                       wrappedStarsRaw: wrappedStarsRaw,
                        fieldDates: fieldDates)
     }
 
@@ -966,6 +1000,15 @@ final class SummitSync: ObservableObject {
         if newer(.travelMode), let raw = p.travelModeRaw {
             TravelMode.applySyncString(raw)
             applied.append(.travelMode)
+        }
+        // Wrapped-csillagok: `nil` nyers mező = régi doc, a helyi marad.
+        // Üres `"{}"` = nincs csillag (a másik eszközön levették).
+        // Sérült JSON-nál a helyi marad. A saját mentés értesítését itt
+        // is eldobjuk (lásd a ciklust lejjebb), mint a többi mezőnél.
+        if newer(.wrappedStars), let raw = p.wrappedStarsRaw,
+           let stars = WrappedStarStore.decodeSync(raw) {
+            WrappedStarStore.replaceAll(stars)
+            applied.append(.wrappedStars)
         }
         // Órajelenlét: `nil` = régi doc, a helyi peer-jel marad. `true`
         // érkezésekor a Mac is megmutatja a Watch tabot (jegyzetkészítés
@@ -1080,6 +1123,8 @@ final class SummitSync: ObservableObject {
             (MetaAIKeyStore.changedNotification, [.metaAIKey]),
             // Utazás-intervallum beállítása, törlése, távoli pull.
             (TravelMode.changedNotification, [.travelMode]),
+            // Wrapped-csillag felvétele, levétele, távoli pull.
+            (WrappedStarStore.changedNotification, [.wrappedStars]),
         ]
         for (name, fields) in map {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in

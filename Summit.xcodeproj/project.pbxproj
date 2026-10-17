@@ -125,6 +125,7 @@
 		F6711F9870E041805B9772B2 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E86A32AD2DDFC87FB138D5 /* AppTheme.swift */; };
 		F8233A954E2118EBB3EBFD56 /* GradesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58254DFECD2C7AC3611DD728 /* GradesView.swift */; };
 		FB989E107272F8DB9912F4EB /* TravelMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44A9C01FF95B3363A379B1FB /* TravelMode.swift */; };
+		8BC564D29AE34370B12BFDBE /* WrappedStarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7332C135143F41C3885A0E84 /* WrappedStarStore.swift */; };
 		FD026D2EFE2507AB734BC8F1 /* ProfileImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 496420BF202DA6E01F09EA1D /* ProfileImageView.swift */; };
 		FFA61B0FDD4305EDABC7DE2A /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = A861E0155EDA827AA2285902 /* User.swift */; };
 		11B2C3D4E5F60718293A4B5C6 /* SummitUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21B2C3D4E5F60718293A4B5C6 /* SummitUITests.swift */; };
@@ -239,6 +240,7 @@
 		403733D1E79BF3F0BDF3A215 /* AnalyticsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsStore.swift; sourceTree = "<group>"; };
 		447C41908D13C10B28E4707B /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
 		44A9C01FF95B3363A379B1FB /* TravelMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TravelMode.swift; sourceTree = "<group>"; };
+		7332C135143F41C3885A0E84 /* WrappedStarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WrappedStarStore.swift; sourceTree = "<group>"; };
 		45F417D93F92F1726B4C13A4 /* TimetableWatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableWatchView.swift; sourceTree = "<group>"; };
 		48DF42DD023A4B522459E31A /* WatchSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSync.swift; sourceTree = "<group>"; };
 		496420BF202DA6E01F09EA1D /* ProfileImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileImageView.swift; sourceTree = "<group>"; };
@@ -674,6 +676,7 @@
 				CACC3C6BFC6796A0A3267897 /* TimetableWidgetPublish.swift */,
 				F963EB973555B758C1101D65 /* TimetableWidgetSnapshot.swift */,
 				44A9C01FF95B3363A379B1FB /* TravelMode.swift */,
+				7332C135143F41C3885A0E84 /* WrappedStarStore.swift */,
 			);
 			path = Storage;
 			sourceTree = "<group>";
@@ -1015,6 +1018,7 @@
 				27F5E9AF81B7091B86657B47 /* TimetableWidgetPublish.swift in Sources */,
 				C89A1E57A1EBF70DB192B708 /* TimetableWidgetSnapshot.swift in Sources */,
 				FB989E107272F8DB9912F4EB /* TravelMode.swift in Sources */,
+				8BC564D29AE34370B12BFDBE /* WrappedStarStore.swift in Sources */,
 				FFA61B0FDD4305EDABC7DE2A /* User.swift in Sources */,
 				DB070DA9A5EFE1B0BB43BC86 /* VacationCountdown.swift in Sources */,
 				6013DB0D27C473913404788B /* WatchAvailability.swift in Sources */,

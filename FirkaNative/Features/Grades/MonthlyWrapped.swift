@@ -1,4 +1,5 @@
 import SwiftUI
+import ImageIO
 
 // MARK: - Havi Wrapped („szeptembered számokban")
 //
@@ -135,19 +136,52 @@ struct MonthlyWrappedCard: View {
     let month: MonthlyWrapped.Month
     let stats: MonthlyWrapped.Stats
     var onClose: () -> Void
-    /// Fiók-ID a stabil sorsoláshoz (minden fiók más hegyet kap ugyanarra
-    /// a hónapra, de ami egyszer kijött, az örökre ugyanaz marad).
+    /// Fiók-ID a keveréshez (minden fiók más sorrendet kap).
     var userId: String = ""
+    /// A diák teljes neve („Nagy Csaba") — a címben a keresztneve szerepel
+    /// („Csaba Wrappedje") a hegy neve helyett.
+    var studentName: String = ""
     @EnvironmentObject var theme: ThemeStore
     @Environment(\.colorScheme) var scheme
     @Environment(\.accessibilityReduceTransparency) var reduceTransparency
     @State private var appeared = false
     @State private var showPicker = false
+    /// A megnyitás pillanatában rögzített forgatási pozíció: a kártya egy
+    /// megnyitáson belül stabil képet mutat (a számlálót az onAppear lépteti
+    /// a KÖVETKEZŐ megnyitásra — különben minden újrarajzolás képet váltana).
+    @State private var openIndex: Int? = nil
+    /// Csillag-változás (helyi vagy syncelt) utáni újrarajzoláshoz.
+    @State private var starsTick = 0
 
     var colors: AppColors { theme.colors(for: scheme) }
-    /// A hónap hegye ennél a fióknál — a megosztó ugyanide sorsol.
-    var art: WrappedPeakArt {
-        WrappedPeakArtCatalog.art(month: month, userId: userId)
+    /// Keresztnév magyar névsorrendből („Nagy Csaba" → „Csaba").
+    var firstName: String {
+        studentName.split(separator: " ").last.map(String.init) ?? "Diák"
+    }
+    /// „Csaba Wrappedje" — a kártya és a megosztó címe a hegy neve helyett.
+    var personTitle: String { "\(firstName) Wrappedje" }
+    /// A most mutatott kép: csillagozott hónapra a rögzített, különben a
+    /// forgatás aktuális kockája. (A `starsTick` olvasása köti a nézetet a
+    /// csillag-értesítéshez.)
+    var shownArt: WrappedPeakArt {
+        _ = starsTick
+        if let name = WrappedStarStore.starredArt(monthId: month.id),
+           let pinned = WrappedPeakArtCatalog.byName(name) { return pinned }
+        let idx = openIndex ?? WrappedStarStore.openCount(monthId: month.id)
+        return WrappedPeakArtCatalog.rotated(month: month, userId: userId, offset: idx)
+    }
+    /// Visszafelé kompatibilis név a fotó-nézeteknek.
+    var art: WrappedPeakArt { shownArt }
+    var isStarred: Bool {
+        _ = starsTick
+        return WrappedStarStore.starredArt(monthId: month.id) == shownArt.name
+    }
+
+    /// Csillag fel/le: a rögzített kép addig marad, amíg le nem veszik.
+    /// A SummitSync a store-értesítésen át magától viszi a többi eszközre.
+    private func toggleStar() {
+        SummitHaptics.selection()
+        WrappedStarStore.setStar(monthId: month.id, artName: isStarred ? nil : shownArt.name)
     }
     /// Fotó fölött minden szöveg fehér (bold + bright), tömör háttérnél
     /// a rendszer-színsémát tartjuk (Reduce Transparency-esés).
@@ -183,6 +217,15 @@ struct MonthlyWrappedCard: View {
                                 .tracking(2)
                                 .foregroundStyle(photo ? .white.opacity(0.85) : .secondary)
                             Spacer()
+                            Button(action: toggleStar) {
+                                Image(systemName: isStarred ? "star.fill" : "star")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(isStarred ? .yellow : (photo ? .white : .secondary))
+                                    .frame(width: 34, height: 34)
+                                    .glassEffect(.regular.interactive(), in: Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(isStarred ? "Csillag levétele (a kép újra forog)" : "Kép rögzítése erre a hónapra")
                             Button {
                                 SummitHaptics.selection()
                                 share()
@@ -305,9 +348,9 @@ struct MonthlyWrappedCard: View {
                     // középre csúszik és két oldalt vágódik).
                     .padding(.horizontal, 20)
                 }
-                // Lábléc: hegy + hónap + fotós — lehorgonyozza az alját
+                // Lábléc: diáknév-wrapped + hónap + fotós — lehorgonyozza az alját
                 VStack(spacing: 3) {
-                    Text("\(art.name.uppercased()) • \(month.title.uppercased())")
+                    Text("\(personTitle.uppercased()) • \(month.title.uppercased())")
                         .font(.caption2.weight(.semibold))
                         .tracking(2)
                         .foregroundStyle(photo ? .white.opacity(0.75) : Color(.tertiaryLabel))
@@ -321,10 +364,21 @@ struct MonthlyWrappedCard: View {
         }
         .onAppear {
             SummitHaptics.success()
+            // Forgatási pozíció rögzítése + számláló léptetése a következő
+            // megnyitásra (csak egyszer — az openIndex őrzi a mostanit).
+            if openIndex == nil {
+                openIndex = WrappedStarStore.openCount(monthId: month.id)
+                WrappedStarStore.bumpOpen(monthId: month.id)
+            }
             withAnimation(SummitMotion.gentle) { appeared = true }
         }
+        // Csillag-változás (ezen az eszközön vagy syncről): új kép/ikon.
+        .onReceive(NotificationCenter.default.publisher(for: WrappedStarStore.changedNotification)) { _ in
+            starsTick += 1
+        }
         .fullScreenCover(isPresented: $showPicker) {
-            WrappedSharePicker(month: month, stats: stats, distColors: distColors, userId: userId)
+            WrappedSharePicker(month: month, stats: stats, distColors: distColors,
+                               art: shownArt, personTitle: personTitle)
         }
     }
 
@@ -454,52 +508,58 @@ struct WrappedPeakArt: Hashable {
 }
 
 enum WrappedPeakArtCatalog {
-    /// Mind a 30 URL ellenőrzött (HTTP 200 + képtartalom + szemrevételezés).
+    /// Mind a 30 eredeti, teljes felbontású fájl (retina iPadre is éles —
+    /// a bélyegkép-verziók helyett az eredetik; a betöltő 3200 px-re
+    /// korlátozva dekódol, így az óriásfájlok sem eszik meg a memóriát).
     static let all: [WrappedPeakArt] = [
-        .init(name: "Matterhorn", author: "Zacharie Grossen", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/60/Matterhorn_from_Domh%C3%BCtte_-_2.jpg/1280px-Matterhorn_from_Domh%C3%BCtte_-_2.jpg")!, fallback: .matterhorn),
+        .init(name: "Matterhorn", author: "Zacharie Grossen", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/6/60/Matterhorn_from_Domh%C3%BCtte_-_2.jpg")!, fallback: .matterhorn),
         .init(name: "Mont Blanc", author: "Hseugut", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/a/a2/Mont_Blanc_Aiguille.jpg")!, fallback: .treCime),
-        .init(name: "Eiger", author: "Terra3", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fc/North_face.jpg/1280px-North_face.jpg")!, fallback: .kirkjufell),
-        .init(name: "Tre Cime", author: "Tiia Monto", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4f/2019_Tre_Cime.jpg/1280px-2019_Tre_Cime.jpg")!, fallback: .fuji),
-        .init(name: "Kirkjufell", author: "Anjali Kiggal", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/df/Kirkjufell_in_Iceland.jpg/1280px-Kirkjufell_in_Iceland.jpg")!, fallback: .moraine),
-        .init(name: "Fudzsi", author: "Suicasmo", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f8/View_of_Mount_Fuji_from_%C5%8Cwakudani_20211202.jpg/1280px-View_of_Mount_Fuji_from_%C5%8Cwakudani_20211202.jpg")!, fallback: .matterhorn),
-        .init(name: "Zugspitze", author: "Octagon", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7e/Zugspitze_2.JPG/1280px-Zugspitze_2.JPG")!, fallback: .treCime),
-        .init(name: "Triglav", author: "Andrej Jakobčič", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0a/Triglav.jpg/1280px-Triglav.jpg")!, fallback: .kirkjufell),
-        .init(name: "Gerlach", author: "Jakub Krajňák", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/06/Gerlachovsk%C3%BD_%C5%A1t%C3%ADt_z_Gran%C3%A1tovej_l%C3%A1vky.jpg/1280px-Gerlachovsk%C3%BD_%C5%A1t%C3%ADt_z_Gran%C3%A1tovej_l%C3%A1vky.jpg")!, fallback: .fuji),
-        .init(name: "Rysy", author: "Krzysztof Dudzik-Górnicki", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ad/Rysy%2C_wierzcholek_slowacki.jpg/1280px-Rysy%2C_wierzcholek_slowacki.jpg")!, fallback: .moraine),
+        .init(name: "Eiger", author: "Terra3", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/f/fc/North_face.jpg")!, fallback: .kirkjufell),
+        .init(name: "Tre Cime", author: "Tiia Monto", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/4/4f/2019_Tre_Cime.jpg")!, fallback: .fuji),
+        .init(name: "Kirkjufell", author: "Anjali Kiggal", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/d/df/Kirkjufell_in_Iceland.jpg")!, fallback: .moraine),
+        .init(name: "Fudzsi", author: "Suicasmo", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/f/f8/View_of_Mount_Fuji_from_%C5%8Cwakudani_20211202.jpg")!, fallback: .matterhorn),
+        .init(name: "Zugspitze", author: "Octagon", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/7/7e/Zugspitze_2.JPG")!, fallback: .treCime),
+        .init(name: "Triglav", author: "Andrej Jakobčič", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/0/0a/Triglav.jpg")!, fallback: .kirkjufell),
+        .init(name: "Gerlach", author: "Jakub Krajňák", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/0/06/Gerlachovsk%C3%BD_%C5%A1t%C3%ADt_z_Gran%C3%A1tovej_l%C3%A1vky.jpg")!, fallback: .fuji),
+        .init(name: "Rysy", author: "Krzysztof Dudzik-Górnicki", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/a/ad/Rysy%2C_wierzcholek_slowacki.jpg")!, fallback: .moraine),
         .init(name: "Jungfrau", author: "4000er", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/d/d7/Jungfrau03.jpg")!, fallback: .matterhorn),
-        .init(name: "Bernina", author: "Jphoto", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1b/PizBernina3.jpg/1280px-PizBernina3.jpg")!, fallback: .treCime),
+        .init(name: "Bernina", author: "Jphoto", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/1/1b/PizBernina3.jpg")!, fallback: .treCime),
         .init(name: "Ortler", author: "Pierre Lavaurs", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/5/56/L%27Ortler.jpg")!, fallback: .kirkjufell),
-        .init(name: "Marmolada", author: "Michael", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/06/Marmolata%2C_3343m.jpg/1280px-Marmolata%2C_3343m.jpg")!, fallback: .fuji),
-        .init(name: "Kilimandzsáró", author: "Sergey Pesterev", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6c/Kilimanjaro_from_Amboseli.jpg/1280px-Kilimanjaro_from_Amboseli.jpg")!, fallback: .moraine),
-        .init(name: "Everest", author: "Rdevany", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/15/Mt._Everest_from_Gokyo_Ri_November_5%2C_2012.jpg/1280px-Mt._Everest_from_Gokyo_Ri_November_5%2C_2012.jpg")!, fallback: .matterhorn),
-        .init(name: "Annapurna", author: "PrajwalMohan", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f2/South_Face_of_Annapurna_I_%28Main%29.jpg/1280px-South_Face_of_Annapurna_I_%28Main%29.jpg")!, fallback: .treCime),
-        .init(name: "Denali", author: "Denali National Park and Preserve", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/91/Wonder_Lake_and_Denali.jpg/1280px-Wonder_Lake_and_Denali.jpg")!, fallback: .kirkjufell),
-        .init(name: "Aconcagua", author: "Bjørn Christian Tørrissen", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4e/Aconcagua2016.jpg/1280px-Aconcagua2016.jpg")!, fallback: .fuji),
+        .init(name: "Marmolada", author: "Michael", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/0/06/Marmolata%2C_3343m.jpg")!, fallback: .fuji),
+        .init(name: "Kilimandzsáró", author: "Sergey Pesterev", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/6/6c/Kilimanjaro_from_Amboseli.jpg")!, fallback: .moraine),
+        .init(name: "Everest", author: "Rdevany", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/1/15/Mt._Everest_from_Gokyo_Ri_November_5%2C_2012.jpg")!, fallback: .matterhorn),
+        .init(name: "Annapurna", author: "PrajwalMohan", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/f/f2/South_Face_of_Annapurna_I_%28Main%29.jpg")!, fallback: .treCime),
+        .init(name: "Denali", author: "Denali National Park and Preserve", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/9/91/Wonder_Lake_and_Denali.jpg")!, fallback: .kirkjufell),
+        .init(name: "Aconcagua", author: "Bjørn Christian Tørrissen", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/4/4e/Aconcagua2016.jpg")!, fallback: .fuji),
         .init(name: "Elbrusz", author: "Aleksandr Markin", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/c/c0/Mount_Elbrus_%28cropped%29.jpg")!, fallback: .moraine),
-        .init(name: "Vinson", author: "Christian Stangl", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c6/Mount_Vinson_from_NW_at_Vinson_Plateau_by_Christian_Stangl_%28flickr%29.jpg/1280px-Mount_Vinson_from_NW_at_Vinson_Plateau_by_Christian_Stangl_%28flickr%29.jpg")!, fallback: .matterhorn),
-        .init(name: "Tábla-hegy", author: "Danie van der Merwe", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/dc/Table_Mountain_DanieVDM.jpg/1280px-Table_Mountain_DanieVDM.jpg")!, fallback: .treCime),
-        .init(name: "Ben Nevis", author: "Thincat", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/09/BenNevis2005.jpg/1280px-BenNevis2005.jpg")!, fallback: .kirkjufell),
-        .init(name: "Olümposz", author: "kallerna", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e8/Olympus_National_Park_30.jpg/1280px-Olympus_National_Park_30.jpg")!, fallback: .fuji),
-        .init(name: "Teide", author: "Thomas Wolf", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a5/Roque_Cinchado_und_Teide.jpg/1280px-Roque_Cinchado_und_Teide.jpg")!, fallback: .moraine),
-        .init(name: "Muszala", author: "Deyan Vasilev", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c5/Musala_IMG_1447.jpg/1280px-Musala_IMG_1447.jpg")!, fallback: .matterhorn),
-        .init(name: "Trolltunga", author: "kallerna", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b6/Trolltunga_2017.jpg/1280px-Trolltunga_2017.jpg")!, fallback: .treCime),
-        .init(name: "Preikestolen", author: "Clementp.fr", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/85/Lyse_Fjord_et_Preikestolen.jpg/1280px-Lyse_Fjord_et_Preikestolen.jpg")!, fallback: .kirkjufell),
-        .init(name: "Lofoten", author: "Lukas Beck", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/59/Moskenes_Reinebringen_lub_2025-07-21_img09_Aussicht.jpg/1280px-Moskenes_Reinebringen_lub_2025-07-21_img09_Aussicht.jpg")!, fallback: .fuji),
-        .init(name: "Dolomitok", author: "kallerna", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/36/Faloria_Cortina_d%27Ampezzo_10.jpg/1280px-Faloria_Cortina_d%27Ampezzo_10.jpg")!, fallback: .moraine),
+        .init(name: "Vinson", author: "Christian Stangl", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/c/c6/Mount_Vinson_from_NW_at_Vinson_Plateau_by_Christian_Stangl_%28flickr%29.jpg")!, fallback: .matterhorn),
+        .init(name: "Tábla-hegy", author: "Danie van der Merwe", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/d/dc/Table_Mountain_DanieVDM.jpg")!, fallback: .treCime),
+        .init(name: "Ben Nevis", author: "Thincat", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/0/09/BenNevis2005.jpg")!, fallback: .kirkjufell),
+        .init(name: "Olümposz", author: "kallerna", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/e/e8/Olympus_National_Park_30.jpg")!, fallback: .fuji),
+        .init(name: "Teide", author: "Thomas Wolf", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/a/a5/Roque_Cinchado_und_Teide.jpg")!, fallback: .moraine),
+        .init(name: "Muszala", author: "Deyan Vasilev", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/c/c5/Musala_IMG_1447.jpg")!, fallback: .matterhorn),
+        .init(name: "Trolltunga", author: "kallerna", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Trolltunga_2017.jpg")!, fallback: .treCime),
+        .init(name: "Preikestolen", author: "Clementp.fr", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/8/85/Lyse_Fjord_et_Preikestolen.jpg")!, fallback: .kirkjufell),
+        .init(name: "Lofoten", author: "Lukas Beck", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/5/59/Moskenes_Reinebringen_lub_2025-07-21_img09_Aussicht.jpg")!, fallback: .fuji),
+        .init(name: "Dolomitok", author: "kallerna", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/3/36/Faloria_Cortina_d%27Ampezzo_10.jpg")!, fallback: .moraine),
     ]
 
-    /// Stabil sorsolás fiók + hónap alapján: minden fiók a 30 kép EGYEDI
-    /// keverését kapja (FNV-1a rangsor — direkt nem a Swift.Hasher, mert az
-    /// futásonként más seedet kap), és a hónapsorszám szerint lépeget benne.
-    /// Így egymás utáni hónapok SOHA nem ismétlődnek, amíg a 30 el nem fogy
-    /// (független sorsolásnál a születésnap-paradoxon miatt ez törvényszerű
-    /// lenne), más fiók más sorrendet kap, és ami egyszer kijött, az örökre
-    /// ugyanaz marad — szerver-oldali állapot nélkül, offline is.
-    static func art(month: MonthlyWrapped.Month, userId: String) -> WrappedPeakArt {
+    /// Név szerinti keresés (a csillagozott rögzítés feloldásához).
+    static func byName(_ name: String) -> WrappedPeakArt? {
+        all.first { $0.name == name }
+    }
+
+    /// Nyitásonkénti forgatás: minden fiók a 30 kép EGYEDI keverését kapja
+    /// (FNV-1a rangsor — direkt nem a Swift.Hasher, mert az futásonként
+    /// más seedet kap), és a megnyitás-számláló szerint lépeget benne.
+    /// Így minden megnyitásra MÁS kép jön (egymás után sosem ismétlődik,
+    /// amíg a 30 el nem fogy), más fiók más sorrendet kap — szerver-oldali
+    /// állapot nélkül, offline is. A csillagozott hónapra nem vonatkozik
+    /// (azt a kártya külön kezeli).
+    static func rotated(month: MonthlyWrapped.Month, userId: String, offset: Int) -> WrappedPeakArt {
         let ranked = all.indices.map { ($0, hash("\(userId)#\($0)")) }
             .sorted { $0.1 < $1.1 }
-        let seq = month.year * 12 + month.month
-        let pos = ((seq % all.count) + all.count) % all.count
+        let pos = ((offset % all.count) + all.count) % all.count
         return all[ranked[pos].0]
     }
 
@@ -517,15 +577,23 @@ enum WrappedPeakArtCatalog {
 /// Távoli wrapped-fotók töltése + memóriában tartása (a lemez-gyorstárat a
 /// megosztott URLCache adja). Az ImageRendererbe nem megy át élő hálózati
 /// kép, ezért a megosztás az itt előtöltött UIImage-et kapja.
+/// A katalógus eredeti, teljes felbontású fájlokat mutat (iPad-retinához
+/// is elég): dekódoláskor a hosszú él 3200 px-re van korlátozva, így egy
+/// 6000 px-es óriás sem eszi meg a memóriát (a 13"-es iPad 2752 px-e
+/// így is kényelmesen belefér).
 @MainActor
 final class WrappedArtLoader: ObservableObject {
     static let shared = WrappedArtLoader()
+    /// Dekódolt hosszú él plafon (px) — retina iPadre is elég, óriásfájlokra is biztonságos.
+    static let maxPixelSize: CGFloat = 3200
+    /// Letöltési plafon (bájt) — ennél nagyobb fájlt nem kérünk le.
+    static let maxDownloadBytes = 25 * 1024 * 1024
     @Published private(set) var loaded: [URL: UIImage] = [:]
     private var inflight = Set<URL>()
     private lazy var session: URLSession = {
         let config = URLSessionConfiguration.default
-        config.urlCache = URLCache(memoryCapacity: 32 * 1024 * 1024,
-                                   diskCapacity: 200 * 1024 * 1024,
+        config.urlCache = URLCache(memoryCapacity: 64 * 1024 * 1024,
+                                   diskCapacity: 300 * 1024 * 1024,
                                    diskPath: "wrapped-art")
         config.requestCachePolicy = .returnCacheDataElseLoad
         return URLSession(configuration: config)
@@ -556,8 +624,31 @@ final class WrappedArtLoader: ObservableObject {
     private func download(_ url: URL) async -> UIImage? {
         guard let (data, response) = try? await session.data(from: url),
               (response as? HTTPURLResponse)?.statusCode == 200,
-              let img = UIImage(data: data) else { return nil }
-        return img
+              data.count <= Self.maxDownloadBytes else { return nil }
+        return Self.downsampled(data)
+    }
+
+    /// Memóriabiztos dekódolás: a hosszú él legfeljebb `maxPixelSize`.
+    /// Kis kép változatlanul jön át (felnagyítás nincs).
+    static func downsampled(_ data: Data) -> UIImage? {
+        let opts: CFDictionary = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let src = CGImageSourceCreateWithData(data as CFData, opts) else { return nil }
+        let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any]
+        let w = (props?[kCGImagePropertyPixelWidth] as? CGFloat) ?? 0
+        let h = (props?[kCGImagePropertyPixelHeight] as? CGFloat) ?? 0
+        let longEdge = max(w, h)
+        guard longEdge > 0 else { return UIImage(data: data) }
+        guard longEdge > maxPixelSize else { return UIImage(data: data) }
+        let thumbOpts: CFDictionary = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+        ] as CFDictionary
+        guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, thumbOpts) else {
+            return UIImage(data: data)
+        }
+        return UIImage(cgImage: cg)
     }
 }
 
@@ -616,12 +707,14 @@ enum WrappedPeak: String, CaseIterable, Identifiable {
 /// Ua. a nézet megy a képernyőre és az ImageRendererbe:
 /// képernyőn VALÓDI .glassEffect (élő mintavétel), renderhez anyag-háttér
 /// (`forRender: true`), mert a glass a statikus képben eltűnik —
-/// headless-próba igazolta. A háttér a hónap fix sorsolt fotója
-/// (távoli kép ha megjött, renderhez előtöltött UIImage).
+/// headless-próba igazolta. A háttér a kártyán mutatott kép (a forgatás
+/// aktuális kockája vagy a csillagozott rögzítés).
 struct WrappedPeakPage: View {
     var art: WrappedPeakArt
-    /// „2026. Október" — a láblécbe a hegy neve mellé.
+    /// „2026. Október" — a láblécbe a diáknév-wrapped mellé.
     var monthTitle: String
+    /// „Csaba Wrappedje" — fejléc + lábléc a hegy neve helyett.
+    var personTitle: String
     var stats: MonthlyWrapped.Stats
     var distColors: [Int: Color]
     /// Render-példány (ImageRenderer): anyag-háttér, nem élő glass.
@@ -660,7 +753,7 @@ struct WrappedPeakPage: View {
                 startPoint: .top, endPoint: .bottom
             )
             VStack(alignment: .leading, spacing: 0) {
-                Text(art.wrappedTitle.uppercased())
+                Text(personTitle.uppercased())
                     .font(.system(size: 13, weight: .bold))
                     .tracking(3)
                     .foregroundStyle(.white.opacity(0.85))
@@ -682,9 +775,9 @@ struct WrappedPeakPage: View {
                 }
                 distTile.padding(.top, 10)
                 Spacer(minLength: 10)
-                // Lábléc: a hegy neve + a hónap + a fotós
+                // Lábléc: diáknév-wrapped + a hónap + a fotós
                 VStack(spacing: 2) {
-                    Text("\(art.name.uppercased()) • \(monthTitle.uppercased())")
+                    Text("\(personTitle.uppercased()) • \(monthTitle.uppercased())")
                         .font(.caption.weight(.bold))
                         .tracking(2)
                         .foregroundStyle(.white.opacity(0.75))
@@ -797,27 +890,25 @@ private extension View {
     func glassTile() -> some View { modifier(PeakTile(forRender: true)) }
 }
 
-/// Megosztó-előnézet: a hónap fix sorsolt hegye + Megosztás gomb.
-/// Nincs több swipe-választó: a hónapnak EGY képe + neve van (az marad),
-/// a gomb pontosan ezt az oldalt rendereli ugyanazzal a háttérrel.
+/// Megosztó-előnézet: a kártyán mutatott kép + Megosztás gomb.
+/// A picker nem sorsol — a kártya forgatási kockáját (vagy a csillagozott
+/// rögzítést) kapja meg, a gomb pontosan ezt az oldalt rendereli.
 struct WrappedSharePicker: View {
     var month: MonthlyWrapped.Month
     var stats: MonthlyWrapped.Stats
     var distColors: [Int: Color]
-    var userId: String = ""
+    /// A kártyán látható kép (forgatás / csillag).
+    var art: WrappedPeakArt
+    /// „Csaba Wrappedje" — fejléc + lábléc + megosztó-szöveg.
+    var personTitle: String = ""
     @State private var shareItems: [Any] = []
     @State private var showShare = false
     @Environment(\.dismiss) var dismiss
 
-    /// A hónap hegye ennél a fióknál — ua. mint a kártyán.
-    var art: WrappedPeakArt {
-        WrappedPeakArtCatalog.art(month: month, userId: userId)
-    }
-
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            WrappedPeakPage(art: art, monthTitle: month.title, stats: stats, distColors: distColors)
+            WrappedPeakPage(art: art, monthTitle: month.title, personTitle: personTitle, stats: stats, distColors: distColors)
                 .ignoresSafeArea()
             VStack {
                 HStack {
@@ -862,12 +953,12 @@ struct WrappedSharePicker: View {
         // háttér az előtöltött távoli fotó, végső esetben bundle-tartalék.
         let bg = await WrappedArtLoader.shared.resolved(art)
             ?? UIImage(named: art.fallback.asset)
-        let page = WrappedPeakPage(art: art, monthTitle: month.title, stats: stats, distColors: distColors, forRender: true, renderImage: bg)
+        let page = WrappedPeakPage(art: art, monthTitle: month.title, personTitle: personTitle, stats: stats, distColors: distColors, forRender: true, renderImage: bg)
         let renderer = ImageRenderer(content: page.frame(width: 390, height: 680))
         renderer.scale = 3
         var items: [Any] = []
         if let uiImage = renderer.uiImage { items.append(uiImage) }
-        items.append("\(art.wrappedTitle): \(String(format: "%.1f", stats.avg)) átlag, \(stats.count) jegy — Summit")
+        items.append("\(personTitle): \(String(format: "%.1f", stats.avg)) átlag, \(stats.count) jegy — Summit")
         AnalyticsStore.recordStep("wrapped_share", detail: "\(month.id)/\(art.name)")
         shareItems = items
         showShare = true
@@ -951,7 +1042,8 @@ struct MonthlyArchiveView: View {
                 month: m,
                 stats: MonthlyWrapped.stats(grades: grades, month: m, exams: exams, absences: absences),
                 onClose: { opened = nil },
-                userId: session.selectedUser?.id ?? ""
+                userId: session.selectedUser?.id ?? "",
+                studentName: session.selectedUser?.name ?? ""
             )
             .environmentObject(theme)
         }

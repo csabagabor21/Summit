@@ -130,12 +130,12 @@ function isValidSyncDoc() {
       'rounding', 'exempted', 'completedHw', 'completedEx',
       'notifyEnabled', 'liveActivity',
       'schoolEvents', 'schoolEventsShow', 'schoolEventsURL', 'customTasks',
-      'cheatSheets', 'metaAIKey', 'examRollover', 'travelMode', 'hasWatch',
+      'cheatSheets', 'metaAIKey', 'examRollover', 'travelMode', 'wrappedStars', 'hasWatch',
       'ts_theme', 'ts_accentHex', 'ts_sizeKey', 'ts_photo', 'ts_rounding',
       'ts_exempted', 'ts_completedHw', 'ts_completedEx', 'ts_notifyEnabled',
       'ts_liveActivity',
       'ts_schoolEvents', 'ts_schoolEventsShow', 'ts_schoolEventsURL', 'ts_customTasks',
-      'ts_cheatSheets', 'ts_metaAIKey', 'ts_examRollover', 'ts_travelMode', 'ts_hasWatch'])
+      'ts_cheatSheets', 'ts_metaAIKey', 'ts_examRollover', 'ts_travelMode', 'ts_wrappedStars', 'ts_hasWatch'])
     && request.resource.data.v is int && request.resource.data.v == 1
     && request.resource.data.updatedAt is timestamp
     && request.resource.data.updatedAt <= request.time + duration.value(5, 'm')
@@ -201,6 +201,11 @@ function isValidSyncDoc() {
     && (!('travelMode' in request.resource.data) || (request.resource.data.travelMode is string
       && request.resource.data.travelMode.size() <= 32))
     && (!('ts_travelMode' in request.resource.data) || request.resource.data.ts_travelMode is timestamp)
+    // Wrapped-csillagok: opcionális (régi kliens e nélkül is írhat),
+    // hónap→képnév JSON, max 4000 kar. (üres "{}" = nincs csillag).
+    && (!('wrappedStars' in request.resource.data) || (request.resource.data.wrappedStars is string
+      && request.resource.data.wrappedStars.size() <= 4000))
+    && (!('ts_wrappedStars' in request.resource.data) || request.resource.data.ts_wrappedStars is timestamp)
     // Órajelenlét: opcionális bool (van-e párosított óra az eszközön —
     // ebből tudja meg a Mac, hogy mutathatja a Watch tabot).
     && (!('hasWatch' in request.resource.data) || request.resource.data.hasWatch is bool)

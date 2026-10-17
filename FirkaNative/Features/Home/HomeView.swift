@@ -319,7 +319,8 @@ struct HomeView: View {
                     month: m,
                     stats: MonthlyWrapped.stats(grades: vm.grades, month: m, exams: vm.exams, absences: vm.absences),
                     onClose: { wrappedMonth = nil },
-                    userId: session.selectedUser?.id ?? ""
+                    userId: session.selectedUser?.id ?? "",
+                    studentName: session.selectedUser?.name ?? ""
                 )
                 .environmentObject(theme)
             }
