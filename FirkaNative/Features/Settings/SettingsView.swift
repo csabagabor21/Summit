@@ -89,14 +89,11 @@ struct SettingsView: View {
         .padding(.vertical, 4)
     }
 
-    var body: some View {
-        ScrollViewReader { proxy in
-        ScrollView {
-            // Közös glass-konténer: az egy- és többsoros szigetek üvege
-            // ugyanabban a mintavételi térben renderelődik, így az átlátszóság
-            // (/blur) nem függ a sziget méretétől.
-            SummitGlassGroup {
-            VStack(spacing: 20) {
+    /// Beállítások 1. blokk: profil + archívum + megjelenés + kerekítés.
+    /// (Az óriás body kifejezést az x86_64 fordító nem tudja időben
+    /// típusellenőrizni — a blokkok külön-külön már mennek.)
+    private var settingsTopSection: some View {
+        Group {
             // Profil-sziget (fejléc nélkül, mint eddig)
             HStack(spacing: 12) {
                 ZStack(alignment: .bottomTrailing) {
@@ -197,7 +194,12 @@ struct SettingsView: View {
                     .tint(colors.accent)
                 }
             }
+        }
+    }
 
+    /// Beállítások 2. blokk: értesítések + események + utazás + pótlás.
+    private var settingsMidSection: some View {
+        Group {
             summitIsland(header: "Értesítések", footer: "Helyi értesítés adatfrissítéskor — a KRÉTA nem küld push-t. A Live Activity a Lock Screen + Dynamic Island.", tour: .notifications, tourActive: tourIs(.notifications) || tourIs(.live)) {
                 summitRow {
                     Toggle(isOn: $notifyEnabled) {
@@ -248,7 +250,13 @@ struct SettingsView: View {
                         saveTravel()
                         if new, TravelMode.isActive() {
                             // Azonnal csend: a futó activity nem várja meg a következő syncet.
-                            Task { await SummitLiveActivityManager.shared.endAll(dismissalPolicy: .immediate) }
+                            Task {
+                                #if targetEnvironment(macCatalyst)
+                                await SummitLiveActivityManager.shared.endAll()
+                                #else
+                                await SummitLiveActivityManager.shared.endAll(dismissalPolicy: .immediate)
+                                #endif
+                            }
                         }
                     }
                 }
@@ -285,7 +293,12 @@ struct SettingsView: View {
                     }
                 }
             }
+        }
+    }
 
+    /// Beállítások 3. blokk: fiók.
+    private var settingsAccountSection: some View {
+        Group {
             summitIsland(header: "Fiók", tour: .account, tourActive: tourIs(.account)) {
                 summitRow {
                     Button { SummitHaptics.selection(); withAnimation(SummitMotion.snappy) { accountExpanded.toggle() } } label: {
@@ -427,7 +440,12 @@ struct SettingsView: View {
                 }
                 }
             }
+        }
+    }
 
+    /// Beállítások 4. blokk: diagnosztika + fejlesztő + adatvédelem + lábléc.
+    private var settingsBottomSection: some View {
+        Group {
             summitIsland(header: "Diagnosztika", tour: .diagnostics, tourActive: tourIs(.diagnostics)) {
                 summitRow {
                     NavigationLink { DiagnosticsView() } label: {
@@ -491,6 +509,21 @@ struct SettingsView: View {
 
             Text("Summit • Gábor Csaba").font(.caption2).foregroundStyle(.tertiary).frame(maxWidth: .infinity)
                 .onTapGesture { registerDevTap() }
+        }
+    }
+
+    var body: some View {
+        ScrollViewReader { proxy in
+        ScrollView {
+            // Közös glass-konténer: az egy- és többsoros szigetek üvege
+            // ugyanabban a mintavételi térben renderelődik, így az átlátszóság
+            // (/blur) nem függ a sziget méretétől.
+            SummitGlassGroup {
+            VStack(spacing: 20) {
+            settingsTopSection
+            settingsMidSection
+            settingsAccountSection
+            settingsBottomSection
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
