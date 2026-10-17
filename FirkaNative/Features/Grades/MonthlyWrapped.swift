@@ -348,16 +348,14 @@ struct MonthlyWrappedCard: View {
                     // középre csúszik és két oldalt vágódik).
                     .padding(.horizontal, 20)
                 }
-                // Lábléc: diáknév-wrapped + hónap + fotós — lehorgonyozza az alját
-                VStack(spacing: 3) {
-                    Text("\(personTitle.uppercased()) • \(month.title.uppercased())")
-                        .font(.caption2.weight(.semibold))
-                        .tracking(2)
-                        .foregroundStyle(photo ? .white.opacity(0.75) : Color(.tertiaryLabel))
-                    Text("Fotó: \(art.author)")
-                        .font(.caption2)
-                        .foregroundStyle(photo ? .white.opacity(0.55) : Color(.tertiaryLabel))
-                }
+                // Lábléc: hegy • fotós egy sorban („Fotó:" előtag nélkül) —
+                // lehorgonyozza az alját. A diáknév felül, a hősnél marad.
+                Text("\(art.name.uppercased()) • \(art.author)")
+                    .font(.caption2.weight(.semibold))
+                    .tracking(2)
+                    .foregroundStyle(photo ? .white.opacity(0.75) : Color(.tertiaryLabel))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 .shadow(color: photo ? .black.opacity(0.4) : .clear, radius: 6)
                 .padding(.bottom, 18)
             }
@@ -679,9 +677,7 @@ struct WrappedArtPhoto: View {
 /// aktuális kockája vagy a csillagozott rögzítés).
 struct WrappedPeakPage: View {
     var art: WrappedPeakArt
-    /// „2026. Október" — a láblécbe a diáknév-wrapped mellé.
-    var monthTitle: String
-    /// „Csaba Wrappedje" — fejléc + lábléc a hegy neve helyett.
+    /// „Csaba Wrappedje" — fejléc a hegy neve helyett.
     var personTitle: String
     var stats: MonthlyWrapped.Stats
     var distColors: [Int: Color]
@@ -734,7 +730,9 @@ struct WrappedPeakPage: View {
                 // csempénként külön glass, az renderel helyesen.
                 heroTile
                 Spacer(minLength: 10)
-                HStack(spacing: 10) {
+                // Egyforma magas csempék: a késésnek nincs alcíme, így anélkül
+                // alacsonyabb kocka maradna a másik kettő mellett.
+                HStack(alignment: .top, spacing: 10) {
                     peakMini(icon: "star", value: "\(stats.fives)", label: "ötös",
                              sub: "\(stats.count) jegyből")
                     peakMini(icon: "clock", value: "\(stats.absences)", label: "hiányzás",
@@ -743,18 +741,16 @@ struct WrappedPeakPage: View {
                 }
                 distTile.padding(.top, 10)
                 Spacer(minLength: 10)
-                // Lábléc: diáknév-wrapped + a hónap + a fotós
-                VStack(spacing: 2) {
-                    Text("\(personTitle.uppercased()) • \(monthTitle.uppercased())")
-                        .font(.caption.weight(.bold))
-                        .tracking(2)
-                        .foregroundStyle(.white.opacity(0.75))
-                    Text("Fotó: \(art.author)")
-                        .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.55))
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.bottom, 4)
+                // Lábléc: hegy • fotós egy sorban („Fotó:" előtag nélkül).
+                // A hónap a megosztó-szövegben szerepel.
+                Text("\(art.name.uppercased()) • \(art.author)")
+                    .font(.caption.weight(.bold))
+                    .tracking(2)
+                    .foregroundStyle(.white.opacity(0.75))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.bottom, 4)
             }
             .padding(.horizontal, 20)
             // Felül a státuszsáv alá kell férni (az oldal ignoresSafeArea-val megy).
@@ -830,7 +826,7 @@ struct WrappedPeakPage: View {
                     .lineLimit(1)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .padding(12)
         .peakTile(forRender: forRender)
     }
@@ -876,7 +872,7 @@ struct WrappedSharePicker: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            WrappedPeakPage(art: art, monthTitle: month.title, personTitle: personTitle, stats: stats, distColors: distColors)
+            WrappedPeakPage(art: art, personTitle: personTitle, stats: stats, distColors: distColors)
                 .ignoresSafeArea()
             VStack {
                 HStack {
@@ -921,7 +917,7 @@ struct WrappedSharePicker: View {
         // háttér az előtöltött távoli fotó (ha nincs meg, csak a sötét alap —
         // bundle-tartalék nincs). A megosztó-szövegben a hónap is szerepel.
         let bg = await WrappedArtLoader.shared.resolved(art)
-        let page = WrappedPeakPage(art: art, monthTitle: month.title, personTitle: personTitle, stats: stats, distColors: distColors, forRender: true, renderImage: bg)
+        let page = WrappedPeakPage(art: art, personTitle: personTitle, stats: stats, distColors: distColors, forRender: true, renderImage: bg)
         let renderer = ImageRenderer(content: page.frame(width: 390, height: 680))
         renderer.scale = 3
         var items: [Any] = []
