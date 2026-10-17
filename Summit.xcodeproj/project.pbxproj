@@ -1081,7 +1081,7 @@
 				CODE_SIGN_ENTITLEMENTS = SummitWatchWidgets.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SummitWatchWidgets/Info.plist;
@@ -1110,7 +1110,7 @@
 				CODE_SIGN_ENTITLEMENTS = SummitWatch.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SummitWatch/Info.plist;
@@ -1198,7 +1198,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = SummitWidgetsMac.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SummitWidgets/Info.plist;
@@ -1226,7 +1226,7 @@
 				CODE_SIGN_ENTITLEMENTS = SummitWatchWidgets.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SummitWatchWidgets/Info.plist;
@@ -1255,7 +1255,7 @@
 				CODE_SIGN_ENTITLEMENTS = SummitWatch.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SummitWatch/Info.plist;
@@ -1281,7 +1281,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = SummitWidgetsMac.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SummitWidgets/Info.plist;
@@ -1311,7 +1311,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = SummitReleaseMac.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Summit;
@@ -1408,7 +1408,7 @@
 				CODE_SIGN_ENTITLEMENTS = Summit.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Summit;
@@ -1448,7 +1448,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Summit UI Tests";
@@ -1469,7 +1469,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Summit UI Tests";

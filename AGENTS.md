@@ -52,6 +52,13 @@ alábbi teljes flow-t végig kell vinni, köztes kérdések nélkül:
 A Next-gombokra nem kell rákérdezni, csak kattintani; a Manage-verziót a
 user kérésére mindig visszakapcsoljuk (BE).
 
+## Buildszám-szabály (user-döntés, 2026-10-17)
+Buildszámot (`CURRENT_PROJECT_VERSION`) MANUÁLISAN SOHA nem léptetünk —
+azt a kiadási folyamat intézi automatikusan (Organizer „Manage version
+and build number", illetve az App Store Connect oldali verziókezelés).
+Kivétel csak a user kifejezett, egyszeri kérése (pl. verzió-összehangolás
+iPhone és Mac között). A `MARKETING_VERSION` is csak user-kérésre változik.
+
 ## Release notes formátum (kötelező, minden AI-asszisztensre vonatkozik)
 Ha a user release note-ot kér, a válasz MINDIG egy angol Summit-szójáték
 címsorral kezdődjön — a `To Summit up:` csak egy minta, mindig új, a

@@ -64,7 +64,7 @@ targets:
         SWIFT_VERSION: "5.0"
         SWIFT_EMIT_LOC_STRINGS: YES
         MARKETING_VERSION: "1.2"
-        CURRENT_PROJECT_VERSION: "15"
+        CURRENT_PROJECT_VERSION: "2"
         # Firebase SPM statikus linkelés: az ObjC-kategóriákat a linker
         # különben leszedheti → runtime crash. (Ld. pbxproj OTHER_LDFLAGS.)
         OTHER_LDFLAGS: "$(inherited) -ObjC"
@@ -164,7 +164,7 @@ targets:
         "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": SummitWidgetsMac.entitlements
         GENERATE_INFOPLIST_FILE: YES
         MARKETING_VERSION: "1.2"
-        CURRENT_PROJECT_VERSION: "15"
+        CURRENT_PROJECT_VERSION: "2"
         IPHONEOS_DEPLOYMENT_TARGET: "26.0"
         INFOPLIST_KEY_CFBundleDisplayName: "Summit Widgets"
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
@@ -196,7 +196,7 @@ targets:
       base:
         SWIFT_VERSION: "5.0"
         MARKETING_VERSION: "1.2"
-        CURRENT_PROJECT_VERSION: "15"
+        CURRENT_PROJECT_VERSION: "2"
         # Az extension bundle ID-nak az óra app ID-jával kell kezdődnie
         # (mint iOS-en: a widget a fő app prefixét viseli).
         PRODUCT_BUNDLE_IDENTIFIER: hu.flint.watchapp.Widgets
@@ -235,7 +235,7 @@ targets:
       base:
         SWIFT_VERSION: "5.0"
         MARKETING_VERSION: "1.2"
-        CURRENT_PROJECT_VERSION: "15"
+        CURRENT_PROJECT_VERSION: "2"
         PRODUCT_BUNDLE_IDENTIFIER: hu.flint.watchapp
         # Automatikus aláírás, mint a fő appnál — külön watch-profil
         # nem kell a portálon, az Xcode menedzseli (az Xcode-ban kézzel
