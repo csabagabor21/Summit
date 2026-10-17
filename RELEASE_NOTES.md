@@ -1,5 +1,10 @@
 # Summit release notes
 
+## 1.2 (Build 1)
+- Monthly Wrapped now opens on a real mountain photo, with every stat sitting on Liquid Glass.
+- 30 famous peaks rotate through your months — yours stays yours, with the photographer's credit under it.
+- Shared Wrapped images carry the same mountain background, photographer included.
+
 ## Build 62
 - Handoff: start on iPhone, continue on Mac (and back) — the other device opens the same tab and position, straight from the Dock icon.
 - The Watch tab now appears on Mac too when your iPhone has a paired watch, so study notes can start from the desktop as well.
