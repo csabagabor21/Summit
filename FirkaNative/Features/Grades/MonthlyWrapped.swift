@@ -490,21 +490,17 @@ struct WrappedDistBar: View {
     }
 }
 
-// MARK: - Wrapped-hegykatalógus (30 távoli fotó, stabil sorsolással)
+// MARK: - Wrapped-hegykatalógus (30 távoli fotó, nyitásonkénti forgatással)
 //
-// Minden hónap minden fiókhoz MÁS hegyet kap, de a sorsolás determinisztikus
-// (FNV-1a hash a fiók-ID + hónap alapján): ami egyszer kijött, az örökre
-// ugyanaz marad — nincs szerver-oldali állapot, offline is működik.
+// Minden fiók a 30 kép egyedi keverését kapja (FNV-1a rangsor), és a
+// megnyitás-számláló szerint lépeget benne — minden megnyitásra más kép.
 // Forrás: Wikimedia Commons (szabad licenc), a fotós neve a láblécben szerepel.
-// Betöltésig / offline a bundle-tartalék látszik (fallback).
+// Betöltésig / offline nincs helyettesítő kép: a sötét alap + üveglapok
+// látszanak (a bundle-fotó beflashelése ki van szedve).
 struct WrappedPeakArt: Hashable {
     var name: String
     var author: String
     var url: URL
-    /// Offline / betöltés alatti tartalék (bundle-asset).
-    var fallback: WrappedPeak
-    /// „Kirkjufell Wrapped" — a kártya címe a hegy nevével.
-    var wrappedTitle: String { "\(name) Wrapped" }
 }
 
 enum WrappedPeakArtCatalog {
@@ -512,36 +508,36 @@ enum WrappedPeakArtCatalog {
     /// a bélyegkép-verziók helyett az eredetik; a betöltő 3200 px-re
     /// korlátozva dekódol, így az óriásfájlok sem eszik meg a memóriát).
     static let all: [WrappedPeakArt] = [
-        .init(name: "Matterhorn", author: "Zacharie Grossen", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/6/60/Matterhorn_from_Domh%C3%BCtte_-_2.jpg")!, fallback: .matterhorn),
-        .init(name: "Mont Blanc", author: "Hseugut", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/a/a2/Mont_Blanc_Aiguille.jpg")!, fallback: .treCime),
-        .init(name: "Eiger", author: "Terra3", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/f/fc/North_face.jpg")!, fallback: .kirkjufell),
-        .init(name: "Tre Cime", author: "Tiia Monto", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/4/4f/2019_Tre_Cime.jpg")!, fallback: .fuji),
-        .init(name: "Kirkjufell", author: "Anjali Kiggal", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/d/df/Kirkjufell_in_Iceland.jpg")!, fallback: .moraine),
-        .init(name: "Fudzsi", author: "Suicasmo", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/f/f8/View_of_Mount_Fuji_from_%C5%8Cwakudani_20211202.jpg")!, fallback: .matterhorn),
-        .init(name: "Zugspitze", author: "Octagon", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/7/7e/Zugspitze_2.JPG")!, fallback: .treCime),
-        .init(name: "Triglav", author: "Andrej Jakobčič", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/0/0a/Triglav.jpg")!, fallback: .kirkjufell),
-        .init(name: "Gerlach", author: "Jakub Krajňák", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/0/06/Gerlachovsk%C3%BD_%C5%A1t%C3%ADt_z_Gran%C3%A1tovej_l%C3%A1vky.jpg")!, fallback: .fuji),
-        .init(name: "Rysy", author: "Krzysztof Dudzik-Górnicki", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/a/ad/Rysy%2C_wierzcholek_slowacki.jpg")!, fallback: .moraine),
-        .init(name: "Jungfrau", author: "4000er", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/d/d7/Jungfrau03.jpg")!, fallback: .matterhorn),
-        .init(name: "Bernina", author: "Jphoto", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/1/1b/PizBernina3.jpg")!, fallback: .treCime),
-        .init(name: "Ortler", author: "Pierre Lavaurs", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/5/56/L%27Ortler.jpg")!, fallback: .kirkjufell),
-        .init(name: "Marmolada", author: "Michael", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/0/06/Marmolata%2C_3343m.jpg")!, fallback: .fuji),
-        .init(name: "Kilimandzsáró", author: "Sergey Pesterev", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/6/6c/Kilimanjaro_from_Amboseli.jpg")!, fallback: .moraine),
-        .init(name: "Everest", author: "Rdevany", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/1/15/Mt._Everest_from_Gokyo_Ri_November_5%2C_2012.jpg")!, fallback: .matterhorn),
-        .init(name: "Annapurna", author: "PrajwalMohan", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/f/f2/South_Face_of_Annapurna_I_%28Main%29.jpg")!, fallback: .treCime),
-        .init(name: "Denali", author: "Denali National Park and Preserve", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/9/91/Wonder_Lake_and_Denali.jpg")!, fallback: .kirkjufell),
-        .init(name: "Aconcagua", author: "Bjørn Christian Tørrissen", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/4/4e/Aconcagua2016.jpg")!, fallback: .fuji),
-        .init(name: "Elbrusz", author: "Aleksandr Markin", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/c/c0/Mount_Elbrus_%28cropped%29.jpg")!, fallback: .moraine),
-        .init(name: "Vinson", author: "Christian Stangl", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/c/c6/Mount_Vinson_from_NW_at_Vinson_Plateau_by_Christian_Stangl_%28flickr%29.jpg")!, fallback: .matterhorn),
-        .init(name: "Tábla-hegy", author: "Danie van der Merwe", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/d/dc/Table_Mountain_DanieVDM.jpg")!, fallback: .treCime),
-        .init(name: "Ben Nevis", author: "Thincat", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/0/09/BenNevis2005.jpg")!, fallback: .kirkjufell),
-        .init(name: "Olümposz", author: "kallerna", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/e/e8/Olympus_National_Park_30.jpg")!, fallback: .fuji),
-        .init(name: "Teide", author: "Thomas Wolf", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/a/a5/Roque_Cinchado_und_Teide.jpg")!, fallback: .moraine),
-        .init(name: "Muszala", author: "Deyan Vasilev", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/c/c5/Musala_IMG_1447.jpg")!, fallback: .matterhorn),
-        .init(name: "Trolltunga", author: "kallerna", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Trolltunga_2017.jpg")!, fallback: .treCime),
-        .init(name: "Preikestolen", author: "Clementp.fr", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/8/85/Lyse_Fjord_et_Preikestolen.jpg")!, fallback: .kirkjufell),
-        .init(name: "Lofoten", author: "Lukas Beck", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/5/59/Moskenes_Reinebringen_lub_2025-07-21_img09_Aussicht.jpg")!, fallback: .fuji),
-        .init(name: "Dolomitok", author: "kallerna", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/3/36/Faloria_Cortina_d%27Ampezzo_10.jpg")!, fallback: .moraine),
+        .init(name: "Matterhorn", author: "Zacharie Grossen", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/6/60/Matterhorn_from_Domh%C3%BCtte_-_2.jpg")!),
+        .init(name: "Mont Blanc", author: "Hseugut", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/a/a2/Mont_Blanc_Aiguille.jpg")!),
+        .init(name: "Eiger", author: "Terra3", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/f/fc/North_face.jpg")!),
+        .init(name: "Tre Cime", author: "Tiia Monto", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/4/4f/2019_Tre_Cime.jpg")!),
+        .init(name: "Kirkjufell", author: "Anjali Kiggal", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/d/df/Kirkjufell_in_Iceland.jpg")!),
+        .init(name: "Fudzsi", author: "Suicasmo", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/f/f8/View_of_Mount_Fuji_from_%C5%8Cwakudani_20211202.jpg")!),
+        .init(name: "Zugspitze", author: "Octagon", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/7/7e/Zugspitze_2.JPG")!),
+        .init(name: "Triglav", author: "Andrej Jakobčič", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/0/0a/Triglav.jpg")!),
+        .init(name: "Gerlach", author: "Jakub Krajňák", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/0/06/Gerlachovsk%C3%BD_%C5%A1t%C3%ADt_z_Gran%C3%A1tovej_l%C3%A1vky.jpg")!),
+        .init(name: "Rysy", author: "Krzysztof Dudzik-Górnicki", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/a/ad/Rysy%2C_wierzcholek_slowacki.jpg")!),
+        .init(name: "Jungfrau", author: "4000er", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/d/d7/Jungfrau03.jpg")!),
+        .init(name: "Bernina", author: "Jphoto", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/1/1b/PizBernina3.jpg")!),
+        .init(name: "Ortler", author: "Pierre Lavaurs", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/5/56/L%27Ortler.jpg")!),
+        .init(name: "Marmolada", author: "Michael", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/0/06/Marmolata%2C_3343m.jpg")!),
+        .init(name: "Kilimandzsáró", author: "Sergey Pesterev", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/6/6c/Kilimanjaro_from_Amboseli.jpg")!),
+        .init(name: "Everest", author: "Rdevany", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/1/15/Mt._Everest_from_Gokyo_Ri_November_5%2C_2012.jpg")!),
+        .init(name: "Annapurna", author: "PrajwalMohan", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/f/f2/South_Face_of_Annapurna_I_%28Main%29.jpg")!),
+        .init(name: "Denali", author: "Denali National Park and Preserve", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/9/91/Wonder_Lake_and_Denali.jpg")!),
+        .init(name: "Aconcagua", author: "Bjørn Christian Tørrissen", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/4/4e/Aconcagua2016.jpg")!),
+        .init(name: "Elbrusz", author: "Aleksandr Markin", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/c/c0/Mount_Elbrus_%28cropped%29.jpg")!),
+        .init(name: "Vinson", author: "Christian Stangl", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/c/c6/Mount_Vinson_from_NW_at_Vinson_Plateau_by_Christian_Stangl_%28flickr%29.jpg")!),
+        .init(name: "Tábla-hegy", author: "Danie van der Merwe", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/d/dc/Table_Mountain_DanieVDM.jpg")!),
+        .init(name: "Ben Nevis", author: "Thincat", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/0/09/BenNevis2005.jpg")!),
+        .init(name: "Olümposz", author: "kallerna", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/e/e8/Olympus_National_Park_30.jpg")!),
+        .init(name: "Teide", author: "Thomas Wolf", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/a/a5/Roque_Cinchado_und_Teide.jpg")!),
+        .init(name: "Muszala", author: "Deyan Vasilev", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/c/c5/Musala_IMG_1447.jpg")!),
+        .init(name: "Trolltunga", author: "kallerna", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Trolltunga_2017.jpg")!),
+        .init(name: "Preikestolen", author: "Clementp.fr", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/8/85/Lyse_Fjord_et_Preikestolen.jpg")!),
+        .init(name: "Lofoten", author: "Lukas Beck", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/5/59/Moskenes_Reinebringen_lub_2025-07-21_img09_Aussicht.jpg")!),
+        .init(name: "Dolomitok", author: "kallerna", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/3/36/Faloria_Cortina_d%27Ampezzo_10.jpg")!),
     ]
 
     /// Név szerinti keresés (a csillagozott rögzítés feloldásához).
@@ -652,7 +648,8 @@ final class WrappedArtLoader: ObservableObject {
     }
 }
 
-/// Wrapped-háttérfotó: távoli kép ha megjött, addig a bundle-tartalék.
+/// Wrapped-háttérfotó: csak a távoli kép, ha megjött — addig üres (sötét
+/// alap). Bundle-tartalék nincs: a betöltés alatti beflashelés ki van szedve.
 /// GeometryReader + explicit méret (a keret nélküli kép szétnyomná a ZStacket).
 struct WrappedArtPhoto: View {
     var art: WrappedPeakArt
@@ -663,7 +660,7 @@ struct WrappedArtPhoto: View {
                 if let img = loader.image(for: art) {
                     Image(uiImage: img).resizable().scaledToFill()
                 } else {
-                    Image(art.fallback.asset).resizable().scaledToFill()
+                    Color.clear
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height)
@@ -672,35 +669,6 @@ struct WrappedArtPhoto: View {
         .ignoresSafeArea()
         .onAppear { loader.prefetch(art) }
     }
-}
-
-// MARK: - Wrapped-hegyek (megosztás-hátterek, bundle-assetek)
-//
-// Az 5 bundle-hegy megmarad: a távoli fotók betöltés alatti / offline
-// tartaléka mind (fallback), a widgetet most sem érintik.
-enum WrappedPeak: String, CaseIterable, Identifiable {
-    case matterhorn, treCime, kirkjufell, fuji, moraine
-    var id: String { rawValue }
-    var asset: String {
-        switch self {
-        case .matterhorn: "PeakMatterhorn"
-        case .treCime: "PeakTreCime"
-        case .kirkjufell: "PeakKirkjufell"
-        case .fuji: "PeakFuji"
-        case .moraine: "PeakMoraine"
-        }
-    }
-    var name: String {
-        switch self {
-        case .matterhorn: "Matterhorn"
-        case .treCime: "Tre Cime"
-        case .kirkjufell: "Kirkjufell"
-        case .fuji: "Fudzsi"
-        case .moraine: "Moraine"
-        }
-    }
-    /// „Matterhorn Wrapped" — a megosztott kártya címe a hegy nevével.
-    var wrappedTitle: String { "\(name) Wrapped" }
 }
 
 /// Egy megosztó-oldal: hegyfotó + Liquid Glass kockák.
@@ -950,15 +918,15 @@ struct WrappedSharePicker: View {
 
     private func renderAndShare() async {
         // Render-példány: anyag-háttérrel, mert az élő glass a képen eltűnne;
-        // háttér az előtöltött távoli fotó, végső esetben bundle-tartalék.
+        // háttér az előtöltött távoli fotó (ha nincs meg, csak a sötét alap —
+        // bundle-tartalék nincs). A megosztó-szövegben a hónap is szerepel.
         let bg = await WrappedArtLoader.shared.resolved(art)
-            ?? UIImage(named: art.fallback.asset)
         let page = WrappedPeakPage(art: art, monthTitle: month.title, personTitle: personTitle, stats: stats, distColors: distColors, forRender: true, renderImage: bg)
         let renderer = ImageRenderer(content: page.frame(width: 390, height: 680))
         renderer.scale = 3
         var items: [Any] = []
         if let uiImage = renderer.uiImage { items.append(uiImage) }
-        items.append("\(personTitle): \(String(format: "%.1f", stats.avg)) átlag, \(stats.count) jegy — Summit")
+        items.append("\(month.title) • \(personTitle): \(String(format: "%.1f", stats.avg)) átlag, \(stats.count) jegy — Summit")
         shareItems = items
         showShare = true
     }
