@@ -135,12 +135,23 @@ struct MonthlyWrappedCard: View {
     let month: MonthlyWrapped.Month
     let stats: MonthlyWrapped.Stats
     var onClose: () -> Void
+    /// Fiók-ID a stabil sorsoláshoz (minden fiók más hegyet kap ugyanarra
+    /// a hónapra, de ami egyszer kijött, az örökre ugyanaz marad).
+    var userId: String = ""
     @EnvironmentObject var theme: ThemeStore
     @Environment(\.colorScheme) var scheme
+    @Environment(\.accessibilityReduceTransparency) var reduceTransparency
     @State private var appeared = false
     @State private var showPicker = false
 
     var colors: AppColors { theme.colors(for: scheme) }
+    /// A hónap hegye ennél a fióknál — a megosztó ugyanide sorsol.
+    var art: WrappedPeakArt {
+        WrappedPeakArtCatalog.art(month: month, userId: userId)
+    }
+    /// Fotó fölött minden szöveg fehér (bold + bright), tömör háttérnél
+    /// a rendszer-színsémát tartjuk (Reduce Transparency-esés).
+    var photo: Bool { !reduceTransparency }
     /// Az átlag színe az 1–5 skálán (mint a jegykörök).
     var avgColor: Color { colors.gradeColor(for: Int(stats.avg.rounded())) }
     /// Eloszlás-színek a megosztott képnek is (explicit, env-független).
@@ -150,16 +161,27 @@ struct MonthlyWrappedCard: View {
 
     var body: some View {
         ZStack {
-            colors.background.ignoresSafeArea()
+            if photo {
+                WrappedArtPhoto(art: art)
+                // Olvashatósági sötétítés fent/lent (a fotó közepe szabadon marad)
+                LinearGradient(
+                    colors: [.black.opacity(0.55), .black.opacity(0.12),
+                             .black.opacity(0.12), .black.opacity(0.62)],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .ignoresSafeArea()
+            } else {
+                colors.background.ignoresSafeArea()
+            }
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        // Felső sor: kicker + megosztás/bezárás (semleges körök)
+                        // Felső sor: kicker + megosztás/bezárás (élő glass körök)
                         HStack(alignment: .center) {
                             Text(month.wrappedTitle.uppercased())
                                 .font(.caption2.weight(.semibold))
                                 .tracking(2)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(photo ? .white.opacity(0.85) : .secondary)
                             Spacer()
                             Button {
                                 SummitHaptics.selection()
@@ -167,55 +189,54 @@ struct MonthlyWrappedCard: View {
                             } label: {
                                 Image(systemName: "square.and.arrow.up")
                                     .font(.system(size: 15, weight: .semibold))
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(photo ? .white : .secondary)
                                     .frame(width: 34, height: 34)
-                                    .background(Circle().fill(Color.primary.opacity(0.08)))
+                                    .glassEffect(.regular.interactive(), in: Circle())
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Megosztás")
                             Button(action: onClose) {
                                 Image(systemName: "xmark")
                                     .font(.system(size: 15, weight: .bold))
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(photo ? .white : .secondary)
                                     .frame(width: 34, height: 34)
-                                    .background(Circle().fill(Color.primary.opacity(0.08)))
+                                    .glassEffect(.regular.interactive(), in: Circle())
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Bezárás")
                         }
-                        .padding(.horizontal, 20)
                         .padding(.top, 8)
 
-                    // Hős: hónap + átlag — az egyetlen színes pont a képernyőn
+                    // Hős: hónap + átlag — fotó fölött fehér, tömörnél színes
                     VStack(alignment: .leading, spacing: 2) {
                         Text(month.title)
                             .font(.system(size: 32, weight: .bold, design: .rounded))
+                            .foregroundStyle(photo ? .white : .primary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                         Text("\(stats.count) jegy • \(stats.exams) dolgozat")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(photo ? .white.opacity(0.8) : .secondary)
                     }
-                    .padding(.horizontal, 20)
                     .padding(.top, 14)
+                    .shadow(color: photo ? .black.opacity(0.35) : .clear, radius: 8)
                     .stagger(appeared, 0)
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(String(format: "%.1f", stats.avg))
                             .font(.system(size: 80, weight: .bold, design: .rounded))
-                            .foregroundStyle(avgColor)
+                            .foregroundStyle(photo ? .white : avgColor)
                             .monospacedDigit()
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
                         Text("átlag")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(photo ? .white.opacity(0.8) : .secondary)
                     }
-                    .padding(.horizontal, 20)
                     .padding(.top, 2)
+                    .shadow(color: photo ? .black.opacity(0.35) : .clear, radius: 8)
                     .stagger(appeared, 0.08)
 
-                    // Csempék: monokróm, mint az app sorai — számok primary,
-                    // feliratok secondary, ikonok egységesen secondary
+                    // Csempék: az oszlop teljes szélességében (rács tölti ki)
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                         wrappedTile(icon: "star", value: "\(stats.fives)", label: "ötös",
                                     sub: "\(stats.count) jegyből")
@@ -226,60 +247,76 @@ struct MonthlyWrappedCard: View {
                         wrappedTile(icon: "doc.text", value: "\(stats.exams)", label: "dolgozat",
                                     sub: "e hónapban")
                     }
-                    .padding(.horizontal, 20)
                     .padding(.top, 20)
                     .stagger(appeared, 0.16)
 
-                    // Sorok: legjobb + legtöbbet javult (semleges ikonokkal)
+                    // Sorok: legjobb + legtöbbet javult — egy üveglapon,
+                    // az oszlop teljes szélességében
                     VStack(spacing: 0) {
                         if let best = stats.bestSubject {
                             wrappedRow(icon: "trophy", title: "Legjobb tárgyad",
                                        value: "\(best.name) • \(String(format: "%.1f", best.avg))")
-                            if stats.mostImproved != nil { Divider().padding(.leading, 48) }
+                            if stats.mostImproved != nil {
+                                Divider()
+                                    .overlay(photo ? .white.opacity(0.25) : Color.primary.opacity(0.12))
+                                    .padding(.leading, 48)
+                            }
                         }
                         if let imp = stats.mostImproved {
                             wrappedRow(icon: "chart.line.uptrend.xyaxis", title: "Legtöbbet javultál",
                                        value: "\(imp.name) • +\(String(format: "%.1f", imp.delta))")
                         }
                     }
-                    .background(colors.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
+                    .wrappedGlass(photo: photo, surface: colors.surface)
+                    .padding(.top, 12)
                     .stagger(appeared, 0.24)
 
-                    // Eloszlás: vékony sáv + visszafogott jelmagyarázat
+                    // Eloszlás üveglapon
                     VStack(alignment: .leading, spacing: 8) {
                         Text("ELOSZLÁS")
                             .font(.caption2.weight(.semibold))
                             .tracking(1)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(photo ? .white.opacity(0.8) : .secondary)
                         WrappedDistBar(distribution: stats.distribution, colors: distColors)
-                        HStack(spacing: 12) {
+                        HStack(spacing: 10) {
                             ForEach([5, 4, 3, 2, 1], id: \.self) { v in
                                 HStack(spacing: 4) {
                                     Text("\(v)").font(.caption.weight(.semibold))
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(photo ? .white : .secondary)
                                     Text("×\(stats.distribution[v] ?? 0)")
                                         .font(.caption2.monospacedDigit())
-                                        .foregroundStyle(.tertiary)
+                                        .foregroundStyle(photo ? .white.opacity(0.7) : Color(.tertiaryLabel))
                                 }
                             }
-                            Spacer()
+                            Spacer(minLength: 0)
                         }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 22)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                    .wrappedGlass(photo: photo, surface: colors.surface)
+                    .padding(.top, 12)
                     .padding(.bottom, 24)
                     .stagger(appeared, 0.32)
                     }
+                    // Egyetlen vízszintes padding az egész oszlopra: semmi
+                    // sem lóghat túl a képernyőn (a túllógó tartalom
+                    // középre csúszik és két oldalt vágódik).
+                    .padding(.horizontal, 20)
                 }
-                // Lábléc: lehorgonyozza az alját — nincs lógó űr
-                Text("SUMMIT • \(month.title.uppercased())")
-                    .font(.caption2.weight(.semibold))
-                    .tracking(2)
-                    .foregroundStyle(.tertiary)
-                    .padding(.bottom, 18)
+                // Lábléc: hegy + hónap + fotós — lehorgonyozza az alját
+                VStack(spacing: 3) {
+                    Text("\(art.name.uppercased()) • \(month.title.uppercased())")
+                        .font(.caption2.weight(.semibold))
+                        .tracking(2)
+                        .foregroundStyle(photo ? .white.opacity(0.75) : Color(.tertiaryLabel))
+                    Text("Fotó: \(art.author)")
+                        .font(.caption2)
+                        .foregroundStyle(photo ? .white.opacity(0.55) : Color(.tertiaryLabel))
+                }
+                .shadow(color: photo ? .black.opacity(0.4) : .clear, radius: 6)
+                .padding(.bottom, 18)
             }
         }
         .onAppear {
@@ -287,7 +324,7 @@ struct MonthlyWrappedCard: View {
             withAnimation(SummitMotion.gentle) { appeared = true }
         }
         .fullScreenCover(isPresented: $showPicker) {
-            WrappedSharePicker(month: month, stats: stats, distColors: distColors)
+            WrappedSharePicker(month: month, stats: stats, distColors: distColors, userId: userId)
         }
     }
 
@@ -296,36 +333,39 @@ struct MonthlyWrappedCard: View {
             HStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(photo ? .white.opacity(0.85) : .secondary)
                 Text(label)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(photo ? .white.opacity(0.85) : .secondary)
             }
             Text(value)
                 .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundStyle(photo ? .white : .primary)
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(sub)
                 .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(photo ? .white.opacity(0.65) : Color(.tertiaryLabel))
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(colors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .wrappedGlass(photo: photo, surface: colors.surface)
     }
 
     private func wrappedRow(icon: String, title: String, value: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(photo ? .white.opacity(0.85) : .secondary)
                 .frame(width: 22)
             VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                Text(value).font(.subheadline.weight(.semibold)).lineLimit(1)
+                Text(title).font(.caption.weight(.semibold))
+                    .foregroundStyle(photo ? .white.opacity(0.75) : .secondary)
+                Text(value).font(.subheadline.weight(.semibold))
+                    .foregroundStyle(photo ? .white : .primary)
+                    .lineLimit(1)
             }
             Spacer()
         }
@@ -358,6 +398,18 @@ private extension View {
     func stagger(_ appeared: Bool, _ delay: Double) -> some View {
         modifier(Stagger(appeared: appeared, delay: delay))
     }
+
+    /// Wrapped-üveglap: fotó fölött VALÓDI Liquid Glass, tömör háttérnél
+    /// (Reduce Transparency) a régi surface-kártya. Padding KÍVÜL marad —
+    /// a glass a nézet határai mögé mintáz (lásd liquid-glass skill).
+    @ViewBuilder
+    func wrappedGlass(photo: Bool, surface: Color, cornerRadius: CGFloat = 18) -> some View {
+        if photo {
+            self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            self.background(surface, in: RoundedRectangle(cornerRadius: cornerRadius))
+        }
+    }
 }
 
 /// Egybefüggő eloszlás-sáv (5→1, jegyszínekkel), nulla darabbal is stabil.
@@ -384,11 +436,143 @@ struct WrappedDistBar: View {
     }
 }
 
+// MARK: - Wrapped-hegykatalógus (30 távoli fotó, stabil sorsolással)
+//
+// Minden hónap minden fiókhoz MÁS hegyet kap, de a sorsolás determinisztikus
+// (FNV-1a hash a fiók-ID + hónap alapján): ami egyszer kijött, az örökre
+// ugyanaz marad — nincs szerver-oldali állapot, offline is működik.
+// Forrás: Wikimedia Commons (szabad licenc), a fotós neve a láblécben szerepel.
+// Betöltésig / offline a bundle-tartalék látszik (fallback).
+struct WrappedPeakArt: Hashable {
+    var name: String
+    var author: String
+    var url: URL
+    /// Offline / betöltés alatti tartalék (bundle-asset).
+    var fallback: WrappedPeak
+    /// „Kirkjufell Wrapped" — a kártya címe a hegy nevével.
+    var wrappedTitle: String { "\(name) Wrapped" }
+}
+
+enum WrappedPeakArtCatalog {
+    /// Mind a 30 URL ellenőrzött (HTTP 200 + képtartalom + szemrevételezés).
+    static let all: [WrappedPeakArt] = [
+        .init(name: "Matterhorn", author: "Zacharie Grossen", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/60/Matterhorn_from_Domh%C3%BCtte_-_2.jpg/1280px-Matterhorn_from_Domh%C3%BCtte_-_2.jpg")!, fallback: .matterhorn),
+        .init(name: "Mont Blanc", author: "Hseugut", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/a/a2/Mont_Blanc_Aiguille.jpg")!, fallback: .treCime),
+        .init(name: "Eiger", author: "Terra3", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fc/North_face.jpg/1280px-North_face.jpg")!, fallback: .kirkjufell),
+        .init(name: "Tre Cime", author: "Tiia Monto", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4f/2019_Tre_Cime.jpg/1280px-2019_Tre_Cime.jpg")!, fallback: .fuji),
+        .init(name: "Kirkjufell", author: "Anjali Kiggal", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/df/Kirkjufell_in_Iceland.jpg/1280px-Kirkjufell_in_Iceland.jpg")!, fallback: .moraine),
+        .init(name: "Fudzsi", author: "Suicasmo", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f8/View_of_Mount_Fuji_from_%C5%8Cwakudani_20211202.jpg/1280px-View_of_Mount_Fuji_from_%C5%8Cwakudani_20211202.jpg")!, fallback: .matterhorn),
+        .init(name: "Zugspitze", author: "Octagon", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7e/Zugspitze_2.JPG/1280px-Zugspitze_2.JPG")!, fallback: .treCime),
+        .init(name: "Triglav", author: "Andrej Jakobčič", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0a/Triglav.jpg/1280px-Triglav.jpg")!, fallback: .kirkjufell),
+        .init(name: "Gerlach", author: "Jakub Krajňák", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/06/Gerlachovsk%C3%BD_%C5%A1t%C3%ADt_z_Gran%C3%A1tovej_l%C3%A1vky.jpg/1280px-Gerlachovsk%C3%BD_%C5%A1t%C3%ADt_z_Gran%C3%A1tovej_l%C3%A1vky.jpg")!, fallback: .fuji),
+        .init(name: "Rysy", author: "Krzysztof Dudzik-Górnicki", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ad/Rysy%2C_wierzcholek_slowacki.jpg/1280px-Rysy%2C_wierzcholek_slowacki.jpg")!, fallback: .moraine),
+        .init(name: "Jungfrau", author: "4000er", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/d/d7/Jungfrau03.jpg")!, fallback: .matterhorn),
+        .init(name: "Bernina", author: "Jphoto", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1b/PizBernina3.jpg/1280px-PizBernina3.jpg")!, fallback: .treCime),
+        .init(name: "Ortler", author: "Pierre Lavaurs", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/5/56/L%27Ortler.jpg")!, fallback: .kirkjufell),
+        .init(name: "Marmolada", author: "Michael", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/06/Marmolata%2C_3343m.jpg/1280px-Marmolata%2C_3343m.jpg")!, fallback: .fuji),
+        .init(name: "Kilimandzsáró", author: "Sergey Pesterev", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6c/Kilimanjaro_from_Amboseli.jpg/1280px-Kilimanjaro_from_Amboseli.jpg")!, fallback: .moraine),
+        .init(name: "Everest", author: "Rdevany", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/15/Mt._Everest_from_Gokyo_Ri_November_5%2C_2012.jpg/1280px-Mt._Everest_from_Gokyo_Ri_November_5%2C_2012.jpg")!, fallback: .matterhorn),
+        .init(name: "Annapurna", author: "PrajwalMohan", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f2/South_Face_of_Annapurna_I_%28Main%29.jpg/1280px-South_Face_of_Annapurna_I_%28Main%29.jpg")!, fallback: .treCime),
+        .init(name: "Denali", author: "Denali National Park and Preserve", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/91/Wonder_Lake_and_Denali.jpg/1280px-Wonder_Lake_and_Denali.jpg")!, fallback: .kirkjufell),
+        .init(name: "Aconcagua", author: "Bjørn Christian Tørrissen", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4e/Aconcagua2016.jpg/1280px-Aconcagua2016.jpg")!, fallback: .fuji),
+        .init(name: "Elbrusz", author: "Aleksandr Markin", url: URL(string: "https://upload.wikimedia.org/wikipedia/commons/c/c0/Mount_Elbrus_%28cropped%29.jpg")!, fallback: .moraine),
+        .init(name: "Vinson", author: "Christian Stangl", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c6/Mount_Vinson_from_NW_at_Vinson_Plateau_by_Christian_Stangl_%28flickr%29.jpg/1280px-Mount_Vinson_from_NW_at_Vinson_Plateau_by_Christian_Stangl_%28flickr%29.jpg")!, fallback: .matterhorn),
+        .init(name: "Tábla-hegy", author: "Danie van der Merwe", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/dc/Table_Mountain_DanieVDM.jpg/1280px-Table_Mountain_DanieVDM.jpg")!, fallback: .treCime),
+        .init(name: "Ben Nevis", author: "Thincat", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/09/BenNevis2005.jpg/1280px-BenNevis2005.jpg")!, fallback: .kirkjufell),
+        .init(name: "Olümposz", author: "kallerna", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e8/Olympus_National_Park_30.jpg/1280px-Olympus_National_Park_30.jpg")!, fallback: .fuji),
+        .init(name: "Teide", author: "Thomas Wolf", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a5/Roque_Cinchado_und_Teide.jpg/1280px-Roque_Cinchado_und_Teide.jpg")!, fallback: .moraine),
+        .init(name: "Muszala", author: "Deyan Vasilev", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c5/Musala_IMG_1447.jpg/1280px-Musala_IMG_1447.jpg")!, fallback: .matterhorn),
+        .init(name: "Trolltunga", author: "kallerna", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b6/Trolltunga_2017.jpg/1280px-Trolltunga_2017.jpg")!, fallback: .treCime),
+        .init(name: "Preikestolen", author: "Clementp.fr", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/85/Lyse_Fjord_et_Preikestolen.jpg/1280px-Lyse_Fjord_et_Preikestolen.jpg")!, fallback: .kirkjufell),
+        .init(name: "Lofoten", author: "Lukas Beck", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/59/Moskenes_Reinebringen_lub_2025-07-21_img09_Aussicht.jpg/1280px-Moskenes_Reinebringen_lub_2025-07-21_img09_Aussicht.jpg")!, fallback: .fuji),
+        .init(name: "Dolomitok", author: "kallerna", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/36/Faloria_Cortina_d%27Ampezzo_10.jpg/1280px-Faloria_Cortina_d%27Ampezzo_10.jpg")!, fallback: .moraine),
+    ]
+
+    /// Stabil sorsolás fiók + hónap alapján (FNV-1a — direkt nem a
+    /// Swift.Hasher, mert az futásonként más seedet kap, ez meg örökre stabil).
+    static func art(month: MonthlyWrapped.Month, userId: String) -> WrappedPeakArt {
+        var h: UInt64 = 14695981039346656037
+        for b in "\(userId)#\(month.year)-\(month.month)".utf8 {
+            h ^= UInt64(b)
+            h &*= 1099511628211
+        }
+        return all[Int(h % UInt64(all.count))]
+    }
+}
+
+/// Távoli wrapped-fotók töltése + memóriában tartása (a lemez-gyorstárat a
+/// megosztott URLCache adja). Az ImageRendererbe nem megy át élő hálózati
+/// kép, ezért a megosztás az itt előtöltött UIImage-et kapja.
+@MainActor
+final class WrappedArtLoader: ObservableObject {
+    static let shared = WrappedArtLoader()
+    @Published private(set) var loaded: [URL: UIImage] = [:]
+    private var inflight = Set<URL>()
+    private lazy var session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.urlCache = URLCache(memoryCapacity: 32 * 1024 * 1024,
+                                   diskCapacity: 200 * 1024 * 1024,
+                                   diskPath: "wrapped-art")
+        config.requestCachePolicy = .returnCacheDataElseLoad
+        return URLSession(configuration: config)
+    }()
+
+    func image(for art: WrappedPeakArt) -> UIImage? { loaded[art.url] }
+
+    /// Háttér-előtöltés a kártya megnyitásakor (megosztáskor már kész).
+    func prefetch(_ art: WrappedPeakArt) {
+        guard loaded[art.url] == nil, !inflight.contains(art.url) else { return }
+        inflight.insert(art.url)
+        Task {
+            if let img = await download(art.url) { loaded[art.url] = img }
+            inflight.remove(art.url)
+        }
+    }
+
+    /// Renderhez: memóriából azonnal, különben hálózatról (cache-el).
+    func resolved(_ art: WrappedPeakArt) async -> UIImage? {
+        if let img = loaded[art.url] { return img }
+        if let img = await download(art.url) {
+            loaded[art.url] = img
+            return img
+        }
+        return nil
+    }
+
+    private func download(_ url: URL) async -> UIImage? {
+        guard let (data, response) = try? await session.data(from: url),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let img = UIImage(data: data) else { return nil }
+        return img
+    }
+}
+
+/// Wrapped-háttérfotó: távoli kép ha megjött, addig a bundle-tartalék.
+/// GeometryReader + explicit méret (a keret nélküli kép szétnyomná a ZStacket).
+struct WrappedArtPhoto: View {
+    var art: WrappedPeakArt
+    @ObservedObject private var loader = WrappedArtLoader.shared
+    var body: some View {
+        GeometryReader { geo in
+            Group {
+                if let img = loader.image(for: art) {
+                    Image(uiImage: img).resizable().scaledToFill()
+                } else {
+                    Image(art.fallback.asset).resizable().scaledToFill()
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .clipped()
+        }
+        .ignoresSafeArea()
+        .onAppear { loader.prefetch(art) }
+    }
+}
+
 // MARK: - Wrapped-hegyek (megosztás-hátterek, bundle-assetek)
 //
-// 5 új, netről válogatott esztétikus hegy (Unsplash-licenc, szabadon
-// felhasználható): Matterhorn, Tre Cime, Kirkjufell, Fudzsi, Moraine.
-// Az asset-katalógusban laknak (offline is mennek), a widgetet nem érintik.
+// Az 5 bundle-hegy megmarad: a távoli fotók betöltés alatti / offline
+// tartaléka mind (fallback), a widgetet most sem érintik.
 enum WrappedPeak: String, CaseIterable, Identifiable {
     case matterhorn, treCime, kirkjufell, fuji, moraine
     var id: String { rawValue }
@@ -414,16 +598,23 @@ enum WrappedPeak: String, CaseIterable, Identifiable {
     var wrappedTitle: String { "\(name) Wrapped" }
 }
 
-/// Egy megosztó-oldal: hegyfotó + frosted-glass kockák.
-/// Ua. a nézet megy a swipe-körhintába és az ImageRendererbe —
-/// ezért anyag-háttér van rajta, nem élő .glassEffect (az statikus
-/// képben eltűnik — headless-próba igazolta).
+/// Egy megosztó-oldal: hegyfotó + Liquid Glass kockák.
+/// Ua. a nézet megy a képernyőre és az ImageRendererbe:
+/// képernyőn VALÓDI .glassEffect (élő mintavétel), renderhez anyag-háttér
+/// (`forRender: true`), mert a glass a statikus képben eltűnik —
+/// headless-próba igazolta. A háttér a hónap fix sorsolt fotója
+/// (távoli kép ha megjött, renderhez előtöltött UIImage).
 struct WrappedPeakPage: View {
-    var peak: WrappedPeak
+    var art: WrappedPeakArt
     /// „2026. Október" — a láblécbe a hegy neve mellé.
     var monthTitle: String
     var stats: MonthlyWrapped.Stats
     var distColors: [Int: Color]
+    /// Render-példány (ImageRenderer): anyag-háttér, nem élő glass.
+    var forRender = false
+    /// Render-példány háttérképe (előtöltött távoli fotó, végső esetben
+    /// bundle-tartalék) — az ImageRenderer a hálózati képet nem várja meg.
+    var renderImage: UIImage? = nil
 
     private var lateLabel: String {
         if stats.lateCount == 0 { return "késés" }
@@ -435,16 +626,27 @@ struct WrappedPeakPage: View {
 
     var body: some View {
         ZStack {
-            Image(peak.asset)
-                .resizable()
-                .scaledToFill()
+            if let renderImage {
+                // Render-út: kész UIImage (távoli fotó vagy bundle-tartalék).
+                GeometryReader { geo in
+                    Image(uiImage: renderImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                }
+                .ignoresSafeArea()
+            } else {
+                // Képernyő: távoli fotó ha megjött, addig bundle-tartalék.
+                WrappedArtPhoto(art: art)
+            }
             // Olvashatósági sötétítés fent/lent (a fotó közepe szabadon marad)
             LinearGradient(
                 colors: [.black.opacity(0.55), .clear, .clear, .black.opacity(0.6)],
                 startPoint: .top, endPoint: .bottom
             )
             VStack(alignment: .leading, spacing: 0) {
-                Text(peak.wrappedTitle.uppercased())
+                Text(art.wrappedTitle.uppercased())
                     .font(.system(size: 13, weight: .bold))
                     .tracking(3)
                     .foregroundStyle(.white.opacity(0.85))
@@ -452,28 +654,11 @@ struct WrappedPeakPage: View {
                     .minimumScaleFactor(0.7)
                     .padding(.top, 8)
                 Spacer(minLength: 8)
-                // Hős glass-kocka: átlag + jegy/dolgozat + legjobb tárgy
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(String(format: "%.1f", stats.avg))
-                        .font(.system(size: 84, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .monospacedDigit()
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                    Text("\(stats.count) jegy • \(stats.exams) dolgozat")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.8))
-                    if let best = stats.bestSubject {
-                        Text("Legjobb: \(best.name) • \(String(format: "%.1f", best.avg))")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.8))
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(18)
-                .glassTile()
+                // Hős + minik + eloszlás. GlassEffectContainer NINCS:
+                // az szétnyomja az oszlopot (teljes szélesség + vágás) —
+                // csempénként külön glass, az renderel helyesen.
+                heroTile
                 Spacer(minLength: 10)
-                // Mini kockák: ötös, hiányzás, késés
                 HStack(spacing: 10) {
                     peakMini(icon: "star", value: "\(stats.fives)", label: "ötös",
                              sub: "\(stats.count) jegyből")
@@ -481,38 +666,71 @@ struct WrappedPeakPage: View {
                              sub: absenceSub)
                     peakMini(icon: "alarm", value: "\(stats.lateCount)", label: lateLabel)
                 }
-                // Eloszlás-kocka
-                VStack(alignment: .leading, spacing: 8) {
-                    WrappedDistBar(distribution: stats.distribution, colors: distColors)
-                    HStack(spacing: 10) {
-                        ForEach([5, 4, 3, 2, 1], id: \.self) { v in
-                            HStack(spacing: 3) {
-                                Text("\(v)")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(.white)
-                                Text("×\(stats.distribution[v] ?? 0)")
-                                    .font(.caption2.monospacedDigit())
-                                    .foregroundStyle(.white.opacity(0.7))
-                            }
-                        }
-                        Spacer()
-                    }
-                }
-                .padding(14)
-                .glassTile()
-                .padding(.top, 10)
+                distTile.padding(.top, 10)
                 Spacer(minLength: 10)
-                // Lábléc: a hegy neve + a hónap
-                Text("\(peak.name.uppercased()) • \(monthTitle.uppercased())")
-                    .font(.caption.weight(.bold))
-                    .tracking(2)
-                    .foregroundStyle(.white.opacity(0.75))
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.bottom, 4)
+                // Lábléc: a hegy neve + a hónap + a fotós
+                VStack(spacing: 2) {
+                    Text("\(art.name.uppercased()) • \(monthTitle.uppercased())")
+                        .font(.caption.weight(.bold))
+                        .tracking(2)
+                        .foregroundStyle(.white.opacity(0.75))
+                    Text("Fotó: \(art.author)")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.55))
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.bottom, 4)
             }
             .padding(.horizontal, 20)
-            .padding(.vertical, 16)
+            // Felül a státuszsáv alá kell férni (az oldal ignoresSafeArea-val megy).
+            .padding(.top, 56)
+            .padding(.bottom, 16)
         }
+    }
+
+    /// Hős üveglap: átlag + jegy/dolgozat + legjobb tárgy.
+    private var heroTile: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(String(format: "%.1f", stats.avg))
+                .font(.system(size: 84, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Text("\(stats.count) jegy • \(stats.exams) dolgozat")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.8))
+            if let best = stats.bestSubject {
+                Text("Legjobb: \(best.name) • \(String(format: "%.1f", best.avg))")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .peakTile(forRender: forRender)
+    }
+
+    /// Eloszlás üveglap.
+    private var distTile: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            WrappedDistBar(distribution: stats.distribution, colors: distColors)
+            HStack(spacing: 10) {
+                ForEach([5, 4, 3, 2, 1], id: \.self) { v in
+                    HStack(spacing: 3) {
+                        Text("\(v)")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                        Text("×\(stats.distribution[v] ?? 0)")
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                }
+                Spacer()
+            }
+        }
+        .padding(14)
+        .peakTile(forRender: forRender)
     }
 
     private func peakMini(icon: String, value: String, label: String, sub: String? = nil) -> some View {
@@ -539,46 +757,54 @@ struct WrappedPeakPage: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .glassTile()
+        .peakTile(forRender: forRender)
     }
 }
 
-/// Frosted-glass kocka: preview-ban és renderben AZONOS — anyag-háttér
-/// + fehér hajszálkeret, nem élő effekt.
-private struct GlassTile: ViewModifier {
+/// Megosztó-üveglap: képernyőn VALÓDI Liquid Glass, renderben anyag-háttér
+/// + fehér hajszálkeret (a glass az ImageRendererben nem látszik).
+private struct PeakTile: ViewModifier {
+    var forRender: Bool
     func body(content: Content) -> some View {
-        content
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(.white.opacity(0.35), lineWidth: 1))
+        if forRender {
+            content
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+                .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(.white.opacity(0.35), lineWidth: 1))
+        } else {
+            content
+                .glassEffect(.regular, in: .rect(cornerRadius: 18))
+        }
     }
 }
 
 private extension View {
-    func glassTile() -> some View { modifier(GlassTile()) }
+    func peakTile(forRender: Bool) -> some View { modifier(PeakTile(forRender: forRender)) }
+    /// Régi név, csak a render-ághoz (az élő nézet `peakTile`-t használ).
+    func glassTile() -> some View { modifier(PeakTile(forRender: true)) }
 }
 
-/// Megosztás-választó: swipe-körhinta 5 hegy között + Megosztás gomb.
-/// A gomb az AKTUÁLIS oldalt rendereli ugyanazzal a háttérrel.
+/// Megosztó-előnézet: a hónap fix sorsolt hegye + Megosztás gomb.
+/// Nincs több swipe-választó: a hónapnak EGY képe + neve van (az marad),
+/// a gomb pontosan ezt az oldalt rendereli ugyanazzal a háttérrel.
 struct WrappedSharePicker: View {
     var month: MonthlyWrapped.Month
     var stats: MonthlyWrapped.Stats
     var distColors: [Int: Color]
-    @State private var peak: WrappedPeak = .matterhorn
+    var userId: String = ""
     @State private var shareItems: [Any] = []
     @State private var showShare = false
     @Environment(\.dismiss) var dismiss
 
+    /// A hónap hegye ennél a fióknál — ua. mint a kártyán.
+    var art: WrappedPeakArt {
+        WrappedPeakArtCatalog.art(month: month, userId: userId)
+    }
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            TabView(selection: $peak) {
-                ForEach(WrappedPeak.allCases) { p in
-                    WrappedPeakPage(peak: p, monthTitle: month.title, stats: stats, distColors: distColors)
-                        .tag(p)
-                }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .ignoresSafeArea()
+            WrappedPeakPage(art: art, monthTitle: month.title, stats: stats, distColors: distColors)
+                .ignoresSafeArea()
             VStack {
                 HStack {
                     Spacer()
@@ -587,7 +813,7 @@ struct WrappedSharePicker: View {
                             .font(.system(size: 15, weight: .bold))
                             .foregroundStyle(.white)
                             .frame(width: 34, height: 34)
-                            .background(Circle().fill(.white.opacity(0.2)))
+                            .glassEffect(.regular.interactive(), in: Circle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Bezárás")
@@ -595,28 +821,16 @@ struct WrappedSharePicker: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 10)
                 Spacer()
-                Text(peak.name)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
-                HStack(spacing: 6) {
-                    ForEach(WrappedPeak.allCases) { p in
-                        Capsule()
-                            .fill(.white.opacity(p == peak ? 0.95 : 0.35))
-                            .frame(width: p == peak ? 22 : 6, height: 6)
-                    }
-                }
-                .padding(.top, 6)
                 Button {
                     SummitHaptics.selection()
-                    renderAndShare()
+                    Task { await renderAndShare() }
                 } label: {
                     Label("Megosztás", systemImage: "square.and.arrow.up")
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
-                        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(.white.opacity(0.35), lineWidth: 1))
+                        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 18))
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 20)
@@ -629,14 +843,18 @@ struct WrappedSharePicker: View {
         }
     }
 
-    private func renderAndShare() {
-        let page = WrappedPeakPage(peak: peak, monthTitle: month.title, stats: stats, distColors: distColors)
+    private func renderAndShare() async {
+        // Render-példány: anyag-háttérrel, mert az élő glass a képen eltűnne;
+        // háttér az előtöltött távoli fotó, végső esetben bundle-tartalék.
+        let bg = await WrappedArtLoader.shared.resolved(art)
+            ?? UIImage(named: art.fallback.asset)
+        let page = WrappedPeakPage(art: art, monthTitle: month.title, stats: stats, distColors: distColors, forRender: true, renderImage: bg)
         let renderer = ImageRenderer(content: page.frame(width: 390, height: 680))
         renderer.scale = 3
         var items: [Any] = []
         if let uiImage = renderer.uiImage { items.append(uiImage) }
-        items.append("\(peak.wrappedTitle): \(String(format: "%.1f", stats.avg)) átlag, \(stats.count) jegy — Summit")
-        AnalyticsStore.recordStep("wrapped_share", detail: "\(month.id)/\(peak.rawValue)")
+        items.append("\(art.wrappedTitle): \(String(format: "%.1f", stats.avg)) átlag, \(stats.count) jegy — Summit")
+        AnalyticsStore.recordStep("wrapped_share", detail: "\(month.id)/\(art.name)")
         shareItems = items
         showShare = true
     }
@@ -718,7 +936,8 @@ struct MonthlyArchiveView: View {
             MonthlyWrappedCard(
                 month: m,
                 stats: MonthlyWrapped.stats(grades: grades, month: m, exams: exams, absences: absences),
-                onClose: { opened = nil }
+                onClose: { opened = nil },
+                userId: session.selectedUser?.id ?? ""
             )
             .environmentObject(theme)
         }
