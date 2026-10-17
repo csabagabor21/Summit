@@ -138,8 +138,7 @@ struct MonthlyWrappedCard: View {
     @EnvironmentObject var theme: ThemeStore
     @Environment(\.colorScheme) var scheme
     @State private var appeared = false
-    @State private var shareItems: [Any] = []
-    @State private var showShare = false
+    @State private var showPicker = false
 
     var colors: AppColors { theme.colors(for: scheme) }
     /// Az átlag színe az 1–5 skálán (mint a jegykörök).
@@ -287,9 +286,8 @@ struct MonthlyWrappedCard: View {
             SummitHaptics.success()
             withAnimation(SummitMotion.gentle) { appeared = true }
         }
-        .sheet(isPresented: $showShare) {
-            ShareSheet(items: shareItems)
-                .presentationDetents([.medium, .large])
+        .fullScreenCover(isPresented: $showPicker) {
+            WrappedSharePicker(month: month, stats: stats, distColors: distColors)
         }
     }
 
@@ -335,28 +333,12 @@ struct MonthlyWrappedCard: View {
         .padding(.vertical, 10)
     }
 
-    // MARK: Megosztás
+    // MARK: Megosztás-választó (swipe 5 hegy között)
 
-    /// Kártyakép + szöveg a rendszer-megosztóba (pl. üzenet, Insta-sztori).
+    /// A kártya Megosztás gombja a hegyválasztót nyitja — a renderelés
+    /// és a rendszer-sheet a pickerben történik, az aktuális háttérrel.
     private func share() {
-        let image = WrappedShareImage(
-            title: month.wrappedTitle, avg: stats.avg, avgColor: avgColor,
-            count: stats.count, fives: stats.fives,
-            absences: stats.absences, lateCount: stats.lateCount,
-            lateMinutes: stats.lateMinutes, exams: stats.exams,
-            bestSubject: stats.bestSubject?.name, bestAvg: stats.bestSubject?.avg,
-            distribution: stats.distribution, distColors: distColors
-        )
-        let renderer = ImageRenderer(content: image.frame(width: 390, height: 600))
-        renderer.scale = 3
-        var items: [Any] = []
-        if let uiImage = renderer.uiImage {
-            items.append(uiImage)
-        }
-        items.append("\(month.wrappedTitle): \(String(format: "%.1f", stats.avg)) átlag, \(stats.count) jegy — Summit")
-        AnalyticsStore.recordStep("wrapped_share", detail: month.id)
-        shareItems = items
-        showShare = true
+        showPicker = true
     }
 }
 
@@ -402,84 +384,261 @@ struct WrappedDistBar: View {
     }
 }
 
-/// Megosztott kép (env-független, fix méret): sötét kártya, óriás-átlag,
-/// négy stat-sor, eloszlás-sáv, Summit-jel.
-struct WrappedShareImage: View {
-    var title: String
-    var avg: Double
-    var avgColor: Color
-    var count: Int
-    var fives: Int
-    var absences: Int
-    var lateCount: Int
-    var lateMinutes: Int
-    var exams: Int
-    var bestSubject: String?
-    var bestAvg: Double?
-    var distribution: [Int: Int]
+// MARK: - Wrapped-hegyek (megosztás-hátterek, bundle-assetek)
+//
+// 5 új, netről válogatott esztétikus hegy (Unsplash-licenc, szabadon
+// felhasználható): Matterhorn, Tre Cime, Kirkjufell, Fudzsi, Moraine.
+// Az asset-katalógusban laknak (offline is mennek), a widgetet nem érintik.
+enum WrappedPeak: String, CaseIterable, Identifiable {
+    case matterhorn, treCime, kirkjufell, fuji, moraine
+    var id: String { rawValue }
+    var asset: String {
+        switch self {
+        case .matterhorn: "PeakMatterhorn"
+        case .treCime: "PeakTreCime"
+        case .kirkjufell: "PeakKirkjufell"
+        case .fuji: "PeakFuji"
+        case .moraine: "PeakMoraine"
+        }
+    }
+    var name: String {
+        switch self {
+        case .matterhorn: "Matterhorn"
+        case .treCime: "Tre Cime"
+        case .kirkjufell: "Kirkjufell"
+        case .fuji: "Fudzsi"
+        case .moraine: "Moraine"
+        }
+    }
+    /// „Matterhorn Wrapped" — a megosztott kártya címe a hegy nevével.
+    var wrappedTitle: String { "\(name) Wrapped" }
+}
+
+/// Egy megosztó-oldal: hegyfotó + frosted-glass kockák.
+/// Ua. a nézet megy a swipe-körhintába és az ImageRendererbe —
+/// ezért anyag-háttér van rajta, nem élő .glassEffect (az statikus
+/// képben eltűnik — headless-próba igazolta).
+struct WrappedPeakPage: View {
+    var peak: WrappedPeak
+    /// „2026. Október" — a láblécbe a hegy neve mellé.
+    var monthTitle: String
+    var stats: MonthlyWrapped.Stats
     var distColors: [Int: Color]
 
     private var lateLabel: String {
-        if lateCount == 0 { return "késés" }
-        return "késés • \(lateMinutes) perc"
+        if stats.lateCount == 0 { return "késés" }
+        return "késés • \(stats.lateMinutes) perc"
+    }
+    private var absenceSub: String {
+        stats.unjustified == 0 ? "mind igazolt" : "\(stats.unjustified) igazolatlan"
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(title.uppercased())
-                .font(.system(size: 15, weight: .bold))
-                .tracking(4)
-                .foregroundStyle(.white.opacity(0.6))
-            Text(String(format: "%.1f", avg))
-                .font(.system(size: 140, weight: .bold, design: .rounded))
-                .padding(.top, 4)
-                .foregroundStyle(avgColor)
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Text("\(count) jegy • \(fives) ötös • \(exams) dolgozat")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.75))
-                .padding(.top, 2)
-            if let best = bestSubject, let ba = bestAvg {
-                Text("Legjobb: \(best) • \(String(format: "%.1f", ba))")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.75))
-                    .padding(.top, 2)
-            }
-            Spacer(minLength: 16)
-            VStack(alignment: .leading, spacing: 8) {
-                shareLine(value: "\(absences)", label: "hiányzás")
-                shareLine(value: "\(lateCount)", label: lateLabel)
-            }
-            WrappedDistBar(distribution: distribution, colors: distColors)
-                .padding(.top, 18)
-            Spacer(minLength: 20)
-            Text("SUMMIT")
-                .font(.system(size: 16, weight: .bold))
-                .tracking(6)
-                .foregroundStyle(.white.opacity(0.45))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(30)
-        .background(
+        ZStack {
+            Image(peak.asset)
+                .resizable()
+                .scaledToFill()
+            // Olvashatósági sötétítés fent/lent (a fotó közepe szabadon marad)
             LinearGradient(
-                colors: [Color(white: 0.12), Color(white: 0.05)],
+                colors: [.black.opacity(0.55), .clear, .clear, .black.opacity(0.6)],
                 startPoint: .top, endPoint: .bottom
             )
-        )
+            VStack(alignment: .leading, spacing: 0) {
+                Text(peak.wrappedTitle.uppercased())
+                    .font(.system(size: 13, weight: .bold))
+                    .tracking(3)
+                    .foregroundStyle(.white.opacity(0.85))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .padding(.top, 8)
+                Spacer(minLength: 8)
+                // Hős glass-kocka: átlag + jegy/dolgozat + legjobb tárgy
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(format: "%.1f", stats.avg))
+                        .font(.system(size: 84, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                    Text("\(stats.count) jegy • \(stats.exams) dolgozat")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.8))
+                    if let best = stats.bestSubject {
+                        Text("Legjobb: \(best.name) • \(String(format: "%.1f", best.avg))")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.8))
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(18)
+                .glassTile()
+                Spacer(minLength: 10)
+                // Mini kockák: ötös, hiányzás, késés
+                HStack(spacing: 10) {
+                    peakMini(icon: "star", value: "\(stats.fives)", label: "ötös",
+                             sub: "\(stats.count) jegyből")
+                    peakMini(icon: "clock", value: "\(stats.absences)", label: "hiányzás",
+                             sub: absenceSub)
+                    peakMini(icon: "alarm", value: "\(stats.lateCount)", label: lateLabel)
+                }
+                // Eloszlás-kocka
+                VStack(alignment: .leading, spacing: 8) {
+                    WrappedDistBar(distribution: stats.distribution, colors: distColors)
+                    HStack(spacing: 10) {
+                        ForEach([5, 4, 3, 2, 1], id: \.self) { v in
+                            HStack(spacing: 3) {
+                                Text("\(v)")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(.white)
+                                Text("×\(stats.distribution[v] ?? 0)")
+                                    .font(.caption2.monospacedDigit())
+                                    .foregroundStyle(.white.opacity(0.7))
+                            }
+                        }
+                        Spacer()
+                    }
+                }
+                .padding(14)
+                .glassTile()
+                .padding(.top, 10)
+                Spacer(minLength: 10)
+                // Lábléc: a hegy neve + a hónap
+                Text("\(peak.name.uppercased()) • \(monthTitle.uppercased())")
+                    .font(.caption.weight(.bold))
+                    .tracking(2)
+                    .foregroundStyle(.white.opacity(0.75))
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.bottom, 4)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+        }
     }
 
-    private func shareLine(value: String, label: String) -> some View {
-        HStack(spacing: 8) {
+    private func peakMini(icon: String, value: String, label: String, sub: String? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.85))
             Text(value)
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .font(.system(size: 26, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
                 .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
             Text(label)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(.white.opacity(0.65))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.8))
+                .lineLimit(1)
+            if let sub {
+                Text(sub)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.65))
+                    .lineLimit(1)
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .glassTile()
+    }
+}
+
+/// Frosted-glass kocka: preview-ban és renderben AZONOS — anyag-háttér
+/// + fehér hajszálkeret, nem élő effekt.
+private struct GlassTile: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+            .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(.white.opacity(0.35), lineWidth: 1))
+    }
+}
+
+private extension View {
+    func glassTile() -> some View { modifier(GlassTile()) }
+}
+
+/// Megosztás-választó: swipe-körhinta 5 hegy között + Megosztás gomb.
+/// A gomb az AKTUÁLIS oldalt rendereli ugyanazzal a háttérrel.
+struct WrappedSharePicker: View {
+    var month: MonthlyWrapped.Month
+    var stats: MonthlyWrapped.Stats
+    var distColors: [Int: Color]
+    @State private var peak: WrappedPeak = .matterhorn
+    @State private var shareItems: [Any] = []
+    @State private var showShare = false
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            TabView(selection: $peak) {
+                ForEach(WrappedPeak.allCases) { p in
+                    WrappedPeakPage(peak: p, monthTitle: month.title, stats: stats, distColors: distColors)
+                        .tag(p)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .ignoresSafeArea()
+            VStack {
+                HStack {
+                    Spacer()
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 34, height: 34)
+                            .background(Circle().fill(.white.opacity(0.2)))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Bezárás")
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
+                Spacer()
+                Text(peak.name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                HStack(spacing: 6) {
+                    ForEach(WrappedPeak.allCases) { p in
+                        Capsule()
+                            .fill(.white.opacity(p == peak ? 0.95 : 0.35))
+                            .frame(width: p == peak ? 22 : 6, height: 6)
+                    }
+                }
+                .padding(.top, 6)
+                Button {
+                    SummitHaptics.selection()
+                    renderAndShare()
+                } label: {
+                    Label("Megosztás", systemImage: "square.and.arrow.up")
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+                        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(.white.opacity(0.35), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+            }
+        }
+        .sheet(isPresented: $showShare) {
+            ShareSheet(items: shareItems)
+                .presentationDetents([.medium, .large])
+        }
+    }
+
+    private func renderAndShare() {
+        let page = WrappedPeakPage(peak: peak, monthTitle: month.title, stats: stats, distColors: distColors)
+        let renderer = ImageRenderer(content: page.frame(width: 390, height: 680))
+        renderer.scale = 3
+        var items: [Any] = []
+        if let uiImage = renderer.uiImage { items.append(uiImage) }
+        items.append("\(peak.wrappedTitle): \(String(format: "%.1f", stats.avg)) átlag, \(stats.count) jegy — Summit")
+        AnalyticsStore.recordStep("wrapped_share", detail: "\(month.id)/\(peak.rawValue)")
+        shareItems = items
+        showShare = true
     }
 }
 
