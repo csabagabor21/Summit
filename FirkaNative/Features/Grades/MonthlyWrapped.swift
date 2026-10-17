@@ -152,129 +152,135 @@ struct MonthlyWrappedCard: View {
     var body: some View {
         ZStack {
             colors.background.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    // Felső sor: kicker + megosztás/bezárás
-                    HStack(alignment: .center) {
-                        Text(month.wrappedTitle.uppercased())
-                            .font(.caption.weight(.bold))
-                            .tracking(3)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Button {
-                            SummitHaptics.selection()
-                            share()
-                        } label: {
-                            Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(colors.accent)
-                                .frame(width: 34, height: 34)
-                                .background(Circle().fill(colors.accent.opacity(0.14)))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Megosztás")
-                        Button(action: onClose) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 15, weight: .bold))
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        // Felső sor: kicker + megosztás/bezárás (semleges körök)
+                        HStack(alignment: .center) {
+                            Text(month.wrappedTitle.uppercased())
+                                .font(.caption2.weight(.semibold))
+                                .tracking(2)
                                 .foregroundStyle(.secondary)
-                                .frame(width: 34, height: 34)
-                                .background(Circle().fill(Color.primary.opacity(0.08)))
+                            Spacer()
+                            Button {
+                                SummitHaptics.selection()
+                                share()
+                            } label: {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 34, height: 34)
+                                    .background(Circle().fill(Color.primary.opacity(0.08)))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Megosztás")
+                            Button(action: onClose) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 34, height: 34)
+                                    .background(Circle().fill(Color.primary.opacity(0.08)))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Bezárás")
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Bezárás")
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
 
-                    // Hős: hónap + óriás-átlag, balra zárva
+                    // Hős: hónap + átlag — az egyetlen színes pont a képernyőn
                     VStack(alignment: .leading, spacing: 2) {
                         Text(month.title)
-                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                            .font(.system(size: 32, weight: .bold, design: .rounded))
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                         Text("\(stats.count) jegy • \(stats.exams) dolgozat")
-                            .font(.subheadline.weight(.semibold))
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                     .padding(.horizontal, 20)
-                    .padding(.top, 12)
+                    .padding(.top, 14)
                     .stagger(appeared, 0)
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(String(format: "%.1f", stats.avg))
-                            .font(.system(size: 92, weight: .bold, design: .rounded))
+                            .font(.system(size: 80, weight: .bold, design: .rounded))
                             .foregroundStyle(avgColor)
                             .monospacedDigit()
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
                         Text("átlag")
-                            .font(.headline.weight(.semibold))
+                            .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
                     .padding(.horizontal, 20)
+                    .padding(.top, 2)
                     .stagger(appeared, 0.08)
 
-                    // Csempék: surface-kártyák az app nyelvén
+                    // Csempék: monokróm, mint az app sorai — számok primary,
+                    // feliratok secondary, ikonok egységesen secondary
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                        wrappedTile(icon: "star.fill", tint: .yellow, value: "\(stats.fives)", label: "ötös",
+                        wrappedTile(icon: "star", value: "\(stats.fives)", label: "ötös",
                                     sub: "\(stats.count) jegyből")
-                        wrappedTile(icon: "clock.fill", tint: .orange, value: "\(stats.absences)", label: "hiányzás",
+                        wrappedTile(icon: "clock", value: "\(stats.absences)", label: "hiányzás",
                                     sub: stats.unjustified == 0 ? "mind igazolt" : "\(stats.unjustified) igazolatlan")
-                        wrappedTile(icon: "alarm.fill", tint: .red, value: "\(stats.lateCount)", label: "késés",
+                        wrappedTile(icon: "alarm", value: "\(stats.lateCount)", label: "késés",
                                     sub: stats.lateCount == 0 ? "egyszer sem" : "\(stats.lateMinutes) perc")
-                        wrappedTile(icon: "doc.text.fill", tint: colors.accent, value: "\(stats.exams)", label: "dolgozat",
+                        wrappedTile(icon: "doc.text", value: "\(stats.exams)", label: "dolgozat",
                                     sub: "e hónapban")
                     }
                     .padding(.horizontal, 20)
-                    .padding(.top, 14)
+                    .padding(.top, 20)
                     .stagger(appeared, 0.16)
 
-                    // Sorok: legjobb + legtöbbet javult
+                    // Sorok: legjobb + legtöbbet javult (semleges ikonokkal)
                     VStack(spacing: 0) {
                         if let best = stats.bestSubject {
-                            wrappedRow(icon: "trophy.fill", tint: .yellow,
-                                       title: "Legjobb tárgyad",
-                                       value: "\(best.name) • \(String(format: "%.1f", best.avg))",
-                                       first: true)
+                            wrappedRow(icon: "trophy", title: "Legjobb tárgyad",
+                                       value: "\(best.name) • \(String(format: "%.1f", best.avg))")
+                            if stats.mostImproved != nil { Divider().padding(.leading, 48) }
                         }
                         if let imp = stats.mostImproved {
-                            if stats.bestSubject != nil { Divider().padding(.leading, 46) }
-                            wrappedRow(icon: "chart.line.uptrend.xyaxis", tint: .green,
-                                       title: "Legtöbbet javultál",
-                                       value: "\(imp.name) • +\(String(format: "%.1f", imp.delta))",
-                                       first: stats.bestSubject == nil)
+                            wrappedRow(icon: "chart.line.uptrend.xyaxis", title: "Legtöbbet javultál",
+                                       value: "\(imp.name) • +\(String(format: "%.1f", imp.delta))")
                         }
                     }
                     .background(colors.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .padding(.horizontal, 20)
-                    .padding(.top, 14)
+                    .padding(.top, 20)
                     .stagger(appeared, 0.24)
 
-                    // Eloszlás: egybefüggő sáv + darabok
+                    // Eloszlás: vékony sáv + visszafogott jelmagyarázat
                     VStack(alignment: .leading, spacing: 8) {
                         Text("ELOSZLÁS")
-                            .font(.caption.weight(.bold))
-                            .tracking(2)
+                            .font(.caption2.weight(.semibold))
+                            .tracking(1)
                             .foregroundStyle(.secondary)
                         WrappedDistBar(distribution: stats.distribution, colors: distColors)
                         HStack(spacing: 12) {
                             ForEach([5, 4, 3, 2, 1], id: \.self) { v in
                                 HStack(spacing: 4) {
-                                    Text("\(v)").font(.caption.weight(.bold))
-                                        .foregroundStyle(distColors[v] ?? .secondary)
+                                    Text("\(v)").font(.caption.weight(.semibold))
+                                        .foregroundStyle(.secondary)
                                     Text("×\(stats.distribution[v] ?? 0)")
                                         .font(.caption2.monospacedDigit())
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(.tertiary)
                                 }
                             }
                             Spacer()
                         }
                     }
                     .padding(.horizontal, 20)
-                    .padding(.top, 18)
-                    .padding(.bottom, 30)
+                    .padding(.top, 22)
+                    .padding(.bottom, 24)
                     .stagger(appeared, 0.32)
+                    }
                 }
+                // Lábléc: lehorgonyozza az alját — nincs lógó űr
+                Text("SUMMIT • \(month.title.uppercased())")
+                    .font(.caption2.weight(.semibold))
+                    .tracking(2)
+                    .foregroundStyle(.tertiary)
+                    .padding(.bottom, 18)
             }
         }
         .onAppear {
@@ -287,24 +293,24 @@ struct MonthlyWrappedCard: View {
         }
     }
 
-    private func wrappedTile(icon: String, tint: Color, value: String, label: String, sub: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+    private func wrappedTile(icon: String, value: String, label: String, sub: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(tint)
+                    .foregroundStyle(.secondary)
                 Text(label)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
             }
             Text(value)
-                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .font(.system(size: 28, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(sub)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.tertiary)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -313,15 +319,15 @@ struct MonthlyWrappedCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
-    private func wrappedRow(icon: String, tint: Color, title: String, value: String, first: Bool) -> some View {
+    private func wrappedRow(icon: String, title: String, value: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(tint)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.secondary)
                 .frame(width: 22)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                Text(value).font(.subheadline.weight(.bold)).lineLimit(1)
+                Text(value).font(.subheadline.weight(.semibold)).lineLimit(1)
             }
             Spacer()
         }
@@ -383,16 +389,16 @@ struct WrappedDistBar: View {
                 ForEach([5, 4, 3, 2, 1], id: \.self) { v in
                     let n = distribution[v] ?? 0
                     if n > 0 {
-                        RoundedRectangle(cornerRadius: 5)
-                            .fill(colors[v] ?? .secondary)
-                            .frame(width: max(10, geo.size.width * CGFloat(n) / CGFloat(total)))
-                            .frame(height: 12)
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill((colors[v] ?? .secondary).opacity(0.85))
+                            .frame(width: max(8, geo.size.width * CGFloat(n) / CGFloat(total)))
+                            .frame(height: 8)
                     }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(height: 12)
+        .frame(height: 8)
     }
 }
 
