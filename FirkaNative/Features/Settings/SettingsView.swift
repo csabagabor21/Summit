@@ -50,6 +50,45 @@ struct SettingsView: View {
         return SettingsTour.steps[i].anchor == anchor
     }
 
+    /// Kiemelőszín-választó (külön nézet, hogy az x86_64 fordító is
+    /// időben végezzen a típusellenőrzéssel).
+    private var accentColorContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Kiemelés színe").font(.subheadline.weight(.medium))
+            HStack(spacing: 10) {
+                ForEach(ThemeStore.presets, id: \.self) { hex in
+                    let c = Color(hex: UInt(hex))
+                    Circle().fill(c).frame(width: 30, height: 30)
+                        .overlay(Circle().strokeBorder(Color.primary.opacity(theme.accentHex == hex ? 0.9 : 0.18), lineWidth: theme.accentHex == hex ? 2 : 1))
+                        .scaleEffect(theme.accentHex == hex ? 1.12 : 1)
+                        .onTapGesture { withAnimation(SummitMotion.snappy) { theme.accentHex = hex } }
+                        .accessibilityLabel(Text(String(format: "#%06X", hex)))
+                }
+                Spacer()
+                ColorPicker("", selection: Binding(get: { theme.accent }, set: { new in
+                    let ui = UIColor(new)
+                    var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                    if ui.getRed(&r, green: &g, blue: &b, alpha: &a) {
+                        let hex = (Int(round(r*255)) << 16) | (Int(round(g*255)) << 8) | Int(round(b*255))
+                        theme.accentHex = hex
+                    }
+                }), supportsOpacity: false)
+                .labelsHidden().scaleEffect(1.2)
+            }
+        }
+    }
+
+    /// Szövegméret-választó (külön nézet, ld. fent).
+    private var textSizeContent: some View {
+        Picker("Szövegméret", selection: Binding(get: { theme.sizeCategoryKey }, set: { theme.sizeCategoryKey = $0 })) {
+            ForEach(ThemeStore.sizeSteps, id: \.key) { step in
+                Text(step.title).tag(step.key)
+            }
+        }
+        .pickerStyle(.navigationLink)
+        .padding(.vertical, 4)
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
         ScrollView {
@@ -129,41 +168,13 @@ struct SettingsView: View {
                 summitDivider
                 // Accent —简单 színválasztó
                 summitRow {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Kiemelés színe").font(.subheadline.weight(.medium))
-                        HStack(spacing: 10) {
-                            ForEach(ThemeStore.presets, id: \.self) { hex in
-                                let c = Color(hex: UInt(hex))
-                                Circle().fill(c).frame(width: 30, height: 30)
-                                    .overlay(Circle().strokeBorder(Color.primary.opacity(theme.accentHex == hex ? 0.9 : 0.18), lineWidth: theme.accentHex == hex ? 2 : 1))
-                                    .scaleEffect(theme.accentHex == hex ? 1.12 : 1)
-                                    .onTapGesture { withAnimation(SummitMotion.snappy) { theme.accentHex = hex } }
-                                    .accessibilityLabel(Text(String(format: "#%06X", hex)))
-                            }
-                            Spacer()
-                            ColorPicker("", selection: Binding(get: { theme.accent }, set: { new in
-                                let ui = UIColor(new)
-                                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-                                if ui.getRed(&r, green: &g, blue: &b, alpha: &a) {
-                                    let hex = (Int(round(r*255)) << 16) | (Int(round(g*255)) << 8) | Int(round(b*255))
-                                    theme.accentHex = hex
-                                }
-                            }), supportsOpacity: false)
-                            .labelsHidden().scaleEffect(1.2)
-                        }
-                    }
-                    .padding(.vertical, 4)
+                    accentColorContent
+                        .padding(.vertical, 4)
                 }
                 summitDivider
                 // Szövegméret — Macen (iPad-app Macen) alapból nagyobb
                 summitRow {
-                    Picker("Szövegméret", selection: Binding(get: { theme.sizeCategoryKey }, set: { theme.sizeCategoryKey = $0 })) {
-                        ForEach(ThemeStore.sizeSteps, id: \.key) { step in
-                            Text(step.title).tag(step.key)
-                        }
-                    }
-                    .pickerStyle(.navigationLink)
-                    .padding(.vertical, 4)
+                    textSizeContent
                 }
             }
 
