@@ -488,15 +488,29 @@ enum WrappedPeakArtCatalog {
         .init(name: "Dolomitok", author: "kallerna", url: URL(string: "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/36/Faloria_Cortina_d%27Ampezzo_10.jpg/1280px-Faloria_Cortina_d%27Ampezzo_10.jpg")!, fallback: .moraine),
     ]
 
-    /// Stabil sorsolás fiók + hónap alapján (FNV-1a — direkt nem a
-    /// Swift.Hasher, mert az futásonként más seedet kap, ez meg örökre stabil).
+    /// Stabil sorsolás fiók + hónap alapján: minden fiók a 30 kép EGYEDI
+    /// keverését kapja (FNV-1a rangsor — direkt nem a Swift.Hasher, mert az
+    /// futásonként más seedet kap), és a hónapsorszám szerint lépeget benne.
+    /// Így egymás utáni hónapok SOHA nem ismétlődnek, amíg a 30 el nem fogy
+    /// (független sorsolásnál a születésnap-paradoxon miatt ez törvényszerű
+    /// lenne), más fiók más sorrendet kap, és ami egyszer kijött, az örökre
+    /// ugyanaz marad — szerver-oldali állapot nélkül, offline is.
     static func art(month: MonthlyWrapped.Month, userId: String) -> WrappedPeakArt {
+        let ranked = all.indices.map { ($0, hash("\(userId)#\($0)")) }
+            .sorted { $0.1 < $1.1 }
+        let seq = month.year * 12 + month.month
+        let pos = ((seq % all.count) + all.count) % all.count
+        return all[ranked[pos].0]
+    }
+
+    /// FNV-1a (stabil, nem a véletlen seedű Swift.Hasher).
+    static func hash(_ s: String) -> UInt64 {
         var h: UInt64 = 14695981039346656037
-        for b in "\(userId)#\(month.year)-\(month.month)".utf8 {
+        for b in s.utf8 {
             h ^= UInt64(b)
             h &*= 1099511628211
         }
-        return all[Int(h % UInt64(all.count))]
+        return h
     }
 }
 
