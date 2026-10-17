@@ -19,7 +19,6 @@ struct TomorrowLessonsIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let text = SiriTimetable.answer(for: .tomorrow)
-        AnalyticsStore.recordStep("siri_tomorrow")
         return .result(dialog: IntentDialog(stringLiteral: text))
     }
 }
@@ -32,7 +31,6 @@ struct TodayLessonsIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let text = SiriTimetable.answer(for: .today)
-        AnalyticsStore.recordStep("siri_today")
         return .result(dialog: IntentDialog(stringLiteral: text))
     }
 }

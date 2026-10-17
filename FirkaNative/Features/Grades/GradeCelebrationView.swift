@@ -155,7 +155,6 @@ struct GradeCelebrationView: View {
         .onAppear {
             // Új jegy = ünnepelt kimenet: egyetlen success a konfettival együtt.
             SummitHaptics.success()
-            AnalyticsStore.recordStep("grade_open", detail: "jegy_\(grade.value)")
             withAnimation(SummitMotion.gentle) { appeared = true }
             withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { pulse = true }
         }

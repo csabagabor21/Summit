@@ -47,7 +47,6 @@ struct HomeView: View {
                     Section {
                         Button {
                             SummitHaptics.selection()
-                            AnalyticsStore.recordStep("wrapped_open", detail: banner.id)
                             wrappedMonth = banner
                         } label: {
                             HStack(spacing: 12) {

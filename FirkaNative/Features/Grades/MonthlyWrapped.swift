@@ -959,7 +959,6 @@ struct WrappedSharePicker: View {
         var items: [Any] = []
         if let uiImage = renderer.uiImage { items.append(uiImage) }
         items.append("\(personTitle): \(String(format: "%.1f", stats.avg)) átlag, \(stats.count) jegy — Summit")
-        AnalyticsStore.recordStep("wrapped_share", detail: "\(month.id)/\(art.name)")
         shareItems = items
         showShare = true
     }
@@ -1010,7 +1009,6 @@ struct MonthlyArchiveView: View {
                     let st = MonthlyWrapped.stats(grades: grades, month: m, exams: exams, absences: absences)
                     Button {
                         SummitHaptics.selection()
-                        AnalyticsStore.recordStep("wrapped_open", detail: m.id)
                         opened = m
                     } label: {
                         HStack(spacing: 12) {

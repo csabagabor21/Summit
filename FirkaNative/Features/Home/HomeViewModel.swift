@@ -133,8 +133,6 @@ final class HomeViewModel: ObservableObject {
         }
         error = nil
         updateLiveState()
-        // Lépésnapló (helyi analitika, durva számokkal).
-        AnalyticsStore.recordStep("refresh", detail: "\(gradesR.count) jegy \(ttR.count) mai ora")
         return
     }
 

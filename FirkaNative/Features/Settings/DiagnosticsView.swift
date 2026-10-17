@@ -27,19 +27,6 @@ struct DiagnosticsView: View {
             } footer: {
                 Text("Előtérben naponta max 1, belépéskor és bekapcsoláskor azonnal — külön dokumentumban. A térkép install_id alapján számol, a dupla nem dupláz. Sikertelenségkor a következő trigger újrapróbálja.")
             }
-            Section {
-                if analytics.recentSteps.isEmpty {
-                    Text("Még nincs rögzített lépés.").font(.caption).foregroundStyle(.secondary)
-                } else {
-                    ForEach(Array(analytics.recentSteps.suffix(10).reversed()), id: \.self) { step in
-                        Text(step).font(.caption2.monospaced()).foregroundStyle(.secondary)
-                    }
-                }
-            } header: {
-                Text("Lépések (helyi)")
-            } footer: {
-                Text("Utolsó 10 az 50-es helyi gyűrűből: tabváltás, frissítés, értesítés, utazás, Siri, ünneplő kártya. Szerverre nem megy, személyes adatot nem tartalmaz.")
-            }
             Section("Állapot") {
                 diagRow("Iskola", session.selectedUser?.instituteCode ?? "–")
                 diagRow("Token", tokenDiag)
@@ -212,8 +199,6 @@ struct DiagnosticsView: View {
             + liveManager.recentEvents.joined(separator: "\n")
             + "\n--- push ---\n"
             + liveManager.pushLog.joined(separator: "\n")
-            + "\n--- lépések (helyi) ---\n"
-            + analytics.recentSteps.joined(separator: "\n")
             + "\n--- worker ---\n"
             + workerStatus
     }

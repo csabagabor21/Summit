@@ -94,18 +94,15 @@ enum TravelMode {
         let toDay = cal.startOfDay(for: to)
         let lo = min(fromDay, toDay), hi = max(fromDay, toDay)
         write(start: lo, endOfTo: hi)
-        AnalyticsStore.recordStep("travel_on", detail: syncString())
         if !silent { NotificationCenter.default.post(name: changedNotification, object: nil) }
     }
 
     static func clear(silent: Bool = false) {
-        let had = UserDefaults.standard.object(forKey: fromKey) != nil
         UserDefaults.standard.removeObject(forKey: fromKey)
         UserDefaults.standard.removeObject(forKey: toKey)
         sharedDefaults()?.removeObject(forKey: fromKey)
         sharedDefaults()?.removeObject(forKey: toKey)
         WidgetCenter.shared.reloadAllTimelines()
-        if had { AnalyticsStore.recordStep("travel_off") }
         if !silent { NotificationCenter.default.post(name: changedNotification, object: nil) }
     }
 

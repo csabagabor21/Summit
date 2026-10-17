@@ -91,9 +91,6 @@ struct MainTabView: View {
             // Minden tabváltást hirdetünk — a másik eszköz dockjában
             // ettől jön fel a Summit ikon az aktuális hellyel.
             HandoffCenter.shared.setTab(tab)
-            // Lépésnapló (helyi analitika, durva névvel).
-            let names = [0: "fooldal", 1: "jegyek", 2: "orarend", 3: "watch", 4: "hianyzasok", 5: "feladatok"]
-            AnalyticsStore.recordStep("tab", detail: names[tab] ?? "tab\(tab)")
         }
         .onAppear {
             // Induláskor is legyen élő tevékenység (ne csak az első

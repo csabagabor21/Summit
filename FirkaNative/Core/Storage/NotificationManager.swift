@@ -410,8 +410,6 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         let fa = freshAbsenceCount(absences, userId: userId)
         let total = fg.count + fh.count + fe.count + fa
         guard total > 0 else { return 0 }
-        // Lépésnapló (helyi analitika, durva számokkal).
-        AnalyticsStore.recordStep("notify", detail: "\(fg.count) jegy \(fh.count) hazi \(fe.count) dolgozat \(fa) hianyzas")
         // A legfrissebb új jegyre fullscreen ünneplő kártya is jár.
         let latestGrade = fg.sorted(by: { $0.date > $1.date }).first
         if let latest = latestGrade {
