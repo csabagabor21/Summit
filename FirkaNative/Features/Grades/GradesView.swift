@@ -80,7 +80,13 @@ struct GradesView: View {
                                     .listRowSeparator(.hidden)
                                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                             } header: { Text("Átlag alakulása — havi").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
-                            // iPad: két oszlopban, kihasználja a szélességet
+                            // iPad: két oszlopban, kihasználja a szélességet.
+                            // Gomb + path-reset NavigationLink helyett: a link
+                            // rendszer-chevronje a kártyán KÍVÜL is megjelent
+                            // (dupla chevron), és a stack néha többedikre állt
+                            // (vissza végigment az előző tárgyakon). Így egy
+                            // koppintás = egy szint, vissza egyből a listára —
+                            // chevron csak a kártyán belül marad.
                             if isPad {
                                 let subjects = displayEvkoziSubjects
                                 let cols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
@@ -90,7 +96,11 @@ struct GradesView: View {
                                             let raw = GradingLogic.weightedAverage(items)
                                             let thr = GradingLogic.threshold(for: subject)
                                             let rnd = GradingLogic.roundedGrade(raw: raw, threshold: thr)
-                                            NavigationLink(value: subject) {
+                                            Button {
+                                                SummitHaptics.selection()
+                                                path = NavigationPath()
+                                                path.append(subject)
+                                            } label: {
                                                 HStack(spacing: 12) {
                                                     GradeCircle(value: rnd, size: 44)
                                                     VStack(alignment: .leading, spacing: 3) { Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1); Text(String(format: "%.2f • %d jegy", raw, items.count)).font(.caption2).foregroundStyle(.secondary).lineLimit(1) }
@@ -99,11 +109,16 @@ struct GradesView: View {
                                                 }.padding(12).background(RoundedRectangle(cornerRadius: 14).fill(colors.surface).overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)))
                                             }.buttonStyle(.plain)
                                         } else {
-                                            NavigationLink(value: subject) {
+                                            Button {
+                                                SummitHaptics.selection()
+                                                path = NavigationPath()
+                                                path.append(subject)
+                                            } label: {
                                                 HStack(spacing: 12) {
                                                     ZStack { Circle().fill(Color.clear).overlay(Circle().strokeBorder(Color.primary.opacity(scheme == .dark ? 0.14 : 0.10), lineWidth: 1.2)).frame(width: 44, height: 44); Text("—").font(.system(size: 18, weight: .bold, design: .rounded)).foregroundStyle(.tertiary) }.frame(width: 44, height: 44)
                                                     VStack(alignment: .leading, spacing: 3) { Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1); Text("Nincs jegy").font(.caption2).foregroundStyle(.tertiary).lineLimit(1) }
                                                     Spacer()
+                                                    Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
                                                 }.padding(12).background(RoundedRectangle(cornerRadius: 14).fill(colors.surface).overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)))
                                             }.buttonStyle(.plain)
                                         }
