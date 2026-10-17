@@ -1312,6 +1312,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
+				"CURRENT_PROJECT_VERSION[sdk=macosx*]" = 20;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Summit;
@@ -1409,6 +1410,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
+				"CURRENT_PROJECT_VERSION[sdk=macosx*]" = 20;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Summit;
