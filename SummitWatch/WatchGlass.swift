@@ -73,6 +73,20 @@ private struct WatchLegacyPill: View {
     }
 }
 
+/// Double Tap-főgomb watchOS 10-en is: a `handGestureShortcut` csak
+/// watchOS 11-től létezik, alatta a gomb sima gomb marad (a Double
+/// Tap ott rendszer-szinten nem címezhető).
+extension View {
+    @ViewBuilder
+    func watchPrimaryAction() -> some View {
+        if #available(watchOS 11, *) {
+            self.handGestureShortcut(.primaryAction)
+        } else {
+            self
+        }
+    }
+}
+
 private struct WatchLegacyCard: View {
     let tint: Color
     let cornerRadius: CGFloat

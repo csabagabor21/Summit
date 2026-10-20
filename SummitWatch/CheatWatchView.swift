@@ -141,6 +141,27 @@ private struct CheatSheetTopicsView: View {
                 )
             } else {
                 List {
+                    // Kérdezés — LEGFELÜL, natív sor: Meta-logó + egy
+                    // szó, semmi alcím. Egyedi üveg nincs itt (a
+                    // List-soron belüli glassEffect szétcsúszott
+                    // ovált rajzolt), a rendszer-sor a biztos.
+                    // Ez a képernyő fő művelete, ezért a Double Tap
+                    // is ezt választja. Koppintásra nyílik a kérdező,
+                    // ahol a fókusz azonnal felhozza a billentyűzetet.
+                    Section {
+                        NavigationLink(value: WatchAskRoute(sheetID: sheet.id)) {
+                            Label {
+                                Text("Kérdezés")
+                                    .font(.subheadline.weight(.semibold))
+                            } icon: {
+                                Image("MetaAI")
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: 26, height: 26)
+                            }
+                        }
+                        .watchPrimaryAction()
+                    }
                     ForEach(topics) { t in
                         NavigationLink {
                             CheatTopicDetailView(topic: t)
@@ -154,26 +175,6 @@ private struct CheatSheetTopicsView: View {
                                         .foregroundStyle(.tertiary)
                                 } else {
                                     Text("Megnyitás")
-                                        .font(.caption2)
-                                        .foregroundStyle(.tertiary)
-                                }
-                            }
-                            .padding(.vertical, 3)
-                        }
-                    }
-                    // Kérdezés a jegyzetből: a témák alatt. Megnyitja a
-                    // kérdezőnézetet, ahol a fókuszált mezőre feljön a
-                    // natív billentyűzet / diktálás.
-                    Section {
-                        NavigationLink(value: WatchAskRoute(sheetID: sheet.id)) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "mic.fill")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.green)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Kérdezés a jegyzetből")
-                                        .font(.subheadline.weight(.semibold))
-                                    Text("Előbb a saját anyag, aztán a web")
                                         .font(.caption2)
                                         .foregroundStyle(.tertiary)
                                 }

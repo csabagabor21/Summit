@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 // MARK: - Summit Watch — belépő
 // Négy tab: Órarend + Jegyek + Feladatok + Jegyzet. Adat az iPhone-os Summitból jön
@@ -8,6 +9,12 @@ import SwiftUI
 @main
 struct SummitWatchApp: App {
     @StateObject private var store = WatchSyncStore()
+
+    init() {
+        // A háttér-válasz értesítésként jön: előtérben is banner +
+        // hang kell, különben a rendszer csendben a listába tenné.
+        UNUserNotificationCenter.current().delegate = WatchNotificationDelegate.shared
+    }
 
     var body: some Scene {
         WindowGroup {

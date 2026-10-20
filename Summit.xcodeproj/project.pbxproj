@@ -20,6 +20,7 @@
 		1AA7945A597E20CF228545D2 /* TimetableWidgetLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = A84585AABBDBE7320433B315 /* TimetableWidgetLogic.swift */; };
 		1EB9A7C506BAEA92AFD144F2 /* TimetableWidgetLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = A84585AABBDBE7320433B315 /* TimetableWidgetLogic.swift */; };
 		2318ABF5F2C7E205618489DC /* ic_splash.png in Resources */ = {isa = PBXBuildFile; fileRef = 225D81CC5A3BF3C9D730B87F /* ic_splash.png */; };
+		35B7E40A0F3D456790D088CA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 90B614281CC34D96B052E3C8 /* Assets.xcassets */; };
 		25F89268618A3B90B1444BDD /* KretaWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A280F65EA8973C9BD6A643 /* KretaWebView.swift */; };
 		27F5E9AF81B7091B86657B47 /* TimetableWidgetPublish.swift in Sources */ = {isa = PBXBuildFile; fileRef = CACC3C6BFC6796A0A3267897 /* TimetableWidgetPublish.swift */; };
 		2951EE64D7E813F23CB92661 /* SummitWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 897478263CC14E9677BA3955 /* SummitWatchApp.swift */; };
@@ -216,6 +217,7 @@
 		1D92783AAF33901FDCC0CB3B /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		1E84D5228585755250AA0D05 /* GradingLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradingLogic.swift; sourceTree = "<group>"; };
 		225D81CC5A3BF3C9D730B87F /* ic_splash.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_splash.png; sourceTree = "<group>"; };
+		90B614281CC34D96B052E3C8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		22EE35060AC05385D57607A4 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		26D362E074715FDA9A2FFBC2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		28DCFC5C5B97178FAFAEF1E0 /* CheatStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheatStore.swift; sourceTree = "<group>"; };
@@ -457,6 +459,7 @@
 				14799ECC82A8A6690B992259 /* CheatWatchView.swift */,
 				AFD363A0F8F101E59655A0B4 /* GradesWatchView.swift */,
 				26D362E074715FDA9A2FFBC2 /* Info.plist */,
+				90B614281CC34D96B052E3C8 /* Assets.xcassets */,
 				897478263CC14E9677BA3955 /* SummitWatchApp.swift */,
 				64D00B43D3C4A6D54B036246 /* TasksWatchView.swift */,
 				45F417D93F92F1726B4C13A4 /* TimetableWatchView.swift */,
@@ -861,6 +864,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D639B576FDABD994126E0BE6 /* WatchAppIcon.icon in Resources */,
+				35B7E40A0F3D456790D088CA /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

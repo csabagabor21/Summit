@@ -1,147 +1,106 @@
 import SwiftUI
+import UserNotifications
 
-// MARK: - Kérdezés a jegyzetből (óra)
-// Egy lapon belül, a témák alatt indul: a gomb megnyitja ezt a nézetet,
-// a fókuszált mezőre azonnal feljön a natív beviteli UI (billentyűzet /
-// diktálás / firkálás — a rendszer adja, külön kód nem kell hozzá).
+// MARK: - Kérdezés (óra)
+// Csak beviteli nézet: megnyitáskor a fókusz azonnal felhozza a natív
+// billentyűzetet / diktálást, beküldéskor a nézet ELTŰNIK, és a válasz
+// watch-értesítésben jön meg — közben a többi jegyzet szabadon
+// lapozható. Nincs helyben várakozó "gondolkodom" képernyő.
 // A válasz az iPhone-on születik (mentett Meta-kulcs, exkluzív
 // muse-spark-1.3-contributor): előbb a saját feltöltött anyagból,
 // ha ott nincs meg, webes kereséssel — saját tudásból soha.
-// Double Tap: amíg nincs válasz, a Kérdezés a fő gomb; ha megjött,
-// a Kész veszi át a szerepet (mindig csak az egyik látszik, így a
-// rendszer gesztusa mindig a jót választja).
+// Double Tap: a Kérdezés a fő gomb (mindig ez látszik a válasz
+// előtt, mert a válasz már értesítésben érkezik).
 /// Navigációs útvonal a témalista aljáról a kérdezőnézetbe.
 struct WatchAskRoute: Hashable {
     let sheetID: String
-}
-
-/// Double Tap-főgomb watchOS 10-en is: a `handGestureShortcut` csak
-/// watchOS 11-től létezik, alatta a gomb sima gomb marad (a Double
-/// Tap ott rendszer-szinten nem címezhető).
-private extension View {
-    @ViewBuilder
-    func watchPrimaryAction() -> some View {
-        if #available(watchOS 11, *) {
-            self.handGestureShortcut(.primaryAction)
-        } else {
-            self
-        }
-    }
 }
 
 struct CheatAskView: View {
     let sheet: WatchCheatSheet
 
     @EnvironmentObject var store: WatchSyncStore
+    @Environment(\.dismiss) private var dismiss
     @State private var question = ""
-    @State private var answer: String?
-    @State private var source = WatchAskSource.none
-    @State private var errorText: String?
-    @State private var isAsking = false
     @FocusState private var isInputFocused: Bool
 
-    private var canAsk: Bool {
-        !isAsking && !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private var sourceCaption: String {
-        switch source {
-        case WatchAskSource.material: return "Forrás: saját anyag"
-        case WatchAskSource.web: return "Forrás: web"
-        default: return "Forrás: nincs találat"
+    /// Késleltetett fókusz: a navigációs animáció alatt kért fókuszt a
+    /// rendszer eldobja, ezért a nézet megérkezése után kérjük újra —
+    /// így a billentyűzet / diktálás megnyitáskor magától feljön, nem
+    /// kell külön a mezőre koppintani. Ha az első kérést a rendszer
+    /// mégis eldobná, fél mp múlva újra próbáljuk.
+    private func focusInput(delayMs: UInt64 = 350) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: delayMs * 1_000_000)
+            isInputFocused = true
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            if !isInputFocused {
+                isInputFocused = true
+            }
         }
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
-                TextField("Kérdezz vagy diktálj…", text: $question)
-                    .font(.caption)
+        List {
+            Section {
+                TextField("Kérdés", text: $question, prompt: Text("Kérdezz vagy diktálj…"))
                     .focused($isInputFocused)
                     .onSubmit { ask() }
-
-                if answer == nil {
-                    Button {
-                        ask()
-                    } label: {
-                        if isAsking {
-                            HStack(spacing: 6) {
-                                ProgressView().scaleEffect(0.7)
-                                Text("Gondolkodom…")
-                            }
-                        } else {
-                            Label("Kérdezés", systemImage: "mic.fill")
-                        }
-                    }
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(canAsk || isAsking ? Color.green : Color.gray.opacity(0.5))
-                    .clipShape(Capsule())
-                    // Fő gomb válasz előtt: Double Tap ezt választja.
-                    .watchPrimaryAction()
-                    .disabled(!canAsk && !isAsking)
-                }
-
-                if let err = errorText {
-                    Text(err)
-                        .font(.caption2)
-                        .foregroundStyle(.orange)
-                }
-
-                if let answer {
-                    Text(answer)
-                        .font(.caption)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(sourceCaption)
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.secondary)
-                    Button {
-                        WatchHaptics.tick()
-                        self.answer = nil
-                        errorText = nil
-                        question = ""
-                        isInputFocused = true
-                    } label: {
-                        Label("Kész", systemImage: "checkmark")
-                    }
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(Color.green)
-                    .clipShape(Capsule())
-                    // Válasz után a Kész a fő gomb: Double Tap eltünteti.
-                    .watchPrimaryAction()
-                }
+            } footer: {
+                Text(sheet.title)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+
+            Section {
+                Button {
+                    ask()
+                } label: {
+                    Label {
+                        Text("Kérdezés")
+                    } icon: {
+                        Image("MetaAI")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 18, height: 18)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+                // Fő gomb: Double Tap ezt választja. Üres kérdéssel
+                // sem hibázik, hanem felhozza a billentyűzetet.
+                .watchPrimaryAction()
+            } footer: {
+                // Egy mondat, hogy hova megy a válasz — ez nem
+                // marketing-szöveg, hanem a folyamat ígérete.
+                Text("A válasz értesítésben jön meg.")
+            }
         }
         .navigationTitle("Kérdezés")
-        .onAppear { isInputFocused = true }
+        .onAppear {
+            focusInput()
+            // Kontextusos engedélykérés: a footer megígéri, hogy a
+            // válasz értesítésben jön — itt kérünk rá engedélyt,
+            // nem az app indulásakor. Idempotens, csak egyszer kérdez.
+            Task {
+                try? await UNUserNotificationCenter.current()
+                    .requestAuthorization(options: [.alert, .sound, .badge])
+            }
+        }
     }
 
     private func ask() {
         let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty, !isAsking else { return }
+        // Üres kérdéssel a gomb nem hibázik, hanem felhozza a
+        // billentyűzetet — így a Double Tap is mindig csinál valamit.
+        guard !q.isEmpty else {
+            WatchHaptics.tick()
+            focusInput(delayMs: 0)
+            return
+        }
         WatchHaptics.tick()
         isInputFocused = false
-        errorText = nil
-        answer = nil
-        isAsking = true
-        Task {
-            let result = await store.askQuestion(sheetID: sheet.id, question: q)
-            isAsking = false
-            switch result {
-            case .answer(let text, let src):
-                answer = text
-                source = src
-            case .error(let msg):
-                errorText = msg
-                isInputFocused = true
-            }
-        }
+        // A nézet azonnal eltűnik — a válasz háttérben készül, és
+        // watch-értesítésben érkezik, a jegyzetek addig használhatók.
+        dismiss()
+        store.askInBackground(sheetID: sheet.id, sheetTitle: sheet.title, question: String(q.prefix(500)))
     }
 }

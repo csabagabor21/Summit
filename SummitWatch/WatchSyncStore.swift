@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import os
+import UserNotifications
 import WatchConnectivity
 import WidgetKit
 
@@ -289,6 +290,19 @@ extension WatchSyncStore: WCSessionDelegate {
         return .answer(answer, source: source)
     }
 
+    // MARK: - Háttér-kérdezés (beküldés után a nézet eltűnik)
+
+    /// Fire-and-forget kérdezés: a kérdezőnézet beküldéskor azonnal
+    /// eltűnik, a válasz (vagy hiba) pedig watch-értesítésben jön meg —
+    /// addig a többi jegyzet szabadon lapozható. Az App-szintű store-on
+    /// fut, ezért a nézet eltűnése nem szakítja meg.
+    func askInBackground(sheetID: String, sheetTitle: String, question: String) {
+        Task { @MainActor in
+            let result = await askQuestion(sheetID: sheetID, question: question)
+            await WatchAskNotifier.post(sheetTitle: sheetTitle, result: result)
+        }
+    }
+
     // MARK: - Szinkronkérés az iPhone felé
 
     /// Avult vagy hiányzó adattal megnyitáskor kérünk az iPhone-tól.
@@ -314,5 +328,50 @@ extension WatchSyncStore: WCSessionDelegate {
             watchLog.info("iPhone nem elérhető, userInfo-sor: \(error.localizedDescription, privacy: .public)")
             session.transferUserInfo(msg)
         })
+    }
+}
+
+// MARK: - Helyi értesítés a háttér-válaszról (óra-oldal)
+// A kérdezőnézet beküldéskor eltűnik, így a válasz itt, rendszer-
+// értesítésként jön meg — a user addig a többi jegyzetet bújhatja.
+// Előérben is bannert mutatunk (delegate), nem csak csendben a listába.
+enum WatchAskNotifier {
+    /// Értesítési plafon: a watch-banner csonkítana, a hosszú válasz
+    /// az Értesítési központban teljes terjedelemben ott van.
+    private static let maxBodyChars = 1_000
+
+    static func post(sheetTitle: String, result: WatchSyncStore.AskOutcome) async {
+        let content = UNMutableNotificationContent()
+        switch result {
+        case .answer(let text, _):
+            content.title = "Kérdezés"
+            content.subtitle = sheetTitle
+            content.body = String(text.prefix(maxBodyChars))
+        case .error(let msg):
+            content.title = "Kérdezés"
+            content.subtitle = sheetTitle
+            content.body = msg
+        }
+        content.sound = .default
+        let req = UNNotificationRequest(
+            identifier: "watch.ask.\(UUID().uuidString)",
+            content: content,
+            trigger: nil
+        )
+        try? await UNUserNotificationCenter.current().add(req)
+        watchLog.info("kérdezés-értesítés kiírva")
+    }
+}
+
+/// Előtér-delegate: az app nyitva is banner + hang jár a válaszra,
+// különben a rendszer előtérben csendben a listába tenné.
+final class WatchNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
+    static let shared = WatchNotificationDelegate()
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .sound]
     }
 }
