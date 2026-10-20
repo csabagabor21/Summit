@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		0048146EEDBAF2200F28A063 /* SummitApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E156CB119C0AA44F6ECF68 /* SummitApp.swift */; };
 		00510505FE37B8B54818307E /* WatchPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = F46888F9B5AABCFE8AF91CF4 /* WatchPayload.swift */; };
+		F10000000000000000000002 /* WatchWebSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000001 /* WatchWebSearch.swift */; };
 		007601D529B1C39EA6ADF373 /* WatchNowWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A90965AE210BE420CCD2F989 /* WatchNowWidget.swift */; };
 		01061E088472CD4B58E83731 /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = B148C2CB66ADC6FEBA6C1694 /* AppColors.swift */; };
 		03FCC54085DB4A47AF972877 /* SummitSyncKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 055F2B637A95DA623315AFE9 /* SummitSyncKey.swift */; };
@@ -27,6 +28,7 @@
 		29BEF006108E9889DE878B71 /* AbsencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B840F52C3466DB1B0AF667 /* AbsencesView.swift */; };
 		2DD85531BC25CEBDE94C9DEC /* LiveActivityBackgroundRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39EBCE90E5E55CCF969EB995 /* LiveActivityBackgroundRefresh.swift */; };
 		3270693F8DAAA3900DE3F801 /* WatchPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = F46888F9B5AABCFE8AF91CF4 /* WatchPayload.swift */; };
+		F10000000000000000000003 /* WatchWebSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000001 /* WatchWebSearch.swift */; };
 		333705F710AABC832AC38E7C /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 543BEB289D6EA82EDB362D7B /* HomeViewModel.swift */; };
 		3396D165DABBF9F014328390 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ECFE2CF9540E13685C2C6145 /* Assets.xcassets */; };
 		371B199FB30740EA5F3A7D25 /* showcase3.png in Resources */ = {isa = PBXBuildFile; fileRef = B7AEC13243FD70028FF077DA /* showcase3.png */; };
@@ -123,6 +125,7 @@
 		E9854B23F285356AEC2118E4 /* WatchSyncStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78F66BBD733EBA04C7CB0856 /* WatchSyncStore.swift */; };
 		EB0BA8A61112DF3F8C21100C /* KretaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBF03B396B70AF1C4B035458 /* KretaModels.swift */; };
 		EF894B6E452FA8B29EAC59C7 /* CheatWatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14799ECC82A8A6690B992259 /* CheatWatchView.swift */; };
+		E10000000000000000000002 /* WatchAskDirect.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000001 /* WatchAskDirect.swift */; };
 		F521FF40A3154A21781D1948 /* TimetableWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = F963EB973555B758C1101D65 /* TimetableWidgetSnapshot.swift */; };
 		F6711F9870E041805B9772B2 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E86A32AD2DDFC87FB138D5 /* AppTheme.swift */; };
 		F8233A954E2118EBB3EBFD56 /* GradesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58254DFECD2C7AC3611DD728 /* GradesView.swift */; };
@@ -209,6 +212,7 @@
 		0BAE871D50553D3FF30F87AD /* Summit.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Summit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0F5EC6EB282C3C33E5FB6F00 /* RoundingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundingDetailView.swift; sourceTree = "<group>"; };
 		14799ECC82A8A6690B992259 /* CheatWatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheatWatchView.swift; sourceTree = "<group>"; };
+		E10000000000000000000001 /* WatchAskDirect.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAskDirect.swift; sourceTree = "<group>"; };
 		16DF003F0DB021C460B7EF92 /* SummitLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityAttributes.swift; sourceTree = "<group>"; };
 		194B529DC564DF78077C938A /* SubjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectDetailView.swift; sourceTree = "<group>"; };
 		19DFC7C10A0189809286952D /* GradeCircle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCircle.swift; sourceTree = "<group>"; };
@@ -315,6 +319,7 @@
 		F0BD3D0BD4C28044F95ED458 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		F129BF98BF502D69E561BE08 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		F46888F9B5AABCFE8AF91CF4 /* WatchPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchPayload.swift; sourceTree = "<group>"; };
+		F10000000000000000000001 /* WatchWebSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchWebSearch.swift; sourceTree = "<group>"; };
 		F680942F0CC6A6002F0C67D4 /* WatchAppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = WatchAppIcon.icon; sourceTree = "<group>"; };
 		F69EBE00C1E9795F9DE95246 /* CheatSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheatSheetView.swift; sourceTree = "<group>"; };
 		F963EB973555B758C1101D65 /* TimetableWidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableWidgetSnapshot.swift; sourceTree = "<group>"; };
@@ -454,6 +459,7 @@
 			isa = PBXGroup;
 			children = (
 				14799ECC82A8A6690B992259 /* CheatWatchView.swift */,
+				E10000000000000000000001 /* WatchAskDirect.swift */,
 				AFD363A0F8F101E59655A0B4 /* GradesWatchView.swift */,
 				26D362E074715FDA9A2FFBC2 /* Info.plist */,
 				90B614281CC34D96B052E3C8 /* Assets.xcassets */,
@@ -649,6 +655,7 @@
 			children = (
 				015E5B567EB1A1C82FE048AD /* WatchAvailability.swift */,
 				F46888F9B5AABCFE8AF91CF4 /* WatchPayload.swift */,
+				F10000000000000000000001 /* WatchWebSearch.swift */,
 				48DF42DD023A4B522459E31A /* WatchSync.swift */,
 			);
 			path = Watch;
@@ -934,6 +941,7 @@
 			files = (
 				54A14C167FA2BC79CAB9266B /* AppColors.swift in Sources */,
 				EF894B6E452FA8B29EAC59C7 /* CheatWatchView.swift in Sources */,
+				E10000000000000000000002 /* WatchAskDirect.swift in Sources */,
 				52B310CDA2178D044B0E409A /* GradesWatchView.swift in Sources */,
 				9452445D4637696EEF502A31 /* GradingLogic.swift in Sources */,
 				8F81255CB7FB5428B8AB4039 /* KretaModels.swift in Sources */,
@@ -944,6 +952,7 @@
 				5A78E3853CEEDF8FC84A226A /* WatchGlass.swift in Sources */,
 				8C3D5E7F90A1B2C3D4E5F6A7 /* WatchHaptics.swift in Sources */,
 				00510505FE37B8B54818307E /* WatchPayload.swift in Sources */,
+				F10000000000000000000002 /* WatchWebSearch.swift in Sources */,
 				E9854B23F285356AEC2118E4 /* WatchSyncStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1031,6 +1040,7 @@
 				DB070DA9A5EFE1B0BB43BC86 /* VacationCountdown.swift in Sources */,
 				6013DB0D27C473913404788B /* WatchAvailability.swift in Sources */,
 				3270693F8DAAA3900DE3F801 /* WatchPayload.swift in Sources */,
+				F10000000000000000000003 /* WatchWebSearch.swift in Sources */,
 				BB5A01A3BE5D222361C468C8 /* WatchSync.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

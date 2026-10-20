@@ -9,8 +9,10 @@ import Foundation
 // muse-spark-1.3-contributor (MetaAIClient) — kulcs nélkül nincs
 // válasz (nincs néma Gemini-tartalék ezen az úton).
 // Sorrend: 1) saját jegyzet + feltöltött anyag, 2) web (Wikipédia),
-// 3) őszinte "nincs meg". Saját tanult tudásból SOHA — a prompt
-// NINCS_MEG őrszóval kényszeríti ki a bevallást.
+// 3) saját tudás jelölve ("rendes AI-válasz"), 4) őszinte "nincs meg".
+// A prompt NINCS_MEG őrszóval kényszeríti ki a bevallást, a
+// parafrázisokat ("nincs benne a témában", ...) a WatchAskGate
+// ismeri fel — ilyenkor fut a webes + tudásos tartalék.
 enum WatchAskAnswer {
     /// Jegyzet-környezet plafonja (karakter): az órai kijelzőhöz
     /// mérten bőven elég, a kérést pedig kordában tartja.
@@ -77,54 +79,70 @@ enum WatchAskAnswer {
         } catch {
             return [WatchAskField.error: Self.friendlyError(error)]
         }
-        if first.trimmingCharacters(in: .whitespacesAndNewlines) != "NINCS_MEG", !first.isEmpty {
+        if !WatchAskGate.isNoMaterial(first) {
             return [
                 WatchAskField.answer: String(first.prefix(maxAnswerChars)),
                 WatchAskField.source: WatchAskSource.material,
             ]
         }
 
-        // 2) Web — a saját anyagban nem volt meg. Wikipédia-kivonatok
-        // mennek kontextusként, a megfogalmazást továbbra is a Meta-modell
-        // végzi (a modell ezen az úton is exkluzív).
-        let snippets = await webSnippets(for: q)
-        guard !snippets.isEmpty else {
+        // 2) Web — a saját anyagban nem volt meg. Wikipédia
+        // (kulcs nélkül) megy kontextusként, a megfogalmazást továbbra
+        // is a Meta-modell végzi (a modell ezen az úton is exkluzív).
+        let snippets = await WatchWebSearch.search(query: q)
+        if !snippets.isEmpty {
+            let webCtx = String(snippets
+                .map { "### \($0.title)\n\($0.extract)" }
+                .joined(separator: "\n\n")
+                .prefix(maxCorpusChars))
+            let systemWeb = """
+            Magyar nyelvű tanulási segítő vagy. Az alábbi WEBES FORRÁSOKból \
+            válaszolsz — csak ami bennük szerepel. Ha a kérdés ezek alapján \
+            nem megválaszolható, a teljes válaszod pontosan ez legyen: \
+            NINCS_MEG — semmi más. Soha ne írj a saját tanult tudásodból \
+            tényeket, és soha ne találj ki semmit.
+            """
+            // Web-hiba (net, státusz) nem állítja meg a kört: ilyenkor
+            // a saját tudásos tartalék következik, nem hibaüzenet.
+            if let second = try? await metaChat(
+                system: systemWeb,
+                user: "WEBES FORRÁSOK:\n\(webCtx)\n\nKÉRDÉS: \(q)\n\nVálaszolj röviden, magyarul, az órai kijelzőre."
+            ), !WatchAskGate.isNoMaterial(second) {
+                let srcTitles = snippets.prefix(3).map { $0.title }.joined(separator: ", ")
+                let withSrc = "\(second)\n\n(Forrás: web — \(srcTitles))"
+                return [
+                    WatchAskField.answer: String(withSrc.prefix(maxAnswerChars)),
+                    WatchAskField.source: WatchAskSource.web,
+                ]
+            }
+        }
+        // 3) Saját tudás — jelölve. A jegyzetben és a weben sincs meg,
+        // de a modell ettől még tudhatja: ez már "rendes AI-válasz",
+        // viszont MINDIG megjelöljük, hogy nem a jegyzetből van.
+        let systemFree = """
+        Magyar nyelvű tanulási segítő vagy. A kérdésre a saját tudásodból \
+        válaszolsz, röviden, magyarul, az órai kijelzőre (pár mondat, \
+        felsorolás ha illik). Ha valamit nem tudsz, azt mondd meg őszintén.
+        """
+        let third: String
+        do {
+            third = try await metaChat(
+                system: systemFree,
+                user: "Tantárgy: \(sheet.subject). Lap: \(sheet.title).\n\nKÉRDÉS: \(q)\n\nVálaszolj röviden, magyarul."
+            )
+        } catch {
+            return [WatchAskField.error: Self.friendlyError(error)]
+        }
+        let t = third.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !WatchAskGate.isNoMaterial(third) else {
             return [
                 WatchAskField.answer: "Erre sem a jegyzetben, sem a weben nincs válasz — kérdezz mást, vagy bővítsd a lap anyagát.",
                 WatchAskField.source: WatchAskSource.none,
             ]
         }
-        let webCtx = String(snippets
-            .map { "### \($0.title)\n\($0.extract)" }
-            .joined(separator: "\n\n")
-            .prefix(maxCorpusChars))
-        let systemWeb = """
-        Magyar nyelvű tanulási segítő vagy. Az alábbi WEBES FORRÁSOKból \
-        válaszolsz — csak ami bennük szerepel. Ha a kérdés ezek alapján \
-        nem megválaszolható, a teljes válaszod pontosan ez legyen: \
-        NINCS_MEG — semmi más. Soha ne írj a saját tanult tudásodból \
-        tényeket, és soha ne találj ki semmit.
-        """
-        let second: String
-        do {
-            second = try await metaChat(
-                system: systemWeb,
-                user: "WEBES FORRÁSOK:\n\(webCtx)\n\nKÉRDÉS: \(q)\n\nVálaszolj röviden, magyarul, az órai kijelzőre."
-            )
-        } catch {
-            return [WatchAskField.error: Self.friendlyError(error)]
-        }
-        if second.trimmingCharacters(in: .whitespacesAndNewlines) != "NINCS_MEG", !second.isEmpty {
-            let srcTitles = snippets.prefix(3).map { $0.title }.joined(separator: ", ")
-            let withSrc = "\(second)\n\n(Forrás: web — Wikipédia: \(srcTitles))"
-            return [
-                WatchAskField.answer: String(withSrc.prefix(maxAnswerChars)),
-                WatchAskField.source: WatchAskSource.web,
-            ]
-        }
         return [
-            WatchAskField.answer: "Erre sem a jegyzetben, sem a weben nincs válasz — kérdezz mást, vagy bővítsd a lap anyagát.",
-            WatchAskField.source: WatchAskSource.none,
+            WatchAskField.answer: String("\(t)\n\n(Megj.: nem a jegyzetből, saját tudásból — ellenőrizd.)".prefix(maxAnswerChars)),
+            WatchAskField.source: WatchAskSource.knowledge,
         ]
     }
 
@@ -184,63 +202,7 @@ enum WatchAskAnswer {
         return "Az AI most nem válaszolt — próbáld újra."
     }
 
-    // MARK: - Webes fallback (Wikipédia, kulcs nélkül)
-
-    private struct Snippet {
-        var title: String
-        var extract: String
-    }
-
-    /// Wikipédia-keresés + bevezető-kivonatok (magyarul, találat nélkül
-    /// angolul). Üres = a weben sincs használható találat.
-    private static func webSnippets(for query: String) async -> [Snippet] {
-        if let hu = await wikipediaSnippets(query: query, lang: "hu"), !hu.isEmpty {
-            return hu
-        }
-        return await wikipediaSnippets(query: query, lang: "en") ?? []
-    }
-
-    private static func wikipediaSnippets(query: String, lang: String) async -> [Snippet]? {
-        guard let q = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let searchURL = URL(string: "https://\(lang).wikipedia.org/w/api.php?action=query&list=search&srsearch=\(q)&format=json&srlimit=5") else {
-            return nil
-        }
-        struct SearchHit: Decodable { var title: String }
-        struct SearchQuery: Decodable { var search: [SearchHit]? }
-        struct SearchResp: Decodable { var query: SearchQuery? }
-        var req = URLRequest(url: searchURL)
-        req.timeoutInterval = 15
-        // Azonosító fejléc: a Wikipédia a jelöletlen szkript-forgalmat
-        // tiltja (403) — az app saját nevében kér, ahogy az API-szabály kéri.
-        req.setValue("Summit-watch-ask/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
-        guard let (data, resp) = try? await URLSession.shared.data(for: req),
-              (resp as? HTTPURLResponse)?.statusCode == 200,
-              let decoded = try? JSONDecoder().decode(SearchResp.self, from: data),
-              let hits = decoded.query?.search, !hits.isEmpty else {
-            return nil
-        }
-        let titles = hits.prefix(3).map { $0.title }
-        guard let t = titles.joined(separator: "|").addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let extURL = URL(string: "https://\(lang).wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&titles=\(t)&format=json") else {
-            return nil
-        }
-        var ereq = URLRequest(url: extURL)
-        ereq.timeoutInterval = 15
-        ereq.setValue("Summit-watch-ask/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
-        guard let (edata, eresp) = try? await URLSession.shared.data(for: ereq),
-              (eresp as? HTTPURLResponse)?.statusCode == 200,
-              let json = try? JSONSerialization.jsonObject(with: edata) as? [String: Any],
-              let pages = (json["query"] as? [String: Any])?["pages"] as? [String: Any] else {
-            return nil
-        }
-        var out: [Snippet] = []
-        for title in titles {
-            if let page = pages.values.compactMap({ $0 as? [String: Any] })
-                .first(where: { ($0["title"] as? String) == title }),
-               let extract = page["extract"] as? String, !extract.isEmpty {
-                out.append(Snippet(title: title, extract: String(extract.prefix(1_500))))
-            }
-        }
-        return out
-    }
+    // MARK: - Webes fallback: közös réteg (Wikipédia + DuckDuckGo)
+    // Lásd WatchWebSearch — a webes kiegészítés az órán és a telefonon
+    // azonos, hogy a két kérdezési út ugyanazt tudja.
 }

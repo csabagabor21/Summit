@@ -4,7 +4,8 @@ import PDFKit
 
 // MARK: - Meta AI kulcstár
 // A kulcs UserDefaults-ban él, és a SummitSync `metaAIKey` mezőjében
-// átmegy a többi eszközre (az órára sosem kerül át). A user később
+// átmegy a többi eszközre; az órára a WatchConnectivity-context tolja
+// át (WatchSyncSender.pushMetaKeyNow + minden push). A user később
 // kapja meg a kulcsot: addig a jegyzetek kézzel is felvehetők,
 // a generálás a kulcs megadásakor élesedik.
 enum MetaAIKeyStore {
@@ -19,6 +20,9 @@ enum MetaAIKeyStore {
     static func save(_ k: String) {
         UserDefaults.standard.set(k.trimmingCharacters(in: .whitespacesAndNewlines), forKey: key)
         NotificationCenter.default.post(name: changedNotification, object: nil)
+        // Azonnal átmegy az órára is — onnantól az óra a saját netjén,
+        // a telefon nélkül kérdezhet (WatchSyncSender.pushMetaKeyNow).
+        WatchSyncSender.pushMetaKeyNow()
     }
     static func clear() { save("") }
 }

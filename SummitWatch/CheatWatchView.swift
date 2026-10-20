@@ -88,6 +88,7 @@ struct CheatWatchView: View {
                     CheatSheetTopicsView(sheet: s, topics: topics(of: s.id))
                 }
             }
+
         }
     }
 }
@@ -141,85 +142,79 @@ private struct CheatSheetTopicsView: View {
                 )
             } else {
                 List {
-                    // Kérdezés — LEGFELÜL, egyetlen üvegpill: nincs
-                    // köztes oldal. Koppintásra a rejtett mező fókuszt
-                    // kap, a rendszer azonnal felhozza a billentyűzetet
-                    // / diktálást. Beküldésre (return) a kérdés háttérben
-                    // elmegy, a mező ürül és marad a lista — a válasz
-                    // watch-értesítésben jön.
+                    // Kérdezőmező — maga a sor a szövegbeviteli mező:
+                    // Double Tap (csippentés) közvetlenül a mezőt
+                    // választja, a rendszer hozza a billentyűzetet /
+                    // diktálást. Készre koppintva (return) a kérdés
+                    // háttérben elmegy, a mező ürül, a válasz a lista
+                    // tetején + watch-értesítésben jön meg.
                     Section {
-                        // Egyetlen üvegpill (Notification Center-minta):
-                        // koppintásra a rejtett mező kap fókuszt, így a
-                        // billentyűzet / diktálás azonnal feljön — külön
-                        // kérdezőoldal nincs. A mező szövege a gomb
-                        // feliratában tükröződik.
-                        Button {
-                            WatchHaptics.tick()
-                            isInputFocused = true
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image("MetaAI")
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(width: 26, height: 26)
-                                Text(question.isEmpty ? "Kérdezz vagy diktálj…" : question)
-                                    .foregroundStyle(question.isEmpty ? .tertiary : .primary)
-                                    .lineLimit(1)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 10)
-                            .padding(.horizontal, 12)
-                        }
-                        .buttonStyle(.plain)
-                        // A belső padding az üveg része. A sor saját
-                        // kártya-háttere ki van kapcsolva, hogy ne
-                        // legyen üveg az üvegen.
-                        .watchGlassPill()
-                        // Fő művelet: Double Tap is ide visz.
-                        .watchPrimaryAction()
-                        .listRowBackground(Color.clear)
-                        .background {
-                            // Rejtett valódi mező: ez hozza fel a
-                            // billentyűzetet, ez kapja a diktálást.
-                            TextField("", text: $question)
-                                .focused($isInputFocused)
-                                .onSubmit { ask() }
-                                .frame(width: 1, height: 1)
-                                .opacity(0.01)
-                                .allowsHitTesting(false)
-                                .accessibilityHidden(true)
-                        }
+                        TextField("Kérdezz vagy diktálj…", text: $question)
+                            .focused($isInputFocused)
+                            .onSubmit { ask() }
+                            .watchPrimaryAction()
+                            .accessibilityLabel("Kérdezés")
+                            .accessibilityHint("Dupla koppintás: diktálás vagy billentyűzet.")
                     } footer: {
-                        Text("A válasz értesítésben jön meg.")
+                        Text("Készre koppintva a válasz a lista tetején és értesítésben jön meg.")
                     }
-                    ForEach(topics) { t in
-                        NavigationLink {
-                            CheatTopicDetailView(topic: t)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(t.title)
-                                    .font(.subheadline.weight(.semibold))
-                                if t.body.isEmpty {
-                                    Text("(üres)")
-                                        .font(.caption2)
-                                        .foregroundStyle(.tertiary)
-                                } else {
-                                    Text("Megnyitás")
-                                        .font(.caption2)
-                                        .foregroundStyle(.tertiary)
+                            // Utolsó válasz helyben is: ha az értesítések
+                            // le vannak tiltva, a válasz akkor is itt
+                            // olvasható.
+                            if let r = store.lastAsk, r.sheetID == sheet.id {
+                                Section {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack {
+                                            Image(systemName: r.isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                                            Text(r.isError ? "Nem sikerült" : "Válasz")
+                                                .font(.caption.weight(.semibold))
+                                            Spacer()
+                                            Button {
+                                                store.clearLastAsk()
+                                            } label: {
+                                                Image(systemName: "xmark")
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                        .foregroundStyle(r.isError ? .orange : .green)
+                                        Text(r.question)
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(2)
+                                        Text(r.text)
+                                            .font(.footnote)
+                                    }
+                                    .padding(.vertical, 4)
                                 }
                             }
-                            .padding(.vertical, 3)
+                        ForEach(topics) { t in
+                            NavigationLink {
+                                CheatTopicDetailView(topic: t)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(t.title)
+                                        .font(.subheadline.weight(.semibold))
+                                    if t.body.isEmpty {
+                                        Text("(üres)")
+                                            .font(.caption2)
+                                            .foregroundStyle(.tertiary)
+                                    } else {
+                                        Text("Megnyitás")
+                                            .font(.caption2)
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                }
+                                .padding(.vertical, 3)
+                            }
                         }
                     }
-                }
-                .listStyle(.plain)
+                    .listStyle(.plain)
             }
         }
         .navigationTitle(sheet.title)
         .onAppear {
             // Kontextusos engedélykérés: a footer megígéri, hogy a
-            // válasz értesítésben jön — itt kérünk rá engedélyt.
+            // válasz értesítésben is jön — itt kérünk rá engedélyt.
             // Idempotens, csak egyszer kérdez.
             Task {
                 try? await UNUserNotificationCenter.current()
@@ -228,14 +223,18 @@ private struct CheatSheetTopicsView: View {
         }
     }
 
+    /// Kész (return) vagy üres mező: üresnél nem hibázunk, hanem
+    /// felhozzuk a billentyűzetet; kérdésnél háttérbe küldjük.
     private func ask() {
         let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty else { return }
+        guard !q.isEmpty else {
+            WatchHaptics.tick()
+            isInputFocused = true
+            return
+        }
         WatchHaptics.tick()
         question = ""
         isInputFocused = false
-        // Marad a lista, a válasz háttérben készül és
-        // watch-értesítésben érkezik — addig a jegyzetek lapozhatók.
         store.askInBackground(sheetID: sheet.id, sheetTitle: sheet.title, question: String(q.prefix(500)))
     }
 }

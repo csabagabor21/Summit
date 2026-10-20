@@ -21,6 +21,7 @@ struct WatchSyncReport {
 
 #if !targetEnvironment(macCatalyst)
 import os
+import UIKit
 import WatchConnectivity
 
 /// Watch-szinkron napló (Console.app / `log stream` — Diagnosztika-elv:
@@ -199,6 +200,30 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
         shared.send(key: WatchPayloadKey.grades, data: data)
     }
 
+    /// Meta AI-kulcs az órára — azonnal, a következő rendes pushra
+    /// várás nélkül (pl. kulcsbevitelkor a Beállításokból). Az óra
+    /// ezután a saját netjén, a telefon nélkül is kérdezhet.
+    static func pushMetaKeyNow() {
+        guard WCSession.isSupported() else { return }
+        // WCSession-hívások főszálon.
+        DispatchQueue.main.async {
+            shared.context[WatchPayloadKey.metaKey] = MetaAIKeyStore.apiKey
+            stampPreview(into: &shared.context)
+            let session = WCSession.default
+            WatchSyncLog.log.info("metaKey-push state=\(String(describing: session.activationState), privacy: .public)")
+            guard session.activationState == .activated else {
+                WatchSyncLog.log.info("metaKey tárolva, aktiváláskor flush")
+                return
+            }
+            do {
+                try session.updateApplicationContext(shared.context)
+                WatchSyncLog.log.info("metaKey elküldve az órára")
+            } catch {
+                WatchSyncLog.log.error("metaKey-hiba: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
     private func send(key: String, data: Data) {
         // Utolsó ismert snapshot perzisztálása: az óra kérésekor ebből
         // válaszolunk azonnal, hálózat nélkül, akár háttérből is.
@@ -208,6 +233,7 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
             guard let self else { return }
             self.context[key] = data
             Self.stampPreview(into: &self.context)
+            Self.stampMetaKey(into: &self.context)
             let session = WCSession.default
             WatchSyncLog.log.info("send \(key, privacy: .public) bytes=\(data.count) state=\(String(describing: session.activationState), privacy: .public) paired=\(session.isPaired, privacy: .public) watchInstalled=\(session.isWatchAppInstalled, privacy: .public)")
             Self.noteSession(session)
@@ -365,6 +391,14 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
 
     /// Utolsó ismert snapshotok a perzisztens tárolóból — alkalmazás-
     /// újraindítás után, háttér-ébresztéskor is elérhető.
+    /// Meta AI-kulcs bepecsételése a contextbe: minden push-kor (mint
+    /// az idő-előnézet), hogy az óra a telefon nélkül, a saját netjén
+    /// is kérdezhessen. Üres string is mehet — az a tudatos törlést
+    /// terjeszti (az óra ilyenkor eldobja a nála lévőt).
+    static func stampMetaKey(into ctx: inout [String: Any]) {
+        ctx[WatchPayloadKey.metaKey] = MetaAIKeyStore.apiKey
+    }
+
     static func lastKnownContext() -> [String: Any] {
         var ctx: [String: Any] = [:]
         for key in [WatchPayloadKey.timetable, WatchPayloadKey.grades, WatchPayloadKey.tasks, WatchPayloadKey.cheat, WatchPayloadKey.schoolEvents] {
@@ -373,6 +407,7 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
             }
         }
         stampPreview(into: &ctx)
+        stampMetaKey(into: &ctx)
         return ctx
     }
 
@@ -449,9 +484,22 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
         // (itt a kulcs + a teljes anyag) — a reply-t a Task hívja,
         // az óra addig töltőállapotot mutat.
         if message[WatchPayloadKey.ask] != nil {
+            // Az AI-válasz (Meta + esetleges webes kör) tovább tarthat,
+            // mint a rendszer ébresztési kerete — háttéridőt kérünk, hogy
+            // a reply akkor is kimenjen, ha az app a háttérben ébredt.
             Task {
+                let bgID = await MainActor.run {
+                    UIApplication.shared.beginBackgroundTask(withName: "Summit.watchAsk") {
+                        WatchSyncLog.log.info("watch-ask háttéridő lejárt")
+                    }
+                }
                 let reply = await WatchAskAnswer.answer(message: message)
                 replyHandler(reply)
+                await MainActor.run {
+                    if bgID != .invalid {
+                        UIApplication.shared.endBackgroundTask(bgID)
+                    }
+                }
             }
             return
         }

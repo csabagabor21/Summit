@@ -291,8 +291,53 @@ enum WatchAskSource {
     static let material = "material"
     /// Webes keresés alapján (a saját anyagban nem volt meg).
     static let web = "web"
+    /// A modell saját tudásából (jelölve: nem a jegyzetből — ellenőrizd).
+    static let knowledge = "knowledge"
     /// Sehol sincs meg — őszinte "nincs válasz" (nem slop).
     static let none = "none"
+}
+
+// MARK: - Órai Meta AI-kulcs + AI-végpont (az óra saját lábán)
+// A telefon a Beállításokban megadott kulcsot az applicationContext
+// tolja át az órára (WatchPayloadKey.metaKey) — a csatorna titkosított,
+// eszközök közötti. Az órán a kulcs a WatchSharedStore-ban él, így az
+// óra a telefontól függetlenül, a saját netjén kérdezhet.
+// `nil`/hiányzó = a telefon még nem tolt kulcsot (vagy régi app).
+// Üres string a contextben = tudatos törlés a telefonon.
+extension WatchPayloadKey {
+    /// Órai Meta AI-kulcs (String, üres = törölve a telefonon).
+    static let metaKey = "watch.metaKey.v1"
+}
+
+/// Közös Meta AI-végpont + modell az órai kérdezéshez. A telefon a
+/// saját MetaAIClientjében ugyanezt használja (ott a kanonikus hely);
+/// ha az változik, ezt is vele kell frissíteni.
+enum WatchAI {
+    /// Meta Model API, OpenAI-kompatibilis chat-végpont.
+    static let endpoint = URL(string: "https://api.meta.ai/v1/chat/completions")!
+    /// KIZÁRÓLAG a contributor-tier.
+    static let model = "muse-spark-1.3-contributor"
+}
+
+extension WatchSharedStore {
+    static let metaAIKeyKey = "watch.metaAIKey.v1"
+
+    /// Az órára átolt Meta AI-kulcs (`nil` = még nincs).
+    static var metaAIKey: String? {
+        get {
+            let v = defaults.string(forKey: metaAIKeyKey)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return v.isEmpty ? nil : v
+        }
+        set {
+            let v = newValue?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if v.isEmpty {
+                defaults.removeObject(forKey: metaAIKeyKey)
+            } else {
+                defaults.set(v, forKey: metaAIKeyKey)
+            }
+        }
+    }
 }
 
 // MARK: - Évközi-szűrés a telefonnal azonosan (GradesView.isEvkozi)

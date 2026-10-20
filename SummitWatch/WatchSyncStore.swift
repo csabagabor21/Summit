@@ -7,6 +7,18 @@ import WidgetKit
 
 private let watchLog = Logger(subsystem: "hu.flint.summit.watch", category: "watchsync")
 
+/// Utolsó órai kérdés + válasza/hibája — a jegyzetnézet kártyában is
+/// mutatja, nem csak értesítésben. Ha az értesítések le vannak tiltva,
+/// a válasz akkor is itt olvasható.
+struct WatchAskRecord {
+    var sheetID: String
+    var sheetTitle: String
+    var question: String
+    var text: String
+    var isError: Bool
+    var at: Date
+}
+
 // MARK: - Watch adatfogadó — CSAK óra target
 // Az iPhone tolja az órarend + jegy + feladat snapshotokat
 // (WatchSyncSender), az óra pedig megnyitáskor KÉRI is, ha az adata
@@ -29,6 +41,8 @@ final class WatchSyncStore: NSObject, ObservableObject {
     // Gyorsítótár-kulcsok: WatchSharedStore (App Group — a Smart Stack-widget
     // ugyaninnen olvas, a standard-defaultsot nem látja).
 
+    /// Utolsó órai kérdezés kimenete (kártyában is látszik).
+    @Published private(set) var lastAsk: WatchAskRecord?
     /// Lehúzásos frissítés állapota (az óra listái ezt mutatják).
     @Published private(set) var isSyncing = false
     @Published private(set) var lastSyncDate: Date?
@@ -107,6 +121,12 @@ extension WatchSyncStore: WCSessionDelegate {
 
     private func apply(_ context: [String: Any]) {
         watchLog.info("context érkezett, kulcsok: \(context.keys.joined(separator: ","), privacy: .public)")
+        // Órai Meta AI-kulcs: a telefon tolja át (Beállítások-mentéskor
+        // azonnal + minden push-sal). Hiányzó kulcs = a régit tartjuk
+        // (régi telefon-app még nem küldi); üres = tudatos törlés.
+        if let k = context[WatchPayloadKey.metaKey] as? String {
+            WatchSharedStore.metaAIKey = k
+        }
         // Idő-előnézet: minden context/válasz úton frissen jön; hiánya =
         // a csúszka ki van kapcsolva → vissza valós időre.
         let newPreview: Date? = (context[WatchPayloadKey.previewNow] as? Double).map { Date(timeIntervalSince1970: $0) }
@@ -298,10 +318,54 @@ extension WatchSyncStore: WCSessionDelegate {
     /// fut, ezért a nézet eltűnése nem szakítja meg.
     func askInBackground(sheetID: String, sheetTitle: String, question: String) {
         Task { @MainActor in
+            // 1) Saját láb: az óra a saját netjén, a telefon nélkül
+            // kérdez (a kulcsot a telefon tolta át). Ha ez nem megy,
+            // a telefon a tartalék — kivéve, ha az sem elérhető,
+            // ilyenkor a direkt hiba látszik.
+            if let key = WatchSharedStore.metaAIKey,
+               let sheet = cheat?.sheets.first(where: { $0.id == sheetID }) {
+                let topics = cheat?.topics[sheetID] ?? []
+                do {
+                    let (text, source) = try await WatchAskDirect.answer(
+                        question: question, sheet: sheet, topics: topics, apiKey: key)
+                    self.lastAsk = WatchAskRecord(
+                        sheetID: sheetID, sheetTitle: sheetTitle, question: question,
+                        text: text, isError: false, at: Date())
+                    await WatchAskNotifier.post(sheetTitle: sheetTitle, result: .answer(text, source: source))
+                    return
+                } catch {
+                    watchLog.info("saját kérés nem ment, telefonos tartalék: \(error.localizedDescription, privacy: .public)")
+                    if !WCSession.default.isReachable {
+                        let msg = WatchAskDirect.friendlyError(error)
+                        self.lastAsk = WatchAskRecord(
+                            sheetID: sheetID, sheetTitle: sheetTitle, question: question,
+                            text: msg, isError: true, at: Date())
+                        await WatchAskNotifier.post(sheetTitle: sheetTitle, result: .error(msg))
+                        return
+                    }
+                }
+            }
+            // 2) Tartalék: iPhone (teljes anyag + nincs szükség órai netre).
             let result = await askQuestion(sheetID: sheetID, question: question)
+            let text: String
+            let isError: Bool
+            switch result {
+            case .answer(let t, _):
+                text = t
+                isError = false
+            case .error(let m):
+                text = m
+                isError = true
+            }
+            self.lastAsk = WatchAskRecord(
+                sheetID: sheetID, sheetTitle: sheetTitle, question: question,
+                text: text, isError: isError, at: Date())
             await WatchAskNotifier.post(sheetTitle: sheetTitle, result: result)
         }
     }
+
+    /// Válaszkártya bezárása a jegyzetnézetben.
+    func clearLastAsk() { lastAsk = nil }
 
     // MARK: - Szinkronkérés az iPhone felé
 
