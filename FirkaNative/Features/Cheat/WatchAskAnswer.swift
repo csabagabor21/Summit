@@ -210,6 +210,9 @@ enum WatchAskAnswer {
         struct SearchResp: Decodable { var query: SearchQuery? }
         var req = URLRequest(url: searchURL)
         req.timeoutInterval = 15
+        // Azonosító fejléc: a Wikipédia a jelöletlen szkript-forgalmat
+        // tiltja (403) — az app saját nevében kér, ahogy az API-szabály kéri.
+        req.setValue("Summit-watch-ask/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
         guard let (data, resp) = try? await URLSession.shared.data(for: req),
               (resp as? HTTPURLResponse)?.statusCode == 200,
               let decoded = try? JSONDecoder().decode(SearchResp.self, from: data),
@@ -223,6 +226,7 @@ enum WatchAskAnswer {
         }
         var ereq = URLRequest(url: extURL)
         ereq.timeoutInterval = 15
+        ereq.setValue("Summit-watch-ask/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
         guard let (edata, eresp) = try? await URLSession.shared.data(for: ereq),
               (eresp as? HTTPURLResponse)?.statusCode == 200,
               let json = try? JSONSerialization.jsonObject(with: edata) as? [String: Any],
