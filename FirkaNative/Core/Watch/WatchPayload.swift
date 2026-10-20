@@ -60,6 +60,11 @@ enum WatchPayloadKey {
     /// Óra → iPhone szinkronkérés (megnyitáskor, ha az órai adat avult
     /// vagy hiányzik). Mindkét irány ugyanazt a kulcs-szótárat használja.
     static let request = "watch.requestSync.v1"
+    /// Óra → iPhone jegyzet-kérdés (Kérdezés a jegyzetből): az óra csak
+    /// a kérdést + a lap-azonosítót küldi, a válasz az iPhone-on születik
+    /// (ott van a kulcs és a TELJES anyag). Üzenet + replyHandler úton
+    /// utazik, nem applicationContextben.
+    static let ask = "watch.ask.v1"
     /// Fejlesztői idő-előnézet pillanata (unix idő, Double). Csak akkor
     /// van jelen, ha az iPhone-on az Idő-eltolás csúszka aktív — ilyenkor
     /// az óra is az eltolt idő szerint rajzol (aktuális óra + progress).
@@ -265,6 +270,29 @@ func splitMarkdownParagraphs(_ s: String) -> [String] {
         .map { $0.joined(separator: "\n") }
         .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
         .filter { !$0.isEmpty }
+}
+
+// MARK: - Jegyzet-kérdés az óráról (Kérdezés a jegyzetből)
+// Az óra WCSession-üzenetben küldi (kérdés + lap-ID), az iPhone
+// reply-ban válaszol (válasz + forrás vagy hiba). Minden érték
+// String — a reply-szótár csak property-list típusokat bír.
+// Sorrend: előbb a saját anyag, aztán a web, saját tudásból SOHA.
+enum WatchAskField {
+    static let question = "q"
+    static let sheetID = "sheet"
+    static let answer = "a"
+    static let source = "s"
+    static let error = "e"
+}
+
+/// A válasz forrása (a WatchAskField.source értéke).
+enum WatchAskSource {
+    /// A saját feltöltött anyag / jegyzet alapján.
+    static let material = "material"
+    /// Webes keresés alapján (a saját anyagban nem volt meg).
+    static let web = "web"
+    /// Sehol sincs meg — őszinte "nincs válasz" (nem slop).
+    static let none = "none"
 }
 
 // MARK: - Évközi-szűrés a telefonnal azonosan (GradesView.isEvkozi)

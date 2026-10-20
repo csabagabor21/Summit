@@ -445,6 +445,16 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
         didReceiveMessage message: [String: Any],
         replyHandler: @escaping ([String: Any]) -> Void
     ) {
+        // Jegyzet-kérdés az óráról: a válasz az iPhone-on születik
+        // (itt a kulcs + a teljes anyag) — a reply-t a Task hívja,
+        // az óra addig töltőállapotot mutat.
+        if message[WatchPayloadKey.ask] != nil {
+            Task {
+                let reply = await WatchAskAnswer.answer(message: message)
+                replyHandler(reply)
+            }
+            return
+        }
         guard message[WatchPayloadKey.request] != nil else { return }
         answerSyncRequest(reply: replyHandler)
     }

@@ -234,6 +234,61 @@ extension WatchSyncStore: WCSessionDelegate {
         }
     }
 
+    // MARK: - Jegyzet-kérdés az iPhone felé (Kérdezés a jegyzetből)
+
+    /// Órai kérdés egy lapról: az iPhone válaszol (ott a kulcs + a
+    /// teljes anyag), az óra csak kérdez. Hosszú várakozás (AI +
+    /// esetleges webes fallback), ezért a snapshot-8 mp helyett 75 mp
+    /// a plafon — utána őszinte hiba, nem lógó spinner.
+    /// Órai kérdés kimenete (a Swift 5-ös targetben a `Result`
+    /// hibája nem lehet `String`, ezért saját enum).
+    enum AskOutcome {
+        case answer(String, source: String)
+        case error(String)
+    }
+
+    @MainActor
+    func askQuestion(sheetID: String, question: String) async -> AskOutcome {
+        guard WCSession.isSupported() else {
+            return .error("Az óra nem támogatja a kérdezést.")
+        }
+        let session = WCSession.default
+        guard session.activationState == .activated else {
+            return .error("A kapcsolat még aktiválódik — próbáld újra pár mp múlva.")
+        }
+        let msg: [String: Any] = [
+            WatchPayloadKey.ask: true,
+            WatchAskField.question: question,
+            WatchAskField.sheetID: sheetID,
+        ]
+        let reply: [String: Any]? = await withTaskGroup(of: [String: Any]?.self) { group in
+            group.addTask {
+                try? await withCheckedThrowingContinuation { (cont: CheckedContinuation<[String: Any], Error>) in
+                    session.sendMessage(msg, replyHandler: { cont.resume(returning: $0) }, errorHandler: { cont.resume(throwing: $0) })
+                }
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: 75_000_000_000)
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+        guard let reply else {
+            return .error("Az iPhone most nem elérhető — kell a telefon a válaszhoz, próbáld újra.")
+        }
+        if let err = reply[WatchAskField.error] as? String, !err.isEmpty {
+            return .error(err)
+        }
+        let answer = (reply[WatchAskField.answer] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !answer.isEmpty else {
+            return .error("Üres válasz érkezett — próbáld újra.")
+        }
+        let source = (reply[WatchAskField.source] as? String) ?? WatchAskSource.none
+        return .answer(answer, source: source)
+    }
+
     // MARK: - Szinkronkérés az iPhone felé
 
     /// Avult vagy hiányzó adattal megnyitáskor kérünk az iPhone-tól.

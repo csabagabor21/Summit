@@ -87,6 +87,11 @@ struct CheatWatchView: View {
                     CheatSheetTopicsView(sheet: s, topics: topics(of: s.id))
                 }
             }
+            .navigationDestination(for: WatchAskRoute.self) { route in
+                if let s = sheets.first(where: { $0.id == route.sheetID }) {
+                    CheatAskView(sheet: s)
+                }
+            }
         }
     }
 }
@@ -135,24 +140,46 @@ private struct CheatSheetTopicsView: View {
                     description: Text("A telefonon generálj jegyzetet ehhez a laphoz.")
                 )
             } else {
-                List(topics) { t in
-                    NavigationLink {
-                        CheatTopicDetailView(topic: t)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(t.title)
-                                .font(.subheadline.weight(.semibold))
-                            if t.body.isEmpty {
-                                Text("(üres)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
-                            } else {
-                                Text("Megnyitás")
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
+                List {
+                    ForEach(topics) { t in
+                        NavigationLink {
+                            CheatTopicDetailView(topic: t)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(t.title)
+                                    .font(.subheadline.weight(.semibold))
+                                if t.body.isEmpty {
+                                    Text("(üres)")
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                } else {
+                                    Text("Megnyitás")
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                }
                             }
+                            .padding(.vertical, 3)
                         }
-                        .padding(.vertical, 3)
+                    }
+                    // Kérdezés a jegyzetből: a témák alatt. Megnyitja a
+                    // kérdezőnézetet, ahol a fókuszált mezőre feljön a
+                    // natív billentyűzet / diktálás.
+                    Section {
+                        NavigationLink(value: WatchAskRoute(sheetID: sheet.id)) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "mic.fill")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.green)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Kérdezés a jegyzetből")
+                                        .font(.subheadline.weight(.semibold))
+                                    Text("Előbb a saját anyag, aztán a web")
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                            .padding(.vertical, 3)
+                        }
                     }
                 }
                 .listStyle(.plain)

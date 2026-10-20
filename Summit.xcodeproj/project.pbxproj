@@ -114,6 +114,7 @@
 		DA9FAB3C3C4BCED9B3B83028 /* AnalyticsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 403733D1E79BF3F0BDF3A215 /* AnalyticsStore.swift */; };
 		DB070DA9A5EFE1B0BB43BC86 /* VacationCountdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D893558826401E918413FA1 /* VacationCountdown.swift */; };
 		DD7226E6D87C472965917912 /* MetaAIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8AF464B30B6BBCFA2B31D48 /* MetaAIClient.swift */; };
+		C1D2E3F405162738495A6B01 /* WatchAskAnswer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1D2E3F405162738495A6B02 /* WatchAskAnswer.swift */; };
 		DF031CE0F1D65920D1D003E7 /* LiveCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F94AC888464350A05C1090C /* LiveCardView.swift */; };
 		E18B6A9B4FA1105E20981AF6 /* KretaAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62D820C4CC82989E7AB176A3 /* KretaAPI.swift */; };
 		E3E071A24AC9AB1AFCFB58A7 /* CustomTasksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D3E0B0FDF4604B9398AA272 /* CustomTasksStore.swift */; };
@@ -121,6 +122,7 @@
 		E9854B23F285356AEC2118E4 /* WatchSyncStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78F66BBD733EBA04C7CB0856 /* WatchSyncStore.swift */; };
 		EB0BA8A61112DF3F8C21100C /* KretaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBF03B396B70AF1C4B035458 /* KretaModels.swift */; };
 		EF894B6E452FA8B29EAC59C7 /* CheatWatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14799ECC82A8A6690B992259 /* CheatWatchView.swift */; };
+		A1B2C3D4E5F60718293A3B01 /* CheatAskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A3B02 /* CheatAskView.swift */; };
 		F521FF40A3154A21781D1948 /* TimetableWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = F963EB973555B758C1101D65 /* TimetableWidgetSnapshot.swift */; };
 		F6711F9870E041805B9772B2 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E86A32AD2DDFC87FB138D5 /* AppTheme.swift */; };
 		F8233A954E2118EBB3EBFD56 /* GradesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58254DFECD2C7AC3611DD728 /* GradesView.swift */; };
@@ -207,6 +209,7 @@
 		0BAE871D50553D3FF30F87AD /* Summit.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Summit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0F5EC6EB282C3C33E5FB6F00 /* RoundingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundingDetailView.swift; sourceTree = "<group>"; };
 		14799ECC82A8A6690B992259 /* CheatWatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheatWatchView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A3B02 /* CheatAskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheatAskView.swift; sourceTree = "<group>"; };
 		16DF003F0DB021C460B7EF92 /* SummitLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityAttributes.swift; sourceTree = "<group>"; };
 		194B529DC564DF78077C938A /* SubjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectDetailView.swift; sourceTree = "<group>"; };
 		19DFC7C10A0189809286952D /* GradeCircle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCircle.swift; sourceTree = "<group>"; };
@@ -299,6 +302,7 @@
 		B7E156CB119C0AA44F6ECF68 /* SummitApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitApp.swift; sourceTree = "<group>"; };
 		BD41B4ED9508F804D6940D5E /* ic_rounded.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_rounded.png; sourceTree = "<group>"; };
 		C8AF464B30B6BBCFA2B31D48 /* MetaAIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetaAIClient.swift; sourceTree = "<group>"; };
+		C1D2E3F405162738495A6B02 /* WatchAskAnswer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAskAnswer.swift; sourceTree = "<group>"; };
 		CACC3C6BFC6796A0A3267897 /* TimetableWidgetPublish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableWidgetPublish.swift; sourceTree = "<group>"; };
 		D545B038F89135DDB38415E2 /* showcase2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = showcase2.png; sourceTree = "<group>"; };
 		DDF41EC6F961DFC321F8FED9 /* MessagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesView.swift; sourceTree = "<group>"; };
@@ -414,6 +418,7 @@
 				4C2A1E29F6A708D112C24AF6 /* CheatView.swift */,
 				6EDBA687F00D8388CCBD4DDA /* CheatWatchPush.swift */,
 				C8AF464B30B6BBCFA2B31D48 /* MetaAIClient.swift */,
+				C1D2E3F405162738495A6B02 /* WatchAskAnswer.swift */,
 			);
 			path = Cheat;
 			sourceTree = "<group>";
@@ -448,6 +453,7 @@
 		376775F7630A675C4FBB5A34 /* SummitWatch */ = {
 			isa = PBXGroup;
 			children = (
+				A1B2C3D4E5F60718293A3B02 /* CheatAskView.swift */,
 				14799ECC82A8A6690B992259 /* CheatWatchView.swift */,
 				AFD363A0F8F101E59655A0B4 /* GradesWatchView.swift */,
 				26D362E074715FDA9A2FFBC2 /* Info.plist */,
@@ -926,6 +932,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				54A14C167FA2BC79CAB9266B /* AppColors.swift in Sources */,
+				A1B2C3D4E5F60718293A3B01 /* CheatAskView.swift in Sources */,
 				EF894B6E452FA8B29EAC59C7 /* CheatWatchView.swift in Sources */,
 				52B310CDA2178D044B0E409A /* GradesWatchView.swift in Sources */,
 				9452445D4637696EEF502A31 /* GradingLogic.swift in Sources */,
@@ -986,6 +993,7 @@
 				BFD4B5425FC95BBEC6575868 /* MainTabView.swift in Sources */,
 				51445194496F9216C84299A8 /* MessagesView.swift in Sources */,
 				DD7226E6D87C472965917912 /* MetaAIClient.swift in Sources */,
+				C1D2E3F405162738495A6B01 /* WatchAskAnswer.swift in Sources */,
 				678E8E271D0C7F21BDEA7E22 /* MonthlyWrapped.swift in Sources */,
 				8C6140AB017826BDF110FABD /* NotesView.swift in Sources */,
 				C0193DFFC067EF63923C0A7E /* NotificationManager.swift in Sources */,
