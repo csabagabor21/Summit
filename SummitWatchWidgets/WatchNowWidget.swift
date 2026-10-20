@@ -224,6 +224,13 @@ struct WatchNowCalc {
         } else {
             state = .empty
         }
+        // Központi őr az élő timerre: degenerált fázis (vége <= eleje —
+        // hibás órarendi adat, pl. nulla hosszú óra) sosem mehet élő
+        // ProgressView/Text(timerInterval:) kötésbe, mert a SwiftUI
+        // nem konvergál rá: az extension 95% CPU-n pörög, a rendszer
+        // kilövi, az app pedig nem kap első képkockát. Ilyenkor marad
+        // a statikus érték (a nézetek `phase == nil`-re azt rajzolnak).
+        if let p = phase, !(p.lowerBound < p.upperBound) { phase = nil }
         // Rögzített infó a kártya aljára (mint a telefonon): a tartó órára,
         // különben a következőre vonatkozik.
         if let anchor = current ?? next, let t = tasks {
