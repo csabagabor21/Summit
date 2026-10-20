@@ -142,21 +142,40 @@ private struct CheatSheetTopicsView: View {
                 )
             } else {
                 List {
-                    // Kérdezőmező — maga a sor a szövegbeviteli mező:
-                    // Double Tap (csippentés) közvetlenül a mezőt
-                    // választja, a rendszer hozza a billentyűzetet /
-                    // diktálást. Készre koppintva (return) a kérdés
-                    // háttérben elmegy, a mező ürül, a válasz a lista
-                    // tetején + watch-értesítésben jön meg.
+                    // Kérdezőmező — iMessage-szerű üvegkapszula, benne a
+                    // valódi szövegbeviteli mező: Double Tap (csippentés)
+                    // közvetlenül a mezőt választja, a rendszer hozza a
+                    // billentyűzetet / diktálást. Készre koppintva vagy a
+                    // nyílra tapintva a kérdés háttérben elmegy, a mező
+                    // ürül, a válasz a lista tetején + watch-értesítésben
+                    // jön meg. Valódi üveg (watchGlassPill), nem blur-hack.
                     Section {
-                        TextField("Kérdezz vagy diktálj…", text: $question)
-                            .focused($isInputFocused)
-                            .onSubmit { ask() }
-                            .watchPrimaryAction()
-                            .accessibilityLabel("Kérdezés")
-                            .accessibilityHint("Dupla koppintás: diktálás vagy billentyűzet.")
+                        HStack(spacing: 8) {
+                            TextField("Kérdezz vagy diktálj…", text: $question)
+                                .focused($isInputFocused)
+                                .onSubmit { ask() }
+                                .watchPrimaryAction()
+                                .accessibilityLabel("Kérdezés")
+                                .accessibilityHint("Dupla koppintás: diktálás vagy billentyűzet.")
+                                .labelsHidden()
+                            if !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Button {
+                                    ask()
+                                } label: {
+                                    Image(systemName: "arrow.up.circle.fill")
+                                        .font(.title3)
+                                        .foregroundStyle(.blue)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Küldés")
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .watchGlassPill()
+                        .listRowBackground(Color.clear)
                     } footer: {
-                        Text("Készre koppintva a válasz a lista tetején és értesítésben jön meg.")
+                        Text("Készre vagy a nyílra koppintva a válasz a lista tetején és értesítésben jön meg.")
                     }
                             // Utolsó válasz helyben is: ha az értesítések
                             // le vannak tiltva, a válasz akkor is itt
