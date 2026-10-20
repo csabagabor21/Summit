@@ -123,7 +123,6 @@
 		E9854B23F285356AEC2118E4 /* WatchSyncStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78F66BBD733EBA04C7CB0856 /* WatchSyncStore.swift */; };
 		EB0BA8A61112DF3F8C21100C /* KretaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBF03B396B70AF1C4B035458 /* KretaModels.swift */; };
 		EF894B6E452FA8B29EAC59C7 /* CheatWatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14799ECC82A8A6690B992259 /* CheatWatchView.swift */; };
-		A1B2C3D4E5F60718293A3B01 /* CheatAskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A3B02 /* CheatAskView.swift */; };
 		F521FF40A3154A21781D1948 /* TimetableWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = F963EB973555B758C1101D65 /* TimetableWidgetSnapshot.swift */; };
 		F6711F9870E041805B9772B2 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E86A32AD2DDFC87FB138D5 /* AppTheme.swift */; };
 		F8233A954E2118EBB3EBFD56 /* GradesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58254DFECD2C7AC3611DD728 /* GradesView.swift */; };
@@ -210,7 +209,6 @@
 		0BAE871D50553D3FF30F87AD /* Summit.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Summit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0F5EC6EB282C3C33E5FB6F00 /* RoundingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundingDetailView.swift; sourceTree = "<group>"; };
 		14799ECC82A8A6690B992259 /* CheatWatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheatWatchView.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60718293A3B02 /* CheatAskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheatAskView.swift; sourceTree = "<group>"; };
 		16DF003F0DB021C460B7EF92 /* SummitLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityAttributes.swift; sourceTree = "<group>"; };
 		194B529DC564DF78077C938A /* SubjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectDetailView.swift; sourceTree = "<group>"; };
 		19DFC7C10A0189809286952D /* GradeCircle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCircle.swift; sourceTree = "<group>"; };
@@ -455,7 +453,6 @@
 		376775F7630A675C4FBB5A34 /* SummitWatch */ = {
 			isa = PBXGroup;
 			children = (
-				A1B2C3D4E5F60718293A3B02 /* CheatAskView.swift */,
 				14799ECC82A8A6690B992259 /* CheatWatchView.swift */,
 				AFD363A0F8F101E59655A0B4 /* GradesWatchView.swift */,
 				26D362E074715FDA9A2FFBC2 /* Info.plist */,
@@ -936,7 +933,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				54A14C167FA2BC79CAB9266B /* AppColors.swift in Sources */,
-				A1B2C3D4E5F60718293A3B01 /* CheatAskView.swift in Sources */,
 				EF894B6E452FA8B29EAC59C7 /* CheatWatchView.swift in Sources */,
 				52B310CDA2178D044B0E409A /* GradesWatchView.swift in Sources */,
 				9452445D4637696EEF502A31 /* GradingLogic.swift in Sources */,
@@ -1093,7 +1089,7 @@
 				CODE_SIGN_ENTITLEMENTS = SummitWatchWidgets.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SummitWatchWidgets/Info.plist;
@@ -1104,7 +1100,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.watchapp.Widgets;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = watchos;
@@ -1122,7 +1118,7 @@
 				CODE_SIGN_ENTITLEMENTS = SummitWatch.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SummitWatch/Info.plist;
@@ -1130,7 +1126,7 @@
 				INFOPLIST_KEY_CFBundleName = Summit;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = hu.flint;
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.watchapp;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = watchos;
@@ -1210,7 +1206,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = SummitWidgetsMac.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SummitWidgets/Info.plist;
@@ -1222,7 +1218,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.Widgets;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
@@ -1238,7 +1234,7 @@
 				CODE_SIGN_ENTITLEMENTS = SummitWatchWidgets.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SummitWatchWidgets/Info.plist;
@@ -1249,7 +1245,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.watchapp.Widgets;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = watchos;
@@ -1267,7 +1263,7 @@
 				CODE_SIGN_ENTITLEMENTS = SummitWatch.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SummitWatch/Info.plist;
@@ -1275,7 +1271,7 @@
 				INFOPLIST_KEY_CFBundleName = Summit;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = hu.flint;
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.watchapp;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = watchos;
@@ -1293,7 +1289,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = SummitWidgetsMac.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SummitWidgets/Info.plist;
@@ -1305,7 +1301,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.Widgets;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
@@ -1323,7 +1319,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = SummitReleaseMac.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				"CURRENT_PROJECT_VERSION[sdk=macosx*]" = 20;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1345,7 +1341,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				"MARKETING_VERSION[sdk=macosx*]" = 1.2;
 				OTHER_LDFLAGS = "$(inherited) -ObjC";
 				PRODUCT_BUNDLE_IDENTIFIER = hu.flint;
@@ -1421,7 +1417,7 @@
 				CODE_SIGN_ENTITLEMENTS = Summit.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				"CURRENT_PROJECT_VERSION[sdk=macosx*]" = 20;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1443,7 +1439,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				"MARKETING_VERSION[sdk=macosx*]" = 1.2;
 				OTHER_LDFLAGS = "$(inherited) -ObjC";
 				PRODUCT_BUNDLE_IDENTIFIER = hu.flint;
@@ -1462,12 +1458,12 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Summit UI Tests";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.UITests;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
@@ -1483,12 +1479,12 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 38DAVMRN66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Summit UI Tests";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = hu.flint.UITests;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;

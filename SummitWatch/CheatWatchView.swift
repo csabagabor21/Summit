@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 // MARK: - Jegyzetek az órán — a telefonos Watch-tab lapjainak tükre
 // Dolgozatok listája, koppintásra a témák — egy téma egy jegyzet
@@ -87,11 +88,6 @@ struct CheatWatchView: View {
                     CheatSheetTopicsView(sheet: s, topics: topics(of: s.id))
                 }
             }
-            .navigationDestination(for: WatchAskRoute.self) { route in
-                if let s = sheets.first(where: { $0.id == route.sheetID }) {
-                    CheatAskView(sheet: s)
-                }
-            }
         }
     }
 }
@@ -131,6 +127,10 @@ private struct CheatSheetTopicsView: View {
     let sheet: WatchCheatSheet
     let topics: [WatchCheatTopic]
 
+    @EnvironmentObject var store: WatchSyncStore
+    @State private var question = ""
+    @FocusState private var isInputFocused: Bool
+
     var body: some View {
         Group {
             if topics.isEmpty {
@@ -141,26 +141,56 @@ private struct CheatSheetTopicsView: View {
                 )
             } else {
                 List {
-                    // Kérdezés — LEGFELÜL, natív sor: Meta-logó + egy
-                    // szó, semmi alcím. Egyedi üveg nincs itt (a
-                    // List-soron belüli glassEffect szétcsúszott
-                    // ovált rajzolt), a rendszer-sor a biztos.
-                    // Ez a képernyő fő művelete, ezért a Double Tap
-                    // is ezt választja. Koppintásra nyílik a kérdező,
-                    // ahol a fókusz azonnal felhozza a billentyűzetet.
+                    // Kérdezés — LEGFELÜL, egyetlen üvegpill: nincs
+                    // köztes oldal. Koppintásra a rejtett mező fókuszt
+                    // kap, a rendszer azonnal felhozza a billentyűzetet
+                    // / diktálást. Beküldésre (return) a kérdés háttérben
+                    // elmegy, a mező ürül és marad a lista — a válasz
+                    // watch-értesítésben jön.
                     Section {
-                        NavigationLink(value: WatchAskRoute(sheetID: sheet.id)) {
-                            Label {
-                                Text("Kérdezés")
-                                    .font(.subheadline.weight(.semibold))
-                            } icon: {
+                        // Egyetlen üvegpill (Notification Center-minta):
+                        // koppintásra a rejtett mező kap fókuszt, így a
+                        // billentyűzet / diktálás azonnal feljön — külön
+                        // kérdezőoldal nincs. A mező szövege a gomb
+                        // feliratában tükröződik.
+                        Button {
+                            WatchHaptics.tick()
+                            isInputFocused = true
+                        } label: {
+                            HStack(spacing: 8) {
                                 Image("MetaAI")
                                     .resizable()
                                     .aspectRatio(contentMode: .fit)
                                     .frame(width: 26, height: 26)
+                                Text(question.isEmpty ? "Kérdezz vagy diktálj…" : question)
+                                    .foregroundStyle(question.isEmpty ? .tertiary : .primary)
+                                    .lineLimit(1)
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 12)
                         }
+                        .buttonStyle(.plain)
+                        // A belső padding az üveg része. A sor saját
+                        // kártya-háttere ki van kapcsolva, hogy ne
+                        // legyen üveg az üvegen.
+                        .watchGlassPill()
+                        // Fő művelet: Double Tap is ide visz.
                         .watchPrimaryAction()
+                        .listRowBackground(Color.clear)
+                        .background {
+                            // Rejtett valódi mező: ez hozza fel a
+                            // billentyűzetet, ez kapja a diktálást.
+                            TextField("", text: $question)
+                                .focused($isInputFocused)
+                                .onSubmit { ask() }
+                                .frame(width: 1, height: 1)
+                                .opacity(0.01)
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
+                        }
+                    } footer: {
+                        Text("A válasz értesítésben jön meg.")
                     }
                     ForEach(topics) { t in
                         NavigationLink {
@@ -187,6 +217,26 @@ private struct CheatSheetTopicsView: View {
             }
         }
         .navigationTitle(sheet.title)
+        .onAppear {
+            // Kontextusos engedélykérés: a footer megígéri, hogy a
+            // válasz értesítésben jön — itt kérünk rá engedélyt.
+            // Idempotens, csak egyszer kérdez.
+            Task {
+                try? await UNUserNotificationCenter.current()
+                    .requestAuthorization(options: [.alert, .sound, .badge])
+            }
+        }
+    }
+
+    private func ask() {
+        let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return }
+        WatchHaptics.tick()
+        question = ""
+        isInputFocused = false
+        // Marad a lista, a válasz háttérben készül és
+        // watch-értesítésben érkezik — addig a jegyzetek lapozhatók.
+        store.askInBackground(sheetID: sheet.id, sheetTitle: sheet.title, question: String(q.prefix(500)))
     }
 }
 
