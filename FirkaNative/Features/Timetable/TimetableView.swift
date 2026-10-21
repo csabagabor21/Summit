@@ -333,23 +333,15 @@ struct TimetableView: View {
                     }
                 }
 
-                // MARK: Day picker — ugyanaz az inset mint Notes/Home
+                // MARK: Day selector — nap + dátum, ugyanaz az inset mint Notes/Home.
+                // Egyedi gombok (nem segmented Picker): a nap neve ALATT a
+                // dátum is látszik ("halálos, hogy nincs dátum kb. sehol").
                 Section {
-                    // Egyedi binding: a setter CSAK user-koppintásra fut —
-                    // a programozott ugrások (enterTimetable, smartDay,
-                    // deeplink, Handoff) némák maradnak.
-                    Picker("Nap", selection: Binding(
-                        get: { selectedDay },
-                        set: { if $0 != selectedDay { SummitHaptics.selection() }; selectedDay = $0 }
-                    )) {
-                        ForEach(2...6, id: \.self) { d in Text(days[d-2]).tag(d).lineLimit(1).minimumScaleFactor(0.9) }
-                    }
-                    .pickerStyle(.segmented)
+                    daySelector
                     .onChange(of: selectedDay) { _, _ in userHasNavigated = true }
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 6, trailing: 16))
                     .listRowSeparator(.hidden)
-                    .animation(SummitMotion.page, value: selectedDay)
                 }
 
                 // Az idő-eltolás csúszka a Fejlesztői módban él — itt csak az
@@ -383,6 +375,16 @@ struct TimetableView: View {
                         }
                     }
                     Section {
+                        // Óra nélküli napon is látszik a dátum a nap neve alatt.
+                        Text("\(dayLabel(for: selectedDay)) • \(selectedDayFullDate)")
+                            .font(.caption.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 0, trailing: 16))
+                    }
+                    Section {
                         ContentUnavailableView(emptyDayTitle, systemImage: emptyDayIcon, description: Text(emptyDayDetail))
                             .frame(maxWidth: .infinity, minHeight: 220)
                             .padding(.vertical, 16)
@@ -401,6 +403,9 @@ struct TimetableView: View {
                                     .font(.caption2.weight(.bold))
                                     .foregroundStyle(.secondary)
                                     .tracking(1.1)
+                                Text(selectedDayFullDate)
+                                    .font(.caption.weight(.medium).monospacedDigit())
+                                    .foregroundStyle(.secondary)
                                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                                     Text("\(effectiveFiltered.count)")
                                         .font(.system(size: 30, weight: .bold, design: .rounded))
@@ -442,12 +447,18 @@ struct TimetableView: View {
                             }
                             timelineContent
                         }
+                        // Napváltó swipe CSAK a napi tartalmon (nem a teljes
+                        // listán): a lista-szintű gesztus a függőleges
+                        // görgetéssel versenyzett, ez rángatta az órarendet.
+                        .simultaneousGesture(daySwipeGesture)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 12))
                     }
+                    // Nap/hét-azonosító: a tartalom napváltáskor elölről
+                    // kezdődik. Transition NINCS rajta — a beúszó animáció a
+                    // görgetési pozícióval harcolt (rángatás húzogatáskor).
                     .id("\(weekOffset)-\(selectedDay)")
-                    .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
                 }
             }
             .listStyle(.insetGrouped)
@@ -455,41 +466,12 @@ struct TimetableView: View {
             .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
             .summitListChrome(colors: colors)
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 24, coordinateSpace: .local)
-                    .onEnded { value in
-                        let dx = value.translation.width
-                        let dy = value.translation.height
-                        guard abs(dx) > abs(dy), abs(dx) > 52 else { return }
-                        userHasNavigated = true
-                        // Nap/het váltó swipe: csak tényleges lépéskor tick.
-                        let beforeWeek = weekOffset, beforeDay = selectedDay
-                        withAnimation(SummitMotion.page) {
-                            if dx < 0 {
-                                if let idx = dayTags.firstIndex(of: selectedDay), idx < dayTags.count - 1 {
-                                    selectedDay = dayTags[idx + 1]
-                                } else if weekOffset < 8 {
-                                    // péntekről → következő hét hétfő
-                                    weekOffset += 1; selectedDay = 2
-                                    Task { await load() }
-                                }
-                            } else if dx > 0 {
-                                if let idx = dayTags.firstIndex(of: selectedDay), idx > 0 {
-                                    selectedDay = dayTags[idx - 1]
-                                } else if weekOffset > -8 {
-                                    // hétfőről → előző hét péntek
-                                    weekOffset -= 1; selectedDay = 6
-                                    Task { await load() }
-                                }
-                            }
-                        }
-                        if weekOffset != beforeWeek || selectedDay != beforeDay {
-                            SummitHaptics.selection()
-                        }
-                    }
-            )
-            .animation(SummitMotion.page, value: selectedDay)
-            .animation(SummitMotion.page, value: weekOffset)
+            // Lista-szintű .animation (selectedDay/weekOffset) és gesztus
+            // NINCS: az egész lista minden napváltáskor és Timeline-ticknél
+            // újraanimált — ez dobálta a görgetési pozíciót húzogatáskor.
+            // A napváltás a daySelector koppintásánál és a daySwipeGesture
+            // végpontjain animál (withAnimation), a lista tartalma meg
+            // transition nélkül, azonnal cserélődik.
             .refreshable {
                 // Lehúzáskor a hiányzások is frissen jönnek (a pótláshoz).
                 cachedAbsences = nil
@@ -563,6 +545,9 @@ struct TimetableView: View {
             // Live Activity sync EGYKEZES: csak a HomeView írja (ugyanaz az AppStorage kulcs!).
             // Két író (Home + Timetable eltérő nap locked lessons-szel) egymást ütötte:
             // csúszkánál az egyik indított, a másik endAll-ozott → villogó/blank Island.
+            // Felmentés-váltás: az exemptedTick puszta változása újrarajzol
+            // (a sorok az ExemptedStore-ból olvasnak) — .id() NINCS rajta,
+            // mert az az egész listát újraépítené és elveszne a görgetés.
             .onReceive(NotificationCenter.default.publisher(for: ExemptedStore.changedNotification)) { _ in exemptedTick += 1 }
             .onReceive(NotificationCenter.default.publisher(for: SchoolEventsStore.changedNotification)) { _ in
                 schoolEvents = SchoolEventsStore.load()
@@ -579,7 +564,6 @@ struct TimetableView: View {
                     if !iss.isEmpty, iss != "unknown" { refreshVacation(iss: iss) }
                 }
             }
-            .id(exemptedTick)
             .onReceive(NotificationCenter.default.publisher(for: switchToTimetable)) { notif in
                 guard let info = notif.userInfo,
                       let subject = info["subject"] as? String,
@@ -670,7 +654,6 @@ struct TimetableView: View {
                     )
                     .id(lesson.id)
                     .padding(.vertical, 5)
-                    .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
                 }
             } else {
                 // Élő — 15s-enként frissülő TimelineView, hogy a menő progress magától is mozogjon
@@ -698,7 +681,6 @@ struct TimetableView: View {
                         )
                         .id(lesson.id)
                         .padding(.vertical, 5)
-                        .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
                     }
                 }
             }
@@ -720,6 +702,108 @@ struct TimetableView: View {
     private func dayLabel(for tag: Int) -> String {
         guard let i = dayTags.firstIndex(of: tag) else { return "" }
         return days[i]
+    }
+
+    /// A napválasztó dátumai: az aktuális hét hétfőjéhez igazítva
+    /// (hétlapozáskor a dátumok is vele mennek).
+    private func dayDate(for tag: Int) -> Date? {
+        let cal = Calendar.current
+        guard let dayIdx = dayTags.firstIndex(of: tag) else { return nil }
+        return cal.date(byAdding: .day, value: dayIdx, to: currentMonday)
+    }
+
+    /// A kiválasztott nap teljes dátuma ("2026. október 21.").
+    private var selectedDayFullDate: String {
+        guard let dd = dayDate(for: selectedDay) else { return "" }
+        return Self.fullDayFormatter.string(from: dd)
+    }
+
+    private static let dayDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "hu_HU")
+        f.dateFormat = "MMM d."
+        return f
+    }()
+
+    private static let fullDayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "hu_HU")
+        f.dateFormat = "yyyy. MMMM d."
+        return f
+    }()
+
+    /// Napválasztó: hétköznap + alatta a dátum. A koppintás az egyetlen
+    /// hely, ahol a napváltás animál (a lista-szintű .animation helyett —
+    /// az rángatta a görgetést).
+    private var daySelector: some View {
+        HStack(spacing: 6) {
+            ForEach(dayTags, id: \.self) { tag in
+                let isSel = tag == selectedDay
+                Button {
+                    guard tag != selectedDay else { return }
+                    SummitHaptics.selection()
+                    withAnimation(SummitMotion.page) { selectedDay = tag }
+                } label: {
+                    VStack(spacing: 1) {
+                        Text(dayLabel(for: tag))
+                            .font(.caption.weight(.semibold))
+                            .lineLimit(1).minimumScaleFactor(0.85)
+                            .foregroundStyle(isSel ? .white : .primary)
+                        Text(dayDate(for: tag).map { Self.dayDateFormatter.string(from: $0) } ?? "")
+                            .font(.caption2.weight(.medium).monospacedDigit())
+                            .lineLimit(1).minimumScaleFactor(0.85)
+                            .foregroundStyle(isSel ? .white.opacity(0.88) : .secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 7)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(isSel ? colors.accent : Color.primary.opacity(scheme == .dark ? 0.08 : 0.06))
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(dayLabel(for: tag)), \(dayDate(for: tag).map { Self.fullDayFormatter.string(from: $0) } ?? "")")
+                .accessibilityValue(isSel ? "kiválasztva" : "")
+            }
+        }
+    }
+
+    /// Nap/hét-váltó swipe a napi tartalmon. Szigorú vízszintes zár
+    /// (64 pt + kétszeres vízszintes túlsúly): a sima függőleges
+    /// görgetés vagy átlós húzás sosem billenti át a napot — korábban a
+    /// laza küszöb miatt húzogatáskor össze-vissza ugrált a nézet.
+    private var daySwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 32, coordinateSpace: .local)
+            .onEnded { value in
+                let dx = value.translation.width
+                let dy = value.translation.height
+                guard abs(dx) > 64, abs(dx) > 2 * abs(dy) else { return }
+                // Nap/het váltó swipe: csak tényleges lépéskor tick.
+                let beforeWeek = weekOffset, beforeDay = selectedDay
+                withAnimation(SummitMotion.page) {
+                    if dx < 0 {
+                        if let idx = dayTags.firstIndex(of: selectedDay), idx < dayTags.count - 1 {
+                            selectedDay = dayTags[idx + 1]
+                        } else if weekOffset < 8 {
+                            // péntekről → következő hét hétfő
+                            weekOffset += 1; selectedDay = 2
+                            Task { await load() }
+                        }
+                    } else if dx > 0 {
+                        if let idx = dayTags.firstIndex(of: selectedDay), idx > 0 {
+                            selectedDay = dayTags[idx - 1]
+                        } else if weekOffset > -8 {
+                            // hétfőről → előző hét péntek
+                            weekOffset -= 1; selectedDay = 6
+                            Task { await load() }
+                        }
+                    }
+                }
+                if weekOffset != beforeWeek || selectedDay != beforeDay {
+                    userHasNavigated = true
+                    SummitHaptics.selection()
+                }
+            }
     }
 
     var filtered: [LessonItem] {
