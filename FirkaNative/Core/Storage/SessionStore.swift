@@ -95,6 +95,14 @@ final class SessionStore: ObservableObject {
         persist()
         objectWillChange.send()
     }
+    /// Képernyőn mutatandó név: a Beállításokban megadott becenév, ha van,
+    /// különben a KRÉTA-név. A becenév eszköz-helyi (NicknameStore),
+    /// sosem szinkronizálódik és a heartbeatbe sem kerül.
+    var displayName: String {
+        guard let u = selectedUser else { return "Diák" }
+        return NicknameStore.displayName(for: u)
+    }
+
     /// Utólagos iskolanév-pótlás: ha a kiválasztott userhez nincs használható
     /// iskolanév (üres, vagy szűrt demo/kód-név), a TanuloAdatlapból tölti be
     /// a KRÉTA-beli intézménynevet. Demo vagy kód nélküli userhez nem nyúl —

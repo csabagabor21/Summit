@@ -77,6 +77,7 @@
 		84E871367170AB755B252E52 /* CheatStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28DCFC5C5B97178FAFAEF1E0 /* CheatStore.swift */; };
 		8957515789A879317AE7291A /* SummitPushSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3E3A06805897E70CA3FE15D /* SummitPushSync.swift */; };
 		8C2B1C9B56CDA57FDA0F1AD5 /* SummitWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3ABCF5C0C06170BB971F626E /* SummitWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		0927E4B426464A19A4E1096C /* NicknameStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5173DF80B709483C9C95F9DD /* NicknameStore.swift */; };
 		8C6140AB017826BDF110FABD /* NotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F810987AB234C214EFE198C /* NotesView.swift */; };
 		8D867F1B7783C5AA139BA81D /* showcase4.png in Resources */ = {isa = PBXBuildFile; fileRef = 38378D28718442B4059B4C78 /* showcase4.png */; };
 		8F81255CB7FB5428B8AB4039 /* KretaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBF03B396B70AF1C4B035458 /* KretaModels.swift */; };
@@ -256,6 +257,7 @@
 		4C2A1E29F6A708D112C24AF6 /* CheatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheatView.swift; sourceTree = "<group>"; };
 		4CC0B40D99CA71E14A82E1AF /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
 		4DBEA545697A0AFB5ED93A92 /* SummitWatchWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitWatchWidgetsBundle.swift; sourceTree = "<group>"; };
+		5173DF80B709483C9C95F9DD /* NicknameStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NicknameStore.swift; sourceTree = "<group>"; };
 		4F810987AB234C214EFE198C /* NotesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesView.swift; sourceTree = "<group>"; };
 		510DB597EF2AEFBA9384D46D /* ProfileImageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileImageStore.swift; sourceTree = "<group>"; };
 		538B4D0DC7A588CA62E63427 /* SchoolCalendarDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchoolCalendarDirectory.swift; sourceTree = "<group>"; };
@@ -678,6 +680,7 @@
 				EFF09C4AC767DA00D3C3CD37 /* ExamRollover.swift */,
 				326A7165235AF080CF90FB8D /* ExemptedStore.swift */,
 				E04476DB51EA8A9629DBF660 /* KeychainHelper.swift */,
+				5173DF80B709483C9C95F9DD /* NicknameStore.swift */,
 				FBFE1FE503B9522FABFD9105 /* NotificationManager.swift */,
 				510DB597EF2AEFBA9384D46D /* ProfileImageStore.swift */,
 				538B4D0DC7A588CA62E63427 /* SchoolCalendarDirectory.swift */,
@@ -1005,6 +1008,7 @@
 				C1D2E3F405162738495A6B01 /* WatchAskAnswer.swift in Sources */,
 				678E8E271D0C7F21BDEA7E22 /* MonthlyWrapped.swift in Sources */,
 				8C6140AB017826BDF110FABD /* NotesView.swift in Sources */,
+				0927E4B426464A19A4E1096C /* NicknameStore.swift in Sources */,
 				C0193DFFC067EF63923C0A7E /* NotificationManager.swift in Sources */,
 				19D3A7B14C46D6CC18FD0B79 /* ProfileCropView.swift in Sources */,
 				9789AAA16FD9B3D6B4ABA252 /* ProfileImageStore.swift in Sources */,

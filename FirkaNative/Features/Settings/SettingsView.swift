@@ -25,6 +25,8 @@ struct SettingsView: View {
     @State private var devTapReset: Task<Void, Never>?
     @State private var showDevAlert = false
     @State private var draftIss = ""
+    @State private var draftNickname = ""
+    @State private var nicknameTick = 0
     @State private var draftSchoolName = ""
     @State private var draftMetaAIKey = ""
     @State private var metaAIKeyEdited = false
@@ -97,7 +99,7 @@ struct SettingsView: View {
             // Profil-sziget (fejléc nélkül, mint eddig)
             HStack(spacing: 12) {
                 ZStack(alignment: .bottomTrailing) {
-                    ProfileImageView(name: session.selectedUser?.name ?? "Diák", userId: summitProfileKey, size: 56).frame(width: 56, height: 56)
+                    ProfileImageView(name: session.displayName, userId: summitProfileKey, size: 56).frame(width: 56, height: 56)
                     Circle().fill(colors.accent).frame(width: 22, height: 22)
                         .overlay(Image(systemName: "camera.fill").font(.system(size: 10, weight: .bold)).foregroundStyle(.white))
                         .overlay(Circle().stroke(.white, lineWidth: 1.5))
@@ -105,7 +107,10 @@ struct SettingsView: View {
                 }
                 .onTapGesture { showPhotoOptions = true }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(session.selectedUser?.name ?? "Diák").font(.headline)
+                    Text(session.displayName).font(.headline)
+                    if let real = session.selectedUser?.name, real != session.displayName {
+                        Text("KRÉTA: \(real)").font(.caption).foregroundStyle(.secondary)
+                    }
                     Text(session.selectedUser?.schoolName ?? "").font(.caption).foregroundStyle(.secondary)
                     Text("e-KRÉTA • \(session.selectedUser?.instituteCode ?? "-")").font(.caption2).foregroundStyle(.tertiary)
                 }
@@ -134,6 +139,34 @@ struct SettingsView: View {
                 }
                 Button("Mégse", role: .cancel) {}
                 } message: { Text("Új kép a Módosítással, vagy töröld a jelenlegit.") }
+
+            // Becenév: eszköz-helyi megjelenítési név (üdvözlés, profil).
+            // Nem szinkronizálódik, a KRÉTA-név és a statisztika változatlan.
+            summitIsland(header: "Becenév", footer: "Csak ezen az eszközön látszik — a KRÉTA-név és a statisztika változatlan marad.") {
+                summitRow {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            TextField("pl. Marci", text: $draftNickname)
+                                .font(.subheadline)
+                                .textInputAutocapitalization(.words)
+                                .autocorrectionDisabled()
+                                .summitInput()
+                            Button("Mentés") { saveNickname() }
+                                .font(.subheadline.weight(.bold))
+                                .disabled(draftNickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+                        if let nick = currentNickname {
+                            HStack {
+                                Text("Most: \(nick)")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                                Spacer()
+                                Button("Törlés", role: .destructive) { clearNickname() }
+                                    .font(.caption.weight(.bold))
+                            }
+                        }
+                    }
+                }
+            }
 
             // Havi Wrapped-archívum: a banner csak elsejéig él, itt minden
             // jegyes hónap visszanézhető (a jegyek gyorstárból jönnek).
@@ -305,7 +338,7 @@ struct SettingsView: View {
                         HStack {
                             Label("Fiók", systemImage: "person.crop.circle").font(.subheadline.weight(.medium))
                             Spacer()
-                            Text(session.selectedUser?.name ?? "Diák").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            Text(session.displayName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                             Image(systemName: "chevron.down")
                                 .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                                 .rotationEffect(.degrees(accountExpanded ? 180 : 0))
@@ -561,6 +594,7 @@ struct SettingsView: View {
             loadTravel()
             if draftIss.isEmpty { draftIss = session.selectedUser?.instituteCode ?? "" }
             if draftSchoolName.isEmpty { draftSchoolName = session.selectedUser?.schoolNameOverride ?? "" }
+            if draftNickname.isEmpty, let u = session.selectedUser { draftNickname = NicknameStore.load(for: u) ?? "" }
             // Első megnyitáskor magától indul a túra — utána csak a ? gombról.
             if !tourSeen, tourStep == nil {
                 Task {
@@ -578,7 +612,15 @@ struct SettingsView: View {
         .fullScreenCover(
             isPresented: Binding(get: { cropImage != nil }, set: { if !$0 { cropImage = nil } })
         ) { cropSheet }
-        .onChange(of: session.selectedId) { _, _ in Task { await loadSubjects(force: true) } }
+        .onChange(of: session.selectedId) { _, _ in
+            // Fiókváltáskor a becenév-piszkozat is az új fiókhoz igazodik.
+            if let u = session.selectedUser { draftNickname = NicknameStore.load(for: u) ?? "" }
+            else { draftNickname = "" }
+            Task { await loadSubjects(force: true) }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NicknameStore.changedNotification)) { _ in
+            nicknameTick += 1
+        }
         // Téma-változás: 2 mp-es összevont feltöltés, ha a szinkron él.
         // (Pull utáni alkalmazást a suppress-ablak szűri ki.)
         // Másik eszközről jött utazás-állítás: a kapcsoló kövesse.
@@ -698,6 +740,27 @@ struct SettingsView: View {
         }
         repairMsg = "nincs működő jelölt — írd be kézzel"
     }
+    /// Aktuális becenév a kiválasztott fiókhoz (nil = nincs).
+    /// A `nicknameTick` a SwiftUI-frissítést hajtja (UserDefaults nem published).
+    private var currentNickname: String? {
+        _ = nicknameTick
+        guard let u = session.selectedUser else { return nil }
+        return NicknameStore.load(for: u)
+    }
+
+    private func saveNickname() {
+        guard let u = session.selectedUser else { return }
+        SummitHaptics.selection()
+        NicknameStore.save(draftNickname, for: u)
+    }
+
+    private func clearNickname() {
+        guard let u = session.selectedUser else { return }
+        SummitHaptics.selection()
+        NicknameStore.clear(for: u)
+        draftNickname = ""
+    }
+
     private func summitRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 0) { content() }
             .padding(.horizontal, 16)

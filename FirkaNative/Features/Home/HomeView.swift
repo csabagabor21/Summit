@@ -18,13 +18,14 @@ struct HomeView: View {
     @AppStorage("liveActivity.enabled") private var liveActivityEnabled = true
     @AppStorage("developer.enabled") private var devMode = false
     @State private var exemptedTick = 0
+    @State private var nicknameTick = 0
     @State private var liveSyncTask: Task<Void, Never>?
     /// Havi Wrapped kártya (banner koppintásból, elsejéig).
     @State private var wrappedMonth: MonthlyWrapped.Month?
 
     var body: some View {
         let user = session.selectedUser ?? .demo
-        let firstName = user.name.split(separator: " ").last.map(String.init) ?? user.name
+        let firstName = greetingFirstName
 
         NavigationStack {
             List {
@@ -329,6 +330,7 @@ struct HomeView: View {
             }
             .onChange(of: vm.lessonsToday) { _, _ in Task { await syncLiveActivity() } }
             .onChange(of: session.selectedId) { _, _ in Task { await vm.refresh(kreta: kreta, user: session.selectedUser, completed: completed); await syncLiveActivity() } }
+            .onReceive(NotificationCenter.default.publisher(for: NicknameStore.changedNotification)) { _ in nicknameTick += 1 }
             .onChange(of: previewMinutes) { _, _ in
                 if devMode && isPreviewActive { enqueueLiveSync() }
             }
@@ -361,13 +363,23 @@ struct HomeView: View {
                                 }
                         }
                         .buttonStyle(.plain)
-                        NavigationLink { SettingsView() } label: { ProfileImageView(name: user.name, userId: ProfileImageStore.key(userId: user.id, accessToken: user.accessToken), size: 30) }
+                        NavigationLink { SettingsView() } label: { ProfileImageView(name: NicknameStore.displayName(for: user), userId: ProfileImageStore.key(userId: user.id, accessToken: user.accessToken), size: 30) }
                             .buttonStyle(.plain) // különben a rendszer glass-pilleket tesz a kör mögé
                     }
                 }
             }
         }
         .tint(colors.accent)
+    }
+
+    /// Üdvözlés keresztneve: becenév, ha van (eszköz-helyi), különben a
+    /// KRÉTA-név. Külön property, hogy a body kifejezés kicsi maradjon —
+    /// a fordító az óriás body-t amúgy sem tudja időben típusellenőrizni.
+    private var greetingFirstName: String {
+        _ = nicknameTick
+        let user = session.selectedUser ?? .demo
+        let display = NicknameStore.displayName(for: user)
+        return display.split(separator: " ").last.map(String.init) ?? display
     }
 
     // MARK: - Preview helpers (a csúszka a Fejlesztői módban él)
