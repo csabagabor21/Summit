@@ -43,6 +43,10 @@ final class WatchSyncStore: NSObject, ObservableObject {
 
     /// Utolsó órai kérdezés kimenete (kártyában is látszik).
     @Published private(set) var lastAsk: WatchAskRecord?
+    /// Épp úton lévő kérdés lap-ID-je — ettől pörög a Kérdezés gomb.
+    /// Enélkül a beküldés néma: a mező kiürül, és semmi nem jelzi, hogy
+    /// az AI dolgozik (ez nézett ki beragadásnak).
+    @Published private(set) var pendingAskSheetID: String?
     /// Lehúzásos frissítés állapota (az óra listái ezt mutatják).
     @Published private(set) var isSyncing = false
     @Published private(set) var lastSyncDate: Date?
@@ -318,6 +322,11 @@ extension WatchSyncStore: WCSessionDelegate {
     /// fut, ezért a nézet eltűnése nem szakítja meg.
     func askInBackground(sheetID: String, sheetTitle: String, question: String) {
         Task { @MainActor in
+            // Pörgés + a korábbi válasz eltakarítása: amíg az új kérdés
+            // úton van, a régi kártya félrevezető lenne.
+            pendingAskSheetID = sheetID
+            lastAsk = nil
+            defer { pendingAskSheetID = nil }
             // 1) Saját láb: az óra a saját netjén, a telefon nélkül
             // kérdez (a kulcsot a telefon tolta át). Ha ez nem megy,
             // a telefon a tartalék — kivéve, ha az sem elérhető,

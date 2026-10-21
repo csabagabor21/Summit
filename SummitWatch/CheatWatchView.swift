@@ -129,8 +129,10 @@ private struct CheatSheetTopicsView: View {
     let topics: [WatchCheatTopic]
 
     @EnvironmentObject var store: WatchSyncStore
-    @State private var question = ""
-    @FocusState private var isInputFocused: Bool
+
+    private var accent: Color { Color(hex: UInt(store.accentHex)) }
+    /// Ehhez a laphoz épp úton van kérdés (a gomb ettől pörög).
+    private var isAsking: Bool { store.pendingAskSheetID == sheet.id }
 
     var body: some View {
         Group {
@@ -142,92 +144,44 @@ private struct CheatSheetTopicsView: View {
                 )
             } else {
                 List {
-                    // Kérdezőmező — iMessage-szerű üvegkapszula, benne a
-                    // valódi szövegbeviteli mező: Double Tap (csippentés)
-                    // közvetlenül a mezőt választja, a rendszer hozza a
-                    // billentyűzetet / diktálást. Készre koppintva vagy a
-                    // nyílra tapintva a kérdés háttérben elmegy, a mező
-                    // ürül, a válasz a lista tetején + watch-értesítésben
-                    // jön meg. Valódi üveg (watchGlassPill), nem blur-hack.
+                    // Kérdezés — EGY natív gomb (TextFieldLink): koppintásra
+                    // vagy csippentésre (Double Tap) rögtön a rendszer
+                    // beviteli lapja jön (diktálás, Scribble, billentyűzet),
+                    // a Kész a kérdést háttérben elküldi. Korábban itt egy
+                    // List-sorba ültetett TextField ült üvegkapszulában: a
+                    // mező saját háttere a kapszulán belül dupla keretet
+                    // adott, a küldőnyíl csak gépelés közben villant fel
+                    // (a sor ettől ugrált), a hosszú placeholder pedig
+                    // elvágódott — ez nézett ki csúnyán. Most egyetlen,
+                    // teljes szélességű üveg-gomb van a helyén.
                     Section {
-                        HStack(spacing: 8) {
-                            TextField("Kérdezz vagy diktálj…", text: $question)
-                                .focused($isInputFocused)
-                                .onSubmit { ask() }
-                                .watchPrimaryAction()
-                                .accessibilityLabel("Kérdezés")
-                                .accessibilityHint("Dupla koppintás: diktálás vagy billentyűzet.")
-                                .labelsHidden()
-                            if !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                Button {
-                                    ask()
-                                } label: {
-                                    Image(systemName: "arrow.up.circle.fill")
-                                        .font(.title3)
-                                        .foregroundStyle(.blue)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel("Küldés")
-                            }
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .watchGlassPill()
-                        .listRowBackground(Color.clear)
+                        askButton
                     } footer: {
-                        Text("Készre vagy a nyílra koppintva a válasz a lista tetején és értesítésben jön meg.")
+                        Text("A válasz értesítésben is megjön.")
                     }
-                            // Utolsó válasz helyben is: ha az értesítések
-                            // le vannak tiltva, a válasz akkor is itt
-                            // olvasható.
-                            if let r = store.lastAsk, r.sheetID == sheet.id {
-                                Section {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        HStack {
-                                            Image(systemName: r.isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                                            Text(r.isError ? "Nem sikerült" : "Válasz")
-                                                .font(.caption.weight(.semibold))
-                                            Spacer()
-                                            Button {
-                                                store.clearLastAsk()
-                                            } label: {
-                                                Image(systemName: "xmark")
-                                            }
-                                            .buttonStyle(.plain)
-                                        }
-                                        .foregroundStyle(r.isError ? .orange : .green)
-                                        Text(r.question)
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(2)
-                                        Text(r.text)
-                                            .font(.footnote)
-                                    }
-                                    .padding(.vertical, 4)
-                                }
-                            }
-                        ForEach(topics) { t in
-                            NavigationLink {
-                                CheatTopicDetailView(topic: t)
-                            } label: {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(t.title)
-                                        .font(.subheadline.weight(.semibold))
-                                    if t.body.isEmpty {
-                                        Text("(üres)")
-                                            .font(.caption2)
-                                            .foregroundStyle(.tertiary)
-                                    } else {
-                                        Text("Megnyitás")
-                                            .font(.caption2)
-                                            .foregroundStyle(.tertiary)
-                                    }
-                                }
-                                .padding(.vertical, 3)
-                            }
+                    // Utolsó válasz helyben is: ha az értesítések le vannak
+                    // tiltva, a válasz akkor is itt olvasható.
+                    if let r = store.lastAsk, r.sheetID == sheet.id {
+                        Section {
+                            answerCard(r)
                         }
                     }
-                    .listStyle(.plain)
+                    ForEach(topics) { t in
+                        NavigationLink {
+                            CheatTopicDetailView(topic: t)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(t.title)
+                                    .font(.subheadline.weight(.semibold))
+                                Text(t.body.isEmpty ? "(üres)" : "Megnyitás")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.vertical, 3)
+                        }
+                    }
+                }
+                .listStyle(.plain)
             }
         }
         .navigationTitle(sheet.title)
@@ -242,19 +196,76 @@ private struct CheatSheetTopicsView: View {
         }
     }
 
-    /// Kész (return) vagy üres mező: üresnél nem hibázunk, hanem
-    /// felhozzuk a billentyűzetet; kérdésnél háttérbe küldjük.
-    private func ask() {
-        let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty else {
-            WatchHaptics.tick()
-            isInputFocused = true
-            return
+    /// Kérdezés-gomb: teljes szélességű üveg-kapszula, benne ikon +
+    /// felirat. Kérdezés közben pörgővé és "Kérdezem…"-mé vált, és nem
+    /// nyomható újra — így látszik, hogy az AI dolgozik.
+    private var askButton: some View {
+        TextFieldLink(prompt: Text("Kérdés a jegyzetből")) {
+            HStack(spacing: 6) {
+                if isAsking {
+                    ProgressView()
+                        .controlSize(.mini)
+                        .frame(width: 14, height: 14)
+                } else {
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(accent)
+                }
+                Text(isAsking ? "Kérdezem…" : "Kérdezés")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+            }
+            .font(.footnote.weight(.semibold))
+            .frame(maxWidth: .infinity)
+        } onSubmit: { text in
+            ask(text)
         }
+        .watchGlassButtonStyle(tint: accent.opacity(0.18))
+        .watchPrimaryAction()
+        .disabled(isAsking)
+        .listRowBackground(Color.clear)
+        .accessibilityLabel("Kérdezés")
+        .accessibilityHint("Diktálás vagy billentyűzet a kérdéshez.")
+    }
+
+    /// Válaszkártya a gomb alatt (az értesítés párja).
+    private func answerCard(_ r: WatchAskRecord) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
+                Image(systemName: r.isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                    .font(.caption2)
+                Text(r.isError ? "Nem sikerült" : "Válasz")
+                    .font(.caption2.weight(.semibold))
+                Spacer(minLength: 0)
+                Button {
+                    store.clearLastAsk()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Válasz bezárása")
+            }
+            .foregroundStyle(r.isError ? .orange : accent)
+            Text(r.question)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+            Text(r.text)
+                .font(.footnote)
+        }
+        .padding(.vertical, 4)
+    }
+
+    /// A rendszer beviteli lapjáról visszakapott kérdés. Üres (mégsem)
+    /// esetben nem történik semmi — a gomb marad, ahogy volt.
+    private func ask(_ raw: String) {
+        let q = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return }
         WatchHaptics.tick()
-        question = ""
-        isInputFocused = false
-        store.askInBackground(sheetID: sheet.id, sheetTitle: sheet.title, question: String(q.prefix(500)))
+        store.askInBackground(
+            sheetID: sheet.id, sheetTitle: sheet.title, question: String(q.prefix(500)))
     }
 }
 

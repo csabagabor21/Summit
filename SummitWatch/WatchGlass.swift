@@ -39,6 +39,21 @@ extension View {
         }
     }
 
+    /// Üveg-gomb stílus az elsődleges művelethez (pl. az órai
+    /// Kérdezés): watchOS 26-tól a rendszer valódi Liquid Glass
+    /// kapszula-gombja — saját rajzolt háttér, blur-hack nélkül,
+    /// nyomott állapottal és koncentrikus sarkokkal együtt. Alatta a
+    /// natív `.bordered` kapszula ugyanazzal a tintával, hogy a gomb
+    /// régi rendszeren is gombnak nézzen ki.
+    @ViewBuilder
+    func watchGlassButtonStyle(tint: Color = .white.opacity(0.14)) -> some View {
+        if #available(watchOS 26, *) {
+            self.buttonStyle(.glass(.regular.tint(tint)))
+        } else {
+            self.buttonStyle(.bordered).tint(tint)
+        }
+    }
+
     /// Üvegkocka (pl. a teremnév kis kockája): ugyanaz az üveg, kisebb
     /// rádiusszal — a tinta jellemzően a kiemelőszín.
     @ViewBuilder
