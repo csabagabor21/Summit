@@ -83,7 +83,7 @@ struct SubjectDetailView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .center, spacing: 12) {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(subject).font(.system(size: 22, weight: .bold, design: .rounded)).lineLimit(2)
+                            Text(subject).mcDisplay(22).lineLimit(2)
                             Text(String(format: "Nyers átlag %.2f → kerekítve %d-es", rawAvg, rounded))
                                 .font(.caption.weight(.medium))
                                 .foregroundStyle(.secondary)
@@ -93,7 +93,7 @@ struct SubjectDetailView: View {
                         }
                         Spacer()
                         Text("\(rounded)")
-                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .mcDisplay(22)
                             .foregroundStyle(colors.gradeColor(for: rounded))
                             .frame(width: 50, height: 50)
                             .background {
@@ -200,7 +200,7 @@ struct SubjectDetailView: View {
                         }
                     }
                 }
-            } header: { Text("Jegyek").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
+            } header: { Text("Jegyek").mcSectionHeader() }
         }
         .listStyle(.insetGrouped)
         .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)

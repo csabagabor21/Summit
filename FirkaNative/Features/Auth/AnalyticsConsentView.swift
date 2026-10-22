@@ -15,7 +15,7 @@ struct AnalyticsConsentView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Használati statisztika")
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                            .mcDisplay(32)
                             .tracking(-0.5)
                         Text("Segít látnunk, hányan és melyik iskolákban használják a Summitot — hogy tudjuk, mire érdemes fejleszteni.")
                             .font(.body)

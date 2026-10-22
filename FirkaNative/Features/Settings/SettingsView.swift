@@ -722,7 +722,7 @@ struct SettingsView: View {
                     if theme.isMinecraft {
                         Text(header).minecraftHeader(size: 12).foregroundStyle(.secondary)
                     } else {
-                        Text(header).font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
+                        Text(header).mcSectionHeader()
                     }
                 }
                 .padding(.horizontal, 4)

@@ -120,6 +120,9 @@ final class ThemeStore: ObservableObject {
         case .light: base = AppColors.lightRevamped
         @unknown default: base = AppColors.darkRevamped
         }
+        // Minecraft-skin: teljes paletta-átfestés (a saját kiemelőszín
+        // ilyenkor nem él — a skiné a fűzöld).
+        if skin == .minecraft { return MinecraftTheme.reskin(base, scheme: scheme) }
         // Apply custom accent
         return base.withAccent(accent)
     }

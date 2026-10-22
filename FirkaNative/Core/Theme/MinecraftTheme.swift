@@ -61,6 +61,39 @@ enum MinecraftTheme {
         }
     }
 
+    /// Teljes paletta-átfestés: a szerkezet (melyik mező mit színez)
+    /// változatlan, csak a színek cserélődnek — ezért vált egyszerre
+    /// MINDEN képernyő. Sötétben mélypala, világosban pergamen
+    /// (receptkönyv-hangulat), kiemelés fűzöld, jegyek concrete-színek.
+    static func reskin(_ base: AppColors, scheme: ColorScheme) -> AppColors {
+        let dark = scheme == .dark
+        return AppColors(
+            background: dark ? Color(hex: 0x121214) : Color(hex: 0xE8E0C8),
+            backgroundGradientTop: base.backgroundGradientTop,
+            backgroundGradientBottom: base.backgroundGradientBottom,
+            surface: dark ? Color(hex: 0x2B2B30) : Color(hex: 0xF7F0DC),
+            surfaceElevated: dark ? Color(hex: 0x35353B) : Color(hex: 0xFFF9E8),
+            text: dark ? MinecraftTheme.cream : Color(hex: 0x2B2118),
+            textSecondary: (dark ? MinecraftTheme.cream : Color(hex: 0x2B2118)).opacity(0.68),
+            textTertiary: (dark ? MinecraftTheme.cream : Color(hex: 0x2B2118)).opacity(0.42),
+            accent: dark ? MinecraftTheme.grass : MinecraftTheme.grassDeep,
+            accentSoft: (dark ? MinecraftTheme.grass : MinecraftTheme.grassDeep).opacity(0.16),
+            border: MinecraftTheme.dirtDark.opacity(dark ? 0.7 : 0.4),
+            shadow: Color.black.opacity(0.45),
+            red: base.red, orange: base.orange, yellow: base.yellow,
+            green: base.green, teal: base.teal, blue: base.blue,
+            purple: base.purple, pink: base.pink,
+            gradeFive: MinecraftTheme.emerald,
+            gradeFour: Color(hex: 0x7ED321),
+            gradeThree: MinecraftTheme.gold,
+            gradeTwo: MinecraftTheme.orange,
+            gradeOne: MinecraftTheme.redstone,
+            loginPrimary: dark ? MinecraftTheme.cream : Color(hex: 0x2B2118),
+            loginSecondary: (dark ? MinecraftTheme.cream : Color(hex: 0x2B2118)).opacity(0.62),
+            loginBackground: dark ? Color(hex: 0x121214) : Color(hex: 0xE8E0C8)
+        )
+    }
+
     /// Tab-sorrendhez Minecraft-ízű SF-ikonok (minden tab kap blokkos ikont).
     /// - Returns: (cím, systemImage).
     static func tabIcon(for tab: Int) -> (String, String) {
@@ -82,6 +115,35 @@ enum MinecraftTheme {
     }
     static func bodyFont(size: CGFloat) -> Font {
         MinecraftFontLoader.font(size: size)
+    }
+
+    /// Aktív-e a Minecraft-skin (UserDefaults-olvasás — Environment-függés
+    /// nélkül, hogy bármely nézetben használható legyen).
+    static var isActive: Bool {
+        UserDefaults.standard.string(forKey: "ui.skin") == VisualSkin.minecraft.rawValue
+    }
+
+    /// Nav-sáv + tab-sáv pixelbetűi (UIKit-appearance — a SwiftUI nem ad
+    /// ezekre modifierszintű betűállítást).
+    static func applyChromeAppearance(minecraft: Bool) {
+        let nav = UINavigationBar.appearance()
+        let tabItem = UITabBarItem.appearance()
+        if minecraft {
+            if let big = UIFont(name: MinecraftFontLoader.familyName, size: 32) {
+                nav.largeTitleTextAttributes = [.font: big]
+            }
+            if let small = UIFont(name: MinecraftFontLoader.familyName, size: 16),
+               let tiny = UIFont(name: MinecraftFontLoader.familyName, size: 10) {
+                nav.titleTextAttributes = [.font: small]
+                tabItem.setTitleTextAttributes([.font: tiny], for: .normal)
+                tabItem.setTitleTextAttributes([.font: tiny], for: .selected)
+            }
+        } else {
+            nav.largeTitleTextAttributes = [:]
+            nav.titleTextAttributes = [:]
+            tabItem.setTitleTextAttributes([:], for: .normal)
+            tabItem.setTitleTextAttributes([:], for: .selected)
+        }
     }
 }
 
@@ -145,6 +207,54 @@ extension View {
             .font(MinecraftTheme.headerFont(size: size))
             .tracking(0.5)
             .shadow(color: .black.opacity(0.35), radius: 0, x: 1, y: 2)
+    }
+
+    /// Szekció-fejléc: Summitban a gyári caption-uppercase, Minecraftban
+    /// pixelbetű + blokk-árnyék. Közvetlenül a régi lánc helyére tehető.
+    @ViewBuilder
+    func mcSectionHeader() -> some View {
+        if MinecraftTheme.isActive {
+            self
+                .font(MinecraftTheme.headerFont(size: 12))
+                .tracking(0.5)
+                .foregroundStyle(.secondary)
+                .shadow(color: .black.opacity(0.4), radius: 0, x: 1, y: 1)
+        } else {
+            self
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+        }
+    }
+
+    /// Cím-szöveg (üdvözlés): Summitban gyári title2, Minecraftban
+    /// nagy pixelbetű blokk-árnyékkal.
+    @ViewBuilder
+    func mcTitle() -> some View {
+        if MinecraftTheme.isActive {
+            self
+                .font(MinecraftTheme.headerFont(size: 26))
+                .foregroundStyle(.primary)
+                .shadow(color: .black.opacity(0.45), radius: 0, x: 2, y: 2)
+        } else {
+            self
+                .font(.title2.weight(.bold))
+                .foregroundStyle(.primary)
+        }
+    }
+
+    /// Kijelző-számok (átlagok, hero-számok): Summitban rounded,
+    /// Minecraftban pixelbetű blokk-árnyékkal.
+    @ViewBuilder
+    func mcDisplay(_ size: CGFloat) -> some View {
+        if MinecraftTheme.isActive {
+            self
+                .font(MinecraftTheme.headerFont(size: size))
+                .shadow(color: .black.opacity(0.45), radius: 0, x: 2, y: 2)
+        } else {
+            self
+                .font(.system(size: size, weight: .bold, design: .rounded))
+        }
     }
 }
 

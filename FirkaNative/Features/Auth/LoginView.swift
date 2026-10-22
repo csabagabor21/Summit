@@ -37,7 +37,7 @@ struct LoginView: View {
             VStack {
                 Spacer()
                 Text("Summit")
-                    .font(.system(size: 64, weight: .bold, design: .rounded))
+                    .mcDisplay(64)
                     .tracking(-1.5)
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.4), radius: 8, y: 2)

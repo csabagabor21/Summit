@@ -47,6 +47,11 @@ struct MainTabView: View {
             }
         }
         .tint(theme.isMinecraft ? MinecraftTheme.grass : colors.accent)
+        // Chrome-betűk a látható sávokra is (az init-kori beállítás
+        // a már élő sávokon nem mindig fog meg).
+        .onAppear {
+            MinecraftTheme.applyChromeAppearance(minecraft: theme.isMinecraft)
+        }
         // NINCS withAnimation(.spring) — a rendszer Liquid Glass morphja animál.
         // Custom spring felülírná a natív görbét és "cooked"-nak hat.
         .onReceive(NotificationCenter.default.publisher(for: switchToTasks)) { notif in

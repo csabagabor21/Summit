@@ -253,7 +253,7 @@ struct MonthlyWrappedCard: View {
                     // Hős: hónap + átlag — fotó fölött fehér, tömörnél színes
                     VStack(alignment: .leading, spacing: 2) {
                         Text(month.title)
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                            .mcDisplay(32)
                             .foregroundStyle(photo ? .white : .primary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
@@ -266,7 +266,7 @@ struct MonthlyWrappedCard: View {
                     .stagger(appeared, 0)
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(String(format: "%.1f", stats.avg))
-                            .font(.system(size: 80, weight: .bold, design: .rounded))
+                            .mcDisplay(80)
                             .foregroundStyle(photo ? .white : avgColor)
                             .monospacedDigit()
                             .lineLimit(1)
@@ -391,7 +391,7 @@ struct MonthlyWrappedCard: View {
                     .foregroundStyle(photo ? .white.opacity(0.85) : .secondary)
             }
             Text(value)
-                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .mcDisplay(28)
                 .foregroundStyle(photo ? .white : .primary)
                 .monospacedDigit()
                 .lineLimit(1)
@@ -764,7 +764,7 @@ struct WrappedPeakPage: View {
     private var heroTile: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(String(format: "%.1f", stats.avg))
-                .font(.system(size: 84, weight: .bold, design: .rounded))
+                .mcDisplay(84)
                 .foregroundStyle(.white)
                 .monospacedDigit()
                 .lineLimit(1)
@@ -811,7 +811,7 @@ struct WrappedPeakPage: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.85))
             Text(value)
-                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .mcDisplay(26)
                 .foregroundStyle(.white)
                 .monospacedDigit()
                 .lineLimit(1)
@@ -977,7 +977,7 @@ struct MonthlyArchiveView: View {
                     } label: {
                         HStack(spacing: 12) {
                             Text(String(format: "%.1f", st.avg))
-                                .font(.system(size: 20, weight: .bold, design: .rounded))
+                                .mcDisplay(20)
                                 .foregroundStyle(colors.gradeColor(for: Int(st.avg.rounded())))
                                 .monospacedDigit()
                                 .frame(width: 52)

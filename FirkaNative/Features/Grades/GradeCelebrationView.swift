@@ -85,7 +85,7 @@ struct GradeCelebrationView: View {
                             .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1.6))
                             .frame(width: 168, height: 168)
                         Text("\(grade.value)")
-                            .font(.system(size: 76, weight: .bold, design: .rounded))
+                            .mcDisplay(76)
                             .foregroundStyle(gradeColor)
                             .monospacedDigit()
                     }
@@ -98,7 +98,7 @@ struct GradeCelebrationView: View {
                 // Ha a jegyhez nincs beírva % (a gyakori eset), nincs sor.
                 if percent != nil {
                     Text("\(shownPct)%")
-                        .font(.system(size: 52, weight: .bold, design: .rounded))
+                        .mcDisplay(52)
                         .foregroundStyle(gradeColor)
                         .monospacedDigit()
                         .contentTransition(.numericText())
@@ -111,7 +111,7 @@ struct GradeCelebrationView: View {
                 // Balra zárt infóblokk: tantárgy + mire kapta
                 VStack(alignment: .leading, spacing: 6) {
                     Text(grade.subject)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .mcDisplay(26)
                         .foregroundStyle(.primary)
                     Text(topicLine)
                         .font(.headline.weight(.semibold))

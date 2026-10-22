@@ -180,7 +180,13 @@ extension View {
     /// az áttetsző ablakon.
     @ViewBuilder
     func summitRowSurface(colors: AppColors) -> some View {
-        if MacSupport.isNativeMac {
+        if MinecraftTheme.isActive {
+            self.listRowBackground(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(colors.surface)
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(MinecraftTheme.dirtDark, lineWidth: 2))
+            )
+        } else if MacSupport.isNativeMac {
             self.listRowBackground(Color.clear)
         } else {
             self.listRowBackground(colors.surface)

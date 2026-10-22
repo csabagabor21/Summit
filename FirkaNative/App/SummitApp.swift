@@ -15,6 +15,9 @@ struct SummitApp: App {
         // Minecraft-skin pixelbetűje (Monocraft, OFL) — bundle-ből
         // regisztrálva, plist-módosítás nélkül.
         MinecraftFontLoader.registerOnce()
+        // Nav/tab-sávok pixelbetűje, ha a mentett skin Minecraft.
+        MinecraftTheme.applyChromeAppearance(
+            minecraft: UserDefaults.standard.string(forKey: "ui.skin") == VisualSkin.minecraft.rawValue)
         // Régi per-típus értesítéskapcsolók összevonása a főkapcsolóba
         // (egyszeri, idempotens — csak akkor nyúl, ha régi kulcs él).
         NotificationManager.migratePerTypeKeys()

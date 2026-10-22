@@ -32,7 +32,7 @@ struct HomeView: View {
                 // Greeting — egyetlen finom belépés képernyőnként, nem soronként
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("\(vm.greeting), \(firstName)!").font(.title2.weight(.bold)).foregroundStyle(.primary)
+                        Text("\(vm.greeting), \(firstName)!").mcTitle()
                         Text(Date.now.formatted(date: .complete, time: .omitted).capitalized).font(.subheadline).foregroundStyle(.secondary)
                     }
                     .summitEntrance()
@@ -142,7 +142,7 @@ struct HomeView: View {
                         }
                         NavigationLink("Összes jegy") { GradesView() }
                     }
-                } header: { Text("Legújabb jegyek").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
+                } header: { Text("Legújabb jegyek").mcSectionHeader() }
 
                 // iPad: két oszlop egy Section-ben — kihasználja a szélességet, nem 3 külön nyújtott sor
                 if isPad {
@@ -155,7 +155,7 @@ struct HomeView: View {
                         HStack(alignment: .top, spacing: 16) {
                             // Bal: dolgozatok
                             VStack(alignment: .leading, spacing: 10) {
-                                Label("Közelgő dolgozatok", systemImage: "pencil.and.list.clipboard").font(.caption.weight(.bold)).foregroundStyle(.secondary).textCase(.uppercase)
+                                Label("Közelgő dolgozatok", systemImage: "pencil.and.list.clipboard").mcSectionHeader()
                                 if vm.exams.isEmpty {
                                     Text("Nincs dolgozat").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(RoundedRectangle(cornerRadius: 12).fill(colors.surface))
                                 } else {
@@ -170,7 +170,7 @@ struct HomeView: View {
                             }.frame(maxWidth: .infinity, alignment: .topLeading)
                             // Jobb: feladatok
                             VStack(alignment: .leading, spacing: 10) {
-                                Label("Közelgő feladatok", systemImage: "checklist").font(.caption.weight(.bold)).foregroundStyle(.secondary).textCase(.uppercase)
+                                Label("Közelgő feladatok", systemImage: "checklist").mcSectionHeader()
                                 if vm.homeworks.isEmpty {
                                     Text("Nincs feladat").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(RoundedRectangle(cornerRadius: 12).fill(colors.surface))
                                 } else {
@@ -226,7 +226,7 @@ struct HomeView: View {
                             Text("Összes dolgozat (\(sorted.count))")
                         }
                     }
-                } header: { Text("Közelgő dolgozatok").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
+                } header: { Text("Közelgő dolgozatok").mcSectionHeader() }
 
                 Section {
                     // A szám és a sorok ugyanazt mutatják, mint a Feladatok tab:
@@ -262,7 +262,7 @@ struct HomeView: View {
                             Text("Összes feladat (\(sorted.count))")
                         }
                     }
-                } header: { Text("Közelgő feladatok").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
+                } header: { Text("Közelgő feladatok").mcSectionHeader() }
                 }
             }
             .listStyle(.insetGrouped)
@@ -597,11 +597,7 @@ private struct HomeLiveCard: View {
             .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
             .listRowSeparator(.hidden)
         } header: {
-            Text("MOST")
-                .font(.caption2.weight(.bold))
-                .tracking(1.1)
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
+            Text("MOST").mcSectionHeader()
         }
     }
 
@@ -642,7 +638,7 @@ private struct HomeLiveCard: View {
                         Label("Jó reggelt!", systemImage: "sun.max.fill").font(.headline)
                         if let n = calc.next {
                             Text(n.subject)
-                                .font(.system(size: 26, weight: .bold, design: .rounded))
+                                .mcDisplay(26)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.65)
                                 .truncationMode(.tail)
@@ -677,7 +673,7 @@ private struct HomeLiveCard: View {
                                 Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(exemptTint(for: c) ?? Color.green))
                             }
                             Text(c.subject)
-                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .mcDisplay(28)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.6)
                                 .truncationMode(.tail)
@@ -717,7 +713,7 @@ private struct HomeLiveCard: View {
                         Label("Szünet", systemImage: "cup.and.saucer.fill").font(.headline)
                         if let n = calc.next {
                             Text(n.subject)
-                                .font(.system(size: 26, weight: .bold, design: .rounded))
+                                .mcDisplay(26)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.65)
                                 .truncationMode(.tail)

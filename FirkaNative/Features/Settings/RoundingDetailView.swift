@@ -27,9 +27,9 @@ struct RoundingDetailView: View {
                     }
                 }
                 .padding(.vertical, 4)
-            } header: { Text("Kerekítés").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) } footer: { Text("0.50 = 3.50-től 4-es, 0.80 = csak 3.80-tól 4-es. Súlyozott átlagra alkalmazva.").font(.caption2).foregroundStyle(.secondary) }
+            } header: { Text("Kerekítés").mcSectionHeader() } footer: { Text("0.50 = 3.50-től 4-es, 0.80 = csak 3.80-tól 4-es. Súlyozott átlagra alkalmazva.").font(.caption2).foregroundStyle(.secondary) }
 
-            Section(header: Text("Felmentés").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase),
+            Section(header: Text("Felmentés").mcSectionHeader(),
                     footer: Text("Ha fel vagy mentve, az órarendben zöld háttérrel és „Felmentett” felirattal jelenik meg — mintha elmaradna.").font(.caption2).foregroundStyle(.secondary)) {
                 Toggle(isOn: $isExempted) {
                     Label(isExempted ? "Felmentve" : "Felmentett", systemImage: isExempted ? "checkmark.shield.fill" : "shield")

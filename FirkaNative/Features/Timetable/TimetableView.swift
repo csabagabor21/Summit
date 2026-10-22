@@ -408,7 +408,7 @@ struct TimetableView: View {
                                     .foregroundStyle(.secondary)
                                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                                     Text("\(effectiveFiltered.count)")
-                                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                                        .mcDisplay(30)
                                         .monospacedDigit()
                                     Text(effectiveFiltered.count == 1 ? "óra" : "óra")
                                         .font(.subheadline.weight(.semibold))
@@ -1157,7 +1157,7 @@ private struct TimetableRow: View {
             // gyári glass-gomboknál): testvér-ZStackben az üveg-passz a számot takarná.
             VStack(spacing: 0) {
                 Text(lesson.index)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .mcDisplay(15)
                     .monospacedDigit()
                     .foregroundStyle(numberColor)
                     .contentTransition(.numericText())
@@ -1460,7 +1460,7 @@ private struct LessonDetailSheet: View {
                                     .shadow(color: heroBase.opacity(0.35), radius: 18, y: 8)
                             }
                         Text(lesson.subject)
-                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .mcDisplay(26)
                             .foregroundStyle((isCancelled || isExempted) ? .secondary : .primary)
                             .strikethrough(isCancelled || isExempted, color: .secondary)
                             .multilineTextAlignment(.center)

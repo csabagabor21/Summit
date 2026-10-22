@@ -411,7 +411,7 @@ struct DeveloperView: View {
     private func island<Content: View>(header: String? = nil, @ViewBuilder content: () -> Content, footer: () -> String? = { nil }) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             if let header {
-                Text(header).font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
+                Text(header).mcSectionHeader()
                     .padding(.horizontal, 4)
             }
             VStack(alignment: .leading, spacing: 0) {

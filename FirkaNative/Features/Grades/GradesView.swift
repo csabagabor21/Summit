@@ -64,12 +64,12 @@ struct GradesView: View {
                                 HStack(alignment: .lastTextBaseline, spacing: 16) {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("ÖSSZÁTLAG").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).tracking(1)
-                                        Text(groupedEvkozi.isEmpty ? "—" : String(format: "%.2f", overallEvkozi)).font(.system(size: 34, weight: .bold, design: .rounded))
+                                        Text(groupedEvkozi.isEmpty ? "—" : String(format: "%.2f", overallEvkozi)).mcDisplay(34)
                                     }
                                     Spacer()
                                     VStack(alignment: .trailing, spacing: 2) {
                                         Text("KEREKÍTVE").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).tracking(1)
-                                        Text(groupedEvkozi.isEmpty ? "—" : String(format: "%.2f", overallRoundedEvkozi)).font(.system(size: 34, weight: .bold, design: .rounded))
+                                        Text(groupedEvkozi.isEmpty ? "—" : String(format: "%.2f", overallRoundedEvkozi)).mcDisplay(34)
                                     }
                                 }
                                 .listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -79,7 +79,7 @@ struct GradesView: View {
                                     .listRowBackground(Color.clear)
                                     .listRowSeparator(.hidden)
                                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                            } header: { Text("Átlag alakulása — havi").font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase) }
+                            } header: { Text("Átlag alakulása — havi").mcSectionHeader() }
                             // iPad: két oszlopban, kihasználja a szélességet.
                             // Gomb + path-reset NavigationLink helyett: a link
                             // rendszer-chevronje a kártyán KÍVÜL is megjelent
@@ -115,7 +115,7 @@ struct GradesView: View {
                                                 path.append(subject)
                                             } label: {
                                                 HStack(spacing: 12) {
-                                                    ZStack { Circle().fill(Color.clear).overlay(Circle().strokeBorder(Color.primary.opacity(scheme == .dark ? 0.14 : 0.10), lineWidth: 1.2)).frame(width: 44, height: 44); Text("—").font(.system(size: 18, weight: .bold, design: .rounded)).foregroundStyle(.tertiary) }.frame(width: 44, height: 44)
+                                                    ZStack { Circle().fill(Color.clear).overlay(Circle().strokeBorder(Color.primary.opacity(scheme == .dark ? 0.14 : 0.10), lineWidth: 1.2)).frame(width: 44, height: 44); Text("—").mcDisplay(18).foregroundStyle(.tertiary) }.frame(width: 44, height: 44)
                                                     VStack(alignment: .leading, spacing: 3) { Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1); Text("Nincs jegy").font(.caption2).foregroundStyle(.tertiary).lineLimit(1) }
                                                     Spacer()
                                                     Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
@@ -149,7 +149,7 @@ struct GradesView: View {
                                                 Circle().fill(Color.clear)
                                                     .overlay(Circle().strokeBorder(Color.primary.opacity(scheme == .dark ? 0.14 : 0.10), lineWidth: 1.2))
                                                     .frame(width: 44, height: 44)
-                                                Text("—").font(.system(size: 18, weight: .bold, design: .rounded)).foregroundStyle(.tertiary)
+                                                Text("—").mcDisplay(18).foregroundStyle(.tertiary)
                                             }.frame(width: 44, height: 44)
                                             VStack(alignment: .leading, spacing: 3) {
                                                 Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1)
@@ -182,7 +182,7 @@ struct GradesView: View {
                                 HStack(alignment: .firstTextBaseline) {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("FÉLÉVI ÁTLAG").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).tracking(1)
-                                        Text(String(format: "%.2f", overallFelevi)).font(.system(size: 34, weight: .bold, design: .rounded))
+                                        Text(String(format: "%.2f", overallFelevi)).mcDisplay(34)
                                     }
                                     Spacer()
                                 }
@@ -217,7 +217,7 @@ struct GradesView: View {
                                 HStack(alignment: .firstTextBaseline) {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("ÉV VÉGI ÁTLAG").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).tracking(1)
-                                        Text(String(format: "%.2f", overallEvvegi)).font(.system(size: 34, weight: .bold, design: .rounded))
+                                        Text(String(format: "%.2f", overallEvvegi)).mcDisplay(34)
                                     }
                                     Spacer()
                                 }

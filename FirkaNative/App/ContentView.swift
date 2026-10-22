@@ -14,6 +14,10 @@ struct ContentView: View {
             }
         }
         .animation(SummitMotion.gentle, value: session.isLoggedIn)
+        // Skin-váltáskor a nav/tab-sávok betűje is átvált (UIKit-appearance).
+        .onChange(of: theme.skin) { _, s in
+            MinecraftTheme.applyChromeAppearance(minecraft: s == .minecraft)
+        }
         // Continuity (Handoff): a másik eszközön álló Summit átveszi
         // az aktuális tabot + pozíciót (lásd HandoffCenter.handle).
         .onContinueUserActivity(SummitHandoff.activityType) { activity in
