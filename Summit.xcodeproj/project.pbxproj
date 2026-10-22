@@ -71,6 +71,7 @@
 		6E1CEA0F93A137950BB4C9AF /* SchoolEventsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA71684B6DF0CFB5982A110F /* SchoolEventsSection.swift */; };
 		6F57A7559D0EC6EE41ACBD3F /* WatchPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = F46888F9B5AABCFE8AF91CF4 /* WatchPayload.swift */; };
 		6FD6D376BF8C8537963C516F /* GradeCircle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19DFC7C10A0189809286952D /* GradeCircle.swift */; };
+		7A1B2C3D4E5F60718293A4B5 /* MinecraftTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B2C3D4E5F60718293A4B5C6 /* MinecraftTheme.swift */; };
 		79486CB87A01E8EC73A80F16 /* RoundingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F5EC6EB282C3C33E5FB6F00 /* RoundingDetailView.swift */; };
 		79B56C5EA8956C3CA4D3F923 /* CheatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C2A1E29F6A708D112C24AF6 /* CheatView.swift */; };
 		7D969EE8488778FF82B72229 /* FilterBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83B9022E76AD6AB32842452B /* FilterBarView.swift */; };
@@ -217,6 +218,7 @@
 		16DF003F0DB021C460B7EF92 /* SummitLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitLiveActivityAttributes.swift; sourceTree = "<group>"; };
 		194B529DC564DF78077C938A /* SubjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectDetailView.swift; sourceTree = "<group>"; };
 		19DFC7C10A0189809286952D /* GradeCircle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCircle.swift; sourceTree = "<group>"; };
+		8B2C3D4E5F60718293A4B5C6 /* MinecraftTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftTheme.swift; sourceTree = "<group>"; };
 		1D92783AAF33901FDCC0CB3B /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		1E84D5228585755250AA0D05 /* GradingLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradingLogic.swift; sourceTree = "<group>"; };
 		225D81CC5A3BF3C9D730B87F /* ic_splash.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_splash.png; sourceTree = "<group>"; };
@@ -513,6 +515,7 @@
 				B4E86A32AD2DDFC87FB138D5 /* AppTheme.swift */,
 				343E8AF99B84335349319C56 /* GradeChartView.swift */,
 				19DFC7C10A0189809286952D /* GradeCircle.swift */,
+				8B2C3D4E5F60718293A4B5C6 /* MinecraftTheme.swift */,
 				3D59A6CCFD64FBB01C3CF5B5 /* SummitMotion.swift */,
 				58E3C021CA7F83DB9478FE33 /* ThemeStore.swift */,
 			);
@@ -988,6 +991,7 @@
 				5241B1427BAF33A62FB8BF40 /* GradeCelebrationView.swift in Sources */,
 				04D92300F2F40E2E33AE52DB /* GradeChartView.swift in Sources */,
 				6FD6D376BF8C8537963C516F /* GradeCircle.swift in Sources */,
+				7A1B2C3D4E5F60718293A4B5 /* MinecraftTheme.swift in Sources */,
 				F8233A954E2118EBB3EBFD56 /* GradesView.swift in Sources */,
 				D98770305ADBCA9B0CCC1D6D /* GradingLogic.swift in Sources */,
 				3DD981EF753741F402A6F479 /* HomeView.swift in Sources */,

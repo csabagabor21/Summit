@@ -196,6 +196,19 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                 }
                 summitDivider
+                // Felület-skin: Summit (gyári) vagy Minecraft (modern
+                // 1.20+ blokk-stílus + shader-hangulat). Minden eszközre
+                // szinkronizálódik (sync `skin` mező).
+                summitRow {
+                    Picker("Felület", selection: Binding(get: { theme.skin }, set: { theme.skin = $0 })) {
+                        ForEach(VisualSkin.allCases) { s in
+                            Label(s.title, systemImage: s.icon).tag(s)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                .accessibilityLabel("Felület: Summit vagy Minecraft")
+                summitDivider
                 // Accent —简单 színválasztó
                 summitRow {
                     accentColorContent
@@ -566,7 +579,13 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity)
             }
         }
-        .background { SummitBackdrop(scrollOffset: scrollOffset) }
+        .background {
+            if theme.isMinecraft {
+                MinecraftBackdrop(scrollOffset: scrollOffset)
+            } else {
+                SummitBackdrop(scrollOffset: scrollOffset)
+            }
+        }
         // Görgetés-vezérelt parallax a háttérképre: a ScrollView saját
         // geometriáját olvassuk (nincs köztes PreferenceKey-lánc, ami
         // elakadhat), a kép ≈25%-kal követi a teljes scroll-range-en.
@@ -626,6 +645,7 @@ struct SettingsView: View {
         // Másik eszközről jött utazás-állítás: a kapcsoló kövesse.
         .onReceive(NotificationCenter.default.publisher(for: TravelMode.changedNotification)) { _ in loadTravel() }
         .onChange(of: theme.mode) { _, _ in summitSync.markDirty(.theme) }
+        .onChange(of: theme.skin) { _, _ in summitSync.markDirty(.skin) }
         .onChange(of: theme.accentHex) { _, _ in summitSync.markDirty(.accentHex) }
         .onChange(of: theme.sizeCategoryKey) { _, _ in summitSync.markDirty(.sizeKey) }
         .onChange(of: tourStep) { _, new in

@@ -58,6 +58,8 @@ rules_version = '2';
 //   - accentHex: int (kötelező, 0-0xFFFFFF)
 //   - sizeKey: string (kötelező: system/large/extraLarge/
 //              extraExtraLarge/extraExtraExtraLarge)
+//   - skin: string (opcionális: summit/minecraft felület-skin;
+//             hiánya = régi kliens, a helyi állapot marad)
 //   - photo: string (kötelező, base64 jpeg ≤ 120 000 kar.; üres = nincs kép)
 //   - rounding: string (kötelező, JSON tárgy→küszöb ≤ 16 000 kar.,
 //                üres = nincs egyedi kerekítés)
@@ -126,12 +128,12 @@ function isValidHeartbeat() {
 }
 
 function isValidSyncDoc() {
-  return hasOnlyAllowedFields(['v', 'updatedAt', 'theme', 'accentHex', 'sizeKey', 'photo',
+  return hasOnlyAllowedFields(['v', 'updatedAt', 'theme', 'accentHex', 'sizeKey', 'skin', 'photo',
       'rounding', 'exempted', 'completedHw', 'completedEx',
       'notifyEnabled', 'liveActivity',
       'schoolEvents', 'schoolEventsShow', 'schoolEventsURL', 'customTasks',
       'cheatSheets', 'metaAIKey', 'examRollover', 'travelMode', 'wrappedStars', 'hasWatch',
-      'ts_theme', 'ts_accentHex', 'ts_sizeKey', 'ts_photo', 'ts_rounding',
+      'ts_theme', 'ts_accentHex', 'ts_sizeKey', 'ts_skin', 'ts_photo', 'ts_rounding',
       'ts_exempted', 'ts_completedHw', 'ts_completedEx', 'ts_notifyEnabled',
       'ts_liveActivity',
       'ts_schoolEvents', 'ts_schoolEventsShow', 'ts_schoolEventsURL', 'ts_customTasks',
@@ -146,6 +148,11 @@ function isValidSyncDoc() {
     && request.resource.data.accentHex <= 16777215
     && request.resource.data.sizeKey is string
     && request.resource.data.sizeKey in ['system', 'large', 'extraLarge', 'extraExtraLarge', 'extraExtraExtraLarge']
+    // Felület-skin: opcionális (régi kliens e nélkül is írhat),
+    // 'summit' = gyári, 'minecraft' = modern blokk-stílus.
+    && (!('skin' in request.resource.data) || (request.resource.data.skin is string
+      && request.resource.data.skin in ['summit', 'minecraft']))
+    && (!('ts_skin' in request.resource.data) || request.resource.data.ts_skin is timestamp)
     && request.resource.data.photo is string
     && request.resource.data.photo.size() <= 120000
     && request.resource.data.rounding is string

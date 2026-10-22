@@ -46,7 +46,7 @@ struct MainTabView: View {
                 phoneTabsLegacy
             }
         }
-        .tint(colors.accent)
+        .tint(theme.isMinecraft ? MinecraftTheme.grass : colors.accent)
         // NINCS withAnimation(.spring) — a rendszer Liquid Glass morphja animál.
         // Custom spring felülírná a natív görbét és "cooked"-nak hat.
         .onReceive(NotificationCenter.default.publisher(for: switchToTasks)) { notif in
@@ -132,19 +132,19 @@ struct MainTabView: View {
     @available(iOS 18.0, *)
     private var nativeSidebar: some View {
         TabView(selection: $selected) {
-            Tab("Főoldal", systemImage: "house.fill", value: 0) {
+            Tab(tabTitle(0), systemImage: tabIcon(0), value: 0) {
                 HomeView()
             }
-            Tab("Jegyek", systemImage: "star.fill", value: 1) {
+            Tab(tabTitle(1), systemImage: tabIcon(1), value: 1) {
                 GradesView()
             }
-            Tab("Órarend", systemImage: "calendar", value: 2) {
+            Tab(tabTitle(2), systemImage: tabIcon(2), value: 2) {
                 TimetableView()
             }
-            Tab("Feladatok", systemImage: "checklist", value: 5) {
+            Tab(tabTitle(5), systemImage: tabIcon(5), value: 5) {
                 NotesView()
             }
-            Tab("Hiányzások", systemImage: "person.crop.rectangle.stack", value: 4) {
+            Tab(tabTitle(4), systemImage: tabIcon(4), value: 4) {
                 AbsencesView()
             }
             // Watch-tab CSAK széles elrendezésen (iPad / Mac sidebar) —
@@ -162,14 +162,44 @@ struct MainTabView: View {
         // Content glass tilos — "glass can't sample other glass".
     }
 
+    /// Minecraft-skinben blokkos ikonok + címek, különben a gyáriak.
+    private func tabIcon(_ tab: Int) -> String {
+        guard theme.isMinecraft else {
+            switch tab {
+            case 0: return "house.fill"
+            case 1: return "star.fill"
+            case 2: return "calendar"
+            case 5: return "checklist"
+            case 4: return "person.crop.rectangle.stack"
+            case 3: return "applewatch"
+            default: return "circle.fill"
+            }
+        }
+        return MinecraftTheme.tabIcon(for: tab).1
+    }
+    private func tabTitle(_ tab: Int) -> String {
+        guard theme.isMinecraft else {
+            switch tab {
+            case 0: return "Főoldal"
+            case 1: return "Jegyek"
+            case 2: return "Órarend"
+            case 5: return "Feladatok"
+            case 4: return "Hiányzások"
+            case 3: return "Watch"
+            default: return ""
+            }
+        }
+        return MinecraftTheme.tabIcon(for: tab).0
+    }
+
     // MARK: - iOS 17 fallback (Summit target régebbi OS-en) — natív TabView
     private var phoneTabsLegacy: some View {
         TabView(selection: $selected) {
-            HomeView().tabItem { Label("Főoldal", systemImage: "house.fill") }.tag(0)
-            GradesView().tabItem { Label("Jegyek", systemImage: "star.fill") }.tag(1)
-            TimetableView().tabItem { Label("Órarend", systemImage: "calendar") }.tag(2)
-            NotesView().tabItem { Label("Feladatok", systemImage: "checklist") }.tag(5)
-            AbsencesView().tabItem { Label("Hiányzások", systemImage: "person.crop.rectangle.stack") }.tag(4)
+            HomeView().tabItem { Label(tabTitle(0), systemImage: tabIcon(0)) }.tag(0)
+            GradesView().tabItem { Label(tabTitle(1), systemImage: tabIcon(1)) }.tag(1)
+            TimetableView().tabItem { Label(tabTitle(2), systemImage: tabIcon(2)) }.tag(2)
+            NotesView().tabItem { Label(tabTitle(5), systemImage: tabIcon(5)) }.tag(5)
+            AbsencesView().tabItem { Label(tabTitle(4), systemImage: tabIcon(4)) }.tag(4)
             if watchTabVisible {
                 CheatView().tabItem { Label("Watch", systemImage: "applewatch") }.tag(3)
             }

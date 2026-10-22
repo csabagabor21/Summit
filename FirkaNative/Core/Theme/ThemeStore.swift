@@ -1,5 +1,26 @@
 import SwiftUI
 
+/// Felület-skin: Summit (gyári Liquid Glass) vagy Minecraft (modern,
+/// 1.20+ Trails & Tales íz + shader-hangulat: BSL/Complementary-szerű
+/// telített fűzöld, meleg napfény, puha mélység-árnyék — nem a régi,
+/// fakó alfa-stílus).
+enum VisualSkin: String, CaseIterable, Identifiable {
+    case summit, minecraft
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .summit: return "Summit"
+        case .minecraft: return "Minecraft"
+        }
+    }
+    var icon: String {
+        switch self {
+        case .summit: return "mountain.2.fill"
+        case .minecraft: return "cube.fill"
+        }
+    }
+}
+
 enum AppThemeMode: String, CaseIterable, Identifiable {
     case system, light, dark
     var id: String { rawValue }
@@ -30,6 +51,16 @@ final class ThemeStore: ObservableObject {
     @AppStorage("theme.accentHex") var accentHex: Int = 0x4A90E2 {
         didSet { objectWillChange.send() }
     }
+    /// Felület-skin (Megjelenés → Felület kapcsoló). Alapértelmezett Summit,
+    /// a meglévő telepítéseken semmi nem változik magától.
+    @AppStorage("ui.skin") var skinRaw: String = VisualSkin.summit.rawValue {
+        didSet { objectWillChange.send() }
+    }
+    var skin: VisualSkin {
+        get { VisualSkin(rawValue: skinRaw) ?? .summit }
+        set { skinRaw = newValue.rawValue }
+    }
+    var isMinecraft: Bool { skin == .minecraft }
     // Szövegméret-felülírás ("system" = rendszer). Macen (iPad-app Macen)
     // alapból nagyobb, hogy ne legyen apró az egész felület.
     // (A SwiftUI-s ContentSizeCategory nem String-rawValue-s, ezért saját kulcs.)

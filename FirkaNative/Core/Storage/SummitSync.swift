@@ -13,6 +13,7 @@ enum SummitSyncField: String, CaseIterable {
     case theme
     case accentHex
     case sizeKey
+    case skin
     case photo
     case rounding
     case exempted
@@ -263,6 +264,7 @@ final class SummitSync: ObservableObject {
         var theme: String
         var accentHex: Int
         var sizeKey: String
+        var skin: String
         var photo: String?
         var rounding: String
         var exempted: String
@@ -289,6 +291,7 @@ final class SummitSync: ObservableObject {
             theme: theme.mode.rawValue,
             accentHex: theme.accentHex,
             sizeKey: theme.sizeCategoryKey,
+            skin: theme.skin.rawValue,
             photo: Self.photoBase64(img),
             rounding: Self.roundingJSON(GradingLogic.loadThresholds()),
             exempted: Self.stringArrayJSON(Array(ExemptedStore.load()), maxChars: 8_000, maxCount: 128),
@@ -361,6 +364,7 @@ final class SummitSync: ObservableObject {
         let (themeV, themeTs) = pick(.theme, local: local.theme, remote: remote?.theme)
         let (accentV, accentTs) = pick(.accentHex, local: local.accentHex, remote: remote?.accentHex)
         let (sizeV, sizeTs) = pick(.sizeKey, local: local.sizeKey, remote: remote?.sizeKey)
+        let (skinV, skinTs) = pick(.skin, local: local.skin, remote: remote?.skinRaw)
         let (roundingV, roundingTs) = pick(.rounding, local: local.rounding, remote: remote?.roundingRaw)
         let (exemptedV, exemptedTs) = pick(.exempted, local: local.exempted, remote: remote?.exemptedRaw)
         let (hwV, hwTs) = pick(.completedHw, local: local.completedHw, remote: remote?.completedHwRaw)
@@ -466,6 +470,7 @@ final class SummitSync: ObservableObject {
             "theme": str(themeV),
             "accentHex": ["integerValue": String(accentV)],
             "sizeKey": str(sizeV),
+            "skin": str(skinV),
             "photo": str(photoPair.0),
             "rounding": str(roundingV),
             "exempted": str(exemptedV),
@@ -485,7 +490,7 @@ final class SummitSync: ObservableObject {
             "hasWatch": bool(watchV),
         ]
         let tsPairs: [(SummitSyncField, Date)] = [
-            (.theme, themeTs), (.accentHex, accentTs), (.sizeKey, sizeTs),
+            (.theme, themeTs), (.accentHex, accentTs), (.sizeKey, sizeTs), (.skin, skinTs),
             (.photo, photoPair.1), (.rounding, roundingTs), (.exempted, exemptedTs),
             (.completedHw, hwTs), (.completedEx, exTs), (.notifyEnabled, neTs),
             (.liveActivity, laTs),
@@ -622,6 +627,8 @@ final class SummitSync: ObservableObject {
         let theme: String
         let accentHex: Int
         let sizeKey: String
+        /// Felület-skin (`nil` = régi doc, ilyenkor a helyi marad).
+        let skinRaw: String?
         /// A nyers base64 (feltöltéskori visszakeveréshez).
         let photoRaw: String
         let photo: UIImage?
@@ -784,8 +791,10 @@ final class SummitSync: ObservableObject {
         let examRollover = data["examRollover"] as? Bool
         // Órajelenlét: régi docban hiányozhat (nil = helyi peer-jel marad).
         let hasWatch = data["hasWatch"] as? Bool
+        // Felület-skin: régi docban hiányozhat (nil = helyi marad).
+        let skinRaw = data["skin"] as? String
         return Payload(updatedAt: isoPlain.string(from: date), updatedAtDate: date,
-                       theme: theme, accentHex: accent, sizeKey: sizeKey,
+                       theme: theme, accentHex: accent, sizeKey: sizeKey, skinRaw: skinRaw,
                        photoRaw: photoRaw, photo: photo, photoDecodeFailed: photoDecodeFailed,
                        rounding: rounding, roundingRaw: roundingRaw,
                        exempted: exempted, exemptedRaw: exemptedRaw,
@@ -904,8 +913,10 @@ final class SummitSync: ObservableObject {
             guard let raw = s("wrappedStars"), raw.count <= maxWrappedStarsChars else { return nil }
             return raw
         }()
+        // Felület-skin (REST-út): régi docban hiányozhat (nil = helyi marad).
+        let skinRaw = s("skin")
         return Payload(updatedAt: updatedAt, updatedAtDate: updatedAtDate,
-                       theme: theme, accentHex: accent, sizeKey: sizeKey,
+                       theme: theme, accentHex: accent, sizeKey: sizeKey, skinRaw: skinRaw,
                        photoRaw: photoRaw, photo: photo, photoDecodeFailed: photoDecodeFailed,
                        rounding: rounding, roundingRaw: roundingRaw,
                        exempted: exempted, exemptedRaw: exemptedRaw,
@@ -952,6 +963,12 @@ final class SummitSync: ObservableObject {
         if newer(.sizeKey) {
             theme.sizeCategoryKey = p.sizeKey
             applied.append(.sizeKey)
+        }
+        // Felület-skin: `nil` = régi doc, a helyi marad. Ismeretlen
+        // érték (jövőbeli skin) szintén nem ír felül.
+        if newer(.skin), let raw = p.skinRaw, let s = VisualSkin(rawValue: raw) {
+            theme.skin = s
+            applied.append(.skin)
         }
         if newer(.photo), !p.photoDecodeFailed {
             let key = profileKey()
