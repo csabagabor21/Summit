@@ -94,6 +94,17 @@ enum MinecraftTheme {
         )
     }
 
+@ViewBuilder
+static func skinRowBackground(_ color: Color) -> some View {
+    if isActive {
+        RoundedRectangle(cornerRadius: 10).fill(color)
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(MinecraftTheme.dirtDark, lineWidth: 2))
+            .overlay(McBevelEdges())
+    } else {
+        color
+    }
+}
+
     /// Tab-sorrendhez EREDETI item-sprite-ok a saját 1.21.11-es
     /// telepítésből (grass_block oldala, gyémánt, óra, könyv, barrier,
     /// iránytű). - Returns: (cím, bundle-képnév).
@@ -182,30 +193,11 @@ enum MinecraftTheme {
 // MARK: - Blokkos felület-modifierek
 
 extension View {
-    /// Minecraft-kártya: 6pt blokk-sarok, sötét körvonal + felső belső
-    /// fényél (bevel) + kemény, el nem mosott mélység-árnyék — mint a
-    /// játék gombjai/blokkjai. Reduce Transparency mellett lapos.
-    @ViewBuilder
+    /// Minecraft-kártya: igazi MC-dialógus panel (McPanelStyle) —
+    /// világos bal-felső bevel + sötét jobb-alsó él + körvonal + kemény
+    /// mélység-árnyék. Reduce Transparency mellett is opak (az a jó).
     func minecraftCard(cornerRadius: CGFloat = 6) -> some View {
-        if UIAccessibility.isReduceTransparencyEnabled {
-            self.background(MinecraftTheme.deepslate, in: RoundedRectangle(cornerRadius: cornerRadius))
-        } else {
-            self
-                .background(
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(Color(.systemBackground))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .strokeBorder(MinecraftTheme.dirtDark, lineWidth: 3)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .strokeBorder(Color.white.opacity(0.35), lineWidth: 1)
-                        .padding(2)
-                )
-                .shadow(color: .black.opacity(0.35), radius: 0, x: 0, y: 4)
-        }
+        self.modifier(McPanelStyle(radius: cornerRadius))
     }
 
     /// Minecraft-nyomógomb: fűzöld blokk, bevel-lel, kemény árnyékkal.
@@ -528,6 +520,34 @@ private struct DriftingCloud<Content: View>: View {
 }
 
 
+extension View {
+/// Lista-sor háttér skin-érzékenyen: Summitban a kapott szín simán,
+/// Minecraftban lekerekített blokk dirt-kerettel + bevel-lel.
+/// Teljes sor-stílus: blokk-háttér + rejtett elválasztó + blokk-távolság.
+/// Summitban nem csinál semmit (marad a gyári sor).
+@ViewBuilder
+func mcListRow(fill: Color) -> some View {
+    if MinecraftTheme.isActive {
+        self.listRowBackground(MinecraftTheme.skinRowBackground(fill))
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+    }
+}
+
+/// Vékony kártya-körvonal skin-érzékenyen: Summitban hajszálvékony,
+/// Minecraftban dirt-blokk keret + bevel. Meglévő fill mellé tehető.
+@ViewBuilder
+func mcHairlineBorder(cornerRadius: CGFloat = 12) -> some View {
+    if MinecraftTheme.isActive {
+        self.overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(MinecraftTheme.dirtDark, lineWidth: 2))
+            .overlay(McBevelEdges())
+    } else {
+        self.overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
+    }
+}
+
+}
+
 /// Igazi minecraft fűblokk-lábazat EREDETI textúrákból (saját
 /// 1.21.11-es telepítés: grass_block_side + dirt, 3x nearest-neighbor
 /// csempézve). Magas, a tab-sáv fölé nyúlik, a home-jelző alá is lemegy.
@@ -579,5 +599,46 @@ struct McGroundStrip: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         }
         .frame(height: 48)
+    }
+}
+
+/// Igazi Minecraft-dialógus panel (Java-kiadás beállításmenü-hangulat):
+/// sötét módban mélypala, világosban klasszikus világosszürke (#C6C6C6),
+/// bal-felső fényéllel és jobb-alsó árnyékéllel + körvonal + kemény árnyék.
+/// A tartalom színei mindkét módban olvashatók maradnak.
+struct McPanelStyle: ViewModifier {
+    @Environment(\.colorScheme) var scheme
+    var radius: CGFloat = 6
+    func body(content: Content) -> some View {
+        content
+            .background(RoundedRectangle(cornerRadius: radius).fill(panel))
+            .overlay(McBevelEdges())
+            .overlay(RoundedRectangle(cornerRadius: radius)
+                .strokeBorder(Color.black.opacity(scheme == .dark ? 0.85 : 0.6), lineWidth: 2))
+            .shadow(color: .black.opacity(0.45), radius: 0, x: 0, y: 3)
+    }
+    private var panel: Color {
+        scheme == .dark ? Color(hex: 0x2E2E33) : Color(hex: 0xC6C6C6)
+    }
+}
+
+/// MC-bevel: felül-balra fényél, alul-jobbra árnyékél (2px-es Path-ok).
+struct McBevelEdges: View {
+    var body: some View {
+        GeometryReader { p in
+            let w = p.size.width, h = p.size.height
+            Path { path in
+                path.move(to: CGPoint(x: 2, y: h - 2))
+                path.addLine(to: CGPoint(x: 2, y: 2))
+                path.addLine(to: CGPoint(x: w - 2, y: 2))
+            }
+            .stroke(Color.white.opacity(0.5), lineWidth: 2)
+            Path { path in
+                path.move(to: CGPoint(x: w - 2, y: 2))
+                path.addLine(to: CGPoint(x: w - 2, y: h - 2))
+                path.addLine(to: CGPoint(x: 2, y: h - 2))
+            }
+            .stroke(Color.black.opacity(0.5), lineWidth: 2)
+        }
     }
 }

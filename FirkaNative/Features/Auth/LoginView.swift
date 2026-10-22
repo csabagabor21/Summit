@@ -56,23 +56,37 @@ struct LoginView: View {
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 10) {
                 Button { webError = nil; showWeb = true } label: {
-                    Text("Bejelentkezés E.KRÉTÁVAL")
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .functionalGlass(cornerRadius: 14)
+                    if MinecraftTheme.isActive {
+                        Text("Bejelentkezés E.KRÉTÁVAL")
+                            .frame(maxWidth: .infinity)
+                            .minecraftButton()
+                    } else {
+                        Text("Bejelentkezés E.KRÉTÁVAL")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .functionalGlass(cornerRadius: 14)
+                    }
                 }
                 .buttonStyle(.plain)
                 Button { reviewerError = nil; showReviewer = true } label: {
-                    Text("Bejelentkezés felhasználónévvel és jelszóval")
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .functionalGlass(cornerRadius: 14, tint: colors.accent.opacity(0.45))
+                    if MinecraftTheme.isActive {
+                        Text("Bejelentkezés felhasználónévvel és jelszóval")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .frame(maxWidth: .infinity)
+                            .minecraftButton()
+                    } else {
+                        Text("Bejelentkezés felhasználónévvel és jelszóval")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .functionalGlass(cornerRadius: 14, tint: colors.accent.opacity(0.45))
+                    }
                 }
                 .buttonStyle(.plain)
             }

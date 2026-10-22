@@ -1165,7 +1165,12 @@ private struct TimetableRow: View {
                     .frame(width: 38, height: 38)
                     .background {
                         Group {
-                            if #available(iOS 26.0, *) {
+                            if MinecraftTheme.isActive {
+                                RoundedRectangle(cornerRadius: 9)
+                                    .fill(colors.surface)
+                                    .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(MinecraftTheme.dirtDark, lineWidth: 2))
+                                    .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Color.white.opacity(0.3), lineWidth: 1).padding(2))
+                            } else if #available(iOS 26.0, *) {
                                 Circle()
                                     .fill(Color.clear)
                                     .glassEffect(

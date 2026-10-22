@@ -120,7 +120,7 @@ struct HomeView: View {
                 // Legújabb jegyek — koppintva a tantárgyba visz
                 Section {
                     if vm.grades.isEmpty {
-                        Text("Nincs jegy").foregroundStyle(.secondary)
+                        Text("Nincs jegy").foregroundStyle(.secondary).mcListRow(fill: colors.surface)
                     } else {
                         ForEach(vm.grades.sorted { $0.date > $1.date }.prefix(3)) { g in
                             NavigationLink {
@@ -138,9 +138,9 @@ struct HomeView: View {
                                     Spacer()
                                     Text(g.date.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.secondary)
                                 }
-                            }
+                            }.mcListRow(fill: colors.surface)
                         }
-                        NavigationLink("Összes jegy") { GradesView() }
+                        NavigationLink("Összes jegy") { GradesView() }.mcListRow(fill: colors.surface)
                     }
                 } header: { Text("Legújabb jegyek").mcSectionHeader() }
 
@@ -157,7 +157,7 @@ struct HomeView: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 Label("Közelgő dolgozatok", systemImage: "pencil.and.list.clipboard").mcSectionHeader()
                                 if vm.exams.isEmpty {
-                                    Text("Nincs dolgozat").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(RoundedRectangle(cornerRadius: 12).fill(colors.surface))
+                                    Text("Nincs dolgozat").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(RoundedRectangle(cornerRadius: 12).fill(colors.surface)).mcHairlineBorder()
                                 } else {
                                     ForEach(Array(examsSorted), id: \.id) { e in
                                         PadExamRow(exam: e, done: completed.isExamDone(e.id), colors: colors, scheme: scheme, rolled: vm.rolledExamIDs.contains(e.id)) {
@@ -172,7 +172,7 @@ struct HomeView: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 Label("Közelgő feladatok", systemImage: "checklist").mcSectionHeader()
                                 if vm.homeworks.isEmpty {
-                                    Text("Nincs feladat").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(RoundedRectangle(cornerRadius: 12).fill(colors.surface))
+                                    Text("Nincs feladat").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(RoundedRectangle(cornerRadius: 12).fill(colors.surface)).mcHairlineBorder()
                                 } else {
                                     ForEach(Array(hwSorted), id: \.id) { h in
                                         PadHomeworkRow(homework: h, done: completed.isHomeworkDone(h.id), colors: colors, scheme: scheme) {
@@ -465,7 +465,7 @@ private struct PadExamRow: View {
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: 12)
             .fill(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : rolled ? Color.red.opacity(scheme == .dark ? 0.16 : 0.10) : colors.surface)
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
+            .mcHairlineBorder()
     }
 }
 
@@ -504,7 +504,7 @@ private struct PadHomeworkRow: View {
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: 12)
             .fill(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface)
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
+            .mcHairlineBorder()
     }
 }
 
@@ -557,13 +557,17 @@ private struct HomeAssignmentRow: View {
         .onTapGesture(perform: onTap)
         .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
         .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] + 16 }
-        // Pótló dolgozat piros háttere (mint a kipipált zöld, csak piros)
+        // Pótló dolgozat piros háttere (mint a kipipált zöld, csak piros).
+        // Minecraftban blokk-kerettel.
         .listRowBackground(
-            done
-            ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07)
-            : rolled ? Color.red.opacity(scheme == .dark ? 0.16 : 0.10)
-            : colors.surface
+            MinecraftTheme.skinRowBackground(
+                done
+                    ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07)
+                    : rolled ? Color.red.opacity(scheme == .dark ? 0.16 : 0.10)
+                    : colors.surface
+            )
         )
+        .listRowSeparator(MinecraftTheme.isActive ? .hidden : .automatic)
     }
 }
 
@@ -583,14 +587,14 @@ private struct HomeLiveCard: View {
                 if let fixed = overrideNow {
                     let calc = LiveCalc(lessons: lessons, now: fixed)
                     innerContent(calc: calc)
-                        .listRowBackground(bg(for: calc))
+                        .listRowBackground(MinecraftTheme.skinRowBackground(bg(for: calc)))
                 } else {
                     // TimelineView makes progress live every 15s without Timer
                     // Header kívül — TimelineView csak a row tartalmát frissíti, nem a Section-t.
                     TimelineView(.periodic(from: .now, by: 15)) { context in
                         let calc = LiveCalc(lessons: lessons, now: context.date)
                         innerContent(calc: calc)
-                            .listRowBackground(bg(for: calc))
+                            .listRowBackground(MinecraftTheme.skinRowBackground(bg(for: calc)))
                     }
                 }
             }
