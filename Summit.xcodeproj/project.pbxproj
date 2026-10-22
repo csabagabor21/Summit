@@ -21,6 +21,14 @@
 		1AA7945A597E20CF228545D2 /* TimetableWidgetLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = A84585AABBDBE7320433B315 /* TimetableWidgetLogic.swift */; };
 		1EB9A7C506BAEA92AFD144F2 /* TimetableWidgetLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = A84585AABBDBE7320433B315 /* TimetableWidgetLogic.swift */; };
 		2318ABF5F2C7E205618489DC /* ic_splash.png in Resources */ = {isa = PBXBuildFile; fileRef = 225D81CC5A3BF3C9D730B87F /* ic_splash.png */; };
+		4AD19592E25145EBBF4E79B7 /* mc_dirt.png in Resources */ = {isa = PBXBuildFile; fileRef = 15B92408A49044EA9262110F /* mc_dirt.png */; };
+		726FD1354C9341F18F596A51 /* mc_grass_side.png in Resources */ = {isa = PBXBuildFile; fileRef = 17A872D4E35C40E3A9ED1EF0 /* mc_grass_side.png */; };
+		162AAE60718042DABF48C184 /* mc_grass_top.png in Resources */ = {isa = PBXBuildFile; fileRef = ABB2AE894A6244DF9E794529 /* mc_grass_top.png */; };
+		3CFF5BC98C6D4B25A696ECCD /* mc_item_barrier.png in Resources */ = {isa = PBXBuildFile; fileRef = 32494B393BBE46469B739702 /* mc_item_barrier.png */; };
+		B309F39361154B329E6FA8D2 /* mc_item_clock.png in Resources */ = {isa = PBXBuildFile; fileRef = A425538893894177A340E980 /* mc_item_clock.png */; };
+		9498DDF5DAE84EBB9E24D301 /* mc_item_compass.png in Resources */ = {isa = PBXBuildFile; fileRef = 11081A2F8B2C49659053D458 /* mc_item_compass.png */; };
+		7671CE9F63B34DFBA06FFD53 /* mc_item_diamond.png in Resources */ = {isa = PBXBuildFile; fileRef = 9A818FD7BCB049829A01E60C /* mc_item_diamond.png */; };
+		0548E20B37FB4B17943A8D44 /* mc_item_writable_book.png in Resources */ = {isa = PBXBuildFile; fileRef = 3416FE5FE2AD4F04AF595463 /* mc_item_writable_book.png */; };
 		A1B2C3D4E5F60718293A4B01 /* Monocraft.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F60718293A4B01C2 /* Monocraft.ttf */; };
 		35B7E40A0F3D456790D088CA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 90B614281CC34D96B052E3C8 /* Assets.xcassets */; };
 		25F89268618A3B90B1444BDD /* KretaWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A280F65EA8973C9BD6A643 /* KretaWebView.swift */; };
@@ -223,6 +231,14 @@
 		1D92783AAF33901FDCC0CB3B /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		1E84D5228585755250AA0D05 /* GradingLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradingLogic.swift; sourceTree = "<group>"; };
 		225D81CC5A3BF3C9D730B87F /* ic_splash.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_splash.png; sourceTree = "<group>"; };
+		32494B393BBE46469B739702 /* mc_item_barrier.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mc_item_barrier.png; sourceTree = "<group>"; };
+		A425538893894177A340E980 /* mc_item_clock.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mc_item_clock.png; sourceTree = "<group>"; };
+		11081A2F8B2C49659053D458 /* mc_item_compass.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mc_item_compass.png; sourceTree = "<group>"; };
+		9A818FD7BCB049829A01E60C /* mc_item_diamond.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mc_item_diamond.png; sourceTree = "<group>"; };
+		3416FE5FE2AD4F04AF595463 /* mc_item_writable_book.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mc_item_writable_book.png; sourceTree = "<group>"; };
+		17A872D4E35C40E3A9ED1EF0 /* mc_grass_side.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mc_grass_side.png; sourceTree = "<group>"; };
+		15B92408A49044EA9262110F /* mc_dirt.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mc_dirt.png; sourceTree = "<group>"; };
+		ABB2AE894A6244DF9E794529 /* mc_grass_top.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mc_grass_top.png; sourceTree = "<group>"; };
 		B2C3D4E5F60718293A4B01C2 /* Monocraft.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Monocraft.ttf; sourceTree = "<group>"; };
 		90B614281CC34D96B052E3C8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		22EE35060AC05385D57607A4 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -439,6 +455,14 @@
 			children = (
 				BD41B4ED9508F804D6940D5E /* ic_rounded.png */,
 				225D81CC5A3BF3C9D730B87F /* ic_splash.png */,
+				32494B393BBE46469B739702 /* mc_item_barrier.png */,
+				A425538893894177A340E980 /* mc_item_clock.png */,
+				11081A2F8B2C49659053D458 /* mc_item_compass.png */,
+				9A818FD7BCB049829A01E60C /* mc_item_diamond.png */,
+				3416FE5FE2AD4F04AF595463 /* mc_item_writable_book.png */,
+				17A872D4E35C40E3A9ED1EF0 /* mc_grass_side.png */,
+				15B92408A49044EA9262110F /* mc_dirt.png */,
+				ABB2AE894A6244DF9E794529 /* mc_grass_top.png */,
 				B2C3D4E5F60718293A4B01C2 /* Monocraft.ttf */,
 				1D92783AAF33901FDCC0CB3B /* LaunchScreen.storyboard */,
 				89E8B5ED4F9208BE53619044 /* showcase1.png */,
@@ -891,6 +915,14 @@
 				C0F24198AE153BA7213BED6C /* LaunchScreen.storyboard in Resources */,
 				696ADDAD7F531A0DED44E8CC /* ic_rounded.png in Resources */,
 				2318ABF5F2C7E205618489DC /* ic_splash.png in Resources */,
+				3CFF5BC98C6D4B25A696ECCD /* mc_item_barrier.png in Resources */,
+				B309F39361154B329E6FA8D2 /* mc_item_clock.png in Resources */,
+				9498DDF5DAE84EBB9E24D301 /* mc_item_compass.png in Resources */,
+				7671CE9F63B34DFBA06FFD53 /* mc_item_diamond.png in Resources */,
+				0548E20B37FB4B17943A8D44 /* mc_item_writable_book.png in Resources */,
+				726FD1354C9341F18F596A51 /* mc_grass_side.png in Resources */,
+				4AD19592E25145EBBF4E79B7 /* mc_dirt.png in Resources */,
+				162AAE60718042DABF48C184 /* mc_grass_top.png in Resources */,
 				A1B2C3D4E5F60718293A4B01 /* Monocraft.ttf in Resources */,
 				497DBC3AB13FF8515F308F9E /* showcase1.png in Resources */,
 				1794ABDF8895488700C4BF24 /* showcase2.png in Resources */,

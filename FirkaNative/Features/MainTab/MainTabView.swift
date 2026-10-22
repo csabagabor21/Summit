@@ -206,11 +206,11 @@ struct MainTabView: View {
     /// saját hotbar jön a fűblokkra. Máshol a natív sáv marad.
     private var useCustomHotbar: Bool { theme.isMinecraft && !isWide }
 
-    /// Hotbar-slotok: (tab, ikon, cím).
+    /// Hotbar-slotok: (tab, eredeti item-sprite, cím).
     private var mcTabs: [(Int, String, String)] {
-        [(0, tabIcon(0), tabTitle(0)), (1, tabIcon(1), tabTitle(1)),
-         (2, tabIcon(2), tabTitle(2)), (5, tabIcon(5), tabTitle(5)),
-         (4, tabIcon(4), tabTitle(4))]
+        [(0, "mc_grass_side", "Főoldal"), (1, "mc_item_diamond", "Jegyek"),
+         (2, "mc_item_clock", "Órarend"), (5, "mc_item_writable_book", "Feladatok"),
+         (4, "mc_item_barrier", "Hiányzások")]
     }
 
     /// Saját minecraft-hotbar: sötét áttetsző sáv, a kijelölt slot
@@ -223,8 +223,7 @@ struct MainTabView: View {
                     selected = tab
                 } label: {
                     VStack(spacing: 2) {
-                        Image(systemName: icon)
-                            .font(.system(size: 20, weight: .semibold))
+                        MinecraftTheme.mcPixelImage(icon, size: 30)
                         Text(title)
                             .font(MinecraftFontLoader.font(size: 8))
                     }

@@ -94,6 +94,38 @@ enum MinecraftTheme {
         )
     }
 
+    /// Tab-sorrendhez EREDETI item-sprite-ok a saját 1.21.11-es
+    /// telepítésből (grass_block oldala, gyémánt, óra, könyv, barrier,
+    /// iránytű). - Returns: (cím, bundle-képnév).
+    static func tabItemIcon(for tab: Int) -> (String, String) {
+        switch tab {
+        case 0: return ("Főoldal", "mc_grass_side")
+        case 1: return ("Jegyek", "mc_item_diamond")
+        case 2: return ("Órarend", "mc_item_clock")
+        case 5: return ("Feladatok", "mc_item_writable_book")
+        case 4: return ("Hiányzások", "mc_item_barrier")
+        case 3: return ("Watch", "mc_item_compass")
+        default: return ("", "mc_grass_side")
+        }
+    }
+
+    /// Eredeti 16x16-os textúra éles, nearest-neighbor nagyítással.
+    /// Direkt fájlbetöltéssel (a laza bundle-PNG-ket a sima Image(név)
+    /// nem találja meg megbízhatóan).
+    static func mcPixelImage(_ name: String, size: CGFloat) -> some View {
+        Group {
+            if let path = Bundle.main.path(forResource: name, ofType: "png"),
+               let ui = UIImage(contentsOfFile: path) {
+                Image(uiImage: ui)
+                    .resizable()
+                    .interpolation(.none)
+            } else {
+                Color.clear
+            }
+        }
+        .frame(width: size, height: size)
+    }
+
     /// Tab-sorrendhez Minecraft-ízű SF-ikonok (minden tab kap blokkos ikont).
     /// - Returns: (cím, systemImage).
     static func tabIcon(for tab: Int) -> (String, String) {
@@ -332,13 +364,12 @@ struct MinecraftBackdrop: View {
                 if mountain {
                     mcMountainRange(width: w, baseY: h - 46 + shift * 0.3)
                 }
-                // Fűsáv alul (lista-háttérben kikapcsolva — ott a tab-blokk a föld).
+                // Fűsáv alul igazi textúrából (lista-háttérben kikapcsolva
+                // — ott a tab-blokk a föld).
                 if ground {
                     VStack(spacing: 0) {
                         Spacer()
-                        Rectangle().fill(MinecraftTheme.grass).frame(height: 14)
-                        Rectangle().fill(MinecraftTheme.dirt).frame(height: 26)
-                        Rectangle().fill(MinecraftTheme.dirtDark.opacity(0.55)).frame(height: 6)
+                        McGroundStrip()
                     }.ignoresSafeArea()
                 }
             }
@@ -497,60 +528,56 @@ private struct DriftingCloud<Content: View>: View {
 }
 
 
-/// Igazi minecraft fűblokk-lábazat a tab-sáv mögé: magas (a tab-sáv
-/// fölé nyúlik), felül fűréteg világos bevel-csíkkal, alatta földdel,
-/// determinisztikus pixel-zajjal (moha-, föld- és kőpöttyök), tetején
-/// sötét körvonallal. Teljes szélességű, a home-jelző alá is lemegy.
+/// Igazi minecraft fűblokk-lábazat EREDETI textúrákból (saját
+/// 1.21.11-es telepítés: grass_block_side + dirt, 3x nearest-neighbor
+/// csempézve). Magas, a tab-sáv fölé nyúlik, a home-jelző alá is lemegy.
 struct McGrassBlockFooter: View {
     var height: CGFloat = 148
+    private let tile: CGFloat = 48
     var body: some View {
         GeometryReader { proxy in
             let w = proxy.size.width
-            ZStack(alignment: .top) {
-                // Földtest.
-                Rectangle().fill(MinecraftTheme.dirt)
-                // Föld-zaj: sötétebb/világosabb rögök + pár kő.
-                ForEach(0..<46, id: \.self) { i in
-                    let px = CGFloat((i * 137) % Int(max(1, Int(w)))) + 3
-                    let py = 30 + CGFloat((i * 89) % Int(max(1, Int(height - 44))))
-                    let c: Color = i % 7 == 0 ? Color(hex: 0x8D8D93)
-                        : (i % 3 == 0 ? MinecraftTheme.dirtDark : Color(hex: 0xA06A35))
-                    Rectangle().fill(c.opacity(0.85))
-                        .frame(width: 7, height: 7)
-                        .position(x: px, y: py)
+            let cols = max(1, Int(ceil(w / tile)))
+            VStack(spacing: 0) {
+                // Sötét körvonal a legtetején.
+                Rectangle().fill(MinecraftTheme.dirtDark).frame(height: 3)
+                // Felső sor: igazi fűblokk-oldal csempézve.
+                HStack(spacing: 0) {
+                    ForEach(0..<cols, id: \.self) { _ in
+                        MinecraftTheme.mcPixelImage("mc_grass_side", size: tile)
+                    }
                 }
-                // Fűréteg felül.
-                VStack(spacing: 0) {
-                    // Sötét körvonal a legtetején.
-                    Rectangle().fill(MinecraftTheme.dirtDark).frame(height: 3)
-                    // Bevel-fény.
-                    Rectangle().fill(Color(hex: 0x7ED321)).frame(height: 2)
-                    // Fűsáv zajjal.
-                    ZStack(alignment: .topLeading) {
-                        Rectangle().fill(MinecraftTheme.grass).frame(height: 17)
-                        ForEach(0..<26, id: \.self) { i in
-                            let px = CGFloat((i * 53) % Int(max(1, Int(w)))) + 4
-                            Rectangle()
-                                .fill(i % 4 == 0 ? Color(hex: 0x7ED321) : MinecraftTheme.grassDeep)
-                                .frame(width: 6, height: 6)
-                                .position(x: px, y: 9)
-                        }
+                // Alatta: igazi földcsempék.
+                HStack(spacing: 0) {
+                    ForEach(0..<cols, id: \.self) { _ in
+                        MinecraftTheme.mcPixelImage("mc_dirt", size: tile)
                     }
-                    .frame(height: 17)
-                    // Cakkos fűszegély: változó mélységű zöld kockák lógnak a földbe.
-                    HStack(alignment: .top, spacing: 2) {
-                        ForEach(0..<60, id: \.self) { i in
-                            let depths: [CGFloat] = [4, 9, 6, 12, 7, 5, 10]
-                            Rectangle()
-                                .fill(MinecraftTheme.grass)
-                                .frame(width: 6, height: depths[i % depths.count])
-                        }
+                }
+                HStack(spacing: 0) {
+                    ForEach(0..<cols, id: \.self) { _ in
+                        MinecraftTheme.mcPixelImage("mc_dirt", size: tile)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    Spacer(minLength: 0)
                 }
             }
         }
         .frame(height: height)
+    }
+}
+
+/// Vékony fűsáv igazi textúrából: a Beállítások hátterének aljára
+/// (egyetlen sor fűblokk-oldal csempézve).
+struct McGroundStrip: View {
+    private let tile: CGFloat = 48
+    var body: some View {
+        GeometryReader { proxy in
+            let cols = max(1, Int(ceil(proxy.size.width / tile)))
+            HStack(spacing: 0) {
+                ForEach(0..<cols, id: \.self) { _ in
+                    MinecraftTheme.mcPixelImage("mc_grass_side", size: tile)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        }
+        .frame(height: 48)
     }
 }
