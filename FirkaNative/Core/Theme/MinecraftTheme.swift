@@ -270,6 +270,9 @@ struct MinecraftBackdrop: View {
     @Environment(\.accessibilityReduceTransparency) var reduceTransparency
     var scrollOffset: CGFloat = 0
     var mountain: Bool = false
+    /// Alsó fűsáv: a lista-hátterekben kikapcsoljuk, mert ott a
+    /// tab-sáv fűblokkja adja a földet (különben dupla fűréteg lenne).
+    var ground: Bool = true
     var body: some View {
         if reduceTransparency {
             MinecraftTheme.nightTop.ignoresSafeArea()
@@ -329,13 +332,15 @@ struct MinecraftBackdrop: View {
                 if mountain {
                     mcMountainRange(width: w, baseY: h - 46 + shift * 0.3)
                 }
-                // Fűsáv alul: világos fű + sötét föld-csík (oldalnézeti blokk).
-                VStack(spacing: 0) {
-                    Spacer()
-                    Rectangle().fill(MinecraftTheme.grass).frame(height: 14)
-                    Rectangle().fill(MinecraftTheme.dirt).frame(height: 26)
-                    Rectangle().fill(MinecraftTheme.dirtDark.opacity(0.55)).frame(height: 6)
-                }.ignoresSafeArea()
+                // Fűsáv alul (lista-háttérben kikapcsolva — ott a tab-blokk a föld).
+                if ground {
+                    VStack(spacing: 0) {
+                        Spacer()
+                        Rectangle().fill(MinecraftTheme.grass).frame(height: 14)
+                        Rectangle().fill(MinecraftTheme.dirt).frame(height: 26)
+                        Rectangle().fill(MinecraftTheme.dirtDark.opacity(0.55)).frame(height: 6)
+                    }.ignoresSafeArea()
+                }
             }
         }
         .ignoresSafeArea()
@@ -488,5 +493,64 @@ private struct DriftingCloud<Content: View>: View {
                     x = width + 220
                 }
             }
+    }
+}
+
+
+/// Igazi minecraft fűblokk-lábazat a tab-sáv mögé: magas (a tab-sáv
+/// fölé nyúlik), felül fűréteg világos bevel-csíkkal, alatta földdel,
+/// determinisztikus pixel-zajjal (moha-, föld- és kőpöttyök), tetején
+/// sötét körvonallal. Teljes szélességű, a home-jelző alá is lemegy.
+struct McGrassBlockFooter: View {
+    var height: CGFloat = 148
+    var body: some View {
+        GeometryReader { proxy in
+            let w = proxy.size.width
+            ZStack(alignment: .top) {
+                // Földtest.
+                Rectangle().fill(MinecraftTheme.dirt)
+                // Föld-zaj: sötétebb/világosabb rögök + pár kő.
+                ForEach(0..<46, id: \.self) { i in
+                    let px = CGFloat((i * 137) % Int(max(1, Int(w)))) + 3
+                    let py = 30 + CGFloat((i * 89) % Int(max(1, Int(height - 44))))
+                    let c: Color = i % 7 == 0 ? Color(hex: 0x8D8D93)
+                        : (i % 3 == 0 ? MinecraftTheme.dirtDark : Color(hex: 0xA06A35))
+                    Rectangle().fill(c.opacity(0.85))
+                        .frame(width: 7, height: 7)
+                        .position(x: px, y: py)
+                }
+                // Fűréteg felül.
+                VStack(spacing: 0) {
+                    // Sötét körvonal a legtetején.
+                    Rectangle().fill(MinecraftTheme.dirtDark).frame(height: 3)
+                    // Bevel-fény.
+                    Rectangle().fill(Color(hex: 0x7ED321)).frame(height: 2)
+                    // Fűsáv zajjal.
+                    ZStack(alignment: .topLeading) {
+                        Rectangle().fill(MinecraftTheme.grass).frame(height: 17)
+                        ForEach(0..<26, id: \.self) { i in
+                            let px = CGFloat((i * 53) % Int(max(1, Int(w)))) + 4
+                            Rectangle()
+                                .fill(i % 4 == 0 ? Color(hex: 0x7ED321) : MinecraftTheme.grassDeep)
+                                .frame(width: 6, height: 6)
+                                .position(x: px, y: 9)
+                        }
+                    }
+                    .frame(height: 17)
+                    // Cakkos fűszegély: változó mélységű zöld kockák lógnak a földbe.
+                    HStack(alignment: .top, spacing: 2) {
+                        ForEach(0..<60, id: \.self) { i in
+                            let depths: [CGFloat] = [4, 9, 6, 12, 7, 5, 10]
+                            Rectangle()
+                                .fill(MinecraftTheme.grass)
+                                .frame(width: 6, height: depths[i % depths.count])
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+        .frame(height: height)
     }
 }

@@ -38,12 +38,32 @@ struct MainTabView: View {
 
     var colors: AppColors { theme.colors(for: scheme) }
 
-    var body: some View {
+    /// Tab-tartalom (natív sávval vagy anélkül — a chrome-döntés lent).
+    private var tabContent: some View {
         Group {
             if #available(iOS 18.0, *) {
                 nativeSidebar
             } else {
                 phoneTabsLegacy
+            }
+        }
+    }
+
+    var body: some View {
+        Group {
+            if useCustomHotbar {
+                // Minecraft keskeny kijelzőn: a fűblokk a layout része
+                // (a tartalom sosem csúszik mögé), a hotbar rajta ül.
+                // Szélesen (iPad/Mac sidebar) a natív sáv marad.
+                VStack(spacing: 0) {
+                    tabContent
+                    McGrassBlockFooter(height: 148)
+                }
+                .overlay(alignment: .bottom) {
+                    mcHotbar.padding(.bottom, 46)
+                }
+            } else {
+                tabContent
             }
         }
         .tint(theme.isMinecraft ? MinecraftTheme.grass : colors.accent)
@@ -138,19 +158,19 @@ struct MainTabView: View {
     private var nativeSidebar: some View {
         TabView(selection: $selected) {
             Tab(tabTitle(0), systemImage: tabIcon(0), value: 0) {
-                HomeView()
+                HomeView().mcTabChrome(hidden: useCustomHotbar)
             }
             Tab(tabTitle(1), systemImage: tabIcon(1), value: 1) {
-                GradesView()
+                GradesView().mcTabChrome(hidden: useCustomHotbar)
             }
             Tab(tabTitle(2), systemImage: tabIcon(2), value: 2) {
-                TimetableView()
+                TimetableView().mcTabChrome(hidden: useCustomHotbar)
             }
             Tab(tabTitle(5), systemImage: tabIcon(5), value: 5) {
-                NotesView()
+                NotesView().mcTabChrome(hidden: useCustomHotbar)
             }
             Tab(tabTitle(4), systemImage: tabIcon(4), value: 4) {
-                AbsencesView()
+                AbsencesView().mcTabChrome(hidden: useCustomHotbar)
             }
             // Watch-tab CSAK széles elrendezésen (iPad / Mac sidebar) —
             // iPhone-on nincs (ott a Feladatok bal felső toolbar-gombja
@@ -182,6 +202,57 @@ struct MainTabView: View {
         }
         return MinecraftTheme.tabIcon(for: tab).1
     }
+    /// Minecraft keskeny kijelzőn: a rendszer-tabsáv rejtve — helyette
+    /// saját hotbar jön a fűblokkra. Máshol a natív sáv marad.
+    private var useCustomHotbar: Bool { theme.isMinecraft && !isWide }
+
+    /// Hotbar-slotok: (tab, ikon, cím).
+    private var mcTabs: [(Int, String, String)] {
+        [(0, tabIcon(0), tabTitle(0)), (1, tabIcon(1), tabTitle(1)),
+         (2, tabIcon(2), tabTitle(2)), (5, tabIcon(5), tabTitle(5)),
+         (4, tabIcon(4), tabTitle(4))]
+    }
+
+    /// Saját minecraft-hotbar: sötét áttetsző sáv, a kijelölt slot
+    /// fűzöld, fehér kerettel — mint a játékban.
+    private var mcHotbar: some View {
+        HStack(spacing: 6) {
+            ForEach(mcTabs, id: \.0) { tab, icon, title in
+                Button {
+                    SummitHaptics.selection()
+                    selected = tab
+                } label: {
+                    VStack(spacing: 2) {
+                        Image(systemName: icon)
+                            .font(.system(size: 20, weight: .semibold))
+                        Text(title)
+                            .font(MinecraftFontLoader.font(size: 8))
+                    }
+                    .foregroundStyle(selected == tab ? .white : .white.opacity(0.55))
+                    .frame(width: 56, height: 52)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(selected == tab
+                                  ? MinecraftTheme.grass.opacity(0.9)
+                                  : Color.black.opacity(0.45))
+                            .overlay(RoundedRectangle(cornerRadius: 8)
+                                .strokeBorder(selected == tab ? .white : .white.opacity(0.3),
+                                              lineWidth: selected == tab ? 3 : 1.5))
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text(title))
+            }
+        }
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.black.opacity(0.45))
+                .overlay(RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(.white.opacity(0.25), lineWidth: 2))
+        )
+    }
+
     private func tabTitle(_ tab: Int) -> String {
         guard theme.isMinecraft else {
             switch tab {
@@ -200,14 +271,27 @@ struct MainTabView: View {
     // MARK: - iOS 17 fallback (Summit target régebbi OS-en) — natív TabView
     private var phoneTabsLegacy: some View {
         TabView(selection: $selected) {
-            HomeView().tabItem { Label(tabTitle(0), systemImage: tabIcon(0)) }.tag(0)
-            GradesView().tabItem { Label(tabTitle(1), systemImage: tabIcon(1)) }.tag(1)
-            TimetableView().tabItem { Label(tabTitle(2), systemImage: tabIcon(2)) }.tag(2)
-            NotesView().tabItem { Label(tabTitle(5), systemImage: tabIcon(5)) }.tag(5)
-            AbsencesView().tabItem { Label(tabTitle(4), systemImage: tabIcon(4)) }.tag(4)
+            HomeView().mcTabChrome(hidden: useCustomHotbar).tabItem { Label(tabTitle(0), systemImage: tabIcon(0)) }.tag(0)
+            GradesView().mcTabChrome(hidden: useCustomHotbar).tabItem { Label(tabTitle(1), systemImage: tabIcon(1)) }.tag(1)
+            TimetableView().mcTabChrome(hidden: useCustomHotbar).tabItem { Label(tabTitle(2), systemImage: tabIcon(2)) }.tag(2)
+            NotesView().mcTabChrome(hidden: useCustomHotbar).tabItem { Label(tabTitle(5), systemImage: tabIcon(5)) }.tag(5)
+            AbsencesView().mcTabChrome(hidden: useCustomHotbar).tabItem { Label(tabTitle(4), systemImage: tabIcon(4)) }.tag(4)
             if watchTabVisible {
                 CheatView().tabItem { Label("Watch", systemImage: "applewatch") }.tag(3)
             }
+        }
+    }
+}
+
+/// Minecraft-tabrejtés: keskeny kijelzőn Minecraft-skinben elrejti a
+/// rendszer-tabsávot (helyette a saját hotbar látszik a fűblokkon).
+private extension View {
+    @ViewBuilder
+    func mcTabChrome(hidden: Bool) -> some View {
+        if hidden {
+            self.toolbar(.hidden, for: .tabBar)
+        } else {
+            self
         }
     }
 }

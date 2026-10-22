@@ -159,7 +159,7 @@ extension View {
             // átlátszik az ég.
             self
                 .scrollContentBackground(.hidden)
-                .background { MinecraftBackdrop() }
+                .background { MinecraftBackdrop(ground: false) }
         } else if MacSupport.isNativeMac {
             self
                 .scrollContentBackground(.visible)
