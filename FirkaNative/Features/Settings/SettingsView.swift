@@ -581,7 +581,7 @@ struct SettingsView: View {
         }
         .background {
             if theme.isMinecraft {
-                MinecraftBackdrop(scrollOffset: scrollOffset)
+                MinecraftBackdrop(scrollOffset: scrollOffset, mountain: true)
             } else {
                 SummitBackdrop(scrollOffset: scrollOffset)
             }

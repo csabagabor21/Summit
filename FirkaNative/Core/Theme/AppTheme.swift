@@ -153,7 +153,14 @@ extension View {
     /// sidebar + toolbar. Semmi kézi blur/opacity: a rendszer rajzol.
     @ViewBuilder
     func summitListChrome(colors: AppColors) -> some View {
-        if MacSupport.isNativeMac {
+        if MinecraftTheme.isActive {
+            // Minecraft: élő égbolt minden lista mögött (napos dolog a
+            // Főoldalon is) — a sorok blokk-háttere takar, a közökben
+            // átlátszik az ég.
+            self
+                .scrollContentBackground(.hidden)
+                .background { MinecraftBackdrop() }
+        } else if MacSupport.isNativeMac {
             self
                 .scrollContentBackground(.visible)
                 .background(Color.clear)

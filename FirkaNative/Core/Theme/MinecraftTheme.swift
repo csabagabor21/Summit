@@ -258,79 +258,235 @@ extension View {
     }
 }
 
-/// Shader-hangulatú Minecraft-háttér: nappal telített ég + blokkos
-/// napkorong + pixel-felhők + god-ray fénypászma, alul fűsávval;
-/// éjjel mélykék shader-ég csillagpixelekkel. Textúra helyett tiszta
-/// SwiftUI-rajz (asset nélkül), parallax-kompatibilis.
+/// Élő Minecraft-égbolt (shader-hangulat, BSL/Complementary-íz):
+/// a nap reggeltől estig valós idő szerint vándorol át az égen
+/// (éjjel pixel-hold + csillagok), az ég színe napszak szerint vált
+/// (hajnal-narancs, dél-türkiz, alkony-lila, éjjel-mélykék), a lapos
+/// blokk-felhők lassan sodródnak, alul fűsáv + opcionális pixel-hegy.
+/// Tiszta SwiftUI-rajz, asset nélkül. `mountain: true` a Beállítások
+/// mögé hegyet is tesz.
 struct MinecraftBackdrop: View {
-    @Environment(\.colorScheme) var scheme
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.accessibilityReduceTransparency) var reduceTransparency
     var scrollOffset: CGFloat = 0
+    var mountain: Bool = false
     var body: some View {
         if reduceTransparency {
-            (scheme == .dark ? MinecraftTheme.nightTop : MinecraftTheme.cream).ignoresSafeArea()
+            MinecraftTheme.nightTop.ignoresSafeArea()
         } else {
-            GeometryReader { proxy in
-                let w = proxy.size.width, h = proxy.size.height
-                let shift = min(0, max(-h * 0.2, scrollOffset * 0.25))
-                ZStack {
-                    LinearGradient(
-                        colors: scheme == .dark
-                            ? [MinecraftTheme.nightTop, MinecraftTheme.nightBottom]
-                            : [MinecraftTheme.skyTop, MinecraftTheme.skyBottom],
-                        startPoint: .top, endPoint: .bottom
-                    ).ignoresSafeArea()
-                    // God-ray: ferde fénysáv (BSL-hangulat), nagyon halvány.
-                    LinearGradient(
-                        colors: [.white.opacity(scheme == .dark ? 0.06 : 0.22), .clear],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
-                    ).ignoresSafeArea()
-                    // Blokkos nap / hold.
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(scheme == .dark ? .white.opacity(0.9) : MinecraftTheme.sun)
-                        .frame(width: 64, height: 64)
-                        .position(x: w * 0.78, y: 140 + shift)
-                        .shadow(color: (scheme == .dark ? Color.white : MinecraftTheme.sun).opacity(0.5), radius: 24)
-                    // Pixel-felhők.
-                    Group {
-                        mcCloud(x: w * 0.2, y: 110 + shift * 0.6, scale: 1)
-                        mcCloud(x: w * 0.6, y: 210 + shift * 0.6, scale: 0.7)
-                        mcCloud(x: w * 0.35, y: 300 + shift * 0.6, scale: 0.5)
-                    }
-                    // Éjjel csillagpixelek.
-                    if scheme == .dark {
-                        Group {
-                            ForEach(0..<24, id: \.self) { i in
-                                let sx = w * Double((i * 37) % 100) / 100
-                                let sy = h * Double((i * 53) % 45) / 100 + 40
-                                Rectangle()
-                                    .fill(.white.opacity(0.7))
-                                    .frame(width: 3, height: 3)
-                                    .position(x: sx, y: sy + shift * 0.4)
-                            }
-                        }
-                    }
-                    // Fűsáv alul: világos fű + sötét föld-csík (oldalnézeti blokk).
-                    VStack(spacing: 0) {
-                        Spacer()
-                        Rectangle().fill(MinecraftTheme.grass).frame(height: 14)
-                        Rectangle().fill(MinecraftTheme.dirt).frame(height: 26)
-                        Rectangle().fill(MinecraftTheme.dirtDark.opacity(0.55)).frame(height: 6)
-                    }.ignoresSafeArea()
-                }
+            // Percenként újrarajzol: a nap/hold pozíciója és az ég színe
+            // a valós időt követi (reggel→este vándorlás).
+            TimelineView(.everyMinute) { tl in
+                sky(at: tl.date)
             }
-            .ignoresSafeArea()
         }
     }
 
-    /// Téglalapokból rakott pixel-felhő.
-    private func mcCloud(x: CGFloat, y: CGFloat, scale: CGFloat) -> some View {
-        HStack(spacing: 0) {
-            Rectangle().fill(.white.opacity(0.85)).frame(width: 46, height: 14)
-            Rectangle().fill(.white.opacity(0.85)).frame(width: 30, height: 22).offset(y: -4)
-            Rectangle().fill(.white.opacity(0.85)).frame(width: 40, height: 14)
+    private func sky(at date: Date) -> some View {
+        GeometryReader { proxy in
+            let w = proxy.size.width, h = proxy.size.height
+            let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
+            let hour = Double(comps.hour ?? 12) + Double(comps.minute ?? 0) / 60
+            let night = hour < 5.5 || hour >= 20.5
+            let shift = min(0, max(-h * 0.2, scrollOffset * 0.25))
+            ZStack {
+                LinearGradient(colors: skyColors(hour: hour), startPoint: .top, endPoint: .bottom)
+                    .ignoresSafeArea()
+                // God-ray: ferde fénysáv nappal (BSL-hangulat), nagyon halvány.
+                if !night {
+                    LinearGradient(colors: [.white.opacity(0.20), .clear],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                        .ignoresSafeArea()
+                }
+                // Nap nappal (reggel keleten alacsonyan → délben magasan →
+                // este nyugaton alacsonyan), éjjel pixel-hold kráterekkel.
+                if night {
+                    mcMoon().position(x: w * moonX(hour: hour), y: 150 + shift)
+                } else {
+                    let (sx, sy, tint) = sunPose(hour: hour, w: w)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(tint)
+                        .frame(width: 64, height: 64)
+                        .position(x: sx, y: sy + shift)
+                        .shadow(color: tint.opacity(0.5), radius: 24)
+                }
+                // Rendes minecraft-felhők: lapos fehér blokk-lapok, lassan sodródnak.
+                mcCloudLane(width: w, top: 110, night: night, duration: 140)
+                mcCloudLane(width: w, top: 210, night: night, duration: 200)
+                mcCloudLane(width: w, top: 300, night: night, duration: 260)
+                // Éjjel csillagpixelek.
+                if night {
+                    ForEach(0..<24, id: \.self) { i in
+                        Rectangle()
+                            .fill(.white.opacity(0.7))
+                            .frame(width: 3, height: 3)
+                            .position(x: w * Double((i * 37) % 100) / 100,
+                                      y: h * Double((i * 53) % 45) / 100 + 40 + shift * 0.4)
+                    }
+                }
+                // Pixel-hegy (Beállítások): hátsó párás csúcs + elülső
+                // hósapkás csúcs, tövében fűsávval.
+                if mountain {
+                    mcMountainRange(width: w, baseY: h - 46 + shift * 0.3)
+                }
+                // Fűsáv alul: világos fű + sötét föld-csík (oldalnézeti blokk).
+                VStack(spacing: 0) {
+                    Spacer()
+                    Rectangle().fill(MinecraftTheme.grass).frame(height: 14)
+                    Rectangle().fill(MinecraftTheme.dirt).frame(height: 26)
+                    Rectangle().fill(MinecraftTheme.dirtDark.opacity(0.55)).frame(height: 6)
+                }.ignoresSafeArea()
+            }
         }
-        .scaleEffect(scale)
-        .position(x: x, y: y)
+        .ignoresSafeArea()
+    }
+
+    // MARK: - Napszak
+
+    /// Ég-szín kulcskockák (óra, fent, lent) — közte lineáris átmenet,
+    /// így a hajnal/alkony is átúszik, nem vált villanva.
+    private var skyKeys: [(Double, Color, Color)] {
+        [
+            (0, MinecraftTheme.nightTop, MinecraftTheme.nightBottom),
+            (4.5, MinecraftTheme.nightTop, MinecraftTheme.nightBottom),
+            (6.5, Color(hex: 0x5A7BD6), Color(hex: 0xF2A65A)),
+            (8.5, MinecraftTheme.skyTop, MinecraftTheme.skyBottom),
+            (16, MinecraftTheme.skyTop, MinecraftTheme.skyBottom),
+            (18.5, Color(hex: 0x3B3F7A), Color(hex: 0xFF7E47)),
+            (20.5, MinecraftTheme.nightTop, MinecraftTheme.nightBottom),
+            (24, MinecraftTheme.nightTop, MinecraftTheme.nightBottom),
+        ]
+    }
+
+    private func skyColors(hour: Double) -> [Color] {
+        let ks = skyKeys
+        for i in 0..<(ks.count - 1) where hour >= ks[i].0 && hour <= ks[i + 1].0 {
+            let (h0, t0, b0) = ks[i]
+            let (h1, t1, b1) = ks[i + 1]
+            let t = h1 == h0 ? 0 : (hour - h0) / (h1 - h0)
+            return [lerp(t0, t1, t), lerp(b0, b1, t)]
+        }
+        return [MinecraftTheme.skyTop, MinecraftTheme.skyBottom]
+    }
+
+    private func lerp(_ a: Color, _ b: Color, _ t: Double) -> Color {
+        let ua = UIColor(a), ub = UIColor(b)
+        var ar: CGFloat = 0, ag: CGFloat = 0, ab: CGFloat = 0, aa: CGFloat = 0
+        var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
+        ua.getRed(&ar, green: &ag, blue: &ab, alpha: &aa)
+        ub.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
+        let k = CGFloat(min(1, max(0, t)))
+        return Color(red: Double(ar + (br - ar) * k), green: Double(ag + (bg - ag) * k),
+                     blue: Double(ab + (bb - ab) * k), opacity: Double(aa + (ba - aa) * k))
+    }
+
+    /// Nap-pozíció és -szín: 6h-kor keleten (meleg narancs), 12h-kor
+    /// magasan (meleg fehér-arany), 18h-kor nyugaton (narancs).
+    private func sunPose(hour: Double, w: CGFloat) -> (CGFloat, CGFloat, Color) {
+        let t = min(1, max(0, (hour - 6) / 12))
+        let x = w * (0.10 + 0.80 * t)
+        let y = 330 - sin(t * .pi) * 230
+        let edge = min(t, 1 - t) * 2
+        let tint: Color = edge < 0.35
+            ? Color(hex: 0xFFB347)
+            : MinecraftTheme.sun
+        return (x, y, tint)
+    }
+
+    private func moonX(hour: Double) -> CGFloat {
+        let t = hour >= 18 ? (hour - 18) / 12 : (hour + 6) / 12
+        return 0.10 + 0.80 * min(1, max(0, t))
+    }
+
+    /// Pixel-hold: fakó kocka sötétebb kráter-kockákkal + halvány fénnyel.
+    private func mcMoon() -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color(hex: 0xE8EDF5))
+                .frame(width: 56, height: 56)
+            RoundedRectangle(cornerRadius: 2).fill(Color(hex: 0xB9C2D4)).frame(width: 14, height: 14).offset(x: -10, y: -8)
+            RoundedRectangle(cornerRadius: 2).fill(Color(hex: 0xB9C2D4)).frame(width: 10, height: 10).offset(x: 12, y: 6)
+            RoundedRectangle(cornerRadius: 2).fill(Color(hex: 0xC7CFE0)).frame(width: 8, height: 8).offset(x: 2, y: -14)
+        }
+        .shadow(color: Color.white.opacity(0.4), radius: 20)
+    }
+
+    // MARK: - Felhők
+
+    /// Egy sodródó felhősáv: lapos blokk-lapok (igazi minecraft-felhő:
+    /// egy réteg éles téglalap), végtelen lineáris sodrással.
+    /// Reduce Motion mellett áll.
+    private func mcCloudLane(width: CGFloat, top: CGFloat, night: Bool, duration: Double) -> some View {
+        let tint: Color = night ? Color(hex: 0x3A4666).opacity(0.6) : .white.opacity(0.9)
+        return DriftingCloud(width: width, top: top, duration: duration, reduceMotion: reduceMotion) {
+            HStack(spacing: 0) {
+                Rectangle().fill(tint).frame(width: 120, height: 14)
+                Rectangle().fill(tint).frame(width: 44, height: 24).offset(y: -5)
+                Rectangle().fill(tint).frame(width: 84, height: 14)
+                Rectangle().fill(tint).frame(width: 30, height: 20).offset(y: -3)
+                Rectangle().fill(tint).frame(width: 96, height: 14)
+            }
+        }
+    }
+
+    // MARK: - Pixel-hegy
+
+    /// Lépcsőzött pixel-hegy: soronként szélesedő téglalapok, jobb oldalon
+    /// árnyék-sávval, tetején hósipkával.
+    private func mcPeak(baseWidth: CGFloat, height: CGFloat, rock: Color, shade: Color, snow: Color) -> some View {
+        let rows = max(4, Int(height / 8))
+        return VStack(spacing: 0) {
+            ForEach(0..<rows, id: \.self) { i in
+                let frac = CGFloat(i + 1) / CGFloat(rows)
+                let rowW = baseWidth * frac
+                ZStack(alignment: .trailing) {
+                    Rectangle()
+                        .fill(i < 3 ? snow : rock)
+                        .frame(width: rowW, height: 8)
+                    if i >= 3 {
+                        Rectangle().fill(shade).frame(width: rowW / 3, height: 8)
+                    } else {
+                        Rectangle().fill(shade.opacity(0.35)).frame(width: rowW / 3, height: 8)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Hegylánc: hátsó párás csúcs + elülső hósapkás csúcs + fűtöve.
+    private func mcMountainRange(width: CGFloat, baseY: CGFloat) -> some View {
+        ZStack(alignment: .bottom) {
+            HStack(alignment: .bottom, spacing: -40) {
+                mcPeak(baseWidth: width * 0.55, height: 190,
+                       rock: Color(hex: 0x6E7B8C), shade: Color(hex: 0x525C69), snow: Color(hex: 0xDDE6F2))
+                    .opacity(0.85)
+                mcPeak(baseWidth: width * 0.7, height: 260,
+                       rock: Color(hex: 0x7D8A99), shade: Color(hex: 0x5A6572), snow: .white)
+            }
+            Rectangle().fill(MinecraftTheme.grassDeep).frame(height: 10)
+        }
+        .frame(width: width, height: 270, alignment: .bottom)
+        .position(x: width / 2, y: baseY - 135 + 23)
+    }
+}
+
+/// Végtelenül sodródó felhő: balról jobbra lineárisan, hurokban.
+private struct DriftingCloud<Content: View>: View {
+    var width: CGFloat
+    var top: CGFloat
+    var duration: Double
+    var reduceMotion: Bool
+    @ViewBuilder var content: () -> Content
+    @State private var x: CGFloat?
+    var body: some View {
+        content()
+            .position(x: x ?? -220, y: top)
+            .onAppear {
+                if reduceMotion { x = width / 2; return }
+                x = -220
+                withAnimation(.linear(duration: duration).repeatForever(autoreverses: false)) {
+                    x = width + 220
+                }
+            }
     }
 }
