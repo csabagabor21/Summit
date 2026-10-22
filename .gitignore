@@ -25,3 +25,6 @@ Icon
 
 # Env
 .env
+
+# Firebase local config (real key file never committed, see .example template)
+FirkaNative/GoogleService-Info.plist

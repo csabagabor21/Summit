@@ -1,5 +1,9 @@
 # Summit
 
+> **English:** Summit is an unofficial, open-source e-KRÉTA student client for iOS — SwiftUI, iOS 26, Liquid Glass. e-KRÉTA is the school information system used by every public school in Hungary; Summit gives students real-time grades and averages, timetable, homework, exams, absences, and messages in a fast, modern app. Community-built, [MIT-licensed](LICENSE), and not affiliated with e-KRÉTA. Magyar leírás lentebb.
+>
+> Contributing in English is welcome — start with [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+
 Nem hivatalos e-KRÉTA kliens iOS-re — SwiftUI, iOS 26, Liquid Glass.
 
 https://github.com/csabagabor21/Summit
@@ -60,3 +64,6 @@ Minden módosítás / prompt után KÖTELEZŐ commitolni és pusholni GitHubra,
 részletes magyar nyelvű leírással. Nincs kivétel: kisebb javítás, UI-matrica,
 egysoros fix után is. A commit message sorolja fel a változott fájlokat és a
 miértet. Lásd még: `AGENTS.md`.
+
+## License
+MIT — see [LICENSE](LICENSE).
