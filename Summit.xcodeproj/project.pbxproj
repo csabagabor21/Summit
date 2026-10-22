@@ -21,6 +21,7 @@
 		1AA7945A597E20CF228545D2 /* TimetableWidgetLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = A84585AABBDBE7320433B315 /* TimetableWidgetLogic.swift */; };
 		1EB9A7C506BAEA92AFD144F2 /* TimetableWidgetLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = A84585AABBDBE7320433B315 /* TimetableWidgetLogic.swift */; };
 		2318ABF5F2C7E205618489DC /* ic_splash.png in Resources */ = {isa = PBXBuildFile; fileRef = 225D81CC5A3BF3C9D730B87F /* ic_splash.png */; };
+		A1B2C3D4E5F60718293A4B01 /* Monocraft.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F60718293A4B01C2 /* Monocraft.ttf */; };
 		35B7E40A0F3D456790D088CA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 90B614281CC34D96B052E3C8 /* Assets.xcassets */; };
 		25F89268618A3B90B1444BDD /* KretaWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A280F65EA8973C9BD6A643 /* KretaWebView.swift */; };
 		27F5E9AF81B7091B86657B47 /* TimetableWidgetPublish.swift in Sources */ = {isa = PBXBuildFile; fileRef = CACC3C6BFC6796A0A3267897 /* TimetableWidgetPublish.swift */; };
@@ -222,6 +223,7 @@
 		1D92783AAF33901FDCC0CB3B /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		1E84D5228585755250AA0D05 /* GradingLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradingLogic.swift; sourceTree = "<group>"; };
 		225D81CC5A3BF3C9D730B87F /* ic_splash.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_splash.png; sourceTree = "<group>"; };
+		B2C3D4E5F60718293A4B01C2 /* Monocraft.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Monocraft.ttf; sourceTree = "<group>"; };
 		90B614281CC34D96B052E3C8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		22EE35060AC05385D57607A4 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		26D362E074715FDA9A2FFBC2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -437,6 +439,7 @@
 			children = (
 				BD41B4ED9508F804D6940D5E /* ic_rounded.png */,
 				225D81CC5A3BF3C9D730B87F /* ic_splash.png */,
+				B2C3D4E5F60718293A4B01C2 /* Monocraft.ttf */,
 				1D92783AAF33901FDCC0CB3B /* LaunchScreen.storyboard */,
 				89E8B5ED4F9208BE53619044 /* showcase1.png */,
 				D545B038F89135DDB38415E2 /* showcase2.png */,
@@ -888,6 +891,7 @@
 				C0F24198AE153BA7213BED6C /* LaunchScreen.storyboard in Resources */,
 				696ADDAD7F531A0DED44E8CC /* ic_rounded.png in Resources */,
 				2318ABF5F2C7E205618489DC /* ic_splash.png in Resources */,
+				A1B2C3D4E5F60718293A4B01 /* Monocraft.ttf in Resources */,
 				497DBC3AB13FF8515F308F9E /* showcase1.png in Resources */,
 				1794ABDF8895488700C4BF24 /* showcase2.png in Resources */,
 				371B199FB30740EA5F3A7D25 /* showcase3.png in Resources */,

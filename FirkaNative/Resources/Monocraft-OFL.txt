@@ -1,0 +1,10 @@
+Monocraft pixel font — Third-party asset (NOT app code)
+====================================================
+File: FirkaNative/Resources/Monocraft.ttf (bundled, registered at runtime)
+Source: https://github.com/IdreesInc/Monocraft
+Author: Copyright (c) 2022, Idrees Hassan
+License: SIL Open Font License, Version 1.1 (http://scripts.sil.org/OFL)
+Full license: https://github.com/IdreesInc/Monocraft/blob/main/LICENSE
+
+Used only by the Minecraft visual skin (ThemeStore.skin == .minecraft).
+Summit skin does not load or reference this file.

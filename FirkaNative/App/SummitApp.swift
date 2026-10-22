@@ -12,6 +12,9 @@ struct SummitApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // Minecraft-skin pixelbetűje (Monocraft, OFL) — bundle-ből
+        // regisztrálva, plist-módosítás nélkül.
+        MinecraftFontLoader.registerOnce()
         // Régi per-típus értesítéskapcsolók összevonása a főkapcsolóba
         // (egyszeri, idempotens — csak akkor nyúl, ha régi kulcs él).
         NotificationManager.migratePerTypeKeys()

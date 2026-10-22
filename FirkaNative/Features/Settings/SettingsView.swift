@@ -718,8 +718,14 @@ struct SettingsView: View {
     private func summitIsland<Content: View>(header: String? = nil, footer: String? = nil, tour anchor: SettingsTour.Anchor? = nil, tourActive: Bool = false, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             if let header {
-                Text(header).font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
-                    .padding(.horizontal, 4)
+                Group {
+                    if theme.isMinecraft {
+                        Text(header).minecraftHeader(size: 12).foregroundStyle(.secondary)
+                    } else {
+                        Text(header).font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
+                    }
+                }
+                .padding(.horizontal, 4)
             }
             VStack(alignment: .leading, spacing: 0) {
                 content()

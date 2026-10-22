@@ -1,4 +1,27 @@
 import SwiftUI
+import CoreText
+
+/// Monocraft (Idrees Hassan, SIL OFL 1.1) pixelbetű regisztrálása a
+/// bundle-ből — Info.plist-módosítás nélkül (a projekt generált
+/// plistet használ, oda tömb kulcs nem tehető INFOPLIST_KEY-jel).
+enum MinecraftFontLoader {
+    static let familyName = "Monocraft"
+    private static var done = false
+    static func registerOnce() {
+        guard !done else { return }
+        done = true
+        guard let url = Bundle.main.url(forResource: "Monocraft", withExtension: "ttf") else { return }
+        CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+    }
+    /// Pixelbetű, ha regisztrálva van — különben rendszer-monospace
+    /// (pl. preview, widget, vagy hiányzó erőforrás esetén).
+    static func font(size: CGFloat) -> Font {
+        if UIFont(name: familyName, size: size) != nil {
+            return .custom(familyName, size: size)
+        }
+        return .system(size: size, weight: .heavy, design: .monospaced)
+    }
+}
 
 /// Minecraft skin: modern (1.20+ Trails & Tales / Tricky Trials) íz,
 /// nem a fakó alfa-stílus. Shader-inspiráció (BSL, Complementary,
@@ -52,14 +75,13 @@ enum MinecraftTheme {
         }
     }
 
-    // MARK: - Tipográfia (pixel-hangulat rendszerfontból)
-    /// Minecraft-szerű fejlécl: félkövér, enyhe ritkítás, nem csupa
-    /// nagybetűs kiabálás — a Mojangles/Monocraft ritmusát idézi.
+    // MARK: - Tipográfia (Monocraft pixelbetű, OFL)
+    /// Valódi pixelbetű (Monocraft), nem rendszer-monospace utánzat.
     static func headerFont(size: CGFloat) -> Font {
-        .system(size: size, weight: .heavy, design: .monospaced)
+        MinecraftFontLoader.font(size: size)
     }
     static func bodyFont(size: CGFloat) -> Font {
-        .system(size: size, weight: .bold, design: .monospaced)
+        MinecraftFontLoader.font(size: size)
     }
 }
 
