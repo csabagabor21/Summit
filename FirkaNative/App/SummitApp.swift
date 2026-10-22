@@ -85,7 +85,7 @@ struct SummitApp: App {
                 // triggerek sosem változnak, így ott némák maradnak.
                 .sensoryFeedback(.alignment, trigger: HapticRelay.shared.selectionTick)
                 .sensoryFeedback(.levelChange, trigger: HapticRelay.shared.commitTick)
-                .tint(theme.accent)
+                .tint(theme.isMinecraft ? MinecraftTheme.grass : theme.accent)
                 .preferredColorScheme(theme.mode.scheme)
                 .onAppear {
                     // Macen (iPad-app Macen) ne tudjon pici ablakba zsugorodni

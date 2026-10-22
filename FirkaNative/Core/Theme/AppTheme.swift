@@ -133,7 +133,14 @@ extension View {
     /// tinted) magától követi — NE tegyél rá kézi opacity-réteget, az harcolna vele.
     @ViewBuilder
     func summitGlassRow(cornerRadius: CGFloat = 16) -> some View {
-        if #available(iOS 26.0, *) {
+        // Minecraft-skin: üveg helyett blokk — ez az EGY pont az összes
+        // lista-szigetet (Beállítások, Főoldal, Jegyek, órarend-sorok)
+        // blokk-stílusúra váltja, a Summit-ág változatlan marad.
+        // (UserDefaults-olvasás: nincs Environment-függés, preview-ban
+        // az alapértelmezett Summit-ág fut.)
+        if UserDefaults.standard.string(forKey: "ui.skin") == VisualSkin.minecraft.rawValue {
+            self.minecraftCard(cornerRadius: 6)
+        } else if #available(iOS 26.0, *) {
             self.glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
         } else {
             self.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
