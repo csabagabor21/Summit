@@ -101,6 +101,12 @@ final class AnalyticsStore: ObservableObject {
     /// - Parameter schoolName: az iskola KRÉTA-beli neve (`AppUser.schoolName`).
     /// Napi heartbeat (előtérbe hozáskor): naponta max 1, `{install}_{nap}`
     /// dokumentumba. Sikertelen próba után a következő trigger újrapróbál.
+    /// Ment-e már ma a napi jelzés — a hívó ilyenkor a hálózati
+    /// iskolanév-pótlást (KRÉTA-adatlap, userinfo) is kihagyhatja.
+    var heartbeatSentToday: Bool {
+        UserDefaults.standard.string(forKey: Self.lastDayKey) == Self.dayBucket(Date())
+    }
+
     func recordHeartbeat(schoolName: String?, instituteCode: String? = nil) {
         let now = Date()
         guard let (raw, code) = validatedSchoolName(schoolName, instituteCode: instituteCode, at: now) else { return }

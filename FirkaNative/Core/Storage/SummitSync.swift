@@ -382,7 +382,7 @@ final class SummitSync: ObservableObject {
 
     private func localValues() -> LocalValues? {
         guard let theme = liveTheme else { return nil }
-        let img = liveProfile?.image(for: profileKey())
+        let img = liveProfile?.loadedImage(for: profileKey())
         return LocalValues(
             theme: theme.mode.rawValue,
             accentHex: theme.accentHex,

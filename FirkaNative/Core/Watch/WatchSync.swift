@@ -20,6 +20,7 @@ struct WatchSyncReport {
 }
 
 #if !targetEnvironment(macCatalyst)
+import CryptoKit
 import os
 import UIKit
 import WatchConnectivity
@@ -43,6 +44,19 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
     /// Folyamatban lévő context — az updateApplicationContext a TELJES
     /// szótárat cseréli, ezért a két szeletet itt egyesítjük.
     private var context: [String: Any] = [:]
+
+    /// Van-e kinek küldeni: aktivált session, párosított óra, telepített
+    /// óra-app. Az aktiválás indításkor aszinkron — legfeljebb ~3 mp-et várunk.
+    @MainActor
+    static func waitForWatchReady() async -> Bool {
+        guard WCSession.isSupported() else { return false }
+        let session = WCSession.default
+        for _ in 0..<30 where session.activationState != .activated {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        guard session.activationState == .activated else { return false }
+        return session.isPaired && session.isWatchAppInstalled
+    }
 
     static func activate() {
         guard WCSession.isSupported() else { return }
@@ -224,7 +238,37 @@ final class WatchSyncSender: NSObject, WCSessionDelegate {
         }
     }
 
+    /// Tartalom-ujjlenyomat szeletenként (a `savedAt` nélkül) + az utolsó
+    /// küldés ideje: változatlan tartalmat nem írunk újra a UserDefaultsba
+    /// és nem küldünk újra az órára — csak ha az utolsó küldés óta
+    /// `resendAfter` eltelt (az óra 30 perc után avultnak látja és kér).
+    private var lastDigest: [String: (digest: SHA256Digest, at: Date)] = [:]
+    private static let resendAfter: TimeInterval = 15 * 60
+
+    /// A payload ujjlenyomata a `savedAt` kulcs nélkül (a snapshotok minden
+    /// építéskor most-ot kapnak, így a nyers bájtok sosem egyeznének).
+    private static func contentDigest(_ data: Data) -> SHA256Digest {
+        if var obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            obj.removeValue(forKey: "savedAt")
+            if let normalized = try? JSONSerialization.data(withJSONObject: obj, options: [.sortedKeys]) {
+                return SHA256.hash(data: normalized)
+            }
+        }
+        return SHA256.hash(data: data)
+    }
+
     private func send(key: String, data: Data) {
+        let digest = Self.contentDigest(data)
+        let now = Date()
+        let isDuplicate: Bool = {
+            guard let last = lastDigest[key] else { return false }
+            return last.digest == digest && now.timeIntervalSince(last.at) < Self.resendAfter
+        }()
+        guard !isDuplicate else {
+            WatchSyncLog.log.info("send \(key, privacy: .public): változatlan tartalom, kihagyva")
+            return
+        }
+        lastDigest[key] = (digest, now)
         // Utolsó ismert snapshot perzisztálása: az óra kérésekor ebből
         // válaszolunk azonnal, hálózat nélkül, akár háttérből is.
         UserDefaults.standard.set(data, forKey: Self.lastKnownKeyPrefix + key)
@@ -551,9 +595,8 @@ enum WatchAutoPush {
             return
         }
         let kreta = KretaClient()
-        kreta.accessToken = user.accessToken
-        kreta.refreshToken = user.refreshToken
-        kreta.instituteCode = user.instituteCode
+        kreta.bind(user)
+        await KretaStore.shared.activateAndWait(user)
         kreta.onTokensRefreshed = { newAccess, newRefresh, expiresIn in
             session.updateTokens(accessToken: newAccess, refreshToken: newRefresh, expiresIn: expiresIn)
         }
@@ -573,6 +616,13 @@ enum WatchAutoPush {
         }
         guard let user = session.selectedUser else {
             WatchSyncLog.log.info("nincs belépett user, nincs mit tolni")
+            return
+        }
+        // Nincs párosított óra / nincs rajta az app: a teljes lehúzás és
+        // küldés fölösleges (eddig minden indításkor lefutott órától
+        // függetlenül). Az aktiválás indításkor késhet — rövid várakozás.
+        guard await WatchSyncSender.waitForWatchReady() else {
+            WatchSyncLog.log.info("nincs párosított óra / óra-app — automatikus push kihagyva")
             return
         }
         running = true

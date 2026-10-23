@@ -9,20 +9,24 @@ struct TimetableView: View {
     @EnvironmentObject var theme: ThemeStore
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var kreta: KretaClient
-    @State private var lessons: [LessonItem] = []
-    // Üres initial: a demo-értékek valós módban az első load előtt is belekacsintottak a UI-ba.
-    @State private var homeworks: [HomeworkItem] = []
-    @State private var exams: [ExamItem] = []
-    @State private var selectedDay: Int = Calendar.current.component(.weekday, from: Date())
-    @State private var weekOffset: Int = 0 // 0 = ez a hét, -1 = múlt hét, +1 = jövő hét
+    /// A kijelzett hét órái — a közös gyorstárból (KretaStore) szinkronizálva:
+    /// az első képkocka és minden hétlapozás azonnal a mentett hetet mutatja,
+    /// a frissítés a háttérben fut és beérkezéskor íródik be.
+    @State private var lessons: [LessonItem]
+    /// Van-e (mentett vagy friss) adat a kijelzett hétről. Amíg nincs, a nap
+    /// NEM mutat üres állapotot („Pihenőnap") — csak a töltés-vázat.
+    @State private var weekKnown: Bool
+    @State private var homeworks: [HomeworkItem]
+    @State private var exams: [ExamItem]
+    @State private var selectedDay: Int
+    @State private var weekOffset: Int // 0 = ez a hét, -1 = múlt hét, +1 = jövő hét
     /// Naptári napok (tanév rendje) az üres napok hivatalos feliratához.
     /// Dátum-kulcsolt, hetek közt megmarad — a régi bejegyzés csak a saját
     /// napjára illeszkedik, ezért egy sikertelen lehúzás sem kever be idegent.
-    @State private var calendarDays: [SchoolDayInfo] = []
+    @State private var calendarDays: [SchoolDayInfo]
     // Kézi navigálás (hét/nap lapozás) után az okos ugrás nem dobhat vissza —
     // csak a "Ma" gomb és az első betöltés ugorhat a következő tanítási napra.
     @State private var userHasNavigated = false
-    @State private var isLoading = true
     @State private var loadError: String? = nil
     @State private var flashedLessonID: String?
     /// Koppintott óra fullscreen részletezője (tanár, időpont, ikon,
@@ -34,12 +38,20 @@ struct TimetableView: View {
     @State private var exemptedTick = 0
     // Iskolai események (tannaptár): a Beállításokban importált ICS,
     // SummitSync-kel jön át a többi eszközről is.
-    @State private var schoolEvents: [SchoolEvent] = SchoolEventsStore.load()
-    /// Hiányzások a dolgozat-pótláshoz (egyszer húzzuk, a hétlapozás
-    /// újrahasznosítja; pull-to-refresh nullázza).
+    @State private var schoolEvents: [SchoolEvent]
+    /// Hiányzások a dolgozat-pótláshoz (a közös gyorstárból).
     @State private var cachedAbsences: [AbsenceItem]?
-    /// Dolgozat-pótlás kapcsoló/elvetés — újraszámolja a kijelzett dátumokat.
-    @State private var rolloverTick = 0
+    /// A kijelzett hét még nem látott óra-változásai (óra-ID → változás).
+    @State private var changeMarkers: [String: LessonChange] = [:]
+    /// Ebben a megtekintésben már látottnak jelölt változások: a jelölés a
+    /// képernyőn marad, amíg a user el nem hagyja az Órarendet (nem tűnik el
+    /// a szeme előtt), a következő belépéskor már nincs.
+    @State private var acknowledgedChanges: [String: LessonChange] = [:]
+    @Environment(\.scenePhase) private var scenePhase
+    /// Óránkénti házi / dolgozat / pótlás-párosítás EGYSZER adatváltozásonként
+    /// (eddig soronként, minden body-ban és 15 mp-es Timeline-tickben a teljes
+    /// házi- és dolgozatlista újraszkennelve + a pótlás újraszámolva).
+    @State private var derived = TimetableDerived()
     @AppStorage("schoolevents.show.v1") private var schoolEventsVisible = true
     /// A hét-sáv kijelölő-korongja (glassEffectID / MC-ben matchedGeometryEffect) és a mérete
     /// (a Dynamic Type-pal együtt nő, hogy a szám sosem lóg ki a körből).
@@ -55,19 +67,121 @@ struct TimetableView: View {
     @AppStorage("home.demoPreviewActive") private var isPreviewActive = false
     @AppStorage("home.demoPreviewMinutes") private var previewMinutes: Double = 540
     @AppStorage("developer.enabled") private var devMode = false
-    private func mondayOfWeek(offset: Int) -> Date {
-        let cal = Calendar.current
-        let today = cal.startOfDay(for: Date())
-        let weekday = cal.component(.weekday, from: today)
-        let mondayOffset = (weekday == 1 ? -6 : 2 - weekday)
-        let baseMonday = cal.date(byAdding: .day, value: mondayOffset, to: today)!
-        return cal.date(byAdding: .day, value: offset * 7, to: baseMonday)!
+    /// Első megjelenés: a pozíció (okos nap) és a hét adata már a mentett
+    /// gyorstárból áll elő — nincs üres / „Pihenőnap" első képkocka, és
+    /// hétvégén sem villan fel az üres szombat a hétfő előtt.
+    init() {
+        let now = Date()
+        let target = Self.smartDayTarget(now: now, items: Self.smartItems(now: now))
+        _weekOffset = State(initialValue: target.weekOffset)
+        _selectedDay = State(initialValue: target.weekday)
+        let snap = Self.storeSnapshot(weekOffset: target.weekOffset, now: now)
+        _lessons = State(initialValue: snap.lessons)
+        _weekKnown = State(initialValue: snap.known)
+        _homeworks = State(initialValue: snap.homeworks)
+        _exams = State(initialValue: snap.exams)
+        _calendarDays = State(initialValue: snap.calendarDays)
+        _cachedAbsences = State(initialValue: snap.absences)
+        _schoolEvents = State(initialValue: SchoolEventsStore.load())
+        _derived = State(initialValue: TimetableDerived.make(lessons: snap.lessons, homeworks: snap.homeworks,
+                                                              exams: snap.exams, absences: snap.absences ?? []))
     }
+
+    private static func mondayOfWeek(offset: Int, now: Date = Date()) -> Date {
+        KretaWeek.adding(weeks: offset, to: KretaWeek.monday(for: now))
+    }
+    private func mondayOfWeek(offset: Int) -> Date { Self.mondayOfWeek(offset: offset) }
     private var currentMonday: Date { mondayOfWeek(offset: weekOffset) }
+
+    /// A kijelzett hét gyorstár-állapota egyben (órák, házik, dolgozatok,
+    /// naptári napok, hiányzások) — a saját tételek belekeverve.
+    private struct StoreSnapshot {
+        var lessons: [LessonItem]
+        var known: Bool
+        var homeworks: [HomeworkItem]
+        var exams: [ExamItem]
+        var calendarDays: [SchoolDayInfo]
+        var absences: [AbsenceItem]?
+    }
+
+    private static func storeSnapshot(weekOffset: Int, now: Date = Date()) -> StoreSnapshot {
+        let store = KretaStore.shared
+        let monday = mondayOfWeek(offset: weekOffset, now: now)
+        let week = store.lessons(week: monday)
+        let custom = CustomTasksStore.load()
+        let hw: [HomeworkItem] = store.value(.homework) ?? []
+        let ex: [ExamItem] = store.value(.exams) ?? []
+        return StoreSnapshot(
+            lessons: deduped(week ?? []),
+            known: week != nil,
+            homeworks: hw + CustomTasksStore.homeworkItems(from: custom),
+            exams: ex + CustomTasksStore.examItems(from: custom),
+            calendarDays: store.calendarDays(week: monday) ?? [],
+            absences: store.value(.absences)
+        )
+    }
+
+    /// Az okos naphoz: a mostani + a jövő hét mentett órái.
+    private static func smartItems(now: Date = Date()) -> [LessonItem] {
+        let store = KretaStore.shared
+        let m0 = KretaWeek.monday(for: now)
+        return (store.lessons(week: m0) ?? []) + (store.lessons(week: KretaWeek.adding(weeks: 1, to: m0)) ?? [])
+    }
+
+    /// Gyorstár → kijelzett állapot (hálózat nélkül): hétlapozáskor, a store
+    /// releváns változásakor és a saját tételek változásakor.
+    private func syncFromStore() {
+        let snap = Self.storeSnapshot(weekOffset: weekOffset)
+        if lessons != snap.lessons { lessons = snap.lessons }
+        if weekKnown != snap.known { weekKnown = snap.known }
+        if homeworks != snap.homeworks { homeworks = snap.homeworks }
+        if exams != snap.exams { exams = snap.exams }
+        if calendarDays != snap.calendarDays { calendarDays = snap.calendarDays }
+        if cachedAbsences != snap.absences { cachedAbsences = snap.absences }
+        recomputeDerivedIfNeeded()
+        let store = KretaStore.shared
+        var markers: [String: LessonChange] = [:]
+        for l in snap.lessons { if let c = store.lessonChange(for: l.id) { markers[l.id] = c } }
+        if changeMarkers != markers { changeMarkers = markers }
+    }
+
+    /// A származtatott párosítások újraszámolása, ha a bemenetük változott.
+    private func recomputeDerivedIfNeeded(force: Bool = false) {
+        let input = TimetableDerived.Input(lessons: lessons, homeworks: homeworks, exams: exams, absences: cachedAbsences ?? [])
+        guard force || input != derived.input else { return }
+        derived = TimetableDerived.make(lessons: input.lessons, homeworks: input.homeworks,
+                                        exams: input.exams, absences: input.absences)
+    }
+
+    /// Kijelzendő változás-jelölés egy órához (látatlan vagy ebben a
+    /// megtekintésben látott).
+    private func changeMarker(for lesson: LessonItem) -> LessonChange? {
+        changeMarkers[lesson.id] ?? acknowledgedChanges[lesson.id]
+    }
+
+    /// A sor megjelent az előtérben lévő Órarendben: a változást a user látta.
+    private func acknowledgeChange(for lesson: LessonItem) {
+        guard scenePhase == .active, let c = changeMarkers[lesson.id] else { return }
+        acknowledgedChanges[lesson.id] = c
+        changeMarkers.removeValue(forKey: lesson.id)
+        KretaStore.shared.markLessonChangesSeen([lesson.id])
+    }
+
+    /// A figyelt gyorstár-típusok: a kijelzett hét + a mostani és a jövő hét
+    /// (a widget / Watch mindig a mostaniból publikál), házik, dolgozatok,
+    /// hiányzások, naptári napok.
+    private var watchedKinds: [KretaDataKind] {
+        let m0 = mondayOfWeek(offset: 0)
+        var kinds: [KretaDataKind] = [.timetable(currentMonday), .calendar(currentMonday), .homework, .exams, .absences]
+        for k in [KretaDataKind.timetable(m0), .timetable(KretaWeek.adding(weeks: 1, to: m0)), .calendar(m0)] where !kinds.contains(k) {
+            kinds.append(k)
+        }
+        return kinds
+    }
     /// Naptári nap → (weekOffset, hétköznap-tag) a 0. hét hétfőjéhez képest.
-    private func offsetAndTag(for day: Date) -> (weekOffset: Int, weekday: Int) {
+    private static func offsetAndTag(for day: Date, now: Date = Date()) -> (weekOffset: Int, weekday: Int) {
         let cal = Calendar.current
-        let base = mondayOfWeek(offset: 0)
+        let base = mondayOfWeek(offset: 0, now: now)
         let diff = cal.dateComponents([.day], from: base, to: cal.startOfDay(for: day)).day ?? 0
         let wd = cal.component(.weekday, from: day)
         guard wd >= 2 && wd <= 6 else { return (0, 2) }
@@ -75,7 +189,7 @@ struct TimetableView: View {
     }
     /// Ha a mai utolsó óra már véget ért (vagy hétvége van), a következő tanítási
     /// (órával rendelkező) nap weekOffset/hétköznap párját adja vissza.
-    private func smartDayTarget(now: Date, items: [LessonItem]) -> (weekOffset: Int, weekday: Int) {
+    private static func smartDayTarget(now: Date, items: [LessonItem]) -> (weekOffset: Int, weekday: Int) {
         let cal = Calendar.current
         let weekday = cal.component(.weekday, from: now)
         let isWeekend = (weekday == 1 || weekday == 7)
@@ -92,7 +206,7 @@ struct TimetableView: View {
                 let wd = cal.component(.weekday, from: day)
                 guard wd >= 2 && wd <= 6 else { continue }
                 if items.contains(where: { cal.isDate($0.start, inSameDayAs: day) }) {
-                    return offsetAndTag(for: day)
+                    return offsetAndTag(for: day, now: now)
                 }
             }
         }
@@ -101,7 +215,7 @@ struct TimetableView: View {
         for i in 1...7 {
             guard let day = cal.date(byAdding: .day, value: i, to: now) else { continue }
             let wd = cal.component(.weekday, from: day)
-            if wd >= 2 && wd <= 6 { return offsetAndTag(for: day) }
+            if wd >= 2 && wd <= 6 { return offsetAndTag(for: day, now: now) }
         }
         return isWeekend ? (1, 2) : (0, weekday)
     }
@@ -110,7 +224,7 @@ struct TimetableView: View {
     @discardableResult
     private func applySmartDay(now: Date = Date()) -> Bool {
         guard now > suppressAutoJumpUntil else { return false }
-        let t = smartDayTarget(now: now, items: lessons)
+        let t = Self.smartDayTarget(now: now, items: Self.smartItems(now: now))
         guard t.weekOffset != weekOffset || t.weekday != selectedDay else { return false }
         weekOffset = t.weekOffset
         selectedDay = t.weekday
@@ -133,16 +247,20 @@ struct TimetableView: View {
     /// tabváltáson át). A load() végi okos ugrás finomít a következő
     /// tanítási napra (hétvége / nap vége). Házi-deeplink alatt nem nyúl
     /// semmihez — a jumpToLesson intézi a pozíciót.
+    /// A hálózati frissítést a `.task` indítja (egyszer tabra lépésenként —
+    /// korábban ez is külön load()-ot futtatott, így minden belépés kétszer
+    /// töltött és kétszer publikált a widgetnek / órának).
     private func enterTimetable() {
-        guard !isLoading else { return }
         guard Date() > suppressAutoJumpUntil else { return }
         let wd = Calendar.current.component(.weekday, from: Date())
         withAnimation(SummitMotion.page) {
             weekOffset = 0
             selectedDay = min(6, max(2, wd))
             userHasNavigated = false
+            // Okos nap a mentett órákból (hétvége / nap vége → köv. tanítási nap).
+            applySmartDay()
         }
-        Task { await load() }
+        syncFromStore()
     }
 
     /// Deeplink-cél hét/nap a határidőből (a lapozó ±8 hetéhez igazítva).
@@ -169,8 +287,9 @@ struct TimetableView: View {
         userHasNavigated = true
         if target.weekOffset != weekOffset {
             withAnimation(SummitMotion.page) { weekOffset = target.weekOffset }
+            syncFromStore()
             await load()
-        } else if lessons.isEmpty {
+        } else if !weekKnown {
             await load()
         }
         var match: LessonItem?
@@ -210,6 +329,8 @@ struct TimetableView: View {
             weekOffset = week
             selectedDay = weekday
         }
+        syncFromStore()
+        Task { await load() }
         guard let id = lessonID else { return }
         Task {
             for _ in 0..<40 {
@@ -265,7 +386,10 @@ struct TimetableView: View {
 
                 // Az idő-eltolás csúszka a Fejlesztői módban él — itt csak az
                 // eltolt idő szerint rajzolunk, ha aktív (overrideNow).
-                if isLoading {
+                if !weekKnown {
+                    // Még nincs adat erről a hétről: töltés-váz (hálózati hiba
+                    // esetén a fenti hibasor marad, nem hamis üres nap).
+                    if loadError == nil {
                     Section {
                         ForEach(0..<5, id: \.self) { _ in
                             HStack(spacing: 14) {
@@ -281,6 +405,7 @@ struct TimetableView: View {
                             .summitRowSurface(colors: colors)
                             .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
                         }
+                    }
                     }
                 } else if filtered.isEmpty {
                     // Üres napon is ugyanaz a fejléc-cím, mint a teli napon
@@ -363,6 +488,21 @@ struct TimetableView: View {
             .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
             .summitListChrome(colors: colors)
+            // A közös gyorstár figyelése: beérkező hét / házi / dolgozat azonnal
+            // beíródik; a mostani hét változásakor a widget és az óra is frissül.
+            .background {
+                KretaStoreWatcher(kinds: watchedKinds) {
+                    syncFromStore()
+                    publishWidgetSnapshot()
+                }
+            }
+            // Hétlapozás: a mentett hét azonnal (hálózatra várás és üres
+            // villanás nélkül), a frissítést a lapozó indítja.
+            .onChange(of: weekOffset) { _, _ in
+                syncFromStore()
+                // A hibasor a korábbi hétre szólt — az új hét saját töltése dönt.
+                loadError = nil
+            }
             // Lista-szintű .animation (selectedDay/weekOffset) és gesztus
             // NINCS: az egész lista minden napváltáskor és Timeline-ticknél
             // újraanimált — ez dobálta a görgetési pozíciót húzogatáskor.
@@ -371,7 +511,6 @@ struct TimetableView: View {
             // transition nélkül, azonnal cserélődik.
             .refreshable {
                 // Lehúzáskor a hiányzások is frissen jönnek (a pótláshoz).
-                cachedAbsences = nil
                 await load(force: true)
                 // Kézi frissítés vége: semleges "megvan"-koppanás.
                 SummitHaptics.light()
@@ -379,18 +518,26 @@ struct TimetableView: View {
             // Máshol (Feladatok tab, másik eszköz sync-kel) felvett/törölt
             // saját tétel az órarenden is azonnal látszódjon.
             .onReceive(NotificationCenter.default.publisher(for: CustomTasksStore.changedNotification)) { _ in
-                mergeCustomTasks()
+                syncFromStore()
+                publishWidgetSnapshot()
             }
             // Dolgozat-pótlás kapcsoló/elvetés — a kijelzett dátumok újraszámolódnak.
             .onReceive(NotificationCenter.default.publisher(for: ExamRollover.changedNotification)) { _ in
-                rolloverTick += 1
+                // Dolgozat-pótlás kapcsoló/elvetés — a kijelzett dátumok újraszámolódnak.
+                recomputeDerivedIfNeeded(force: true)
             }
             // Dev idő-csúszka: a widget is kövesse az eltolt időt —
             // ehhez elég újrapublikálni (hálózat nem kell hozzá).
             .onChange(of: previewMinutes) { _, _ in publishWidgetSnapshot() }
             .onChange(of: isPreviewActive) { _, _ in publishWidgetSnapshot() }
             .navigationTitle("Órarend")
-            .navigationBarTitleDisplayMode(.large)
+            // inlineLarge, nem .large: a hét-sáv (safeAreaBar) a nagy cím és a
+            // lista közé ékelődik, így a nagy cím nem tudja folyamatosan követni
+            // a görgetést — ~55 pt-nál egy képkocka alatt csukódott (nav-sáv
+            // 106 → 54 pt, a hét-sáv vele ugrott), lassú húzásnál a küszöb
+            // körül oda-vissza. Az inlineLarge ugyanaz a nagy cím a sávban,
+            // a sáv magassága görgetéskor állandó.
+            .toolbarTitleDisplayMode(.inlineLarge)
             .summitToolbarBackground()
             .task {
                 if UserDefaults.standard.object(forKey: "home.demoPreviewMinutes") == nil {
@@ -401,6 +548,8 @@ struct TimetableView: View {
                 }
                 await load()
             }
+            // Az Órarend elhagyásakor a már látott változások jelölése lekerül.
+            .onDisappear { acknowledgedChanges = [:] }
             .onAppear {
                 scrollProxy = proxy
                 // Másik eszközről szinkronizált tannaptár is itt érkezik meg.
@@ -432,6 +581,7 @@ struct TimetableView: View {
             .fullScreenCover(item: $selectedLesson) { lesson in
                 LessonDetailSheet(
                     lesson: lesson,
+                    change: changeMarker(for: lesson),
                     homework: homework(for: lesson),
                     exam: exam(for: lesson),
                     examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false,
@@ -488,42 +638,24 @@ struct TimetableView: View {
     private func homework(for lesson: LessonItem) -> HomeworkItem? {
         // Szigorúan határidő-napra csatolunk — dátum nélküli fallback nélkül,
         // különben egy házi minden órára ráíródna (HomeworkMatcher)
-        HomeworkMatcher.homework(for: lesson, in: homeworks)
+        if derived.lessonIDs.contains(lesson.id) { return derived.homeworkByLesson[lesson.id] }
+        return HomeworkMatcher.homework(for: lesson, in: homeworks)
     }
     /// Dolgozatok átütemezéssel: a hiányzás napján lévő dolgozat a
     /// következő olyan órán jelenik meg (piros háttérrel) — a csatolás a
     /// kijelzett dátumon történik, az eredeti napról eltűnik.
-    private var displayExams: [ExamItem] {
-        _ = rolloverTick
-        return ExamRollover.displayItems(exams: exams, absences: cachedAbsences ?? [], lessons: lessons).items
-    }
-    private var rolledExamIDs: Set<String> {
-        _ = rolloverTick
-        return ExamRollover.displayItems(exams: exams, absences: cachedAbsences ?? [], lessons: lessons).rolledIDs
-    }
+    private var displayExams: [ExamItem] { derived.displayExams }
+    private var rolledExamIDs: Set<String> { derived.rolledIDs }
     private func exam(for lesson: LessonItem) -> ExamItem? {
         // Óraszámos dolgozat csak a saját órájára kerül (ExamMatcher),
         // óraszám nélkül naponta csak EGY órára (az aznapi legkorábbira).
-        ExamMatcher.exam(for: lesson, in: displayExams, allLessons: lessons)
+        if derived.lessonIDs.contains(lesson.id) { return derived.examByLesson[lesson.id] }
+        return ExamMatcher.exam(for: lesson, in: displayExams, allLessons: lessons)
     }
+    /// Konzervatív: csak az aznapi (határidő-napi) házi vagy a ráTŰZÖTT
+    /// dolgozat színezi a sort (a tárgy-szintű fallback szándékosan nincs).
     private func hasAssignment(for lesson: LessonItem) -> Bool {
-        let cal = Calendar.current
-        let sameDayHW = homeworks.contains { SubjectMatcher.same($0.subject, lesson.subject) && cal.isDate($0.deadline, inSameDayAs: lesson.start) }
-        // Óraszámos dolgozat csak a saját óráját színezi (ExamMatcher)
-        let sameDayExam = exam(for: lesson) != nil
-        if sameDayHW || sameDayExam { return true }
-        // Kanonikus fallback: ha van bármilyen hw/ex ugyanarra a tárgyra, jelezzük
-        let anyHW = homeworks.contains { SubjectMatcher.same($0.subject, lesson.subject) }
-        let anyEx = displayExams.contains { SubjectMatcher.same($0.subject, lesson.subject) }
-        // Csak akkor fehér, ha nincs elmarad/helyettesítés és van csatolt feladat
-        if anyHW || anyEx {
-            // Ne legyen túl agresszív: csak akkor, ha az adott napi leckék között tényleg kevés hw van
-            // Itt visszafogjuk — sameDay prioritás, de ha van legalább 1 hw a tárgyra, mutassuk
-            // mert demo-ban Matek/Angol különben nem látszana
-            return false // konzervatív: csak sameDay számít fehér háttérnek
-        }
-        if homework(for: lesson) != nil { return true }
-        return false
+        homework(for: lesson) != nil || exam(for: lesson) != nil
     }
 
     @ViewBuilder
@@ -549,10 +681,12 @@ struct TimetableView: View {
                         isFlashing: isFlash,
                         flashPulse: flashPulse,
                         examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false,
+                        change: changeMarker(for: lesson),
                         onSelect: { selectedLesson = lesson }
                     )
                     .id(lesson.id)
                     .padding(.vertical, 5)
+                    .onAppear { acknowledgeChange(for: lesson) }
                 }
             } else {
                 // Élő — 15s-enként frissülő TimelineView, hogy a menő progress magától is mozogjon
@@ -576,10 +710,12 @@ struct TimetableView: View {
                             isFlashing: isFlash,
                             flashPulse: flashPulse,
                             examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false,
+                            change: changeMarker(for: lesson),
                             onSelect: { selectedLesson = lesson }
                         )
                         .id(lesson.id)
                         .padding(.vertical, 5)
+                        .onAppear { acknowledgeChange(for: lesson) }
                     }
                 }
             }
@@ -666,19 +802,7 @@ struct TimetableView: View {
     /// mint amit a nap idővonala mutat: a pótlással számolt `displayExams`
     /// és az ExamMatcher óra-csatolása. Így a pötty és a sorok sosem
     /// mondanak ellent egymásnak.
-    private var examDays: [Date: Bool] {
-        _ = rolloverTick
-        guard !exams.isEmpty, !lessons.isEmpty else { return [:] }
-        let cal = Calendar.current
-        let resolved = ExamRollover.displayItems(exams: exams, absences: cachedAbsences ?? [], lessons: lessons)
-        var out: [Date: Bool] = [:]
-        for lesson in lessons {
-            guard let e = ExamMatcher.exam(for: lesson, in: resolved.items, allLessons: lessons) else { continue }
-            let day = cal.startOfDay(for: lesson.start)
-            out[day] = (out[day] ?? true) && resolved.rolledIDs.contains(e.id)
-        }
-        return out
-    }
+    private var examDays: [Date: Bool] { derived.examDays }
 
     /// Hétlapozás (chevron és a sáv swipe-ja közös útja): ugyanaz a nap
     /// marad kiválasztva, a hét adata újratöltődik.
@@ -762,9 +886,11 @@ struct TimetableView: View {
                         .skinFont(.subheadline, weight: .semibold)
                         .foregroundStyle(.primary)
                         .lineLimit(1).minimumScaleFactor(0.8)
-                    Text(weekTitle)
-                        .skinFont(.caption2, weight: .medium)
-                        .foregroundStyle(.secondary)
+                    // Hét-viszony + frissítés-állapot („Ez a hét · Frissítés…");
+                    // ha nem fér ki, az állapot nyer (a hónap-cím és a dátumok
+                    // úgyis mutatják, melyik hét ez).
+                    TimetableWeekSubtitle(weekTitle: weekTitle,
+                                          kinds: [.timetable(currentMonday), .homework, .exams])
                 }
                 // A cím mindig középen áll (a "Ma" gomb meg-megjelenése
                 // nem tolja el), a gombok sávját szabadon hagyja.
@@ -833,7 +959,7 @@ struct TimetableView: View {
         let examMap = examDays
         // Tanítás nélküli nap halvány — de csak betöltés után, és csak ha a
         // hétnek egyáltalán van órája (különben minden nap "üres" lenne).
-        let dimEmpty = !isLoading && !lessons.isEmpty
+        let dimEmpty = weekKnown && !lessons.isEmpty
         return HStack(spacing: 0) {
             ForEach(dayTags, id: \.self) { tag in
                 if let date = dayDate(for: tag) {
@@ -909,7 +1035,7 @@ struct TimetableView: View {
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.skinPlain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label)
         .accessibilityAddTraits(isSel ? [.isButton, .isSelected] : .isButton)
@@ -1039,7 +1165,7 @@ struct TimetableView: View {
         return info.typeName.localizedCaseInsensitiveContains("munkanap") ? "briefcase.fill" : "moon.zzz.fill"
     }
     /// KRÉTA néha ugyanazt az órát kétszer adja (pl. csoportbontás) — tárgy+időpont kulccsal irtjuk.
-    private func deduped(_ items: [LessonItem]) -> [LessonItem] {
+    private static func deduped(_ items: [LessonItem]) -> [LessonItem] {
         var seen = Set<String>()
         return items.filter { seen.insert("\($0.subject)|\($0.start.timeIntervalSince1970)|\($0.end.timeIntervalSince1970)").inserted }
     }
@@ -1049,76 +1175,87 @@ struct TimetableView: View {
     func isCurrent(_ l: LessonItem) -> Bool { isCurrent(l, now: overrideNow ?? Date()) }
     func progress(for l: LessonItem) -> Double { progress(for: l, now: overrideNow ?? Date()) }
 
-    /// Tabváltáskor a `.task` újra lefut — friss gyorstár-találatnál ez
-    /// hálózat nélkül tér vissza. A váz csak üres nézetnél jön; egyébként
-    /// a régi hét marad, és az új adat dinamikusan beíródik. Lehúzás
-    /// (`force`) tényleges frissítés (a hiányzás-gyorstárat is nullázza).
+    /// Háttér-frissítés a kijelzett hétre. A mentett adat már látszik (a
+    /// gyorstárból); a hét, a házik, a dolgozatok, a naptári napok és a
+    /// hiányzások PÁRHUZAMOSAN jönnek, mindegyik a beérkezésekor íródik be
+    /// (a figyelőn át). Friss gyorstárnál (tabváltás, visszalapozás) nincs
+    /// hálózat. Lehúzás (`force`) mindent frissen kér.
     func load(force: Bool = false) async {
-        let entryOffset = weekOffset
         // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből
         // (a kért hétre csempézett órarenddel) — nincs külön demo-ág.
         // A házik/dolgozatok abszolút dátumosak, mint élesben: másik hétre
         // lapozva csak az órarend látszik (ahogy egy valós usernél is).
-        guard let user = session.selectedUser else { isLoading = false; return }
-        let hadLessons = !lessons.isEmpty
-        if !hadLessons { isLoading = true }
-        if force { cachedAbsences = nil }
+        guard let user = session.selectedUser else { return }
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         if iss.isEmpty || iss == "unknown" {
-            lessons = []; homeworks = []; exams = []
             loadError = "Hiányzó intézményi kód — jelentkezz be újra."
-            if entryOffset == 0, !userHasNavigated { applySmartDay() }
-            isLoading = false
             return
         }
-        // Totális fetch-hiba (lejárt token, offline) ellen: ha minden üresen
-        // jön vissza, de volt adatunk ÉS még mindig ugyanazt a hetet nézzük,
-        // a régit tartjuk meg — különben egy sikertelen refresh kiürítené a napot.
-        let prevLessons = lessons, prevHW = homeworks, prevEx = exams
-        let hadData = !(prevLessons.isEmpty && prevHW.isEmpty && prevEx.isEmpty)
-        await fetchWeek(force: force)
+        KretaStore.shared.activate(user)
+        let entryOffset = weekOffset
         // Okos nap csak a 0. hétről indulva ÉS csak ha a user nem lapozott
-        // kézzel: ha az utolsó mai óra lement / hétvége van, a következő
-        // tanítási napra ugrunk — ha az másik hét, annak az adata is kell.
-        if entryOffset == 0, !userHasNavigated, applySmartDay(), weekOffset != entryOffset {
-            await fetchWeek(force: force)
+        // kézzel — a mentett órák alapján MÁR a hálózat előtt (a jövő hét a
+        // Főoldal / az előző kör előtöltéséből általában megvan), így nincs
+        // második, szekvenciális hét-lehúzás.
+        if entryOffset == 0, !userHasNavigated, applySmartDay() { syncFromStore() }
+        let monday = currentMonday
+        let end = KretaWeek.end(of: monday)
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { _ = await kreta.fetchTimetableWeek(iss: iss, monday: monday, force: force) }
+            group.addTask { _ = await kreta.fetchHomework(iss: iss, force: force) }
+            group.addTask { _ = await kreta.fetchExams(iss: iss, force: force) }
+            group.addTask { _ = await kreta.fetchCalendarDays(iss: iss, from: monday, to: end, force: force) }
+            // Hiányzások a dolgozat-pótláshoz — a többivel párhuzamosan (eddig utánuk, sorban).
+            group.addTask { _ = await kreta.fetchAbsences(iss: iss, force: force) }
         }
-        // A hibaág a KRÉTA-adatokon dönt (a saját tételek helyből mindig
-        // megvannak, azok nem takarhatják el a sikertelen lehúzást).
-        let kretaEmpty = lessons.isEmpty
-            && homeworks.allSatisfy { CustomTasksStore.isCustomId($0.id) }
-            && exams.allSatisfy { CustomTasksStore.isCustomId($0.id) }
-        if kretaEmpty {
-            if hadData && weekOffset == entryOffset {
-                lessons = prevLessons; homeworks = prevHW; exams = prevEx
-                mergeCustomTasks()
-                loadError = kreta.sessionExpired
-                    ? "A KRÉTA-munkamenet lejárt — jelentkezz be újra."
-                    : "Nem sikerült frissíteni — a legutóbbi adatokat mutatjuk."
-            } else if !hadData {
-                loadError = kreta.sessionExpired
-                    ? "A KRÉTA-munkamenet lejárt — jelentkezz be újra."
-                    : "Nem érkezett adat a KRÉTÁ-tól — ellenőrizd a kapcsolatot vagy jelentkezz be újra."
-            } else {
-                loadError = nil
+        syncFromStore()
+        // A friss órák fényében még egyszer (pl. a mai utolsó óra időközben
+        // véget ért): ha másik hétre ugrik, annak az adata kell.
+        if entryOffset == 0, !userHasNavigated, applySmartDay() {
+            syncFromStore()
+            if currentMonday != monday {
+                _ = await kreta.fetchTimetableWeek(iss: iss, monday: currentMonday, force: force)
+                syncFromStore()
             }
-        } else {
-            loadError = nil
         }
-        publishWidgetSnapshot()
+        // Szomszédos hetek előtöltése a háttérben: lapozáskor azonnal megvan.
+        prefetchAdjacentWeeks(iss: iss)
+        // Hibasor csak akkor, ha a kijelzett hétről semmi nincs — mentett adat
+        // mellett a hét-sáv „Mentve: …" állapota jelzi a sikertelen frissítést.
+        if weekKnown {
+            loadError = nil
+        } else {
+            loadError = kreta.sessionExpired
+                ? "A KRÉTA-munkamenet lejárt — jelentkezz be újra."
+                : "Nem érkezett adat a KRÉTÁ-tól — ellenőrizd a kapcsolatot vagy jelentkezz be újra."
+        }
         // Vakáció-visszaszámláló: csak a 0. hétről (lapozáskor nem),
         // a widgetnek az App Groupba.
         if weekOffset == 0 { refreshVacation(iss: iss) }
-        isLoading = false
     }
 
-    /// Vakáció-info a widgetnek: naptári napok most → aug. 31. (egyetlen
-    /// gyorstárazott kérés), tanítás nélküli hétköznapok a számoláshoz.
+    /// Az előző és a következő hét előtöltése (a lapozó ±8 hetén belül).
+    /// A múlt hét csak akkor megy hálózatra, ha még nincs mentve.
+    private func prefetchAdjacentWeeks(iss: String) {
+        let base = weekOffset
+        let mondays = [base - 1, base + 1].filter { (-8...8).contains($0) }.map { mondayOfWeek(offset: $0) }
+        Task {
+            await withTaskGroup(of: Void.self) { group in
+                for m in mondays {
+                    group.addTask { _ = await kreta.fetchTimetableWeek(iss: iss, monday: m) }
+                }
+            }
+        }
+    }
+
+    /// Vakáció-info a widgetnek: naptári napok most → aug. 31. (egyetlen,
+    /// naponta frissülő, mentett kérés), tanítás nélküli hétköznapok a számoláshoz.
     /// A KRÉTA mellé az iskolai eseménynaptár szünet-napjai is bekerülnek:
     /// Magyarországon a szünet sokszor csak ott szerepel (nyílt titok),
     /// a KRÉTA `NaptariNapok` pedig üres — e nélkül a következő őszi/téli
     /// szünet láthatatlan maradna. Demo/hiba esetén üres lista — a fallback
-    /// (jún. 15.) akkor is él.
+    /// (jún. 15.) akkor is él. Változatlan eredménynél nincs widget-reload
+    /// (VacationCountdown.save).
     private func refreshVacation(iss: String) {
         // @State-pillanatfelvétel a Task előtt (a Task már háttérben fut).
         let eventsSnapshot = schoolEvents
@@ -1146,92 +1283,123 @@ struct TimetableView: View {
     }
 
     /// Widget-egykezesség: a heti snapshot csak innen íródik az App Groupba.
-    /// A widget ebből rajzolja a mai / következő tanítási napot.
+    /// A widget ebből rajzolja a mai / következő tanítási napot. MINDIG a
+    /// MOSTANI hét (+ a jövő hétfő) anyagából — a kijelzett hét bármi lehet
+    /// (egy hónappal előre lapozva korábban az a hét írta felül a widget
+    /// „mai" napját, és ment ki az órára). A közös gyorstárból számol, így
+    /// a frissítés helyétől függetlenül ugyanazt adja. Változatlan
+    /// tartalomnál nincs írás / reload (TimetableWidgetStore.save).
     /// (A mapping + reload a TimetableWidgetPublish-ban; a BG-ébresztés
     /// ugyanoda mergeli a mai napot.)
     private func publishWidgetSnapshot() {
-        let noSchool = TimetableWidgetPublish.noSchoolDays(from: calendarDays)
-        TimetableWidgetPublish.publishWeek(lessons, homeworks: homeworks, exams: displayExams, events: schoolEvents, eventsVisible: schoolEventsVisible, noSchoolDays: noSchool)
-        // Apple Watch: ugyanez a heti anyag megy az órára is — a státusz-
-        // flagekkel (felmentett zöld, dolgozat szürke), mint a telefonon.
-        WatchSyncSender.pushTimetable(lessons, homeworks: homeworks, exams: displayExams, events: schoolEvents, eventsVisible: schoolEventsVisible, noSchoolDays: noSchool)
+        let store = KretaStore.shared
+        let m0 = mondayOfWeek(offset: 0)
+        let m1 = KretaWeek.adding(weeks: 1, to: m0)
+        guard let week0 = store.lessons(week: m0) else { return }
+        let week1 = store.lessons(week: m1) ?? []
+        let cal = Calendar.current
+        let nextMondayLessons = week1.filter { cal.isDate($0.start, inSameDayAs: m1) }
+        let custom = CustomTasksStore.load()
+        let hw = (store.value(.homework) as [HomeworkItem]? ?? []) + CustomTasksStore.homeworkItems(from: custom)
+        let rawEx = (store.value(.exams) as [ExamItem]? ?? []) + CustomTasksStore.examItems(from: custom)
+        let abs: [AbsenceItem] = store.value(.absences) ?? []
+        let twoWeeks = Self.deduped(week0 + week1)
+        let ex = ExamRollover.displayItems(exams: rawEx, absences: abs, lessons: twoWeeks).items
+        let days = (store.calendarDays(week: m0) ?? []) + (store.calendarDays(week: m1) ?? [])
+        let noSchool = TimetableWidgetPublish.noSchoolDays(from: days)
+        TimetableWidgetPublish.publishWeek(Self.deduped(week0 + nextMondayLessons), homeworks: hw, exams: ex,
+                                           events: schoolEvents, eventsVisible: schoolEventsVisible, noSchoolDays: noSchool)
+        // Apple Watch: ugyanez az anyag megy az órára is — a mostani + a jövő
+        // hét egyben (egyetlen kevés órás hét önmagában kevés, hétvégén is
+        // legyen mit mutatnia), a státusz-flagekkel (felmentett zöld,
+        // dolgozat szürke), mint a telefonon.
+        WatchSyncSender.pushTimetable(twoWeeks, homeworks: hw, exams: ex, events: schoolEvents, eventsVisible: schoolEventsVisible, noSchoolDays: noSchool)
         // Iskolai események az óra órarend-tetejére (ugyanaz a lista).
         WatchSyncSender.pushSchoolEvents(events: schoolEvents, visible: schoolEventsVisible)
-        // A 0. hétről a következő hét is megy az órára (háttérben, a nézet
-        // megvárása nélkül): egyetlen kevés órás hét önmagában kevés —
-        // hétvégén így is van mit mutatnia az órának.
-        if weekOffset == 0 { pushNextWeekToWatch() }
     }
+}
 
-    /// Következő heti órák az órára: a mostani heti anyag + a jövő hét
-    /// összefésülve (a házi/dolgozat/esemény-listák dátumfüggetlenek, azok
-    /// változatlanul mennek). Üres jövő hét = nincs második push.
-    private func pushNextWeekToWatch() {
-        guard let user = session.selectedUser else { return }
-        let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
-        guard !iss.isEmpty, iss != "unknown" else { return }
-        let cal = Calendar.current
-        let thisMonday = mondayOfWeek(offset: 0)
-        guard let nextMonday = cal.date(byAdding: .day, value: 7, to: thisMonday),
-              let nextEnd = cal.date(byAdding: .day, value: 8, to: nextMonday) else { return }
-        let current = lessons, hw = homeworks, ex = displayExams
-        let ev = schoolEvents, vis = schoolEventsVisible, days = calendarDays
-        Task {
-            async let tt = kreta.fetchTimetable(iss: iss, from: nextMonday, to: nextEnd)
-            async let cd = kreta.fetchCalendarDays(iss: iss, from: nextMonday, to: nextEnd)
-            let (nextLessons, nextCal) = await (tt, cd)
-            guard !nextLessons.isEmpty else { return }
-            let merged = deduped(current + nextLessons)
-            let noSchool = TimetableWidgetPublish.noSchoolDays(from: days + nextCal)
-            WatchSyncSender.pushTimetable(merged, homeworks: hw, exams: ex, events: ev, eventsVisible: vis, noSchoolDays: noSchool)
-        }
+// MARK: - Órarendi párosítások (egyszer adatváltozásonként)
+/// A kijelzett hét óráihoz tartozó házi, dolgozat (pótlással) és a
+/// dolgozatos napok térképe. A számolás napra bontva fut: az ExamMatcher és
+/// a HomeworkMatcher is csak azonos napi tételt / órát vesz figyelembe, így
+/// az eredmény azonos a soronkénti teljes-lista-szkenneléssel.
+struct TimetableDerived {
+    struct Input: Equatable {
+        var lessons: [LessonItem] = []
+        var homeworks: [HomeworkItem] = []
+        var exams: [ExamItem] = []
+        var absences: [AbsenceItem] = []
     }
+    var input = Input()
+    var lessonIDs: Set<String> = []
+    var displayExams: [ExamItem] = []
+    var rolledIDs: Set<String> = []
+    var homeworkByLesson: [String: HomeworkItem] = [:]
+    var examByLesson: [String: ExamItem] = [:]
+    var examDays: [Date: Bool] = [:]
 
-    /// Saját tételek bekeverése a KRÉTA-listákba (mindig a store-ból,
-    /// duplázás nélkül) — így a Feladatok tabon felvett saját házi/dolgozat
-    /// az órarend megfelelő óráján is megjelenik (tárgy + nap egyezéssel,
-    /// dolgozatnál óraszám-tűzéssel).
-    private func mergeCustomTasks() {
-        let custom = CustomTasksStore.load()
-        homeworks = homeworks.filter { !CustomTasksStore.isCustomId($0.id) }
-            + CustomTasksStore.homeworkItems(from: custom)
-        exams = exams.filter { !CustomTasksStore.isCustomId($0.id) }
-            + CustomTasksStore.examItems(from: custom)
+    static func make(lessons: [LessonItem], homeworks: [HomeworkItem], exams: [ExamItem], absences: [AbsenceItem],
+                     calendar: Calendar = .current) -> TimetableDerived {
+        var d = TimetableDerived()
+        d.input = Input(lessons: lessons, homeworks: homeworks, exams: exams, absences: absences)
+        d.lessonIDs = Set(lessons.map(\.id))
+        let resolved = ExamRollover.displayItems(exams: exams, absences: absences, lessons: lessons)
+        d.displayExams = resolved.items
+        d.rolledIDs = resolved.rolledIDs
+        // Napra bontás, az eredeti sorrendet megtartva (a "first" egyezés így azonos).
+        var hwByDay: [Date: [HomeworkItem]] = [:]
+        for h in homeworks { hwByDay[calendar.startOfDay(for: h.deadline), default: []].append(h) }
+        var exByDay: [Date: [ExamItem]] = [:]
+        for e in resolved.items { exByDay[calendar.startOfDay(for: e.date), default: []].append(e) }
+        var lessonsByDay: [Date: [LessonItem]] = [:]
+        for l in lessons { lessonsByDay[calendar.startOfDay(for: l.start), default: []].append(l) }
+        for l in lessons {
+            let day = calendar.startOfDay(for: l.start)
+            if let hw = hwByDay[day]?.first(where: { SubjectMatcher.same($0.subject, l.subject) }) {
+                d.homeworkByLesson[l.id] = hw
+            }
+            if let dayExams = exByDay[day],
+               let e = ExamMatcher.exam(for: l, in: dayExams, calendar: calendar, allLessons: lessonsByDay[day] ?? []) {
+                d.examByLesson[l.id] = e
+                // Dolgozatos nap: igaz, ha MINDEN aznapi dolgozat átütemezett (piros pötty).
+                d.examDays[day] = (d.examDays[day] ?? true) && resolved.rolledIDs.contains(e.id)
+            }
+        }
+        return d
     }
+}
 
-    /// Az aktuális weekOffset hetének lehúzása (KRÉTA: hétfő–vasárnap).
-    private func fetchWeek(force: Bool = false) async {
-        guard let user = session.selectedUser else { return }
-        let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
-        guard !iss.isEmpty, iss != "unknown" else { lessons = []; homeworks = []; exams = []; return }
-        let monday = currentMonday
-        let start = monday
-        // +8 nap (jövő hétfő 00:00): a KRÉTA datumIg-határa a peremnapot
-        // levághatja — a +1 nap ráhagyás miatt a következő hétfő órái és
-        // naptári bejegyzése (pl. tanítás nélküli nap) is biztosan lejön.
-        // A heti nézet a 7 napos dayTags-szel szűr, a plusz nap csak a
-        // widget-jegyzetnek és a következő-óra számolásnak kell.
-        let end = Calendar.current.date(byAdding: .day, value: 8, to: monday)!
-        async let tt = kreta.fetchTimetable(iss: iss, from: start, to: end, force: force)
-        async let hw = kreta.fetchHomework(iss: iss, force: force)
-        async let ex = kreta.fetchExams(iss: iss, force: force)
-        async let calD = kreta.fetchCalendarDays(iss: iss, from: start, to: end, force: force)
-        let (ttR, hwR, exR, calR) = await (tt, hw, ex, calD)
-        lessons = deduped(ttR)
-        homeworks = hwR
-        exams = exR
-        // Naptári napok beolvasztása dátum szerint (a hét friss adata nyer,
-        // a többi hét megmarad — a keresés úgyis nap-pontos).
-        if !calR.isEmpty {
-            let cal = Calendar.current
-            let weekDays = Set((0..<7).compactMap { cal.date(byAdding: .day, value: $0, to: cal.startOfDay(for: start)) })
-            calendarDays = calendarDays.filter { !weekDays.contains(cal.startOfDay(for: $0.date)) } + calR
+// MARK: - Hét-alcím: „Ez a hét" + frissítés-állapot
+/// Külön nézet, hogy a store frissítés-állapotának változása csak ezt a
+/// sort rajzolja újra, ne a teljes órarendet. Ha a kettő együtt nem fér
+/// ki, az állapot nyer (a hónap-cím és a dátumok úgyis mutatják a hetet).
+private struct TimetableWeekSubtitle: View {
+    let weekTitle: String
+    let kinds: [KretaDataKind]
+
+    var body: some View {
+        let status = KretaStore.shared.status(for: kinds)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 4) {
+                Text(weekTitle)
+                if status != .idle {
+                    Text("·").foregroundStyle(.tertiary)
+                    KretaRefreshStatusLabel(status: status)
+                }
+            }
+            Group {
+                if status == .idle {
+                    Text(weekTitle)
+                } else {
+                    KretaRefreshStatusLabel(status: status)
+                }
+            }
         }
-        // Hiányzások a dolgozat-pótláshoz: hetet lapozva nem húzzuk újra.
-        if cachedAbsences == nil {
-            cachedAbsences = await kreta.fetchAbsences(iss: iss, force: force)
-        }
-        mergeCustomTasks()
+        .skinFont(.caption2, weight: .medium)
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .animation(SummitMotion.gentle, value: status)
     }
 }
 
@@ -1298,6 +1466,8 @@ private struct TimetableRow: View {
     var flashPulse: Bool = false
     /// Hiányzás miatt átütemezett (pótló) dolgozat — piros a pill háttere.
     var examRolled: Bool = false
+    /// Háttér-frissítésből felismert, még nem látott változás (kék jelölés).
+    var change: LessonChange? = nil
     /// Sorkoppintás → részletező (a pillek testvér-gombok, nem részei).
     var onSelect: () -> Void = {}
 
@@ -1411,14 +1581,28 @@ private struct TimetableRow: View {
                 Button(action: { print("SUMMIT-ROW-TAP \(lesson.id)"); McSound.play(.click); onSelect() }) {
                     HStack(alignment: .top, spacing: 10) {
                         VStack(alignment: .leading, spacing: 4) {
-                        // Badge row — felmentett is zöld, elmarad piros, helyettesítés narancs
-                        if let lbl = badgeLabel {
-                            Text(lbl.uppercased())
-                                .skinFont(.caption2, weight: .bold)
-                                .tracking(0.5)
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 7).padding(.vertical, 3.5)
-                                .background(MinecraftTheme.capsule.fill(badgeColor))
+                        // Badge row — felmentett is zöld, elmarad piros, helyettesítés narancs;
+                        // mellette a friss változás kék jelölése („Új", „Teremcsere"…).
+                        if badgeLabel != nil || change != nil {
+                            HStack(spacing: 5) {
+                                if let lbl = badgeLabel {
+                                    Text(lbl.uppercased())
+                                        .skinFont(.caption2, weight: .bold)
+                                        .tracking(0.5)
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 7).padding(.vertical, 3.5)
+                                        .background(MinecraftTheme.capsule.fill(badgeColor))
+                                }
+                                if let change {
+                                    Text(change.markerTitle.uppercased())
+                                        .skinFont(.caption2, weight: .bold)
+                                        .tracking(0.5)
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 7).padding(.vertical, 3.5)
+                                        .background(MinecraftTheme.capsule.fill(Color.blue))
+                                        .accessibilityLabel("Változás: \(change.markerTitle)")
+                                }
+                            }
                         }
 
                         Text(lesson.subject)
@@ -1453,7 +1637,7 @@ private struct TimetableRow: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("lesson-row-\(lesson.id)")
-                .accessibilityLabel("\(lesson.subject), \(lesson.index). óra")
+                .accessibilityLabel("\(lesson.subject), \(lesson.index). óra" + (change.map { ", változás: \($0.markerTitle)" } ?? ""))
                 // Feladat pill — a fejléc alatt, tap → Feladatok tab
                 if let hw = homework {
                     Button {
@@ -1624,6 +1808,8 @@ private enum LessonSubjectIcon {
 // a hozzá tartozó házi és dolgozat, "Megnyitás" gombokkal.
 private struct LessonDetailSheet: View {
     let lesson: LessonItem
+    /// Friss (még nem / épp most látott) óra-változás — a „Változás" sorhoz.
+    var change: LessonChange? = nil
     let homework: HomeworkItem?
     let exam: ExamItem?
     let examRolled: Bool
@@ -1724,6 +1910,11 @@ private struct LessonDetailSheet: View {
                     }
                     detailRow(icon: "door.left.hand.open", title: "Terem", value: lesson.room.isEmpty ? "—" : lesson.room)
                         .mcListRow(fill: colors.surface)
+                    if let change {
+                        detailRow(icon: "arrow.triangle.2.circlepath", title: "Változás",
+                                  value: change.kind == .added ? change.markerTitle : change.detail)
+                            .mcListRow(fill: colors.surface)
+                    }
                     detailRow(icon: "clock.fill", title: "Időpont", value: timeLine)
                         .mcListRow(fill: colors.surface)
                 } header: { sectionTitle("Óra adatai") }
@@ -1985,3 +2176,4 @@ private extension View {
         }
     }
 }
+

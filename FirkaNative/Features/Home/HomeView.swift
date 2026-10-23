@@ -33,7 +33,19 @@ struct HomeView: View {
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("\(vm.greeting), \(firstName)!").mcTitle()
-                        Text(Date.now.formatted(date: .complete, time: .omitted).capitalized).skinFont(.subheadline).skinSecondaryOnSky()
+                        // Dátum + frissítés-állapot egy sorban (ha kifér): a sor
+                        // megjelenése/eltűnése így nem tolja el a lista tartalmát.
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 8) {
+                                homeDateLine
+                                Spacer(minLength: 4)
+                                homeStatusLine
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                homeDateLine
+                                homeStatusLine
+                            }
+                        }
                     }
                     .summitEntrance()
                     .listRowBackground(Color.clear)
@@ -44,7 +56,7 @@ struct HomeView: View {
                 // Havi Wrapped banner: elsejéig az előző hónap kártyája.
                 // 6-ától magától eltűnik (az archívum a Beállítások →
                 // profil alól mindig elérhető).
-                if let banner = MonthlyWrapped.bannerMonth(grades: vm.grades) {
+                if vm.gradesKnown, let banner = MonthlyWrapped.bannerMonth(grades: vm.grades) {
                     Section {
                         Button {
                             SummitHaptics.selection()
@@ -67,7 +79,7 @@ struct HomeView: View {
                                     .skinFont(.caption, weight: .semibold).foregroundStyle(.tertiary)
                             }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.skinPlain)
                         .listRowBackground(MinecraftTheme.skinRowBackground(colors.surface))
                         .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)))
                         .listRowSeparator(.hidden)
@@ -114,12 +126,15 @@ struct HomeView: View {
                 // LIVE TOP CARD — continuously shows current lesson + progress + next + rögzítve
                 // Az idő-eltolás csúszka a Fejlesztői módban él (Beállítások alján
                 // feloldható) — itt csak az eltolt idő szerint rajzolunk, ha aktív.
-                HomeLiveCard(lessons: vm.lessonsToday, exams: vm.exams, homeworks: vm.homeworks, overrideNow: isPreviewActive && devMode ? previewDate : nil)
+                HomeLiveCard(lessons: vm.lessonsToday, exams: vm.exams, homeworks: vm.homeworks, lessonsKnown: vm.lessonsKnown, overrideNow: isPreviewActive && devMode ? previewDate : nil)
                     .animation(SummitMotion.gentle, value: devMode)
 
                 // Legújabb jegyek — koppintva a tantárgyba visz
                 Section {
-                    if vm.grades.isEmpty {
+                    if !vm.gradesKnown {
+                        // Még nincs (mentett) adat: töltés, nem üres állapot.
+                        HomePlaceholderRow().mcListRow(fill: colors.surface)
+                    } else if vm.grades.isEmpty {
                         Text("Nincs jegy").foregroundStyle(.secondary).mcListRow(fill: colors.surface)
                     } else {
                         ForEach(vm.grades.sorted { $0.date > $1.date }.prefix(3)) { g in
@@ -156,7 +171,9 @@ struct HomeView: View {
                             // Bal: dolgozatok
                             VStack(alignment: .leading, spacing: 10) {
                                 SkinLabel("Közelgő dolgozatok", systemImage: "pencil.and.list.clipboard").mcSectionHeader()
-                                if vm.exams.isEmpty {
+                                if !vm.examsKnown {
+                                    HomePlaceholderRow().padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 12))
+                                } else if vm.exams.isEmpty {
                                     Text("Nincs dolgozat").skinFont(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 12))
                                 } else {
                                     ForEach(Array(examsSorted), id: \.id) { e in
@@ -171,7 +188,9 @@ struct HomeView: View {
                             // Jobb: feladatok
                             VStack(alignment: .leading, spacing: 10) {
                                 SkinLabel("Közelgő feladatok", systemImage: "checklist").mcSectionHeader()
-                                if vm.homeworks.isEmpty {
+                                if !vm.homeworksKnown {
+                                    HomePlaceholderRow().padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 12))
+                                } else if vm.homeworks.isEmpty {
                                     Text("Nincs feladat").skinFont(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 12))
                                 } else {
                                     ForEach(Array(hwSorted), id: \.id) { h in
@@ -192,7 +211,9 @@ struct HomeView: View {
                 // betűtípusra, ikonra és meta-sorra is azonos.
                 Section {
                     let sorted = vm.exams.sorted { $0.date < $1.date }
-                    if sorted.isEmpty {
+                    if !vm.examsKnown {
+                        HomePlaceholderRow().mcListRow(fill: colors.surface)
+                    } else if sorted.isEmpty {
                         Text("Nincs közelgő dolgozat").foregroundStyle(.secondary).mcListRow(fill: colors.surface)
                     } else {
                         ForEach(sorted.prefix(3)) { e in
@@ -232,7 +253,9 @@ struct HomeView: View {
                     // A szám és a sorok ugyanazt mutatják, mint a Feladatok tab:
                     // csak az élő, kipipálatlan házik (a kész a Kész szegmensben van).
                     let sorted = vm.homeworks.filter { !completed.isHomeworkDone($0.id) }.sorted { $0.deadline < $1.deadline }
-                    if sorted.isEmpty {
+                    if !vm.homeworksKnown {
+                        HomePlaceholderRow().mcListRow(fill: colors.surface)
+                    } else if sorted.isEmpty {
                         Text("Nincs feladat").foregroundStyle(.secondary).mcListRow(fill: colors.surface)
                     } else {
                         ForEach(sorted.prefix(3)) { h in
@@ -272,6 +295,13 @@ struct HomeView: View {
             .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
             .summitListChrome(colors: colors)
+            // A közös gyorstár figyelése: minden beérkező adattípus azonnal
+            // beíródik (progresszív frissítés), a body maga nem függ a store-tól.
+            .background {
+                KretaStoreWatcher(kinds: HomeViewModel.watchedKinds()) {
+                    vm.reload(completed: completed, userId: session.selectedUser?.id)
+                }
+            }
             .refreshable {
                 // A főoldali lehúzás a SummitSyncet is oda-vissza
                 // szinkronizálja (függő feltöltés + lehúzás) — különben
@@ -330,7 +360,12 @@ struct HomeView: View {
                 vm.messages = vm.messages.map { ids.contains($0.id) ? $0.withRead() : $0 }
             }
             .onChange(of: vm.lessonsToday) { _, _ in Task { await syncLiveActivity() } }
-            .onChange(of: session.selectedId) { _, _ in Task { await vm.refresh(kreta: kreta, user: session.selectedUser, completed: completed); await syncLiveActivity() } }
+            .onChange(of: session.selectedId) { _, _ in
+                // Fiókváltás: a másik fiók mentett adata azonnal, utána frissítés.
+                vm.reload()
+                Task { await vm.refresh(kreta: kreta, user: session.selectedUser, completed: completed); await syncLiveActivity() }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: CustomTasksStore.changedNotification)) { _ in vm.reload() }
             .onReceive(NotificationCenter.default.publisher(for: NicknameStore.changedNotification)) { _ in nicknameTick += 1 }
             .onChange(of: previewMinutes) { _, _ in
                 if devMode && isPreviewActive { enqueueLiveSync() }
@@ -369,15 +404,27 @@ struct HomeView: View {
                                     }
                                 }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.skinPlain)
                         NavigationLink { SettingsView().mcBackButton() } label: { ProfileImageView(name: NicknameStore.displayName(for: user), userId: ProfileImageStore.key(userId: user.id, accessToken: user.accessToken), size: 30) }
-                            .buttonStyle(.plain) // különben a rendszer glass-pilleket tesz a kör mögé
+                            .buttonStyle(.skinPlain) // különben a rendszer glass-pilleket tesz a kör mögé
                     }
                 }
                 .skinToolbarBackground()
             }
         }
         .tint(colors.accent)
+    }
+
+    private var homeDateLine: some View {
+        Text(Date.now.formatted(date: .complete, time: .omitted).capitalized)
+            .skinFont(.subheadline).skinSecondaryOnSky()
+            .lineLimit(1)
+    }
+
+    private var homeStatusLine: some View {
+        KretaRefreshStatusLine(kinds: HomeViewModel.statusKinds())
+            .skinFont(.caption, weight: .medium)
+            .skinSecondaryOnSky()
     }
 
     /// Üdvözlés keresztneve: becenév, ha van (eszköz-helyi), különben a
@@ -589,6 +636,9 @@ private struct HomeLiveCard: View {
     var lessons: [LessonItem]
     var exams: [ExamItem]
     var homeworks: [HomeworkItem]
+    /// Van-e (mentett) mai órarend — amíg nincs, a kártya nem állíthatja,
+    /// hogy „Ma nincs több órád".
+    var lessonsKnown: Bool = true
     var overrideNow: Date? = nil
     @Environment(\.colorScheme) var scheme
     @EnvironmentObject var theme: ThemeStore
@@ -597,7 +647,10 @@ private struct HomeLiveCard: View {
     var body: some View {
         Section {
             Group {
-                if let fixed = overrideNow {
+                if !lessonsKnown && overrideNow == nil {
+                    HomePlaceholderRow(lines: 2)
+                        .listRowBackground(MinecraftTheme.skinRowBackground(colors.surface))
+                } else if let fixed = overrideNow {
                     let calc = LiveCalc(lessons: lessons, now: fixed)
                     innerContent(calc: calc)
                         .listRowBackground(MinecraftTheme.skinRowBackground(bg(for: calc)))
@@ -872,6 +925,25 @@ private struct LiveCalc {
         } else {
             state = .empty
         }
+    }
+}
+
+/// Töltés-helyőrző sor (még nincs mentett adat): a sor helyét foglalja
+/// halvány, redaktált szöveggel — nem állít semmit az adatról.
+private struct HomePlaceholderRow: View {
+    var lines: Int = 1
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Betöltés alatt álló tartalom")
+                .skinFont(.subheadline, weight: .semibold)
+            if lines > 1 {
+                Text("Óra, terem, tanár")
+                    .skinFont(.caption)
+            }
+        }
+        .foregroundStyle(.secondary)
+        .redacted(reason: .placeholder)
+        .accessibilityLabel("Betöltés")
     }
 }
 

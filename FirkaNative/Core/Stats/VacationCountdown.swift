@@ -15,6 +15,9 @@ import WidgetKit
 enum VacationCountdown {
     static let appGroupID = "group.hu.flint.summit"
     static let infoKey = "vacation.info.v1"
+    /// A vakáció-widget kind-ja (SummitWidgets/VacationWidget — csak ezt
+    /// kell újratölteni, ha az info változik).
+    static let widgetKind = "VacationWidget"
 
     /// Naptári szünnap az app oldaláról (a widget ilyet sosem számol).
     struct DayOff: Hashable {
@@ -58,12 +61,22 @@ enum VacationCountdown {
         return info
     }
 
+    /// Mentés + widget-reload — de CSAK ha a tartalom (állapot, napok,
+    /// céldátum, szünet neve) tényleg változott. Az Órarend minden 0. heti
+    /// betöltésekor számol; eddig ilyenkor mindig minden widget-timeline
+    /// újratöltődött (reloadAllTimelines), változatlan adatra is.
+    /// A visszatérés: történt-e írás.
     @discardableResult
     static func save(_ info: Info) -> Bool {
-        guard let d = defaults,
-              let data = try? JSONEncoder().encode(info) else { return false }
+        guard let d = defaults else { return false }
+        if let old = load(),
+           old.state == info.state, old.daysLeft == info.daysLeft,
+           old.targetDate == info.targetDate, old.breakName == info.breakName {
+            return false
+        }
+        guard let data = try? JSONEncoder().encode(info) else { return false }
         d.set(data, forKey: infoKey)
-        WidgetCenter.shared.reloadAllTimelines()
+        WidgetCenter.shared.reloadTimelines(ofKind: Self.widgetKind)
         return true
     }
 

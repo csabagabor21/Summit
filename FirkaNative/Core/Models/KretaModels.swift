@@ -1,7 +1,10 @@
 import Foundation
 
 // MARK: - UI items (used by FeedView)
-struct GradeItem: Identifiable, Hashable {
+// Codable: a fiókonkénti lemez-gyorstár (KretaCache) a kész tételeket
+// menti, így indításkor nincs KRÉTA-payload-újraparszolás — a mezők
+// változásakor a KretaCache.schema-t léptetni kell.
+struct GradeItem: Identifiable, Hashable, Codable {
     let id: String
     let subject: String
     let value: Int
@@ -38,7 +41,7 @@ enum GradePercent {
         return nil
     }
 }
-struct LessonItem: Identifiable, Hashable {
+struct LessonItem: Identifiable, Hashable, Codable {
     let id: String
     let subject: String
     let room: String
@@ -65,7 +68,7 @@ struct LessonItem: Identifiable, Hashable {
         return nil
     }
 }
-struct HomeworkItem: Identifiable, Hashable {
+struct HomeworkItem: Identifiable, Hashable, Codable {
     let id: String
     let subject: String
     let title: String
@@ -83,7 +86,7 @@ struct HomeworkItem: Identifiable, Hashable {
 }
 
 /// KRÉTA-csatolmány (házi, dolgozat, üzenet): megjeleníthető/letölthető fájl.
-struct AttachmentItem: Identifiable, Hashable {
+struct AttachmentItem: Identifiable, Hashable, Codable {
     let id: String
     let name: String
     let size: Int?
@@ -648,7 +651,7 @@ enum HomeworkPlain {
             .joined(separator: "\n")
     }
 }
-struct AbsenceItem: Identifiable, Hashable {
+struct AbsenceItem: Identifiable, Hashable, Codable {
     let id: String
     let subject: String
     let date: Date
@@ -659,7 +662,7 @@ struct AbsenceItem: Identifiable, Hashable {
     let isJustified: Bool
     let delay: Int?
 }
-struct MessageItem: Identifiable, Hashable {
+struct MessageItem: Identifiable, Hashable, Codable {
     let id: String
     let sender: String
     let subject: String
@@ -677,7 +680,7 @@ struct MessageItem: Identifiable, Hashable {
         var c = self; c.isRead = true; return c
     }
 }
-struct ExamItem: Identifiable, Hashable {
+struct ExamItem: Identifiable, Hashable, Codable {
     let id: String
     let subject: String
     let date: Date
@@ -797,26 +800,61 @@ func friendlyNoteType(_ raw: String) -> String {
 }
 
 // MARK: - Kreta date helper — handles KRÉTA's mixed formats (with/without TZ, with/without fractional)
+/// A formázók statikusak: a régi kód hívásonként 2 ISO- és akár 3 sima
+/// DateFormattert épített (elemenként legalább kétszer hívva) — egy heti
+/// órarend-lehúzás így több száz formázó-allokációba került. A Foundation
+/// formázói parszolásra szálbiztosak (a beállításuk itt soha nem változik),
+/// így a háttérben futó dekódolás is ugyanezeket használhatja.
 enum KretaDateParser {
+    private static let isoFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+    private static let isoPlain = ISO8601DateFormatter()
+    /// Időzóna nélküli helyi formátumok (KRÉTA néha "2026-09-01T08:00:00"
+    /// vagy "2026-09-01T08:00:00.0000000" alakban adja). Az
+    /// `autoupdatingCurrent` követi a futás közbeni időzóna-váltást is.
+    private static let localFormatters: [DateFormatter] = ["yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd"].map { fmt in
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.timeZone = TimeZone.autoupdatingCurrent
+        df.dateFormat = fmt
+        return df
+    }
+
     static func parse(_ s: String?) -> Date? {
         guard let s, !s.isEmpty else { return nil }
-        let isoFrac = ISO8601DateFormatter()
-        isoFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = isoFrac.date(from: s) { return d }
-        let iso = ISO8601DateFormatter()
-        if let d = iso.date(from: s) { return d }
-        // Local datetime without TZ — KRÉTA sometimes returns "2026-09-01T08:00:00" or "2026-09-01T08:00:00.0000000"
-        let dotTrimmed = s.contains(".") ? String(s.split(separator: ".").first ?? Substring(s)) : s
-        let fmts = ["yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd"]
-        for fmt in fmts {
-            let df = DateFormatter()
-            df.locale = Locale(identifier: "en_US_POSIX")
-            df.timeZone = TimeZone.current
-            df.dateFormat = fmt
+        // A tört másodperces alak ritkább — csak akkor próbáljuk elsőnek,
+        // ha van benne pont (fölösleges sikertelen parszolás nélkül).
+        let hasFraction = s.contains(".")
+        if hasFraction, let d = isoFractional.date(from: s) { return d }
+        if let d = isoPlain.date(from: s) { return d }
+        if !hasFraction, let d = isoFractional.date(from: s) { return d }
+        let dotTrimmed = hasFraction ? String(s.split(separator: ".").first ?? Substring(s)) : s
+        for df in localFormatters {
             if let d = df.date(from: dotTrimmed) { return d }
-            if let d = df.date(from: s) { return d }
+            if hasFraction, let d = df.date(from: s) { return d }
         }
         return nil
+    }
+}
+
+/// Elemenkénti toleráns tömb-dekódolás egyetlen menetben: a hibás elem
+/// `nil` lesz (és kimarad), a többi megmarad. A régi minta a teljes
+/// payloadot JSONSerialization-nel bontotta, majd minden elemet újra
+/// szerializált és külön dekódolt — ez a dupla munka megszűnik.
+struct LossyDecodable<Value: Decodable>: Decodable {
+    let value: Value?
+    init(from decoder: Decoder) throws {
+        value = try? Value(from: decoder)
+    }
+
+    /// Tömb-payload toleráns dekódolása; nem-tömb (hibaoldal, objektum)
+    /// payloadra üres lista, mint eddig.
+    static func array(from data: Data) -> [Value] {
+        guard let wrapped = try? JSONDecoder().decode([LossyDecodable<Value>].self, from: data) else { return [] }
+        return wrapped.compactMap(\.value)
     }
 }
 
@@ -890,15 +928,7 @@ struct KretaLessonDTO: Decodable {
     /// Elemenkénti toleráns dekódolás (házi/dolgozat-minta): egy hibás óra
     /// nem nullázza a teljes órarendet — a szigorú tömb-decode helyett.
     static func lenientDTOs(from data: Data) -> [KretaLessonDTO] {
-        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [Any] else {
-            return (try? JSONDecoder().decode([KretaLessonDTO].self, from: data)) ?? []
-        }
-        let decoder = JSONDecoder()
-        return raw.compactMap { element in
-            guard let ed = try? JSONSerialization.data(withJSONObject: element),
-                  let dto = try? decoder.decode(KretaLessonDTO.self, from: ed) else { return nil }
-            return dto
-        }
+        LossyDecodable<KretaLessonDTO>.array(from: data)
     }
     static func lenientItems(from data: Data) -> [LessonItem] {
         lenientDTOs(from: data).compactMap { $0.toItem() }
@@ -972,15 +1002,7 @@ struct KretaHomeworkDTO: Decodable {
     /// Elemenkénti toleráns dekódolás: a hibás elemeket kihagyja ahelyett,
     /// hogy az egész tömb dekódolása elbukna (és üres lista lenne).
     static func lenientDTOs(from data: Data) -> [KretaHomeworkDTO] {
-        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [Any] else {
-            return (try? JSONDecoder().decode([KretaHomeworkDTO].self, from: data)) ?? []
-        }
-        let decoder = JSONDecoder()
-        return raw.compactMap { element in
-            guard let ed = try? JSONSerialization.data(withJSONObject: element),
-                  let dto = try? decoder.decode(KretaHomeworkDTO.self, from: ed) else { return nil }
-            return dto
-        }
+        LossyDecodable<KretaHomeworkDTO>.array(from: data)
     }
     static func lenientItems(from data: Data) -> [HomeworkItem] {
         lenientDTOs(from: data).map { $0.toItem() }
@@ -1068,16 +1090,7 @@ struct KretaMessageDTO: Decodable {
     /// Mivel minden mező opcionális, a teljesen üres (azonosító nélküli)
     /// elemeket itt dobjuk — különben minden szemétből "(nincs tárgy)" sor lenne.
     static func lenientItems(from data: Data) -> [MessageItem] {
-        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [Any] else {
-            return (try? JSONDecoder().decode([KretaMessageDTO].self, from: data))?.filter { $0.hasIdentity }.map { $0.toItem() } ?? []
-        }
-        let decoder = JSONDecoder()
-        return raw.compactMap { element in
-            guard let ed = try? JSONSerialization.data(withJSONObject: element),
-                  let dto = try? decoder.decode(KretaMessageDTO.self, from: ed),
-                  dto.hasIdentity else { return nil }
-            return dto.toItem()
-        }
+        LossyDecodable<KretaMessageDTO>.array(from: data).filter { $0.hasIdentity }.map { $0.toItem() }
     }
 
     /// Valódi lista-elem-e (van azonosítója)? A KRÉTA mindig ad `azonosito`-t.
@@ -1128,7 +1141,7 @@ enum KretaMessageDetail {
 /// Elektronikus feljegyzés (KRÉTA-wide broadcast: az iskola küldi mindenkinek).
 /// Forrás: intézeti Ellenőrző API `Sajat/Feljegyzesek` — NEM az e-Ügyintézés
 /// postaládája, ezért külön modell és külön fetch-járata van.
-struct NoteItem: Identifiable, Hashable {
+struct NoteItem: Identifiable, Hashable, Codable {
     let id: String
     let title: String
     let body: String
@@ -1178,16 +1191,7 @@ struct KretaNoteDTO: Decodable {
     }
 
     static func lenientItems(from data: Data) -> [NoteItem] {
-        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [Any] else {
-            return (try? JSONDecoder().decode([KretaNoteDTO].self, from: data))?.filter { $0.hasContent }.map { $0.toItem() } ?? []
-        }
-        let decoder = JSONDecoder()
-        return raw.compactMap { element in
-            guard let ed = try? JSONSerialization.data(withJSONObject: element),
-                  let dto = try? decoder.decode(KretaNoteDTO.self, from: ed),
-                  dto.hasContent else { return nil }
-            return dto.toItem()
-        }
+        LossyDecodable<KretaNoteDTO>.array(from: data).filter { $0.hasContent }.map { $0.toItem() }
     }
 
     /// Valódi feljegyzés-e (van azonosítója vagy érdemi tartalma)?
@@ -1214,7 +1218,7 @@ struct KretaNoteDTO: Decodable {
 /// ki az órarend üres napjaira pl. „Tanítás nélküli munkanap (Nem órarendi
 /// nap) (Hétfő)"-t. Toleráns parszolás: a KRÉTA-verziók kulcsai szóródnak,
 /// a NapTipusa objektum helyett néhol sima string jön.
-struct SchoolDayInfo: Identifiable, Hashable {
+struct SchoolDayInfo: Identifiable, Hashable, Codable {
     var id: String { "\(date.timeIntervalSince1970)" }
     let date: Date
     /// A hét napjának neve a szervertől („Hétfő") — ha nincs, helyben képezzük.
@@ -1357,15 +1361,7 @@ struct KretaExamDTO: Decodable {
     /// Elemenkénti toleráns dekódolás: egy hibás elem nem ránthatja magával
     /// az egész listát (a házi feladatoknál bevált minta).
     static func lenientDTOs(from data: Data) -> [KretaExamDTO] {
-        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [Any] else {
-            return (try? JSONDecoder().decode([KretaExamDTO].self, from: data)) ?? []
-        }
-        let decoder = JSONDecoder()
-        return raw.compactMap { element in
-            guard let ed = try? JSONSerialization.data(withJSONObject: element),
-                  let dto = try? decoder.decode(KretaExamDTO.self, from: ed) else { return nil }
-            return dto
-        }
+        LossyDecodable<KretaExamDTO>.array(from: data)
     }
 
     static func lenientItems(from data: Data) -> [ExamItem] {
@@ -1416,28 +1412,41 @@ struct KretaSubjectAvgDTO: Decodable {
 // Ezért a canonical csak a valódi szinonimákat (Matek↔Matematika, Töri↔Történelem) oldja fel,
 // a teljes tantárgyneveket (pl. "Szakmai angol nyelv", "Hálózatok I.") érintetlenül hagyja.
 enum SubjectMatcher {
+    /// Csak a bizonyított szinonimák — demo rövidítés vs KRÉTA teljes név.
+    /// Statikus: a régi kód hívásonként újraépítette a szótárat.
+    private static let alias: [String: String] = [
+        "matematika": "matek",
+        "matek": "matek",
+        "tortenelem": "tori",
+        "tori": "tori",
+        // Angol: demo "Angol" ↔ KRÉTA "Angol nyelv" — de "Szakmai angol nyelv" külön marad
+        "angol nyelv": "angol",
+        "angol": "angol",
+        "nemet nyelv": "nemet",
+        "nemet": "nemet",
+    ]
+    /// Kanonikus alak memója: a tantárgynév-készlet kicsi (pár tucat), de
+    /// az órarend-sorok és a házi/dolgozat-párosítás soronként, sokszor
+    /// kérdezi — a kisbetűsítés + ékezet-hajtogatás így egyszer fut nevenként.
+    /// Az NSCache szálbiztos (háttér-dekódolásból is hívható).
+    private static let memo: NSCache<NSString, NSString> = {
+        let c = NSCache<NSString, NSString>()
+        c.countLimit = 512
+        return c
+    }()
+
     static func canonical(_ s: String) -> String {
+        if let hit = memo.object(forKey: s as NSString) { return hit as String }
         var v = s.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
             .folding(options: .diacriticInsensitive, locale: .current)
         v = v.replacingOccurrences(of: "  ", with: " ")
         v = v.trimmingCharacters(in: .whitespaces)
-        // Csak a bizonyított szinonimák — demo rövidítés vs KRÉTA teljes név
-        let alias: [String: String] = [
-            "matematika": "matek",
-            "matek": "matek",
-            "tortenelem": "tori",
-            "tori": "tori",
-            // Angol: demo "Angol" ↔ KRÉTA "Angol nyelv" — de "Szakmai angol nyelv" külön marad
-            "angol nyelv": "angol",
-            "angol": "angol",
-            "nemet nyelv": "nemet",
-            "nemet": "nemet",
-        ]
-        if let mapped = alias[v] { return mapped }
-        return v
+        let out = alias[v] ?? v
+        memo.setObject(out as NSString, forKey: s as NSString)
+        return out
     }
     static func same(_ a: String, _ b: String) -> Bool {
-        if a.lowercased() == b.lowercased() { return true }
+        if a == b { return true }
         // folding + alias egyeztetés, de nem tartalmazás-alapú — különben "Szakmai angol nyelv" == "Angol nyelv" lenne
         return canonical(a) == canonical(b)
     }

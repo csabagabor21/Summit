@@ -6,12 +6,28 @@ enum GradingLogic {
     static let defaultThreshold: Double = 0.50
     private static let key = "firka.roundingThresholds.v1"
 
+    /// A küszöb-szótár memója: a Jegyek tab tárgyanként (soronként) kérdezi —
+    /// eddig minden hívás a teljes UserDefaults-szótárat olvasta és castolta.
+    /// Írás csak a `save`-en át történik, az frissíti a memót. Szálbiztos.
+    private static let cacheLock = NSLock()
+    private static var cachedThresholds: [String: Double]?
+    /// Minden mentéskor lép — a származtatott (kerekített) átlagok memója ezen érvénytelenít.
+    private(set) static var revision = 0
+
     static func loadThresholds() -> [String: Double] {
-        (UserDefaults.standard.dictionary(forKey: key) as? [String: Double]) ?? [:]
+        cacheLock.lock(); defer { cacheLock.unlock() }
+        if let c = cachedThresholds { return c }
+        let d = (UserDefaults.standard.dictionary(forKey: key) as? [String: Double]) ?? [:]
+        cachedThresholds = d
+        return d
     }
     static let changedNotification = Notification.Name("summit.roundingChanged")
     static func save(_ dict: [String: Double]) {
         UserDefaults.standard.set(dict, forKey: key)
+        cacheLock.lock()
+        cachedThresholds = dict
+        revision += 1
+        cacheLock.unlock()
         NotificationCenter.default.post(name: changedNotification, object: nil)
     }
     static func threshold(for subject: String) -> Double {

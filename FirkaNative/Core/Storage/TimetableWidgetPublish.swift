@@ -8,14 +8,22 @@ enum TimetableWidgetPublish {
     /// Telefonos státusz-port az órára/widgetbe: felmentett (zöld) +
     /// aznapi házi/dolgozat (szürke) — ugyanaz a szabály, mint a
     /// TimetableView.hasAssignment (tárgy+nap házi, tűzött dolgozat).
+    /// Napra bontva (a párosítás csak azonos napi tételt néz) — eddig
+    /// óránként a teljes házi- és dolgozatlista újraszkennelve.
     static func fromLessons(_ lessons: [LessonItem], homeworks: [HomeworkItem] = [], exams: [ExamItem] = []) -> [TimetableWidgetStore.Lesson] {
         let cal = Calendar.current
+        var hwByDay: [Date: [HomeworkItem]] = [:]
+        for h in homeworks { hwByDay[cal.startOfDay(for: h.deadline), default: []].append(h) }
+        var exByDay: [Date: [ExamItem]] = [:]
+        for e in exams { exByDay[cal.startOfDay(for: e.date), default: []].append(e) }
+        var lessonsByDay: [Date: [LessonItem]] = [:]
+        for l in lessons { lessonsByDay[cal.startOfDay(for: l.start), default: []].append(l) }
         return lessons.sorted { $0.start < $1.start }.map { lesson in
-            let sameDayHW = homeworks.contains {
-                SubjectMatcher.same($0.subject, lesson.subject)
-                && cal.isDate($0.deadline, inSameDayAs: lesson.start)
-            }
-            let sameDayExam = ExamMatcher.exam(for: lesson, in: exams, allLessons: lessons) != nil
+            let day = cal.startOfDay(for: lesson.start)
+            let sameDayHW = hwByDay[day]?.contains { SubjectMatcher.same($0.subject, lesson.subject) } ?? false
+            let sameDayExam = exByDay[day].map {
+                ExamMatcher.exam(for: lesson, in: $0, calendar: cal, allLessons: lessonsByDay[day] ?? []) != nil
+            } ?? false
             return TimetableWidgetStore.Lesson(
                 id: lesson.id, subject: lesson.subject, room: lesson.room, teacher: lesson.teacher,
                 index: lesson.index, start: lesson.start, end: lesson.end,

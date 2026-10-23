@@ -7,16 +7,24 @@ import CoreText
 enum MinecraftFontLoader {
     static let familyName = "Monocraft"
     private static var done = false
+    /// Sikerült-e a regisztráció (a betű ténylegesen elérhető-e).
+    private static var available = false
+    /// Lusta regisztráció: Summit skinben sosem fut le (indításkor csak a
+    /// mentett Minecraft-skin kéri), skinváltáskor az első pixelbetű-kérés
+    /// intézi. Többször hívható.
     static func registerOnce() {
         guard !done else { return }
         done = true
         guard let url = Bundle.main.url(forResource: "Monocraft", withExtension: "ttf") else { return }
         CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+        available = UIFont(name: familyName, size: 12) != nil
     }
     /// Pixelbetű, ha regisztrálva van — különben rendszer-monospace
-    /// (pl. preview, widget, vagy hiányzó erőforrás esetén).
+    /// (pl. preview, widget, vagy hiányzó erőforrás esetén). Az elérhetőség
+    /// egyszer dől el — a régi kód minden hívásnál UIFont-ot példányosított.
     static func font(size: CGFloat) -> Font {
-        if UIFont(name: familyName, size: size) != nil {
+        registerOnce()
+        if available {
             return .custom(familyName, size: size)
         }
         return .system(size: size, weight: .heavy, design: .monospaced)
@@ -169,6 +177,8 @@ static func skinRowBackground(_ color: Color) -> some View {
         let nav = UINavigationBar.appearance()
         let tabItem = UITabBarItem.appearance()
         if minecraft {
+            // Futás közbeni skinváltáskor a betű még nem feltétlen él.
+            MinecraftFontLoader.registerOnce()
             let big = UIFont(name: MinecraftFontLoader.familyName, size: 32)
             let small = UIFont(name: MinecraftFontLoader.familyName, size: 16)
             let tiny = UIFont(name: MinecraftFontLoader.familyName, size: 10)
@@ -353,9 +363,7 @@ struct MinecraftBackdrop: View {
                         .position(x: sx, y: sy + shift)
                 }
                 // Rendes minecraft-felhők: lapos fehér blokk-lapok, lassan sodródnak.
-                mcCloudLane(width: w, top: 110, night: night, duration: 140)
-                mcCloudLane(width: w, top: 210, night: night, duration: 200)
-                mcCloudLane(width: w, top: 300, night: night, duration: 260)
+                McCloudLayer(width: w, night: night, animated: !reduceMotion)
                 // Pixel-hegy (Beállítások): hátsó párás csúcs + elülső
                 // hósapkás csúcs, tövében fűsávval.
                 if mountain {
@@ -439,24 +447,6 @@ struct MinecraftBackdrop: View {
         return 0.66 + 0.18 * t
     }
 
-    // MARK: - Felhők
-
-    /// Egy sodródó felhősáv: lapos blokk-lapok (igazi minecraft-felhő:
-    /// egy réteg éles téglalap), végtelen lineáris sodrással.
-    /// Reduce Motion mellett áll.
-    private func mcCloudLane(width: CGFloat, top: CGFloat, night: Bool, duration: Double) -> some View {
-        // Éjjel a vanilla felhő is szinte az ég színére sötétül.
-        let tint: Color = night ? Color(hex: 0x161A26).opacity(0.85) : .white.opacity(0.9)
-        return DriftingCloud(width: width, top: top, duration: duration, reduceMotion: reduceMotion) {
-            HStack(spacing: 0) {
-                Rectangle().fill(tint).frame(width: 120, height: 14)
-                Rectangle().fill(tint).frame(width: 44, height: 24).offset(y: -5)
-                Rectangle().fill(tint).frame(width: 84, height: 14)
-                Rectangle().fill(tint).frame(width: 30, height: 20).offset(y: -3)
-                Rectangle().fill(tint).frame(width: 96, height: 14)
-            }
-        }
-    }
 
     // MARK: - Pixel-hegy
 
@@ -499,24 +489,52 @@ struct MinecraftBackdrop: View {
     }
 }
 
-/// Végtelenül sodródó felhő: balról jobbra lineárisan, hurokban.
-private struct DriftingCloud<Content: View>: View {
+/// Sodródó felhők: három sáv lapos blokk-lap (igazi minecraft-felhő: egy
+/// réteg éles téglalap), végtelen lineáris sodrással balról jobbra.
+/// Egyetlen Canvas egy alacsony (15 fps) idővonalon — eddig felhőnként
+/// külön, örökké futó SwiftUI-animáció pörgött (hat égbolt-példánnyal
+/// akár 18 egyszerre, képkockánként a főszálon). A sodrás 1-2 pt/mp, így
+/// 15 fps mellett is folyamatos. Reduce Motion mellett és háttérben áll.
+private struct McCloudLayer: View {
     var width: CGFloat
-    var top: CGFloat
-    var duration: Double
-    var reduceMotion: Bool
-    @ViewBuilder var content: () -> Content
-    @State private var x: CGFloat?
+    var night: Bool
+    var animated: Bool
+    @Environment(\.scenePhase) private var scenePhase
+
+    /// (függőleges középvonal, egy kör ideje mp-ben, kezdő fázis 0…1).
+    private static let lanes: [(top: CGFloat, duration: Double, phase: Double)] = [
+        (110, 140, 0.10), (210, 200, 0.55), (300, 260, 0.30)
+    ]
+    /// Egy felhő blokkjai: (szélesség, magasság, függőleges eltolás) balról jobbra.
+    private static let blocks: [(w: CGFloat, h: CGFloat, dy: CGFloat)] = [
+        (120, 14, 0), (44, 24, -5), (84, 14, 0), (30, 20, -3), (96, 14, 0)
+    ]
+    private static let cloudWidth: CGFloat = blocks.reduce(0) { $0 + $1.w }
+
     var body: some View {
-        content()
-            .position(x: x ?? -220, y: top)
-            .onAppear {
-                if reduceMotion { x = width / 2; return }
-                x = -220
-                withAnimation(.linear(duration: duration).repeatForever(autoreverses: false)) {
-                    x = width + 220
+        TimelineView(.animation(minimumInterval: 1.0 / 15, paused: !animated || scenePhase != .active)) { tl in
+            let t = tl.date.timeIntervalSinceReferenceDate
+            Canvas { ctx, _ in
+                // Éjjel a vanilla felhő is szinte az ég színére sötétül.
+                let tint: Color = night ? Color(hex: 0x161A26).opacity(0.85) : .white.opacity(0.9)
+                let travel = width + 440
+                for lane in Self.lanes {
+                    // Reduce Motion: középen áll (mint eddig).
+                    let cx: CGFloat = animated
+                        ? -220 + travel * CGFloat((t / lane.duration + lane.phase).truncatingRemainder(dividingBy: 1))
+                        : width / 2
+                    var x = cx - Self.cloudWidth / 2
+                    var path = Path()
+                    for b in Self.blocks {
+                        path.addRect(CGRect(x: x, y: lane.top - b.h / 2 + b.dy, width: b.w, height: b.h))
+                        x += b.w
+                    }
+                    ctx.fill(path, with: .color(tint))
                 }
             }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
@@ -799,28 +817,75 @@ struct McFlora: View {
         return out
     }
 
+    @Environment(\.scenePhase) private var scenePhase
+
+    /// A szél egész pixelre lépő eltolásai (növényenként, soronként) egy
+    /// időpontban. A rajzolás csak akkor fut újra, ha ezek közül valamelyik
+    /// tényleg elmozdult — eddig 12 fps-sel minden képkocka újrarajzolt
+    /// mindent, akkor is, ha egyetlen pixel sem mozdult.
+    private static func offsets(at t: Double, count: Int) -> [Int8] {
+        var out: [Int8] = []
+        out.reserveCapacity(count * 8)
+        for (i, p) in layoutCache(count: count).enumerated() where i < count {
+            let h = sprites[p.sprite].rows.count
+            // Lassú alaphullám + apró rezgés: 0…1 px kitérés a csúcson.
+            let wave = sin(t * 1.3 + p.phase) * 0.8 + sin(t * 3.1 + p.phase * 1.7) * 0.25
+            for ry in 0..<h {
+                let lift = Double(h - ry) / Double(h)
+                out.append(Int8((wave * lift * 1.6).rounded()))
+            }
+        }
+        return out
+    }
+
+    /// Elrendezés oszlopszámonként egyszer (eddig képkockánként újra). Szálbiztos.
+    private static let layoutLock = NSLock()
+    nonisolated(unsafe) private static var layoutMemo: [Int: [(x: Int, sprite: Int, phase: Double)]] = [:]
+    private static func layoutCache(count cols: Int) -> [(x: Int, sprite: Int, phase: Double)] {
+        layoutLock.lock(); defer { layoutLock.unlock() }
+        if let hit = layoutMemo[cols] { return hit }
+        let l = layout(cols: cols)
+        layoutMemo[cols] = l
+        return l
+    }
+
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 12, paused: !animated)) { tl in
-            let t = animated ? tl.date.timeIntervalSinceReferenceDate : 0
+        GeometryReader { geo in
+            let cols = Int(geo.size.width / McSoil.unit)
+            TimelineView(.animation(minimumInterval: 1.0 / 12, paused: !animated || scenePhase != .active)) { tl in
+                let t = animated ? tl.date.timeIntervalSinceReferenceDate : 0
+                FloraCanvas(cols: cols, offsets: Self.offsets(at: t, count: cols))
+                    .equatable()
+            }
+        }
+    }
+
+    /// A tényleges rajzolás: színenként EGY összevont útvonal (eddig
+    /// pixelenként külön fill, képkockánként több száz).
+    private struct FloraCanvas: View, Equatable {
+        let cols: Int
+        let offsets: [Int8]
+
+        var body: some View {
             Canvas { ctx, size in
                 let u = McSoil.unit
-                let cols = Int(size.width / u)
-                for p in Self.layout(cols: cols) {
-                    let sp = Self.sprites[p.sprite]
+                var paths: [Color: Path] = [:]
+                var k = 0
+                for p in McFlora.layoutCache(count: cols) {
+                    let sp = McFlora.sprites[p.sprite]
                     let h = sp.rows.count
-                    // Lassú alaphullám + apró rezgés: 0…1 px kitérés a csúcson.
-                    let wave = sin(t * 1.3 + p.phase) * 0.8 + sin(t * 3.1 + p.phase * 1.7) * 0.25
                     for (ry, row) in sp.rows.enumerated() {
-                        let lift = Double(h - ry) / Double(h)
-                        let dx = (wave * lift * 1.6).rounded()
+                        let dx = k < offsets.count ? Int(offsets[k]) : 0
+                        k += 1
                         for (rx, ch) in row.enumerated() {
                             guard let c = sp.palette[ch] else { continue }
-                            let x = CGFloat(p.x + rx) * u + CGFloat(dx) * u
+                            let x = CGFloat(p.x + rx + dx) * u
                             let y = size.height - CGFloat(h - ry) * u
-                            ctx.fill(Path(CGRect(x: x, y: y, width: u, height: u)), with: .color(c))
+                            paths[c, default: Path()].addRect(CGRect(x: x, y: y, width: u, height: u))
                         }
                     }
                 }
+                for (c, path) in paths { ctx.fill(path, with: .color(c)) }
             }
         }
     }
@@ -878,6 +943,10 @@ struct McBlockPanel: View {
     var highlight: Color? = nil
     var shade: Color? = nil
     var castsShadow = true
+    /// Biztosan opak a face (pl. `opaqueFace`-ből): ilyenkor a körvonal
+    /// belsejének kivágása (`.clear` keverés — külön rétegpassz) fölösleges,
+    /// a face úgyis teljesen takar. A kép azonos.
+    var faceIsOpaque = false
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
@@ -886,15 +955,18 @@ struct McBlockPanel: View {
         let line: Color = outline ?? (dark ? Color.black : Color(hex: 0x3A2A1C) as Color)
         let hi = highlight ?? .white.opacity(dark ? 0.10 : 0.65)
         let lo = shade ?? .black.opacity(dark ? 0.35 : 0.13)
+        let opaque = faceIsOpaque
         Canvas { ctx, size in
             let rect = CGRect(origin: .zero, size: size)
             ctx.fill(McPixelShape(unit: u, steps: 2).path(in: rect), with: .color(line))
             let inner = rect.insetBy(dx: u, dy: u)
             // A körvonal belsejét előbb kivágjuk, hogy az áttetsző face
             // ne a sötét körvonalon keresztül látsszon.
-            ctx.blendMode = .clear
-            ctx.fill(McPixelShape(unit: u, steps: 1).path(in: inner), with: .color(.black))
-            ctx.blendMode = .normal
+            if !opaque {
+                ctx.blendMode = .clear
+                ctx.fill(McPixelShape(unit: u, steps: 1).path(in: inner), with: .color(.black))
+                ctx.blendMode = .normal
+            }
             ctx.fill(McPixelShape(unit: u, steps: 1).path(in: inner), with: .color(face))
             guard inner.width > 2 * u, inner.height > 2 * u else { return }
             ctx.fill(Path(CGRect(x: inner.minX + u, y: inner.minY, width: inner.width - 2 * u, height: u)), with: .color(hi))
@@ -916,15 +988,36 @@ struct McBlockPanel: View {
 extension MinecraftTheme {
     /// Áttetsző állapot-szín (pl. narancs 8%) opak panel-archoz: a panel
     /// alap-színére keverve — a játék paneljein nem látszik át az ég.
-    static func opaqueFace(_ color: Color) -> Color {
+    /// Memó (szín + sötét mód → kevert szín): a sorok minden body-jában
+    /// hívódik, a UIColor-felbontás és -keverés így színenként egyszer fut.
+    /// Szálbiztos.
+    private static let opaqueFaceLock = NSLock()
+    nonisolated(unsafe) private static var opaqueFaceMemo: [OpaqueFaceKey: (color: Color, opaque: Bool)] = [:]
+    private struct OpaqueFaceKey: Hashable { let color: Color; let dark: Bool }
+
+    static func opaqueFace(_ color: Color) -> Color { resolvedOpaqueFace(color).color }
+
+    /// A kevert szín + hogy biztosan opak-e (a színfelbontás sikerült).
+    static func resolvedOpaqueFace(_ color: Color) -> (color: Color, opaque: Bool) {
+        let dark = UITraitCollection.current.userInterfaceStyle == .dark
+        let key = OpaqueFaceKey(color: color, dark: dark)
+        opaqueFaceLock.lock(); defer { opaqueFaceLock.unlock() }
+        if let hit = opaqueFaceMemo[key] { return hit }
+        let out = blendOntoPanel(color, dark: dark)
+        if opaqueFaceMemo.count > 256 { opaqueFaceMemo.removeAll() }
+        opaqueFaceMemo[key] = out
+        return out
+    }
+
+    private static func blendOntoPanel(_ color: Color, dark: Bool) -> (color: Color, opaque: Bool) {
         let ui = UIColor(color)
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        guard ui.getRed(&r, green: &g, blue: &b, alpha: &a), a < 0.99 else { return color }
-        let dark = UITraitCollection.current.userInterfaceStyle == .dark
+        guard ui.getRed(&r, green: &g, blue: &b, alpha: &a) else { return (color, false) }
+        guard a < 0.99 else { return (color, true) }
         let base = UIColor(dark ? Color(hex: 0x2B2B30) : Color(hex: 0xF7F0DC))
         var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
         base.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
-        return Color(red: Double(br + (r - br) * a), green: Double(bg + (g - bg) * a), blue: Double(bb + (b - bb) * a))
+        return (Color(red: Double(br + (r - br) * a), green: Double(bg + (g - bg) * a), blue: Double(bb + (b - bb) * a)), true)
     }
 
     /// Sor-margó skin-érzékenyen: Minecraftban a `McRowPanel` behúzásával
@@ -948,7 +1041,8 @@ struct McRowPanel: View {
     static let horizontalInset: CGFloat = 9
     static let verticalInset: CGFloat = 6
     var body: some View {
-        McBlockPanel(face: MinecraftTheme.opaqueFace(face))
+        let resolved = MinecraftTheme.resolvedOpaqueFace(face)
+        McBlockPanel(face: resolved.color, faceIsOpaque: resolved.opaque)
             .padding(.horizontal, Self.horizontalInset)
             .padding(.top, Self.verticalInset)
             .padding(.bottom, Self.verticalInset + McSoil.unit)

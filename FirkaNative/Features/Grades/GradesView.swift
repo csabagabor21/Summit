@@ -29,9 +29,18 @@ struct GradesView: View {
     @EnvironmentObject var theme: ThemeStore
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var kreta: KretaClient
-    @State private var grades: [GradeItem] = []
-    @State private var allSubjects: [String] = []
-    @State private var isLoading = true
+    /// A mentett jegyek a közös gyorstárból (KretaStore): tabra lépéskor
+    /// azonnal látszanak, a váz csak akkor jön, ha még semmi nincs mentve.
+    @State private var grades: [GradeItem] = KretaStore.shared.value(.grades) ?? []
+    @State private var allSubjects: [String] = GradesView.storedSubjects()
+    @State private var isLoading = KretaStore.shared.grades == nil
+
+    /// Mentett tárgylista (hálózati + tárgy-cache unió, mint a load-ban).
+    private static func storedSubjects() -> [String] {
+        let net: [String] = KretaStore.shared.value(.subjects) ?? []
+        let cached = UserDefaults.standard.stringArray(forKey: KretaClient.cachedSubjectsKey) ?? []
+        return Array(Set(net).union(cached)).sorted()
+    }
     @State private var selectedTab: GradeTab = .evkozi
     // Explicit path: adat-újratöltéskor a value-less linkek állapota átsiklott
     // sorok között, a vissza gomb így végigment a tárgyakon. Path-szal egy pop = egy szint.
@@ -86,7 +95,7 @@ struct GradesView: View {
                                 .mcSummaryRow(fill: colors.surface)
                             }
                             Section {
-                                GradeChartView(grades: evkoziGrades.sorted { $0.date < $1.date }, accent: colors.accent, height: 150, monthly: true, editorial: true)
+                                GradeChartView(grades: derived.evkoziChart, accent: colors.accent, height: 150, monthly: true, editorial: true)
                                     .listRowBackground(Color.clear)
                                     .listRowSeparator(.hidden)
                                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
@@ -118,7 +127,7 @@ struct GradesView: View {
                                                     Spacer()
                                                     SkinIcon("chevron.right", size: 14).skinFont(.caption2, weight: .semibold).foregroundStyle(.tertiary)
                                                 }.padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 14))
-                                            }.buttonStyle(.plain)
+                                            }.buttonStyle(.skinPlain)
                                         } else {
                                             Button {
                                                 SummitHaptics.selection()
@@ -131,7 +140,7 @@ struct GradesView: View {
                                                     Spacer()
                                                     SkinIcon("chevron.right", size: 14).skinFont(.caption2, weight: .semibold).foregroundStyle(.tertiary)
                                                 }.padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 14))
-                                            }.buttonStyle(.plain)
+                                            }.buttonStyle(.skinPlain)
                                         }
                                     }
                                 }.padding(.horizontal, 16).padding(.vertical, 8)
@@ -299,48 +308,95 @@ struct GradesView: View {
                     SkinIcon("chevron.right", size: 14).foregroundStyle(.tertiary)
                 }
             }
+            .mcLinkClick()
         } else {
             NavigationLink(value: subject) { content() }
         }
     }
 
     // MARK: - Filtering by típus (nyers kód és szép név is: "evkozi_jegy_ertekeles" / "Évközi értékelés")
-    private func isEvkozi(_ g: GradeItem) -> Bool {
+    private static func isEvkozi(_ g: GradeItem) -> Bool {
         let t = g.type.lowercased()
         return t.contains("evkozi") || t.contains("évközi") || (!t.contains("felevi") && !t.contains("félévi") && !t.contains("év végi") && !t.contains("evvegi") && !t.contains("évvégi"))
     }
-    private func isFelevi(_ g: GradeItem) -> Bool {
+    private static func isFelevi(_ g: GradeItem) -> Bool {
         let t = g.type.lowercased()
         return t.contains("felevi") || t.contains("félévi")
     }
-    private func isEvvegi(_ g: GradeItem) -> Bool {
+    private static func isEvvegi(_ g: GradeItem) -> Bool {
         let t = g.type.lowercased()
         return t.contains("evvegi") || t.contains("év végi") || t.contains("évvégi")
     }
-    var evkoziGrades: [GradeItem] { grades.filter { $0.value != 0 && isEvkozi($0) } }
-    var feleviGrades: [GradeItem] { grades.filter { $0.value != 0 && isFelevi($0) } }
-    var evvegiGrades: [GradeItem] { grades.filter { $0.value != 0 && isEvvegi($0) } }
+    /// Szűrés, csoportosítás, átlagok EGYSZER adatváltozásonként — eddig
+    /// minden hozzáférés (soronként többször) újra szűrt és csoportosított.
+    /// Memó a bemenetekre (jegyek, tárgyak, kerekítési küszöbök verziója).
+    private struct Derived {
+        var evkozi: [GradeItem] = []
+        var felevi: [GradeItem] = []
+        var evvegi: [GradeItem] = []
+        var groupedEvkozi: [String: [GradeItem]] = [:]
+        var sortedEvkozi: [String: [GradeItem]] = [:]
+        var groupedFelevi: [String: [GradeItem]] = [:]
+        var groupedEvvegi: [String: [GradeItem]] = [:]
+        var displayEvkoziSubjects: [String] = []
+        var overallEvkozi: Double = 0
+        var overallRoundedEvkozi: Double = 0
+        var overallFelevi: Double = 0
+        var overallEvvegi: Double = 0
+        var evkoziChart: [GradeItem] = []
+    }
+    private struct DerivedKey: Equatable {
+        var grades: [GradeItem]
+        var subjects: [String]
+        var thresholdsRevision: Int
+    }
+    @MainActor private static var derivedMemo: (key: DerivedKey, value: Derived)?
 
-    var groupedEvkozi: [String: [GradeItem]] { Dictionary(grouping: evkoziGrades, by: { $0.subject }) }
+    private var derived: Derived {
+        let key = DerivedKey(grades: grades, subjects: allSubjects, thresholdsRevision: GradingLogic.revision)
+        if let m = Self.derivedMemo, m.key == key { return m.value }
+        var d = Derived()
+        d.evkozi = grades.filter { $0.value != 0 && Self.isEvkozi($0) }
+        d.felevi = grades.filter { $0.value != 0 && Self.isFelevi($0) }
+        d.evvegi = grades.filter { $0.value != 0 && Self.isEvvegi($0) }
+        d.groupedEvkozi = Dictionary(grouping: d.evkozi, by: { $0.subject })
+        d.sortedEvkozi = d.groupedEvkozi.mapValues { $0.sorted { $0.date < $1.date } }
+        d.groupedFelevi = Dictionary(grouping: d.felevi, by: { $0.subject })
+        d.groupedEvvegi = Dictionary(grouping: d.evvegi, by: { $0.subject })
+        // KRÉTA tudja a tantárgyakat akkor is ha nincs bennük jegy — display minden felvett tárgyat mutat
+        d.displayEvkoziSubjects = Set(d.groupedEvkozi.keys).union(allSubjects).sorted()
+        // overall csak évköziből, félévi/évvégi nem számít bele az évközi átlagba
+        d.overallEvkozi = GradingLogic.overallAverage(grouped: d.groupedEvkozi)
+        d.overallRoundedEvkozi = GradingLogic.overallRoundedAverage(grouped: d.groupedEvkozi)
+        func latestAverage(_ g: [String: [GradeItem]]) -> Double {
+            let avgs = g.values.compactMap { $0.max { $0.date < $1.date }?.value }.map(Double.init)
+            return avgs.isEmpty ? 0 : avgs.reduce(0, +) / Double(avgs.count)
+        }
+        d.overallFelevi = latestAverage(d.groupedFelevi)
+        d.overallEvvegi = latestAverage(d.groupedEvvegi)
+        d.evkoziChart = d.evkozi.sorted { $0.date < $1.date }
+        Self.derivedMemo = (key, d)
+        return d
+    }
+
+    var evkoziGrades: [GradeItem] { derived.evkozi }
+    var feleviGrades: [GradeItem] { derived.felevi }
+    var evvegiGrades: [GradeItem] { derived.evvegi }
+
+    var groupedEvkozi: [String: [GradeItem]] { derived.groupedEvkozi }
 
     private func gradesFor(_ subject: String) -> [GradeItem] {
-        (groupedEvkozi[subject] ?? []).sorted { $0.date < $1.date }
+        derived.sortedEvkozi[subject] ?? []
     }
-    var groupedFelevi: [String: [GradeItem]] { Dictionary(grouping: feleviGrades, by: { $0.subject }) }
-    var groupedEvvegi: [String: [GradeItem]] { Dictionary(grouping: evvegiGrades, by: { $0.subject }) }
+    var groupedFelevi: [String: [GradeItem]] { derived.groupedFelevi }
+    var groupedEvvegi: [String: [GradeItem]] { derived.groupedEvvegi }
 
-    // KRÉTA tudja a tantárgyakat akkor is ha nincs bennük jegy — display minden felvett tárgyat mutat
-    var displayEvkoziSubjects: [String] {
-        let graded = Set(groupedEvkozi.keys)
-        let all = Set(allSubjects)
-        return (graded.union(all)).sorted()
-    }
+    var displayEvkoziSubjects: [String] { derived.displayEvkoziSubjects }
 
-    // overall csak évköziből, félévi/évvégi nem számít bele az évközi átlagba
-    var overallEvkozi: Double { GradingLogic.overallAverage(grouped: groupedEvkozi) }
-    var overallRoundedEvkozi: Double { GradingLogic.overallRoundedAverage(grouped: groupedEvkozi) }
-    var overallFelevi: Double { guard !groupedFelevi.isEmpty else { return 0 }; let avgs = groupedFelevi.values.compactMap { $0.sorted { $0.date > $1.date }.first?.value }.map(Double.init); return avgs.isEmpty ? 0 : avgs.reduce(0, +) / Double(avgs.count) }
-    var overallEvvegi: Double { guard !groupedEvvegi.isEmpty else { return 0 }; let avgs = groupedEvvegi.values.compactMap { $0.sorted { $0.date > $1.date }.first?.value }.map(Double.init); return avgs.isEmpty ? 0 : avgs.reduce(0, +) / Double(avgs.count) }
+    var overallEvkozi: Double { derived.overallEvkozi }
+    var overallRoundedEvkozi: Double { derived.overallRoundedEvkozi }
+    var overallFelevi: Double { derived.overallFelevi }
+    var overallEvvegi: Double { derived.overallEvvegi }
     var trendEvkozi: String { overallEvkozi >= 4 ? "Kiváló" : overallEvkozi >= 3.5 ? "Jó" : "Fejlődő" }
     var trendFelevi: String { overallFelevi >= 4 ? "Kiváló" : overallFelevi >= 3.5 ? "Jó" : "Fejlődő" }
     var trendEvvegi: String { overallEvvegi >= 4 ? "Kiváló" : overallEvvegi >= 3.5 ? "Jó" : "Fejlődő" }
@@ -366,6 +422,10 @@ struct GradesView: View {
         if !hadData { isLoading = true }
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         if iss.isEmpty || iss == "unknown" { isLoading=false; return }
+        KretaStore.shared.activate(user)
+        // Új adat jött-e (mentési idő szerint) — a diff és az órára küldés
+        // csak ilyenkor fut, a puszta tabváltás nem ismétli.
+        let gradesBefore = KretaStore.shared.savedAt(.grades)
         async let gradesTask = kreta.fetchGrades(iss: iss, force: force)
         async let subjectsTask = kreta.fetchAllSubjectNames(iss: iss, force: force)
         let (g, s) = await (gradesTask, subjectsTask)
@@ -375,16 +435,18 @@ struct GradesView: View {
             isLoading=false
             return
         }
-        grades = g
+        if grades != g { grades = g }
+        let freshGrades = KretaStore.shared.savedAt(.grades) != gradesBefore || KretaStore.shared.grades == nil
         // Lehúzáskor új jegy → ünneplő kártya (elsőre csak magot vet, duplán nem jelez)
-        NotificationManager.shared.checkGrades(g, userId: user.id)
+        if freshGrades { NotificationManager.shared.checkGrades(g, userId: user.id) }
         // Megjelenítéshez a cache is jöhet (offline), de vissza csak hálózati tárgyakat
         // mentünk — a demo-módból beszennyezett cache így következő online loadkor kigyógyul.
-        let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1") ?? []
-        allSubjects = Array(Set(s).union(cached)).sorted()
-        if !s.isEmpty { UserDefaults.standard.set(s.sorted(), forKey: "firka.cachedSubjects.v1") }
+        let cached = UserDefaults.standard.stringArray(forKey: KretaClient.cachedSubjectsKey) ?? []
+        let subjectsUnion = Array(Set(s).union(cached)).sorted()
+        if allSubjects != subjectsUnion { allSubjects = subjectsUnion }
+        if !s.isEmpty { UserDefaults.standard.set(s.sorted(), forKey: KretaClient.cachedSubjectsKey) }
         // Apple Watch: a friss jegyek + tárgyak + kerekítések mennek az órára is.
-        WatchSyncSender.pushGrades(grades: grades, subjects: allSubjects)
+        if freshGrades { WatchSyncSender.pushGrades(grades: grades, subjects: allSubjects) }
         isLoading=false
     }
 }

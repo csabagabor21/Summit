@@ -362,6 +362,42 @@ struct McButtonStyle: ButtonStyle {
     }
 }
 
+/// Minecraftban minden gomb kattan, nem csak a kő-gombok. Az app gyökerére
+/// tett alapstílus: a saját stílus nélküli gombok (lista-sorok, toolbar,
+/// lapok gombjai) a kontextusuk gyári `.automatic` megjelenését kapják, az
+/// akció elé csak egy halk kattanás kerül. Summit-skinben a `McSound` néma,
+/// így ott a gomb viselkedése a gyárival azonos.
+struct McClickButtonStyle: PrimitiveButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Button(role: configuration.role) {
+            McSound.play(.click)
+            configuration.trigger()
+        } label: {
+            configuration.label
+        }
+        .buttonStyle(.automatic)
+    }
+}
+
+/// A `.plain` kattanó párja: ugyanaz a keret nélküli gomb, Minecraftban
+/// halk kattanással (a gyökér-stílust a `.plain` felülírná, és néma lenne).
+struct McPlainClickButtonStyle: PrimitiveButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Button(role: configuration.role) {
+            McSound.play(.click)
+            configuration.trigger()
+        } label: {
+            configuration.label
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+extension PrimitiveButtonStyle where Self == McPlainClickButtonStyle {
+    /// `.plain` + Minecraft-kattanás.
+    static var skinPlain: McPlainClickButtonStyle { McPlainClickButtonStyle() }
+}
+
 extension View {
     /// `.buttonStyle(.glass)` / `.glassProminent` skin-érzékeny cseréje.
     @ViewBuilder
@@ -579,8 +615,14 @@ struct McTextFieldFrame: ViewModifier {
 /// skinben szólal meg; `.ambient` munkamenet, így a némító kapcsoló
 /// elnémítja, és sosem szakítja meg a zenét. Hangerő-/némítás-beállítás
 /// az appban nincs, a rendszeré érvényes.
+///
+/// Hangerő-hierarchia: a sima gombok kattanása halk (`buttonVolume`), a
+/// tabsáv/hotbar `tab`-kattanása a legerősebb — ez egy limiterrel feljebb
+/// húzott külön asset, mert az eredeti klikk csúcsa már 0 dBFS, a lejátszó
+/// hangereje 1 fölé nem mehet.
 enum McSound: String, CaseIterable {
     case click = "mc_snd_click_stereo"
+    case tab = "mc_snd_click_tab"
     case levelUp = "mc_snd_levelup"
     case orb = "mc_snd_orb"
     case pop = "mc_snd_pop"
@@ -593,8 +635,24 @@ enum McSound: String, CaseIterable {
     private static var sessionReady = false
     private static let poolSize = 3
 
-    static func play(_ sound: McSound, volume: Float = 1) {
+    /// Sima gomb-kattanás hangereje (a tabsávhoz képest halk).
+    static let buttonVolume: Float = 0.45
+
+    /// Ugyanazon hang utolsó indítása: ha egy gomb a stílusából ÉS az
+    /// akciójából is kattan (vagy a globális gombstílus és egy explicit hívás
+    /// fut egyszerre), a második nem indít új lejátszást, csak a hangerőt
+    /// emeli a nagyobbikra — egy koppintás = egy kattanás.
+    private static var lastStart: [McSound: (at: CFTimeInterval, player: AVAudioPlayer)] = [:]
+    private static let mergeWindow: CFTimeInterval = 0.09
+
+    static func play(_ sound: McSound, volume: Float? = nil) {
         guard MinecraftTheme.isActive else { return }
+        let volume = volume ?? (sound == .click ? buttonVolume : 1)
+        let now = CACurrentMediaTime()
+        if let last = lastStart[sound], now - last.at < mergeWindow, last.player.isPlaying {
+            last.player.volume = max(last.player.volume, volume)
+            return
+        }
         guard prepareSession() else { return }
         var players = pool[sound] ?? []
         if players.count < poolSize, let fresh = makePlayer(sound) {
@@ -606,6 +664,7 @@ enum McSound: String, CaseIterable {
         player.volume = volume
         player.currentTime = 0
         player.play()
+        lastStart[sound] = (now, player)
     }
 
     /// Hosszú hang (pl. a 5-ös jegy fanfárja) idő előtti leállítása.
@@ -818,6 +877,7 @@ struct McNavLink<Destination: View, Label: View>: View {
                 McGlyph(kind: .chevronRight, size: 16).foregroundStyle(.secondary)
             }
             .overlay { NavigationLink { destination().mcBackButton() } label: { EmptyView() }.opacity(0) }
+            .mcLinkClick()
         } else {
             NavigationLink(destination: destination, label: label)
         }
@@ -836,6 +896,7 @@ struct McNavValueLink<Value: Hashable, Label: View>: View {
                 McGlyph(kind: .chevronRight, size: 16).foregroundStyle(.secondary)
             }
             .overlay { NavigationLink(value: value) { EmptyView() }.opacity(0) }
+            .mcLinkClick()
         } else {
             NavigationLink(value: value, label: label)
         }
@@ -843,6 +904,13 @@ struct McNavValueLink<Value: Hashable, Label: View>: View {
 }
 
 extension View {
+    /// Rejtett `NavigationLink`-es listasor kattanása: a lista a linket nem
+    /// gombstílussal rajzolja, így a gyökér-stílus nem ér el hozzá — a
+    /// koppintás mellé (nem helyette) szól a halk klikk. Görgetéskor nem.
+    func mcLinkClick() -> some View {
+        simultaneousGesture(TapGesture().onEnded { McSound.play(.click) })
+    }
+
     /// Alap szövegstílus egy egész felületre (lista, lap): Minecraftban a
     /// stílus nélküli szövegek is Monocraft betűt kapnak; Summitban semmi.
     @ViewBuilder

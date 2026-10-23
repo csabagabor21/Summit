@@ -101,6 +101,16 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         didReceive response: UNNotificationResponse
     ) async {
         let info = response.notification.request.content.userInfo
+        // Óra-változás koppintás → Órarend, az érintett napra és órára
+        // (hidegindításkor is: a pozíció függőben vár a nézet születésére).
+        if (info["kind"] as? String) == "lesson",
+           let ts = info["start"] as? Double {
+            let lessonId = info["lessonId"] as? String
+            await MainActor.run {
+                HandoffCenter.openTimetable(at: Date(timeIntervalSince1970: ts), lessonID: lessonId)
+            }
+            return
+        }
         // Dolgozat-koppintás → Feladatok/Dolgozatok tab
         if (info["kind"] as? String) == "exams" {
             NotificationCenter.default.post(
@@ -161,8 +171,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     private func fresh(kind: String, userId: String, ids: [String]) -> [String] {
         let key = seenKey(kind, userId: userId)
         guard UserDefaults.standard.object(forKey: key) != nil else {
-            // Első találkozás: baseline mag, újdonság nélkül.
-            UserDefaults.standard.set(ids, forKey: key)
+            // Első találkozás: baseline mag, újdonság nélkül. Üres listával
+            // NEM vetünk magot (az még-nem-ismert / sikertelen lehúzás is
+            // lehet) — különben a következő teli listánál minden "új" lenne.
+            if !ids.isEmpty { UserDefaults.standard.set(ids, forKey: key) }
             return []
         }
         var seen = loadSeen(kind, userId: userId)
@@ -450,6 +462,59 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             userInfo: tap
         )
         return total
+    }
+
+    // MARK: - Óra-változások (helyettesítés, elmaradás, teremcsere…)
+
+    private static let lessonDayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "hu_HU")
+        f.dateFormat = "EEEE"
+        return f
+    }()
+
+    /// „ma", „holnap", különben a hét napja („csütörtök").
+    private static func lessonDayText(_ d: Date, now: Date = Date()) -> String {
+        let cal = Calendar.current
+        if cal.isDate(d, inSameDayAs: now) { return "ma" }
+        if let t = cal.date(byAdding: .day, value: 1, to: now), cal.isDate(d, inSameDayAs: t) { return "holnap" }
+        return lessonDayFormatter.string(from: d)
+    }
+
+    /// A háttér-frissítés által a közeli napokra felismert óra-változások
+    /// (KretaStore). Egy körre legfeljebb 1 banner; a látott-készlet
+    /// (változás-kulcs szerint) gondoskodik róla, hogy ugyanaz a változás
+    /// ne jelezzen kétszer. Főkapcsoló és utazás mód szerint, mint a többi.
+    @discardableResult
+    func checkLessonChanges(_ changes: [LessonChange], userId: String) -> Int {
+        guard Self.isEnabled(Self.masterKey), !changes.isEmpty else { return 0 }
+        let key = seenKey("LessonChanges", userId: userId)
+        var seen = Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
+        let fresh = changes.filter { !seen.contains($0.notificationKey) }.sorted { $0.start < $1.start }
+        guard !fresh.isEmpty else { return 0 }
+        fresh.forEach { seen.insert($0.notificationKey) }
+        // A készlet nem nőhet végtelenre (a változások rövid életűek).
+        UserDefaults.standard.set(Array(seen.suffix(300)), forKey: key)
+        if TravelMode.isActive() { return 0 }
+        func line(_ c: LessonChange) -> String {
+            let idx = c.index.trimmingCharacters(in: .whitespaces)
+            let slot = Int(idx) != nil ? "\(Self.lessonDayText(c.start)) \(idx). óra" : Self.lessonDayText(c.start)
+            return "\(slot.prefix(1).uppercased() + slot.dropFirst()): \(c.summary)"
+        }
+        let first = fresh[0]
+        let tap: [AnyHashable: Any] = ["kind": "lesson", "lessonId": first.lessonId,
+                                       "start": first.start.timeIntervalSince1970]
+        if fresh.count == 1 {
+            schedule(id: "summit.lesson.\(first.lessonId).\(first.kind.rawValue)",
+                     title: "Órarend-változás", body: line(first),
+                     userId: userId, bumpBy: 1, userInfo: tap)
+        } else {
+            schedule(id: "summit.lessons.\(Int(Date().timeIntervalSince1970))",
+                     title: "\(fresh.count) órarend-változás",
+                     body: fresh.prefix(3).map(line).joined(separator: "\n"),
+                     userId: userId, bumpBy: fresh.count, userInfo: tap)
+        }
+        return fresh.count
     }
 
     // MARK: - Demo teszt

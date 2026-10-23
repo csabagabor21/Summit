@@ -18,9 +18,17 @@ struct MessagesView: View {
     /// 1 = Feljegyzések (KRÉTA-wide elektronikus üzenetek mindenkinek).
     @State private var topTab = 0
     @State private var box: KretaAPI.Mailbox = .incoming
-    @State private var messages: [MessageItem] = []
+    /// A beérkezett doboz mentett listája a közös gyorstárból — azonnal,
+    /// a helyi olvasott-jelölésekkel (a frissítés a háttérben jön).
+    @State private var messages: [MessageItem] = MessagesView.storedIncoming()
     @State private var notes: [NoteItem] = []
-    @State private var isLoadingMessages = true
+    @State private var isLoadingMessages = KretaStore.shared.messages == nil
+
+    private static func storedIncoming() -> [MessageItem] {
+        let read = Set(UserDefaults.standard.stringArray(forKey: "firka.readMessages.v1") ?? [])
+        let list: [MessageItem] = KretaStore.shared.value(.messages) ?? []
+        return list.map { read.contains($0.id) ? $0.withRead() : $0 }
+    }
     @State private var isLoadingNotes = true
     @State private var expandedNoteIDs: Set<String> = []
 
@@ -158,7 +166,7 @@ struct MessagesView: View {
                     SkinIcon(expanded ? "chevron.up" : "chevron.down")
                         .skinFont(.caption, weight: .semibold).foregroundStyle(.tertiary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.skinPlain)
             }
             .contentShape(Rectangle())
             .onTapGesture { toggleNote(n.id, expanded: expanded) }
@@ -215,8 +223,11 @@ struct MessagesView: View {
     /// hálózat nélkül tér vissza. A váz csak üres listánál jön; egyébként
     /// a régi üzenetek maradnak, az új dinamikusan beíródik.
     func loadAll(force: Bool = false) async {
-        await loadMessages(force: force)
-        await loadNotes(force: force)
+        // A postaláda (e-Ügyintézés) és a feljegyzések (intézeti Ellenőrző)
+        // két külön host — párhuzamosan, nem egymásra várva.
+        async let m: Void = loadMessages(force: force)
+        async let n: Void = loadNotes(force: force)
+        _ = await (m, n)
     }
 
     func loadMessages(force: Bool = false) async {

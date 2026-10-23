@@ -12,6 +12,8 @@ struct DiagnosticsView: View {
     @Environment(\.colorScheme) var scheme
     var colors: AppColors { theme.colors(for: scheme) }
     @ObservedObject private var liveManager = SummitLiveActivityManager.shared
+    /// A hálózati napló élő figyelése CSAK itt (a KretaClient már nem publikálja).
+    @ObservedObject private var networkLog = KretaDiagLog.shared
     /// A worker /status válasza a mai tervre (megnyitáskor és gombra frissül).
     @State private var workerStatus: String = "–"
     /// Apple Watch szinkron-jelentés (pushonként frissül).
@@ -140,11 +142,11 @@ struct DiagnosticsView: View {
             }
             .mcListRowComfy(fill: colors.surface)
             Section {
-                if kreta.diagLog.isEmpty {
+                if networkLog.lines.isEmpty {
                     Text("Még nincs napló — húzd le a Főoldalt a frissítéshez.")
                         .skinFont(.caption).foregroundStyle(.tertiary)
                 } else {
-                    ForEach(Array(kreta.diagLog.enumerated()), id: \.offset) { _, line in
+                    ForEach(Array(networkLog.lines.enumerated()), id: \.offset) { _, line in
                         Text(line).skinFont(.caption2, design: .monospaced).foregroundStyle(.secondary)
                     }
                 }
@@ -214,7 +216,7 @@ struct DiagnosticsView: View {
             + "terv-kulcs: \(planKeyDiag)\n"
             + "watch: támogatott=\(watchReport.supportedText) session=\(watchReport.activationText) párosítva=\(watchReport.pairedText) óra-app=\(watchReport.installedText) elérhető=\(watchReport.reachableText) órarend=\(watchReport.timetableText) jegy=\(watchReport.gradesText) feladat=\(watchReport.tasksText) jegyzet=\(watchReport.cheatText) hiba=\(watchReport.errorText ?? "–") ítélet=\(watchReport.verdictText)\n"
             + "live activity: rendszer=\(liveManager.isSystemEnabled ? "engedélyezett" : "TILTVA") app=\(liveManager.isAppEnabled ? "be" : "KI") aktív=\(liveManager.activeCount) utolsó=\(liveManager.lastAction) hiba=\(liveManager.lastError ?? "–")\n"
-            + kreta.diagLog.joined(separator: "\n")
+            + networkLog.lines.joined(separator: "\n")
             + "\n--- live activity események ---\n"
             + liveManager.recentEvents.joined(separator: "\n")
             + "\n--- push ---\n"

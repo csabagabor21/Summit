@@ -92,7 +92,7 @@ struct GradeCelebrationView: View {
                             .frame(width: 34, height: 34)
                             .background(Circle().fill(Color.primary.opacity(0.08)))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.skinPlain)
                     .accessibilityLabel("Bezárás")
                 }
                 .padding(.horizontal, 20)
@@ -178,7 +178,7 @@ struct GradeCelebrationView: View {
                             .background(Capsule().fill(colors.accent))
                             .foregroundStyle(.white)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.skinPlain)
                     Button("Szuper!") {
                         NotificationManager.shared.celebrationGrade = nil
                     }

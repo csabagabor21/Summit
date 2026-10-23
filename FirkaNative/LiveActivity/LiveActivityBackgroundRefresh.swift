@@ -164,9 +164,10 @@ enum LiveActivityBackgroundRefresh {
         let store = SessionStore()
         guard let user = store.selectedUser else { return cacheHit }
         let kreta = KretaClient()
-        kreta.accessToken = user.accessToken
-        kreta.refreshToken = user.refreshToken
-        kreta.instituteCode = user.instituteCode
+        kreta.bind(user)
+        // A háttér-ébresztés eredménye is a közös (lemezes) gyorstárba kerül:
+        // a következő megnyitás már ezt mutatja az első képkockán.
+        await KretaStore.shared.activateAndWait(user)
         let iss = user.instituteCode.isEmpty
             ? (JWT.instituteCode(from: user.accessToken) ?? "")
             : user.instituteCode

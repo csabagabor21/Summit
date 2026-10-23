@@ -57,12 +57,16 @@ enum ExamRollover {
     /// Egy dolgozat feloldása: hiányzás a dolgozat napján → következő olyan
     /// óra (azonos tárgy, a dolgozat napja után, még nem elmúlt, hiányzás-
     /// mentes napon). Ha arról is van hiányzás, automatikusan továbbmegy.
+    /// - Parameters: `enabled` / `dismissedIDs` / `absenceDays`: a hívó
+    ///   egyszer olvassa / számolja (displayItems), nem dolgozatonként.
     static func resolve(exam: ExamItem, absences: [AbsenceItem], lessons: [LessonItem],
-                        now: Date = Date(), calendar: Calendar = .current) -> Resolution {
+                        now: Date = Date(), calendar: Calendar = .current,
+                        enabled: Bool? = nil, dismissedIDs: Set<String>? = nil,
+                        absenceDays precomputedDays: Set<Date>? = nil) -> Resolution {
         let original = exam.date
         let plain = Resolution(displayDate: original, rolled: false, originalDate: original, viaLesson: false)
-        guard isEnabled(), !isDismissed(exam.id) else { return plain }
-        let absenceDays = Set(absences.map { calendar.startOfDay(for: $0.date) })
+        guard enabled ?? isEnabled(), !(dismissedIDs?.contains(exam.id) ?? isDismissed(exam.id)) else { return plain }
+        let absenceDays = precomputedDays ?? Set(absences.map { calendar.startOfDay(for: $0.date) })
         let examDay = calendar.startOfDay(for: original)
         guard absenceDays.contains(examDay) else { return plain }
         let today = calendar.startOfDay(for: now)
@@ -99,8 +103,17 @@ enum ExamRollover {
         var items: [ExamItem] = []
         var rolled: Set<String> = []
         var originals: [String: Date] = [:]
+        // Kapcsoló, elvetett-készlet és hiányzásnapok egyszer (eddig
+        // dolgozatonként UserDefaults-olvasás + halmazépítés). Hiányzás nélkül
+        // semmi nem gördül — a teljes feloldás kimarad.
+        guard !absences.isEmpty, !exams.isEmpty else { return (exams, [], [:]) }
+        let enabled = isEnabled()
+        guard enabled else { return (exams, [], [:]) }
+        let dismissedIDs = dismissed()
+        let absenceDays = Set(absences.map { calendar.startOfDay(for: $0.date) })
         for e in exams {
-            let r = resolve(exam: e, absences: absences, lessons: lessons, now: now, calendar: calendar)
+            let r = resolve(exam: e, absences: absences, lessons: lessons, now: now, calendar: calendar,
+                            enabled: enabled, dismissedIDs: dismissedIDs, absenceDays: absenceDays)
             guard r.rolled else {
                 items.append(e)
                 continue

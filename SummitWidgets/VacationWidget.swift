@@ -18,7 +18,7 @@ struct VacationWidget: Widget {
 }
 
 private enum VacationWidgetStore {
-    static let kind = "VacationWidget"
+    static let kind = VacationCountdown.widgetKind
 }
 
 struct VacationWidgetEntry: TimelineEntry {

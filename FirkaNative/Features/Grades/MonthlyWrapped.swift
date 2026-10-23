@@ -256,7 +256,7 @@ struct MonthlyWrappedCard: View {
                                     .frame(width: 34, height: 34)
                                     .glassEffect(.regular.interactive(), in: Circle())
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.skinPlain)
                             .accessibilityLabel(isStarred ? "Csillag levétele (a kép újra forog)" : "Kép rögzítése erre a hónapra")
                             Button {
                                 SummitHaptics.selection()
@@ -268,7 +268,7 @@ struct MonthlyWrappedCard: View {
                                     .frame(width: 34, height: 34)
                                     .glassEffect(.regular.interactive(), in: Circle())
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.skinPlain)
                             .accessibilityLabel("Megosztás")
                             Button(action: onClose) {
                                 Image(systemName: "xmark")
@@ -277,7 +277,7 @@ struct MonthlyWrappedCard: View {
                                     .frame(width: 34, height: 34)
                                     .glassEffect(.regular.interactive(), in: Circle())
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.skinPlain)
                             .accessibilityLabel("Bezárás")
                         }
                         .padding(.top, 8)
@@ -1241,7 +1241,7 @@ struct WrappedSharePicker: View {
                             .frame(width: 34, height: 34)
                             .glassEffect(.regular.interactive(), in: Circle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.skinPlain)
                     .accessibilityLabel("Bezárás")
                     }
                 }
@@ -1271,7 +1271,7 @@ struct WrappedSharePicker: View {
                         .padding(.vertical, 14)
                         .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 18))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.skinPlain)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
                 }
@@ -1376,7 +1376,7 @@ struct MonthlyArchiveView: View {
                                 .skinFont(.caption, weight: .semibold).foregroundStyle(.tertiary)
                         }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.skinPlain)
                     .mcListRow(fill: colors.surface)
                 }
             }

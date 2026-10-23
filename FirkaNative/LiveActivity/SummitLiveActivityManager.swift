@@ -171,7 +171,7 @@ final class SummitLiveActivityManager: ObservableObject {
     /// sosem ír a cache-be.
     func uploadPlanFromCache(now: Date) async {
         guard let cached = cachedLessons(now: now),
-              let uid = SessionStore().selectedUser?.id else { return }
+              let uid = SessionStore.selectedUserId() else { return }
         let cal = Calendar.current
         let today = cached.lessons
             .filter { cal.isDate($0.start, inSameDayAs: now) }
@@ -491,7 +491,7 @@ final class SummitLiveActivityManager: ObservableObject {
             // preview/demo a cache-hez hasonlóan itt sem írhat).
             await SummitPushSync.shared.kick(
                 today: today, now: now, dayKey: key,
-                userId: SessionStore().selectedUser?.id ?? "",
+                userId: SessionStore.selectedUserId() ?? "",
                 pushToken: primaryPushToken)
         }
 
@@ -611,7 +611,7 @@ final class SummitLiveActivityManager: ObservableObject {
         for (_, t) in pushTokenTasks { t.cancel() }
         pushTokenTasks = [:]
         pushTokens = [:]
-        if let uid = SessionStore().selectedUser?.id {
+        if let uid = SessionStore.selectedUserId() {
             await SummitPushSync.shared.clear(userId: uid, dayKey: Self.dayKey(for: Date()))
             // Demo/push-teszt nyoma: a preview-kulcsot is takarítjuk.
             if UserDefaults.standard.bool(forKey: SummitPushSync.previewUsedKey) {

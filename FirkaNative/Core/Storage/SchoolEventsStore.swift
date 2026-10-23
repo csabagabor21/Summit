@@ -22,9 +22,21 @@ enum SchoolEventsStore {
     static let maxSyncedEvents = 500
     static let maxSyncChars = 48_000
 
+    /// Dekódolt lista memója: az órarend minden nézet-példányosításkor és
+    /// tabra lépéskor kérte — a JSON-dekódolás csak akkor fut, ha a tárolt
+    /// bájtok tényleg változtak (import / szinkron). Szálbiztos.
+    private static let memoLock = NSLock()
+    private static var memo: (data: Data, events: [SchoolEvent])?
+
     static func load() -> [SchoolEvent] {
-        guard let data = UserDefaults.standard.data(forKey: listKey),
-              let arr = try? JSONDecoder().decode([SchoolEvent].self, from: data) else { return [] }
+        guard let data = UserDefaults.standard.data(forKey: listKey) else { return [] }
+        memoLock.lock()
+        if let m = memo, m.data == data { memoLock.unlock(); return m.events }
+        memoLock.unlock()
+        guard let arr = try? JSONDecoder().decode([SchoolEvent].self, from: data) else { return [] }
+        memoLock.lock()
+        memo = (data, arr)
+        memoLock.unlock()
         return arr
     }
 
@@ -93,11 +105,15 @@ enum SchoolEventsStore {
         }
     }
 
-    static func dayKey(_ date: Date) -> String {
+    /// Statikus formázó (napi esemény-szűréskor soronként hívódik).
+    private static let dayKeyFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy-MM-dd"
-        return f.string(from: date)
+        return f
+    }()
+    static func dayKey(_ date: Date) -> String {
+        dayKeyFormatter.string(from: date)
     }
 
     // MARK: - Szinkron-hub (SummitSync) számára

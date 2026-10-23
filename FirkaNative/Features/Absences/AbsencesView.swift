@@ -30,8 +30,10 @@ struct AbsencesView: View {
     @EnvironmentObject var theme: ThemeStore
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var kreta: KretaClient
-    @State private var absences: [AbsenceItem] = []
-    @State private var isLoading = true
+    /// A mentett hiányzások a közös gyorstárból (KretaStore) — tabra lépéskor
+    /// azonnal; a váz csak akkor, ha még semmi nincs mentve.
+    @State private var absences: [AbsenceItem] = KretaStore.shared.value(.absences) ?? []
+    @State private var isLoading = KretaStore.shared.absences == nil
     @State private var unjustifiedExpanded = false
     @State private var justifiedExpanded = false
     @Environment(\.colorScheme) var scheme
@@ -383,10 +385,11 @@ struct AbsencesView: View {
         let hadData = !absences.isEmpty
         if !hadData { isLoading = true }
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
+        KretaStore.shared.activate(user)
         let fetched = await kreta.fetchAbsences(iss: iss, force: force)
         // Totális fetch-hiba (lejárt token, offline): a legutóbbi lista marad,
         // nem ürül ki a Hiányzások tab egy sikertelen refresh-től.
-        if !(fetched.isEmpty && hadData) { absences = fetched }
+        if !(fetched.isEmpty && hadData), absences != fetched { absences = fetched }
         isLoading = false
     }
 }
