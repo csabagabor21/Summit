@@ -46,8 +46,8 @@ enum MinecraftTheme {
     static let skyTop: Color = Color(hex: 0x6EC1F5)     // shader-ég felül
     static let skyBottom: Color = Color(hex: 0xCDEBFF)  // horizont-pára
     static let sun: Color = Color(hex: 0xFFE9A8)        // meleg napkorong
-    static let nightTop: Color = Color(hex: 0x0B1026)   // éjszakai shader-ég
-    static let nightBottom: Color = Color(hex: 0x1E2A52)
+    static let nightTop: Color = Color(hex: 0x02030A)   // vanilla éjjeli ég: majdnem fekete
+    static let nightBottom: Color = Color(hex: 0x0E1322) // horizont-köd éjjel
 
     /// Jegy → modern concrete/wool szín (telített, nem pasztell).
     static func gradeColor(for value: Int) -> Color {
@@ -285,14 +285,17 @@ extension View {
 
 /// Élő Minecraft-égbolt (shader-hangulat, BSL/Complementary-íz):
 /// a nap reggeltől estig valós idő szerint vándorol át az égen
-/// (éjjel pixel-hold + csillagok), az ég színe napszak szerint vált
-/// (hajnal-narancs, dél-türkiz, alkony-lila, éjjel-mélykék), a lapos
-/// blokk-felhők lassan sodródnak, alul fűsáv + opcionális pixel-hegy.
-/// Tiszta SwiftUI-rajz, asset nélkül. `mountain: true` a Beállítások
+/// (éjjel a játék holdja a valós holdfázissal + csillagok), az ég színe
+/// napszak szerint vált (hajnal-narancs, dél-türkiz, alkony-lila, éjjel
+/// vanilla-fekete), a lapos blokk-felhők lassan sodródnak, alul fűsáv +
+/// opcionális pixel-hegy. Sötét módban egész nap éjszaka van, 1:1 a játék
+/// éjjeli ege. `mountain: true` a Beállítások
 /// mögé hegyet is tesz.
 struct MinecraftBackdrop: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.accessibilityReduceTransparency) var reduceTransparency
+    /// Sötét módban mindig éjszaka van (vanilla éjjeli ég, valós holdfázis).
+    @Environment(\.colorScheme) var scheme
     var scrollOffset: CGFloat = 0
     var mountain: Bool = false
     /// Alsó fűsáv: a lista-hátterekben kikapcsoljuk, mert ott a
@@ -315,10 +318,12 @@ struct MinecraftBackdrop: View {
             let w = proxy.size.width, h = proxy.size.height
             let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
             let hour = Double(comps.hour ?? 12) + Double(comps.minute ?? 0) / 60
-            let night = hour < 5.5 || hour >= 20.5
+            let forcedNight = scheme == .dark
+            let night = forcedNight || hour < 5.5 || hour >= 20.5
             let shift = min(0, max(-h * 0.2, scrollOffset * 0.25))
             ZStack {
-                LinearGradient(colors: skyColors(hour: hour), startPoint: .top, endPoint: .bottom)
+                LinearGradient(colors: forcedNight ? [MinecraftTheme.nightTop, MinecraftTheme.nightBottom] : skyColors(hour: hour),
+                               startPoint: .top, endPoint: .bottom)
                     .ignoresSafeArea()
                 // God-ray: ferde fénysáv nappal (BSL-hangulat), nagyon halvány.
                 if !night {
@@ -326,10 +331,17 @@ struct MinecraftBackdrop: View {
                                    startPoint: .topLeading, endPoint: .bottomTrailing)
                         .ignoresSafeArea()
                 }
-                // Nap nappal (reggel keleten alacsonyan → délben magasan →
-                // este nyugaton alacsonyan), éjjel pixel-hold kráterekkel.
+                // Éjjel csillagok a hold és a felhők mögött (a játékban is
+                // az ég-kupolán ülnek, mindennél hátrébb).
                 if night {
-                    mcMoon().scaleEffect(48 / 56).position(x: w * moonX(hour: hour), y: 150 + shift)
+                    McStarField(shift: shift * 0.4)
+                }
+                // Nap nappal (reggel keleten alacsonyan → délben magasan →
+                // este nyugaton alacsonyan), éjjel a játék holdja a valós
+                // holdfázissal.
+                if night {
+                    McMoon(phase: MinecraftTheme.moonPhase(at: date))
+                        .position(x: w * moonX(hour: hour), y: 150 + shift)
                 } else {
                     let (sx, sy, tint) = sunPose(hour: hour, w: w)
                     // Kemény négyzet-nap, világosabb maggal (mint a játék napja);
@@ -344,20 +356,11 @@ struct MinecraftBackdrop: View {
                 mcCloudLane(width: w, top: 110, night: night, duration: 140)
                 mcCloudLane(width: w, top: 210, night: night, duration: 200)
                 mcCloudLane(width: w, top: 300, night: night, duration: 260)
-                // Éjjel csillagpixelek.
-                if night {
-                    ForEach(0..<24, id: \.self) { i in
-                        Rectangle()
-                            .fill(.white.opacity(0.7))
-                            .frame(width: 3, height: 3)
-                            .position(x: w * Double((i * 37) % 100) / 100,
-                                      y: h * Double((i * 53) % 45) / 100 + 40 + shift * 0.4)
-                    }
-                }
                 // Pixel-hegy (Beállítások): hátsó párás csúcs + elülső
                 // hósapkás csúcs, tövében fűsávval.
                 if mountain {
                     mcMountainRange(width: w, baseY: h - 46 + shift * 0.3)
+                        .colorMultiply(MinecraftTheme.lightTint(MinecraftTheme.daylight(at: date, scheme: scheme)))
                 }
                 // Fűsáv alul igazi textúrából (lista-háttérben kikapcsolva
                 // — ott a tab-blokk a föld).
@@ -426,21 +429,14 @@ struct MinecraftBackdrop: View {
         return (x, y, tint)
     }
 
+    /// Hold-pozíció: este keleten kel (18h), hajnalban nyugaton nyugszik
+    /// (6h). Sötét módban nappal az ív közepén áll (ott nincs valós pálya).
     private func moonX(hour: Double) -> CGFloat {
-        let t = hour >= 18 ? (hour - 18) / 12 : (hour + 6) / 12
-        return 0.66 + 0.18 * min(1, max(0, t))
-    }
-
-    /// Pixel-hold: fakó kocka sötétebb kráter-kockákkal.
-    private func mcMoon() -> some View {
-        ZStack {
-            Rectangle()
-                .fill(Color(hex: 0xE8EDF5))
-                .frame(width: 57, height: 57)
-            Rectangle().fill(Color(hex: 0xB9C2D4)).frame(width: 15, height: 15).offset(x: -9, y: -9)
-            Rectangle().fill(Color(hex: 0xB9C2D4)).frame(width: 9, height: 9).offset(x: 12, y: 6)
-            Rectangle().fill(Color(hex: 0xC7CFE0)).frame(width: 9, height: 9).offset(x: 3, y: -15)
-        }
+        let t: Double
+        if hour >= 18 { t = (hour - 18) / 12 }
+        else if hour < 6 { t = (hour + 6) / 12 }
+        else { t = 0.5 }
+        return 0.66 + 0.18 * t
     }
 
     // MARK: - Felhők
@@ -449,7 +445,8 @@ struct MinecraftBackdrop: View {
     /// egy réteg éles téglalap), végtelen lineáris sodrással.
     /// Reduce Motion mellett áll.
     private func mcCloudLane(width: CGFloat, top: CGFloat, night: Bool, duration: Double) -> some View {
-        let tint: Color = night ? Color(hex: 0x3A4666).opacity(0.6) : .white.opacity(0.9)
+        // Éjjel a vanilla felhő is szinte az ég színére sötétül.
+        let tint: Color = night ? Color(hex: 0x161A26).opacity(0.85) : .white.opacity(0.9)
         return DriftingCloud(width: width, top: top, duration: duration, reduceMotion: reduceMotion) {
             HStack(spacing: 0) {
                 Rectangle().fill(tint).frame(width: 120, height: 14)
@@ -571,8 +568,10 @@ private enum McNoise {
 
 extension MinecraftTheme {
     /// Napfény 0…1 a valós idő szerint (ugyanazok a sarokpontok, mint az
-    /// égbolté): éjjel 0, hajnalban/alkonykor átúszik, nappal 1.
-    static func daylight(at date: Date) -> Double {
+    /// égbolté): éjjel 0, hajnalban/alkonykor átúszik, nappal 1. Sötét
+    /// módban mindig éjszaka van.
+    static func daylight(at date: Date, scheme: ColorScheme) -> Double {
+        if scheme == .dark { return 0 }
         let c = Calendar.current.dateComponents([.hour, .minute], from: date)
         let h = Double(c.hour ?? 12) + Double(c.minute ?? 0) / 60
         switch h {
@@ -583,19 +582,88 @@ extension MinecraftTheme {
         default: return 0
         }
     }
+
+    /// Világítás-szorzó (a játék lightmapje): nappal fehér (nincs hatás),
+    /// éjjel sötét, kékes égfény — a talajra, fűre, hegyre egyformán.
+    static func lightTint(_ light: Double) -> Color {
+        let k = 1 - min(1, max(0, light))
+        return Color(red: 1 - 0.68 * k, green: 1 - 0.66 * k, blue: 1 - 0.52 * k)
+    }
+
+    /// A játék nyolc holdfázisa a sajátja sorrendjében (0 = újhold,
+    /// 4 = telihold), a hozzájuk tartozó 1.21.11-es textúrával.
+    static let moonSprites: [String] = [
+        "mc_env_moon_new_moon", "mc_env_moon_waxing_crescent", "mc_env_moon_first_quarter",
+        "mc_env_moon_waxing_gibbous", "mc_env_moon", "mc_env_moon_waning_gibbous",
+        "mc_env_moon_third_quarter", "mc_env_moon_waning_crescent",
+    ]
+
+    /// Valós holdfázis 0…7-re kerekítve: az égen ugyanaz a hold látszik,
+    /// ami kint. Referencia-újhold 2000-01-06 18:14 UTC, szinodikus hónap
+    /// 29,530588853 nap (a hiba pár óra, a 8 fokozathoz bőven elég).
+    static func moonPhase(at date: Date) -> Int {
+        let synodic = 29.530588853
+        let reference = Date(timeIntervalSince1970: 947_182_440)
+        let days = date.timeIntervalSince(reference) / 86_400
+        let age = (days.truncatingRemainder(dividingBy: synodic) + synodic).truncatingRemainder(dividingBy: synodic)
+        return Int((age / synodic * 8).rounded()) % 8
+    }
+}
+
+/// A játék holdja: a 32×32-es textúra (a 8×8-as korong + derengés) 6 pt-os
+/// pixelekkel, additív keveréssel — a fekete háttere így eltűnik, a
+/// derengés az égre világít, pont ahogy a játék rajzolja.
+struct McMoon: View {
+    var phase: Int
+
+    var body: some View {
+        MinecraftTheme.mcPixelImage(MinecraftTheme.moonSprites[(phase % 8 + 8) % 8], size: 32 * 6)
+            .blendMode(.plusLighter)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
+/// Éjjeli csillagmező: apró, eltérő fényerejű négyzetek fix (seedelt)
+/// helyen, nem villognak — a vanilla csillagai sem. Egy Canvasban, hogy
+/// a sok pont ne legyen sok nézet.
+struct McStarField: View {
+    var shift: CGFloat = 0
+
+    var body: some View {
+        Canvas { ctx, size in
+            // Sűrűség területarányosan: kb. egy csillag 3000 pt²-enként a
+            // felső 70 %-ban (lent a horizont-köd elnyeli őket).
+            let band = size.height * 0.7
+            let count = Int(size.width * band / 3000)
+            for i in 0..<count {
+                let x = McNoise.unit(i, 1, 101) * size.width
+                let y = McNoise.unit(i, 2, 103) * band + shift
+                let s: CGFloat = McNoise.hash(i, 3, 107) % 4 == 0 ? 3 : 2
+                let fade = 1 - y / max(1, band)
+                let a = (0.35 + McNoise.unit(i, 4, 109) * 0.45) * (0.4 + 0.6 * fade)
+                ctx.fill(Path(CGRect(x: x.rounded(), y: y.rounded(), width: s, height: s)),
+                         with: .color(.white.opacity(a)))
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
 }
 
 /// Saját rajzolású fűblokk-talaj (nincs benne Mojang-textúra): 3 pt-os
 /// pixelrácson seedelt földzaj, csöpögő fűperem, kavicsok, lefelé
 /// sötétedő mélység, a tetején szélben ringó fű és virágok. A fény a
-/// napszakot követi, mint az égbolt. A home-jelző alá is lenyúlik.
+/// napszakot követi, mint az égbolt; sötét módban éjszaka van. A home-jelző alá is lenyúlik.
 struct McGrassBlockFooter: View {
     var height: CGFloat = 148
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         TimelineView(.everyMinute) { tl in
-            let light = MinecraftTheme.daylight(at: tl.date)
+            let light = MinecraftTheme.daylight(at: tl.date, scheme: scheme)
             McSoil()
                 .overlay(alignment: .top) {
                     McFlora(animated: !reduceMotion)
@@ -603,10 +671,15 @@ struct McGrassBlockFooter: View {
                         .offset(y: -McFlora.maxHeight + McSoil.unit)
                         .allowsHitTesting(false)
                 }
-                .overlay(Color(hex: 0x0B1026).opacity(0.5 * (1 - light)).allowsHitTesting(false))
+                // Szorzás, nem rátett réteg: a talaj fölé lógó fű és
+                // virágok is ugyanúgy sötétülnek, az ég nem.
+                .colorMultiply(MinecraftTheme.lightTint(light))
         }
-        .frame(height: height)
+        // Előbb a safe area elengedése, utána a fix magasság: így a föld a
+        // keret alján túl, a home-jelző alá is lenyúlik (fordítva a fix
+        // keret középre tenné, és alul kilátszana a lista).
         .ignoresSafeArea(.container, edges: .bottom)
+        .frame(height: height)
         .accessibilityHidden(true)
     }
 }
