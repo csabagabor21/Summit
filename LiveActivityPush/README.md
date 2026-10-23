@@ -24,6 +24,22 @@ push-tokent, és feltölti a workerbe a mai határokhoz tartozó kész
    - Text: `BUNDLE_ID` = `hu.flint`
    - Secrets → Add: `APNS_KEY` (a `.p8` fájl TARTALMA egyben),
      `APNS_KEY_ID` (10 jegyű), `TEAM_ID` (10 jegyű).
+   - Text: `FIREBASE_PROJECT_NUMBER` = `738331591118` (a `summit-14b74`
+     projektszáma — az App Check-token `iss`/`aud` mezőjét ehhez vetjük).
+   - Text (opcionális): `FIREBASE_APP_IDS` = vesszővel elválasztott Firebase
+     app ID-k (pl. `1:738331591118:ios:…`). Ha meg van adva, más app
+     tokenje nem jó; üresen a projekt bármelyik appja elfogadott.
+   - Text: `APPCHECK_ENFORCE` — üresen hagyva **monitor mód** (lásd lent),
+     `1` = a `/plan` és a `/status` App Check nélkül 401-et ad.
+   - Secret: `ADMIN_TOKEN` — hosszú véletlen string (pl.
+     `openssl rand -hex 32`). Enélkül a `/selftest` nem létezik (404).
+   - Secret: `GEMINI_KEY` — a közös AI-tartalék Gemini-kulcsa (Google AI
+     Studio). SOHA ne kerüljön Firestore-ba vagy az appba.
+   - Text (opcionális): `GEMINI_MODEL` — alapértelmezés
+     `gemini-3.5-flash-lite`. Csak ez dönti el a modellt, a kliens nem.
+   - Binding (opcionális): Settings → Bindings → Add → **Rate limiting**,
+     neve pontosan `AI_LIMITER` (pl. 10 kérés / 60 mp) — IP-nként fojtja
+     az `/ai/generate`-et. Nélküle csak az App Check véd.
    A cron 5 percenként (`perc % 5 == 0`) LIST-tel is egyezteti az indexet,
    így egy KV-verseny miatt kimaradt terv legfeljebb 5 percet késik.
 5. **App-oldal:** `SummitPushSync.swift`-ben a `baseURL`-t átírni a worker
@@ -36,6 +52,41 @@ push-tokent, és feltölti a workerbe a mai határokhoz tartozó kész
    használja: Debug → `Summit.entitlements` (`development`), Release →
    `SummitRelease.entitlements` (`production`); mindkettő a `project.yml`
    `configs`-jában is rögzítve van, hogy az xcodegen-regen se dobja el.
+
+## App Check és a közös AI-tartalék (2026-10-23)
+
+A repo nyilvános, így a worker címe és a kérésformátum is az: auth nélkül
+bárki feltölthetne/törölhetne terveket, olvashatná a `/status`-t, és
+rángathatná az APNs-t a `/selftest`-tel. Ezért:
+
+- **`/plan`, `/status`** — Firebase App Check (`X-Firebase-AppCheck`
+  fejléc, RS256 JWT, a Google JWKS-ével ellenőrizve). Bevezetés két
+  lépésben, hogy a régi appverziók ne haljanak meg a deploytól:
+  1. **Monitor mód** (`APPCHECK_ENFORCE` üres): minden kérés átmegy, de a
+     log soronként írja: `appcheck=ok path=/plan`, `appcheck=missing …`
+     (régi app), `appcheck=invalid:<ok> …`. Observability → Logs → szűrés
+     `appcheck=`-re.
+  2. **Éles mód** (`APPCHECK_ENFORCE` = `1`): ha a `missing` sorok
+     gyakorlatilag eltűntek (a userek frissítettek), átkapcsolni. Innen a
+     token nélküli kérés 401 `{"ok":false,"error":"app-check"}`.
+- **`/selftest`** — csak `Authorization: Bearer <ADMIN_TOKEN>`-nel.
+- **`POST /ai/generate`** — Gemini-proxy a közös, ingyenes AI-tartalékhoz
+  (saját Meta-kulcs nélküli jegyzetgenerálás). App Check itt MINDIG
+  kötelező (monitor módban is), a törzs a Gemini natív `generateContent`
+  alakja modell nélkül; a worker streamként, parse nélkül továbbítja a
+  `GEMINI_MODEL`-re a `GEMINI_KEY`-jel, max 20 MB. Válaszok: 200 = a Gemini
+  válasza változatlanul, 401 = App Check, 411/413 = hiányzó/túl nagy
+  Content-Length, 429 = keret (saját `AI_LIMITER` vagy a Gemini), 502
+  `upstream-auth` = a `GEMINI_KEY` rossz/visszavont, 503 = nincs beállítva.
+  A tananyag sosem kerül a logba.
+
+Az App Check-token csak akkor érvényes, ha a Firebase konzolban
+(App Check → Apps) az iOS app regisztrálva van App Attest (és DeviceCheck)
+szolgáltatóval; szimulátoros/Debug buildhez a konzolban debug tokent kell
+felvenni (az app a Xcode-konzolra írja ki első induláskor).
+
+Tesztek (élő worker és Google nélkül, mockolt fetch/KV/JWKS):
+`node --test LiveActivityPush/`
 
 ## Amit mástól kell kérni (egyszer)
 
@@ -60,10 +111,11 @@ Live Activity ettől még működik.)
   viszont backoff-fal (5p, 15p, 30p, 60p...), hogy egy rossz kulcs ne egye
   meg a napi KV-íráskeretet (2026-10-15). Azonos tartalmú re-upload
   (pl. minden app-megnyitás) 0 KV-írással megúszható (`uploadHash`).
-- Health: https://calm-leaf-ff15.gaborcsabusz.workers.dev/ → `{"ok":true,"service":"summit-liveactivity-push","version":"2026-09-18"}`
+- Health: https://calm-leaf-ff15.gaborcsabusz.workers.dev/ → `{"ok":true,"service":"summit-liveactivity-push","version":"2026-10-23"}`
   (ha a `version` régebbi, a dashboardon még a korábbi kód fut — újra kell deployolni).
 - **ELSŐ LÉPÉS push-hiba esetén — kulcs-ellenőrzés telefon nélkül:**
-  `GET /selftest` (vagy `/selftest?sandbox=1`). Csupa-nulla device tokennel
+  `curl -H "Authorization: Bearer $ADMIN_TOKEN" https://calm-leaf-ff15.gaborcsabusz.workers.dev/selftest`
+  (vagy `/selftest?sandbox=1`; `ADMIN_TOKEN` nélkül 404, rossz tokennel 401). Csupa-nulla device tokennel
   bekopogtat az APNs-nél, tehát senkinek semmi nem megy ki, de a válaszban
   ott van a használt `keyId`/`teamId`/`topic`, a nyers vs. trimmelt hossz
   (ha `keyIdRaw` > `keyId`, whitespace ragadt a secretbe), és egy magyar
@@ -83,6 +135,8 @@ Live Activity ettől még működik.)
   400 BadDeviceToken vagy
   DeviceTokenNotForTopic = sandbox/prod keveredés vagy rossz BUNDLE_ID,
   `indexNext: "NOT-IN-INDEX"` = 5 percen belül a LIST-egyeztetés beteszi.
+  Éles App Check módban (`APPCHECK_ENFORCE=1`) curl-lel már nem hívható
+  (401) — onnan az app Diagnosztika-tabja mutatja, ami érvényes tokent küld.
 - Az utolsó óra végére az app `end: true` entryt küld → a worker
   `event: "end"` + `dismissal-date` (+1 perc) pusht küld, a kártya lekerül.
 - Esti push-teszt tanítási időn kívül: Fejlesztő → Idő-eltolás csúszka
@@ -90,9 +144,10 @@ Live Activity ettől még működik.)
   tölt (a valós tervet nem bántja), a worker ugyanúgy kiküldi a határokat.
   Zárd le a telefont és várd az átkapcsolást. A csúszka kikapcsolásakor az
   első valós sync törli a preview-nyomot.
-- Kézi próba curl-lel:
-  `curl -X POST https://calm-leaf-ff15.gaborcsabusz.workers.dev/plan -H 'content-type: application/json' -d '{"userId":"teszt","dayKey":"2026-09-10","pushToken":"...","sandbox":true,"entries":[]}'`
-  → `{"ok":true,"entries":0}`.
+- A végpontok viselkedése (App Check, `/selftest`-kapu, AI-proxy) az élő
+  worker hívása nélkül, helyben ellenőrizhető: `node --test LiveActivityPush/`.
+  Az élő `/plan`-t ne curl-özd kamu adattal — monitor módban az is valódi
+  KV-írás a napi keretből.
 
 ## Költség
 
