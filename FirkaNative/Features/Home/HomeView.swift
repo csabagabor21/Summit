@@ -33,7 +33,7 @@ struct HomeView: View {
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("\(vm.greeting), \(firstName)!").mcTitle()
-                        Text(Date.now.formatted(date: .complete, time: .omitted).capitalized).font(.subheadline).foregroundStyle(.secondary)
+                        Text(Date.now.formatted(date: .complete, time: .omitted).capitalized).skinFont(.subheadline).foregroundStyle(.secondary)
                     }
                     .summitEntrance()
                     .listRowBackground(Color.clear)
@@ -51,25 +51,25 @@ struct HomeView: View {
                             wrappedMonth = banner
                         } label: {
                             HStack(spacing: 12) {
-                                Image(systemName: "sparkles")
-                                    .font(.system(size: 18, weight: .semibold))
+                                SkinIcon("sparkles", size: 24)
+                                    .skinFont(size: 18, weight: .semibold)
                                     .foregroundStyle(colors.accent)
                                     .frame(width: 30)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(banner.wrappedTitle)
-                                        .font(.subheadline.weight(.bold))
+                                        .skinFont(.subheadline, weight: .bold)
                                     let st = MonthlyWrapped.stats(grades: vm.grades, month: banner, exams: vm.exams, absences: vm.absences)
                                     Text("\(st.count) jegy • \(String(format: "%.1f", st.avg)) átlag")
-                                        .font(.caption).foregroundStyle(.secondary)
+                                        .skinFont(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                                SkinIcon("chevron.right")
+                                    .skinFont(.caption, weight: .semibold).foregroundStyle(.tertiary)
                             }
                         }
                         .buttonStyle(.plain)
-                        .listRowBackground(colors.surface)
-                        .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                        .listRowBackground(MinecraftTheme.skinRowBackground(colors.surface))
+                        .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)))
                         .listRowSeparator(.hidden)
                     }
                 }
@@ -78,12 +78,12 @@ struct HomeView: View {
                 // végre látszik, miért üres az oldal, nem hal meg némán.
                 if let err = vm.error, !kreta.sessionExpired {
                     Section {
-                        Label(err, systemImage: "wifi.exclamationmark")
-                            .font(.subheadline.weight(.medium))
+                        SkinLabel(err, systemImage: "wifi.exclamationmark")
+                            .skinFont(.subheadline, weight: .medium)
                             .foregroundStyle(.orange)
                             .fixedSize(horizontal: false, vertical: true)
-                            .listRowBackground(Color.orange.opacity(scheme == .dark ? 0.12 : 0.08))
-                            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                            .listRowBackground(MinecraftTheme.skinRowBackground(Color.orange.opacity(scheme == .dark ? 0.12 : 0.08)))
+                            .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
                             .listRowSeparator(.hidden)
                     }
                 }
@@ -94,19 +94,19 @@ struct HomeView: View {
                 if kreta.sessionExpired {
                     Section {
                         HStack(spacing: 8) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.subheadline.weight(.semibold))
+                            SkinIcon("exclamationmark.triangle.fill", size: 24)
+                                .skinFont(.subheadline, weight: .semibold)
                             Text("A KRÉTA-munkamenet már nem létezik — csak a legutóbbi mentett adatokat látod.")
-                                .font(.subheadline.weight(.semibold))
+                                .skinFont(.subheadline, weight: .semibold)
                                 .fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 4)
                             Button("Bejelentkezés") { session.logout() }
-                                .font(.subheadline.weight(.bold))
-                                .buttonStyle(.plain)
+                                .skinFont(.subheadline, weight: .bold)
+                                .skinInlineButton()
                         }
                         .foregroundStyle(.red)
-                        .listRowBackground(Color.red.opacity(scheme == .dark ? 0.12 : 0.08))
-                        .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                        .listRowBackground(MinecraftTheme.skinRowBackground(Color.red.opacity(scheme == .dark ? 0.12 : 0.08)))
+                        .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
                         .listRowSeparator(.hidden)
                     }
                 }
@@ -123,24 +123,24 @@ struct HomeView: View {
                         Text("Nincs jegy").foregroundStyle(.secondary).mcListRow(fill: colors.surface)
                     } else {
                         ForEach(vm.grades.sorted { $0.date > $1.date }.prefix(3)) { g in
-                            NavigationLink {
+                            McNavLink {
                                 let grouped = Dictionary(grouping: vm.grades, by: { $0.subject })
                                 SubjectDetailView(subject: g.subject, grades: (grouped[g.subject] ?? [g]).sorted { $0.date < $1.date })
                             } label: {
                                 HStack(spacing: 10) {
                                     GradeCircle(value: g.value, size: 32)
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(g.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
+                                        Text(g.subject).skinFont(.subheadline, weight: .semibold).lineLimit(1)
                                         if !g.plainTopic.isEmpty {
-                                            Text(g.plainTopic).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                            Text(g.plainTopic).skinFont(.caption).foregroundStyle(.secondary).lineLimit(1)
                                         }
                                     }
                                     Spacer()
-                                    Text(g.date.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.secondary)
+                                    Text(g.date.formatted(date: .abbreviated, time: .omitted)).skinFont(.caption2).foregroundStyle(.secondary)
                                 }
                             }.mcListRow(fill: colors.surface)
                         }
-                        NavigationLink("Összes jegy") { GradesView() }.mcListRow(fill: colors.surface)
+                        McNavLink { GradesView() } label: { Text("Összes jegy") }.mcListRow(fill: colors.surface)
                     }
                 } header: { Text("Legújabb jegyek").mcSectionHeader() }
 
@@ -155,9 +155,9 @@ struct HomeView: View {
                         HStack(alignment: .top, spacing: 16) {
                             // Bal: dolgozatok
                             VStack(alignment: .leading, spacing: 10) {
-                                Label("Közelgő dolgozatok", systemImage: "pencil.and.list.clipboard").mcSectionHeader()
+                                SkinLabel("Közelgő dolgozatok", systemImage: "pencil.and.list.clipboard").mcSectionHeader()
                                 if vm.exams.isEmpty {
-                                    Text("Nincs dolgozat").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 12))
+                                    Text("Nincs dolgozat").skinFont(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 12))
                                 } else {
                                     ForEach(Array(examsSorted), id: \.id) { e in
                                         PadExamRow(exam: e, done: completed.isExamDone(e.id), colors: colors, scheme: scheme, rolled: vm.rolledExamIDs.contains(e.id)) {
@@ -165,14 +165,14 @@ struct HomeView: View {
                                             withAnimation(SummitMotion.snappy) { completed.toggleExam(e.id) }
                                         }
                                     }
-                                    NavigationLink("Összes dolgozat (\(vm.exams.count))") { NotesView(initialFilter: 1) }.font(.caption.weight(.semibold)).tint(colors.accent)
+                                    NavigationLink("Összes dolgozat (\(vm.exams.count))") { NotesView(initialFilter: 1) }.skinFont(.caption, weight: .semibold).tint(colors.accent)
                                 }
                             }.frame(maxWidth: .infinity, alignment: .topLeading)
                             // Jobb: feladatok
                             VStack(alignment: .leading, spacing: 10) {
-                                Label("Közelgő feladatok", systemImage: "checklist").mcSectionHeader()
+                                SkinLabel("Közelgő feladatok", systemImage: "checklist").mcSectionHeader()
                                 if vm.homeworks.isEmpty {
-                                    Text("Nincs feladat").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 12))
+                                    Text("Nincs feladat").skinFont(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 12))
                                 } else {
                                     ForEach(Array(hwSorted), id: \.id) { h in
                                         PadHomeworkRow(homework: h, done: completed.isHomeworkDone(h.id), colors: colors, scheme: scheme) {
@@ -180,7 +180,7 @@ struct HomeView: View {
                                             withAnimation(SummitMotion.snappy) { completed.toggleHomework(h.id) }
                                         }
                                     }
-                                    NavigationLink("Összes feladat (\(hwVisible.count))") { NotesView() }.font(.caption.weight(.semibold)).tint(colors.accent)
+                                    NavigationLink("Összes feladat (\(hwVisible.count))") { NotesView() }.skinFont(.caption, weight: .semibold).tint(colors.accent)
                                 }
                             }.frame(maxWidth: .infinity, alignment: .topLeading)
                         }.padding(.vertical, 4)
@@ -222,9 +222,9 @@ struct HomeView: View {
                                 }
                             )
                         }
-                        NavigationLink { NotesView(initialFilter: 1) } label: {
+                        McNavLink { NotesView(initialFilter: 1) } label: {
                             Text("Összes dolgozat (\(sorted.count))")
-                        }
+                        }.mcListRow(fill: colors.surface)
                     }
                 } header: { Text("Közelgő dolgozatok").mcSectionHeader() }
 
@@ -258,14 +258,15 @@ struct HomeView: View {
                                 }
                             )
                         }
-                        NavigationLink { NotesView() } label: {
+                        McNavLink { NotesView() } label: {
                             Text("Összes feladat (\(sorted.count))")
-                        }
+                        }.mcListRow(fill: colors.surface)
                     }
                 } header: { Text("Közelgő feladatok").mcSectionHeader() }
                 }
             }
             .listStyle(.insetGrouped)
+            .mcDefaultFont()
             // iPad: keskenyebb, középre igazított lista — nem nyúlik szét 12.9"-en
             .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
             .padding(.horizontal, MacSupport.sidePadding)
@@ -348,17 +349,23 @@ struct HomeView: View {
             .summitToolbarBackground()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 18) {
+                    HStack(spacing: MinecraftTheme.isActive ? 12 : 18) {
                         // Értesítések (KRÉTA-postaláda) — a 6. tab helyett itt,
                         // hogy ne legyen rendszer-More tab a TabBaron.
                         NavigationLink { MessagesView() } label: {
-                            Image(systemName: "bell.fill")
-                                .font(.body)
+                            SkinIcon("bell.fill", size: 24)
+                                .skinFont(.body)
                                 .foregroundStyle(colors.accent)
                                 .overlay(alignment: .topTrailing) {
                                     if unreadCount > 0 {
-                                        Circle().fill(Color.red).frame(width: 9, height: 9)
-                                            .offset(x: 5, y: -5)
+                                        // Minecraftban kemény négyzet-jelvény (nincs kerek pötty).
+                                        if MinecraftTheme.isActive {
+                                            Rectangle().fill(Color.red).frame(width: 9, height: 9)
+                                                .offset(x: 5, y: -5)
+                                        } else {
+                                            Circle().fill(Color.red).frame(width: 9, height: 9)
+                                                .offset(x: 5, y: -5)
+                                        }
                                     }
                                 }
                         }
@@ -367,6 +374,7 @@ struct HomeView: View {
                             .buttonStyle(.plain) // különben a rendszer glass-pilleket tesz a kör mögé
                     }
                 }
+                .skinToolbarBackground()
             }
         }
         .tint(colors.accent)
@@ -444,14 +452,17 @@ private struct PadExamRow: View {
     var onToggle: () -> Void
     var body: some View {
         HStack(spacing: 10) {
-            Button(action: onToggle) {
-                Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20)).foregroundStyle(done ? Color.green : .secondary)
+            Button {
+                McSound.play(.pop)
+                onToggle()
+            } label: {
+                SkinIcon(done ? "checkmark.circle.fill" : "circle", size: 24)
+                    .skinFont(size: 20).foregroundStyle(done ? Color.green : .secondary)
             }.buttonStyle(.plain)
             VStack(alignment: .leading, spacing: 2) {
-                Text(exam.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
-                Text(exam.plainDescription.isEmpty ? exam.mode : "\(exam.mode) • \(exam.plainDescription)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                Text(examLessonLine(exam)).font(.caption2).foregroundStyle(.tertiary)
+                Text(exam.subject).skinFont(.subheadline, weight: .semibold).lineLimit(1)
+                Text(exam.plainDescription.isEmpty ? exam.mode : "\(exam.mode) • \(exam.plainDescription)").skinFont(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(examLessonLine(exam)).skinFont(.caption2).foregroundStyle(.tertiary)
             }
             Spacer()
         }
@@ -481,14 +492,17 @@ private struct PadHomeworkRow: View {
     var onToggle: () -> Void
     var body: some View {
         HStack(spacing: 10) {
-            Button(action: onToggle) {
-                Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20)).foregroundStyle(done ? Color.green : .secondary)
+            Button {
+                McSound.play(.pop)
+                onToggle()
+            } label: {
+                SkinIcon(done ? "checkmark.circle.fill" : "circle", size: 24)
+                    .skinFont(size: 20).foregroundStyle(done ? Color.green : .secondary)
             }.buttonStyle(.plain)
             VStack(alignment: .leading, spacing: 2) {
-                Text(homework.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
-                Text(homework.plainTitle.isEmpty ? "(nincs leírás)" : homework.plainTitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                Text(homework.deadline.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.tertiary)
+                Text(homework.subject).skinFont(.subheadline, weight: .semibold).lineLimit(1)
+                Text(homework.plainTitle.isEmpty ? "(nincs leírás)" : homework.plainTitle).skinFont(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(homework.deadline.formatted(date: .abbreviated, time: .omitted)).skinFont(.caption2).foregroundStyle(.tertiary)
             }
             Spacer()
         }
@@ -521,29 +535,32 @@ private struct HomeAssignmentRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Button(action: onToggle) {
-                Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 21, weight: .regular))
+            Button {
+                McSound.play(.pop)
+                onToggle()
+            } label: {
+                SkinIcon(done ? "checkmark.circle.fill" : "circle", size: 24)
+                    .skinFont(size: 21, weight: .regular)
                     .foregroundStyle(done ? Color.green : .secondary)
                     .frame(width: 22, height: 22)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             VStack(alignment: .leading, spacing: 3) {
-                Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1)
-                Text(detail).font(.callout).foregroundStyle(.secondary).lineLimit(2)
+                Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1)
+                Text(detail).skinFont(.callout).foregroundStyle(.secondary).lineLimit(2)
                 HStack(spacing: 6) {
-                    Text(date.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.secondary)
+                    Text(date.formatted(date: .abbreviated, time: .omitted)).skinFont(.caption2).foregroundStyle(.secondary)
                     if let l = lesson {
-                        Label("\(l.index). óra • \(l.room)", systemImage: "clock.fill")
-                            .font(.caption2.weight(.medium)).foregroundStyle(.secondary).lineLimit(1)
+                        SkinLabel("\(l.index). óra • \(l.room)", systemImage: "clock.fill")
+                            .skinFont(.caption2, weight: .medium).foregroundStyle(.secondary).lineLimit(1)
                     } else if let n = lessonIndexFallback {
-                        Text("(\(n). óra)").font(.caption2).foregroundStyle(.secondary)
+                        Text("(\(n). óra)").skinFont(.caption2).foregroundStyle(.secondary)
                     }
                     if rolled {
-                        Text("Pótló").font(.caption2.weight(.bold)).foregroundStyle(.red)
+                        Text("Pótló").skinFont(.caption2, weight: .bold).foregroundStyle(.red)
                             .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(Capsule().fill(Color.red.opacity(0.12)))
+                            .background(MinecraftTheme.capsule.fill(Color.red.opacity(0.12)))
                     }
                 }
             }
@@ -636,12 +653,12 @@ private struct HomeLiveCard: View {
     private func innerContent(calc: LiveCalc) -> some View {
                 switch calc.state {
                 case .empty:
-                    Label("Ma nincs több órád", systemImage: "moon.zzz.fill").font(.subheadline).foregroundStyle(.secondary)
+                    SkinLabel("Ma nincs több órád", systemImage: "moon.zzz.fill").skinFont(.subheadline).foregroundStyle(.secondary)
                 case .summary:
-                    Label("Vége a tanévnek! Irány az összefoglaláshoz", systemImage: "arrow.right").font(.subheadline)
+                    SkinLabel("Vége a tanévnek! Irány az összefoglaláshoz", systemImage: "arrow.right").skinFont(.subheadline)
                 case .morning:
                     VStack(alignment: .leading, spacing: 8) {
-                        Label("Jó reggelt!", systemImage: "sun.max.fill").font(.headline)
+                        SkinLabel("Jó reggelt!", systemImage: "sun.max.fill").skinFont(.headline)
                         if let n = calc.next {
                             Text(n.subject)
                                 .mcDisplay(26)
@@ -650,33 +667,33 @@ private struct HomeLiveCard: View {
                                 .truncationMode(.tail)
                             HStack(spacing: 6) {
                                 if let lbl = exemptLabel(for: n) {
-                                    Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(Capsule().fill(exemptTint(for: n) ?? Color.green))
+                                    Text(lbl).skinFont(.caption2, weight: .bold).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(MinecraftTheme.capsule.fill(exemptTint(for: n) ?? Color.green))
                                 }
                                 Text(n.room)
-                                    .font(.caption2.weight(.bold).monospacedDigit())
+                                    .skinFontDigits(.caption2, weight: .bold)
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 7).padding(.vertical, 4)
-                                    .background(RoundedRectangle(cornerRadius: 6).fill(colors.accent))
+                                    .background(MinecraftTheme.shape(cornerRadius: 6, continuous: false).fill(colors.accent))
                                     .glassEffectIfAvailable(in: RoundedRectangle(cornerRadius: 6), tint: colors.accent)
                                     .lineLimit(1)
-                                Text("\(n.index). óra").font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
+                                Text("\(n.index). óra").skinFontDigits(.caption, weight: .semibold).foregroundStyle(.secondary)
                                 Text("•").foregroundStyle(.tertiary)
-                                Text(n.teacher).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                Text(n.teacher).skinFont(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                                 Spacer()
-                                Text(n.start.formatted(date: .omitted, time: .shortened)).font(.caption.weight(.medium).monospacedDigit()).foregroundStyle(.secondary)
+                                Text(n.start.formatted(date: .omitted, time: .shortened)).skinFontDigits(.caption, weight: .medium).foregroundStyle(.secondary)
                             }
                             if calc.progress > 0 {
                                 HomeLiquidProgress(progress: calc.progress, tint: n.isCancelled ? Color.red : n.isSubstituted ? Color.orange : colors.accent, remainingText: calc.remainingText, scheme: scheme, colors: colors)
                                     .padding(.top, 2)
                             }
                             attachedInfo(for: n)
-                        } else { Text("Ma nincs órád").foregroundStyle(.secondary).font(.callout) }
+                        } else { Text("Ma nincs órád").foregroundStyle(.secondary).skinFont(.callout) }
                     }
                 case .duringLesson:
                     if let c = calc.current {
                         VStack(alignment: .leading, spacing: 10) {
                             if let lbl = exemptLabel(for: c) {
-                                Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(exemptTint(for: c) ?? Color.green))
+                                Text(lbl).skinFont(.caption2, weight: .bold).foregroundStyle(.white).padding(.horizontal, 8).padding(.vertical, 4).background(MinecraftTheme.capsule.fill(exemptTint(for: c) ?? Color.green))
                             }
                             Text(c.subject)
                                 .mcDisplay(28)
@@ -685,30 +702,30 @@ private struct HomeLiveCard: View {
                                 .truncationMode(.tail)
                             HStack(spacing: 6) {
                                 Text(c.room)
-                                    .font(.caption2.weight(.bold).monospacedDigit())
+                                    .skinFontDigits(.caption2, weight: .bold)
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 7).padding(.vertical, 4)
-                                    .background(RoundedRectangle(cornerRadius: 6).fill(colors.accent))
+                                    .background(MinecraftTheme.shape(cornerRadius: 6, continuous: false).fill(colors.accent))
                                     .glassEffectIfAvailable(in: RoundedRectangle(cornerRadius: 6), tint: colors.accent)
                                     .lineLimit(1)
-                                Text("\(c.index). óra").font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
+                                Text("\(c.index). óra").skinFontDigits(.caption, weight: .semibold).foregroundStyle(.secondary)
                                 Text("•").foregroundStyle(.tertiary)
-                                Text(c.teacher).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                Text(c.teacher).skinFont(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                                 Spacer()
-                                Text("\(c.start.formatted(date: .omitted, time: .shortened))–\(c.end.formatted(date: .omitted, time: .shortened))").font(.caption.monospacedDigit()).foregroundStyle(.tertiary)
+                                Text("\(c.start.formatted(date: .omitted, time: .shortened))–\(c.end.formatted(date: .omitted, time: .shortened))").skinFontDigits(.caption).foregroundStyle(.tertiary)
                             }
                             HomeLiquidProgress(progress: calc.progress, tint: exemptTint(for: c) ?? colors.accent, remainingText: calc.remainingText, scheme: scheme, colors: colors)
                             attachedInfo(for: c)
                             if let n = calc.next {
-                                Divider().opacity(0.5)
+                                if MinecraftTheme.isActive { McSeparator() } else { Divider().opacity(0.5) }
                                 HStack(spacing: 6) {
-                                    Image(systemName: "arrow.right.circle.fill").font(.caption).foregroundStyle(.secondary)
-                                    Text("Következő: \(n.subject) • \(n.room)").font(.caption.weight(.medium)).foregroundStyle(.secondary).lineLimit(1)
+                                    SkinIcon("arrow.right.circle.fill", size: 16).skinFont(.caption).foregroundStyle(.secondary)
+                                    Text("Következő: \(n.subject) • \(n.room)").skinFont(.caption, weight: .medium).foregroundStyle(.secondary).lineLimit(1)
                                     if let lbl = exemptLabel(for: n) {
-                                        Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(exemptTint(for: n) ?? Color.green).padding(.horizontal, 5).padding(.vertical, 2).background(Capsule().fill((exemptTint(for: n) ?? Color.green).opacity(0.14)))
+                                        Text(lbl).skinFont(.caption2, weight: .bold).foregroundStyle(exemptTint(for: n) ?? Color.green).padding(.horizontal, 5).padding(.vertical, 2).background(MinecraftTheme.capsule.fill((exemptTint(for: n) ?? Color.green).opacity(0.14)))
                                     }
                                     Spacer()
-                                    Text(n.start.formatted(date: .omitted, time: .shortened)).font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
+                                    Text(n.start.formatted(date: .omitted, time: .shortened)).skinFontDigits(.caption2).foregroundStyle(.tertiary)
                                 }
                                 attachedInfo(for: n)
                             }
@@ -716,7 +733,7 @@ private struct HomeLiveCard: View {
                     }
                 case .duringBreak:
                     VStack(alignment: .leading, spacing: 8) {
-                        Label("Szünet", systemImage: "cup.and.saucer.fill").font(.headline)
+                        SkinLabel("Szünet", systemImage: "cup.and.saucer.fill").skinFont(.headline)
                         if let n = calc.next {
                             Text(n.subject)
                                 .mcDisplay(26)
@@ -725,18 +742,18 @@ private struct HomeLiveCard: View {
                                 .truncationMode(.tail)
                             HStack(spacing: 6) {
                                 if let lbl = exemptLabel(for: n) {
-                                    Text(lbl).font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(Capsule().fill(exemptTint(for: n) ?? Color.green))
+                                    Text(lbl).skinFont(.caption2, weight: .bold).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 3).background(MinecraftTheme.capsule.fill(exemptTint(for: n) ?? Color.green))
                                 }
                                 Text(n.room)
-                                    .font(.caption2.weight(.bold).monospacedDigit())
+                                    .skinFontDigits(.caption2, weight: .bold)
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 7).padding(.vertical, 4)
-                                    .background(RoundedRectangle(cornerRadius: 6).fill(colors.accent))
+                                    .background(MinecraftTheme.shape(cornerRadius: 6, continuous: false).fill(colors.accent))
                                     .glassEffectIfAvailable(in: RoundedRectangle(cornerRadius: 6), tint: colors.accent)
                                     .lineLimit(1)
-                                Text("\(n.index). óra • \(n.teacher)").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                Text("\(n.index). óra • \(n.teacher)").skinFont(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                                 Spacer()
-                                Text(n.start.formatted(date: .omitted, time: .shortened)).font(.caption.weight(.medium).monospacedDigit()).foregroundStyle(.secondary)
+                                Text(n.start.formatted(date: .omitted, time: .shortened)).skinFontDigits(.caption, weight: .medium).foregroundStyle(.secondary)
                             }
                             if calc.progress > 0 {
                                 HomeLiquidProgress(progress: calc.progress, tint: exemptTint(for: n) ?? colors.accent, remainingText: calc.remainingText, scheme: scheme, colors: colors)
@@ -745,7 +762,7 @@ private struct HomeLiveCard: View {
                             attachedInfo(for: n)
                         }
                         if let c = calc.previous {
-                            Text("Előző: \(c.subject)").font(.caption).foregroundStyle(.tertiary)
+                            Text("Előző: \(c.subject)").skinFont(.caption).foregroundStyle(.tertiary)
                         }
                     }
                 }
@@ -762,12 +779,12 @@ private struct HomeLiveCard: View {
             VStack(alignment: .leading, spacing: 3) {
                 if let e = exam {
                     let desc = e.plainDescription
-                    Label(desc.isEmpty ? "\(e.mode)" : "\(e.mode): \(desc)", systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption2.weight(.semibold)).foregroundStyle(.orange).lineLimit(1)
+                    SkinLabel(desc.isEmpty ? "\(e.mode)" : "\(e.mode): \(desc)", systemImage: "exclamationmark.triangle.fill")
+                        .skinFont(.caption2, weight: .semibold).foregroundStyle(.orange).lineLimit(1)
                 }
                 if let h = hw {
-                    Label(h.plainTitle.isEmpty ? "Házi feladat" : h.plainTitle, systemImage: "checklist")
-                        .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    SkinLabel(h.plainTitle.isEmpty ? "Házi feladat" : h.plainTitle, systemImage: "checklist")
+                        .skinFont(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
             .padding(.top, 2)
@@ -868,9 +885,9 @@ private struct HomeLiquidProgress: View {
     let colors: AppColors
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            ProgressView(value: progress).tint(tint)
+            SkinProgress(value: progress, tint: tint)
                 .animation(SummitMotion.progress, value: progress)
-            Text(remainingText).font(.caption2.weight(.medium)).foregroundStyle(.secondary).monospacedDigit().contentTransition(.numericText())
+            Text(remainingText).skinFont(.caption2, weight: .medium).foregroundStyle(.secondary).monospacedDigit().contentTransition(.numericText())
         }
     }
 }

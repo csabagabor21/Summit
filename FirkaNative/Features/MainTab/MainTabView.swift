@@ -116,6 +116,8 @@ struct MainTabView: View {
             if !wide, selected == 3 { selected = 5 }
         }
         .onChange(of: selected) { _, tab in
+            // Széles elrendezés (rendszer-tabsáv): itt nincs hotbar-callback.
+            if theme.isMinecraft, !useCustomHotbar { McSound.play(.click) }
             // Minden tabváltást hirdetünk — a másik eszköz dockjában
             // ettől jön fel a Summit ikon az aktuális hellyel.
             HandoffCenter.shared.setTab(tab)
@@ -160,34 +162,46 @@ struct MainTabView: View {
     @available(iOS 18.0, *)
     private var nativeSidebar: some View {
         TabView(selection: $selected) {
-            Tab(tabTitle(0), systemImage: tabIcon(0), value: 0) {
+            Tab(value: 0) {
                 HomeView().mcTabChrome(hidden: useCustomHotbar)
-            }
-            Tab(tabTitle(1), systemImage: tabIcon(1), value: 1) {
+            } label: { tabLabel(0) }
+            Tab(value: 1) {
                 GradesView().mcTabChrome(hidden: useCustomHotbar)
-            }
-            Tab(tabTitle(2), systemImage: tabIcon(2), value: 2) {
+            } label: { tabLabel(1) }
+            Tab(value: 2) {
                 TimetableView().mcTabChrome(hidden: useCustomHotbar)
-            }
-            Tab(tabTitle(5), systemImage: tabIcon(5), value: 5) {
+            } label: { tabLabel(2) }
+            Tab(value: 5) {
                 NotesView().mcTabChrome(hidden: useCustomHotbar)
-            }
-            Tab(tabTitle(4), systemImage: tabIcon(4), value: 4) {
+            } label: { tabLabel(5) }
+            Tab(value: 4) {
                 AbsencesView().mcTabChrome(hidden: useCustomHotbar)
-            }
+            } label: { tabLabel(4) }
             // Watch-tab CSAK széles elrendezésen (iPad / Mac sidebar) —
             // iPhone-on nincs (ott a Feladatok bal felső toolbar-gombja
             // nyitja, különben 6 tab már zsúfolt lenne).
             if watchTabVisible {
-                Tab("Watch", systemImage: "applewatch", value: 3) {
+                Tab(value: 3) {
                     CheatView()
-                }
+                } label: { tabLabel(3) }
             }
         }
         .tabViewStyle(.sidebarAdaptable)
         // Ne tegyél ide .toolbarBackground vagy .glassEffect-et:
         // iOS 26-on a TabBar/Sidebar chrome magától Liquid Glass.
         // Content glass tilos — "glass can't sample other glass".
+    }
+
+    /// Tab-címke: Summitban a gyári `Label(cím, systemImage:)`, Minecraftban
+    /// az eredeti item-textúra (előre, élesen felnagyítva — a tab-sáv
+    /// maga simítaná a 16 px-es képet) a széles elrendezés sávjában.
+    @ViewBuilder
+    private func tabLabel(_ tab: Int) -> some View {
+        if theme.isMinecraft, let ui = MinecraftTheme.tabBarImage(for: tab) {
+            Label { Text(tabTitle(tab)) } icon: { Image(uiImage: ui) }
+        } else {
+            Label(tabTitle(tab), systemImage: tabIcon(tab))
+        }
     }
 
     /// Minecraft-skinben blokkos ikonok + címek, különben a gyáriak.
@@ -224,6 +238,8 @@ struct MainTabView: View {
             selected: selected
         ) { tab in
             SummitHaptics.selection()
+            // A hotbar-slot kattan, mint a játékban (csak MC-skinben szól).
+            if tab != selected { McSound.play(.click) }
             selected = tab
         }
     }
@@ -246,13 +262,13 @@ struct MainTabView: View {
     // MARK: - iOS 17 fallback (Summit target régebbi OS-en) — natív TabView
     private var phoneTabsLegacy: some View {
         TabView(selection: $selected) {
-            HomeView().mcTabChrome(hidden: useCustomHotbar).tabItem { Label(tabTitle(0), systemImage: tabIcon(0)) }.tag(0)
-            GradesView().mcTabChrome(hidden: useCustomHotbar).tabItem { Label(tabTitle(1), systemImage: tabIcon(1)) }.tag(1)
-            TimetableView().mcTabChrome(hidden: useCustomHotbar).tabItem { Label(tabTitle(2), systemImage: tabIcon(2)) }.tag(2)
-            NotesView().mcTabChrome(hidden: useCustomHotbar).tabItem { Label(tabTitle(5), systemImage: tabIcon(5)) }.tag(5)
-            AbsencesView().mcTabChrome(hidden: useCustomHotbar).tabItem { Label(tabTitle(4), systemImage: tabIcon(4)) }.tag(4)
+            HomeView().mcTabChrome(hidden: useCustomHotbar).tabItem { tabLabel(0) }.tag(0)
+            GradesView().mcTabChrome(hidden: useCustomHotbar).tabItem { tabLabel(1) }.tag(1)
+            TimetableView().mcTabChrome(hidden: useCustomHotbar).tabItem { tabLabel(2) }.tag(2)
+            NotesView().mcTabChrome(hidden: useCustomHotbar).tabItem { tabLabel(5) }.tag(5)
+            AbsencesView().mcTabChrome(hidden: useCustomHotbar).tabItem { tabLabel(4) }.tag(4)
             if watchTabVisible {
-                CheatView().tabItem { Label("Watch", systemImage: "applewatch") }.tag(3)
+                CheatView().tabItem { tabLabel(3) }.tag(3)
             }
         }
     }
