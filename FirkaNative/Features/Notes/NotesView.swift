@@ -6,8 +6,11 @@ struct NotesView: View {
     @EnvironmentObject var kreta: KretaClient
     @EnvironmentObject var completed: CompletedStore
     @ObservedObject private var watchAvailability = WatchAvailability.shared
-    @State private var homeworks: [HomeworkItem] = []
-    @State private var exams: [ExamItem] = []
+    /// A házik / dolgozatok / órák / hiányzások a közös gyorstárból (KretaStore)
+    /// indulnak: tabra lépéskor azonnal látszik a mentett lista, a
+    /// frissítés a háttérben íródik be.
+    @State private var homeworks: [HomeworkItem]
+    @State private var exams: [ExamItem]
     /// Saját (kézzel felvett) tételek — a KRÉTA-listákkal összefésülve jelennek meg.
     @State private var customTasks: [CustomTask] = []
     /// Saját tétel ID → hányadik tanóra (a házi-sorok óraszám-pilljéhez).
@@ -22,21 +25,66 @@ struct NotesView: View {
     @State private var pendingLesson: LessonItem?
     @State private var openAddAfterPicker = false
     /// Órarendi órák az óraszám-pillekhez (a csatolmány-lehúzás mellékterméke).
-    @State private var lessons: [LessonItem] = []
+    @State private var lessons: [LessonItem]
     /// Hiányzások a dolgozat-pótláshoz (ugyanabban a körben jön, mint a többi).
-    @State private var absences: [AbsenceItem] = []
+    @State private var absences: [AbsenceItem]
     /// Dolgozat-pótlás kapcsoló/elvetés — újraszámolja a kijelzett dátumokat.
     @State private var rolloverTick = 0
     /// Percenkénti újraértékelés: az órához tűzött dolgozat az óra végén
     /// magától átkerül a Dolgozatokból a Készbe (frissítés nélkül is).
     @State private var nowTick = Date()
-    @State private var isLoading = true
+    /// Csak akkor igaz, ha még semmilyen (mentett) házi/dolgozat-adat nincs.
+    @State private var isLoading: Bool
     @State private var filter: Int // 0 = Feladatok, 1 = Dolgozatok, 2 = Kész
 
     /// Főoldali "Összes dolgozat" deeplink: 1-gyel nyitva egyből a
     /// Dolgozatok szegmens jön (a tab és az értesítés-koppintás marad 0).
     init(initialFilter: Int = 0) {
         _filter = State(initialValue: initialFilter)
+        let snap = Self.storeSnapshot()
+        _homeworks = State(initialValue: snap.homeworks)
+        _exams = State(initialValue: snap.exams)
+        _lessons = State(initialValue: snap.lessons)
+        _absences = State(initialValue: snap.absences)
+        _isLoading = State(initialValue: !snap.known)
+    }
+
+    /// A gyorstár állapota (hálózat nélkül): házik a már ismert órarendi
+    /// és részlet-csatolmányokkal, dolgozatok, hiányzások, az ablak órái.
+    private struct StoreSnapshot {
+        var homeworks: [HomeworkItem]
+        var exams: [ExamItem]
+        var lessons: [LessonItem]
+        var absences: [AbsenceItem]
+        var known: Bool
+    }
+
+    private static func storeSnapshot() -> StoreSnapshot {
+        let store = KretaStore.shared
+        let hwList: [HomeworkItem]? = store.value(.homework)
+        let exList: [ExamItem]? = store.value(.exams)
+        let abs: [AbsenceItem] = store.value(.absences) ?? []
+        let hw = hwList ?? [], ex = exList ?? []
+        var lessons: [LessonItem] = []
+        var merged = hw
+        if let window = lessonWindow(homeworks: hw, exams: ex, absences: abs) {
+            lessons = store.availableLessons(from: window.from, to: window.to)
+            if !lessons.isEmpty { merged = HomeworkLessonAttachments.merged(hw, lessons: lessons) }
+        }
+        merged = store.applyingCachedHomeworkDetails(merged)
+        return StoreSnapshot(homeworks: merged, exams: ex, lessons: lessons, absences: abs,
+                             known: hwList != nil || exList != nil)
+    }
+
+    /// Gyorstár → kijelzett állapot (store-változáskor, hálózat nélkül).
+    private func syncFromStore() {
+        let snap = Self.storeSnapshot()
+        guard snap.known else { return }
+        if homeworks != snap.homeworks { homeworks = snap.homeworks }
+        if exams != snap.exams { exams = snap.exams }
+        if lessons != snap.lessons { lessons = snap.lessons }
+        if absences != snap.absences { absences = snap.absences }
+        isLoading = false
     }
     @State private var expandedIDs: Set<String> = []
     @State private var flashedID: String?
@@ -211,6 +259,11 @@ struct NotesView: View {
             // a Készbe (a lejárt-határ a nowTick-től függ).
             .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { nowTick = $0 }
             .task { await load() }
+            // Közös gyorstár: a háttérben (bárhonnan) beérkező házi / dolgozat /
+            // hiányzás azonnal beíródik, a body maga nem függ a store-tól.
+            .background {
+                KretaStoreWatcher(kinds: [.homework, .exams, .absences]) { syncFromStore() }
+            }
             .refreshable {
                 await load(force: true)
                 SummitHaptics.light()
@@ -639,37 +692,36 @@ struct NotesView: View {
     }
 
     /// Tabváltáskor a `.task` újra lefut — friss gyorstár-találatnál ez
-    /// hálózat nélkül tér vissza (a 15 hetes órarend-ablak is tárolt).
-    /// A váz csak üres listánál jön; egyébként a régi tételek maradnak,
-    /// és az új adat dinamikusan beíródik. Lehúzás (`force`) tényleges frissítés.
+    /// hálózat nélkül tér vissza. A mentett lista már látszik (init), a
+    /// frissítés a háttérben íródik be: előbb a lista, utána (külön) az
+    /// órarendi és részlet-csatolmányok — a lista nem vár a heti órarendekre.
+    /// Lehúzás (`force`) tényleges frissítés.
     func load(force: Bool = false) async {
         // Saját tételek helyből jönnek — hálózati hibától függetlenül vannak.
         reloadCustom()
         // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből.
         guard let user = session.selectedUser else { isLoading = false; return }
-        let hadData = !(homeworks.isEmpty && exams.isEmpty)
-        if !hadData { isLoading = true }
+        KretaStore.shared.activate(user)
         let iss=user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
-        let prevHW = homeworks, prevEx = exams, prevAb = absences
         async let hw = kreta.fetchHomework(iss: iss, force: force)
         async let ex = kreta.fetchExams(iss: iss, force: force)
         async let ab = kreta.fetchAbsences(iss: iss, force: force)
         async let subj = kreta.fetchAllSubjectNames(iss: iss, force: force)
         async let gr = kreta.fetchGrades(iss: iss, force: force)
         let (hwR, exR, abR, subjR, grR) = await (hw, ex, ab, subj, gr)
-        // Totális fetch-hiba (lejárt token, offline): a legutóbbi lista marad,
-        // nem ürül ki a Feladatok tab egy sikertelen refresh-től.
-        if hwR.isEmpty && exR.isEmpty && hadData {
-            homeworks = prevHW; exams = prevEx; absences = prevAb
-        } else {
-            let (mergedHW, fetchedLessons) = await lessonAttachments(hwR, exams: exR, kreta: kreta, iss: iss, absences: abR, force: force)
-            homeworks = mergedHW; exams = exR; lessons = fetchedLessons
-            absences = abR
-        }
+        // A lista a gyorstárból (benne a most beérkezett friss adattal);
+        // totális fetch-hiba esetén a legutóbbi mentett lista marad.
+        syncFromStore()
+        isLoading = false
         // Tantárgy-univerzum a hozzáadó sheetnek: a Jegyek-tab köre
         // (hálózati tárgyak + cache + jegyekből látott tárgyak).
-        let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1") ?? []
+        let cached = UserDefaults.standard.stringArray(forKey: KretaClient.cachedSubjectsKey) ?? []
         subjects = Array(Set(subjR).union(cached).union(grR.map(\.subject))).sorted()
+        if !hwR.isEmpty || !exR.isEmpty {
+            let (mergedHW, fetchedLessons) = await lessonAttachments(hwR, exams: exR, kreta: kreta, iss: iss, absences: abR, force: force)
+            if !mergedHW.isEmpty { homeworks = mergedHW }
+            if !fetchedLessons.isEmpty { lessons = fetchedLessons }
+        }
         // Apple Watch: az aktív feladatok mennek az órára is (csak sikeres
         // lehúzáskor — totális hiba esetén az órai lista változatlan marad).
         if !hwR.isEmpty || !exR.isEmpty {
@@ -679,55 +731,48 @@ struct NotesView: View {
             )
             WatchSyncSender.pushTasks(homeworks: active.hw, exams: active.ex)
         }
-        isLoading=false
     }
 
-    /// Firka-minta: a KRÉTA a fájlokat az órarendi elemre teszi
-    /// (`OrarendElemek[].Csatolmanyok`), a házi-payloadban gyakran semmi
-    /// sincs. A fájl a FELADÁS hetének óráján is lehet (HaziFeladatUid-kapocs),
-    /// nem csak a határidő napján — ezért a teljes listaablakot (-35 nap)
-    /// plusz a határidőket nézzük át, heti darabokban, párhuzamosan.
-    /// Üres/sikertelen órarendnél a házi-lista változatlanul marad.
-    private func lessonAttachments(_ hwR: [HomeworkItem], exams exR: [ExamItem], kreta: KretaClient, iss: String, absences abR: [AbsenceItem], force: Bool = false) async -> ([HomeworkItem], [LessonItem]) {
-        guard !hwR.isEmpty || !exR.isEmpty else { return (hwR, []) }
+    /// A csatolmány-/pótló-kereséshez szükséges órarend-ablak: a házi-lista
+    /// −35 napja + a határidők (+2 nap); dolgozat napján lévő hiányzásnál a
+    /// 62 napos pótló-horizont. Nil, ha nincs mit nézni.
+    private static func lessonWindow(homeworks: [HomeworkItem], exams: [ExamItem], absences: [AbsenceItem]) -> (from: Date, to: Date)? {
+        guard !homeworks.isEmpty || !exams.isEmpty else { return nil }
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
         // A dolgozat-dátumok is tágítják az ablakot: a pótló-óra kereséséhez
         // a jövőbeli órák is kellenek, nem csak a házi-határidők.
-        let deadlines = hwR.map(\.deadline) + exR.map(\.date)
+        let deadlines = homeworks.map(\.deadline) + exams.map(\.date)
         // Hiányzás a dolgozat napján → a tétel ELŐRE (akár 60 nappal) vetítődik:
         // ilyenkor az ablaknak a pótolt nap óráit is le kell fednie, különben
         // az órarendes lejárt-határ (ExamExpiry) nem talál órát, és a dolgozat
         // az óra után is a Dolgozatokban ragad.
-        let absenceDays = Set(abR.map { cal.startOfDay(for: $0.date) })
-        let hasOverlap = exR.contains { absenceDays.contains(cal.startOfDay(for: $0.date)) }
+        let absenceDays = Set(absences.map { cal.startOfDay(for: $0.date) })
+        let hasOverlap = exams.contains { absenceDays.contains(cal.startOfDay(for: $0.date)) }
         let horizon: Date
         if hasOverlap, let far = cal.date(byAdding: .day, value: 62, to: today) {
             horizon = far
         } else {
             horizon = cal.date(byAdding: .day, value: 2, to: cal.startOfDay(for: max(deadlines.max() ?? today, today))) ?? today
         }
-        guard let from = cal.date(byAdding: .day, value: -35, to: today),
-              horizon > from else { return (hwR, []) }
-        let to = horizon
-        // Heti darabolás (nagy ablakra az órarend-végpont megbízhatatlan),
-        // max ~3,5 hónap — a listaablak, a tipikus határidők és átfedéskor
-        // a 60 napos pótló-horizont is belefér.
-        var chunks: [(Date, Date)] = []
-        var cur = from
-        while cur < to && chunks.count < 15 {
-            let end = min(cal.date(byAdding: .day, value: 7, to: cur)!, to)
-            chunks.append((cur, end))
-            cur = end
-        }
-        let lessons: [LessonItem] = await withTaskGroup(of: [LessonItem].self) { group in
-            for (s, e) in chunks {
-                group.addTask { await kreta.fetchTimetable(iss: iss, from: s, to: e, force: force) }
-            }
-            var out: [LessonItem] = []
-            for await part in group { out.append(contentsOf: part) }
-            return out
-        }
+        guard let from = cal.date(byAdding: .day, value: -35, to: today), horizon > from else { return nil }
+        // Max ~3,5 hónap — a listaablak, a tipikus határidők és átfedéskor a
+        // 60 napos pótló-horizont is belefér.
+        let cap = cal.date(byAdding: .day, value: 15 * 7, to: from) ?? horizon
+        return (from, min(horizon, cap))
+    }
+
+    /// Firka-minta: a KRÉTA a fájlokat az órarendi elemre teszi
+    /// (`OrarendElemek[].Csatolmanyok`), a házi-payloadban gyakran semmi
+    /// sincs. A fájl a FELADÁS hetének óráján is lehet (HaziFeladatUid-kapocs),
+    /// nem csak a határidő napján — ezért a teljes listaablakot (-35 nap)
+    /// plusz a határidőket nézzük át. A hetek a közös heti gyorstárból jönnek
+    /// (a lezárt múlt hét nem megy újra hálózatra, a többi a frissesség-
+    /// szabály szerint), így tabra lépésenként nem fut le 15 órarend-kérés.
+    /// Üres/sikertelen órarendnél a házi-lista változatlanul marad.
+    private func lessonAttachments(_ hwR: [HomeworkItem], exams exR: [ExamItem], kreta: KretaClient, iss: String, absences abR: [AbsenceItem], force: Bool = false) async -> ([HomeworkItem], [LessonItem]) {
+        guard let window = Self.lessonWindow(homeworks: hwR, exams: exR, absences: abR) else { return (hwR, []) }
+        let lessons = await kreta.fetchTimetable(iss: iss, from: window.from, to: window.to, force: force)
         // Ami órarendből sem jött meg (vagy üres volt az órarend),
         // annak a részlet-végpont adhat fájlt.
         if lessons.isEmpty { return (await kreta.fetchHomeworkDetails(hwR, iss: iss), []) }

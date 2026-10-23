@@ -29,9 +29,18 @@ struct GradesView: View {
     @EnvironmentObject var theme: ThemeStore
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var kreta: KretaClient
-    @State private var grades: [GradeItem] = []
-    @State private var allSubjects: [String] = []
-    @State private var isLoading = true
+    /// A mentett jegyek a közös gyorstárból (KretaStore): tabra lépéskor
+    /// azonnal látszanak, a váz csak akkor jön, ha még semmi nincs mentve.
+    @State private var grades: [GradeItem] = KretaStore.shared.value(.grades) ?? []
+    @State private var allSubjects: [String] = GradesView.storedSubjects()
+    @State private var isLoading = KretaStore.shared.grades == nil
+
+    /// Mentett tárgylista (hálózati + tárgy-cache unió, mint a load-ban).
+    private static func storedSubjects() -> [String] {
+        let net: [String] = KretaStore.shared.value(.subjects) ?? []
+        let cached = UserDefaults.standard.stringArray(forKey: KretaClient.cachedSubjectsKey) ?? []
+        return Array(Set(net).union(cached)).sorted()
+    }
     @State private var selectedTab: GradeTab = .evkozi
     // Explicit path: adat-újratöltéskor a value-less linkek állapota átsiklott
     // sorok között, a vissza gomb így végigment a tárgyakon. Path-szal egy pop = egy szint.
@@ -366,6 +375,10 @@ struct GradesView: View {
         if !hadData { isLoading = true }
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
         if iss.isEmpty || iss == "unknown" { isLoading=false; return }
+        KretaStore.shared.activate(user)
+        // Új adat jött-e (mentési idő szerint) — a diff és az órára küldés
+        // csak ilyenkor fut, a puszta tabváltás nem ismétli.
+        let gradesBefore = KretaStore.shared.savedAt(.grades)
         async let gradesTask = kreta.fetchGrades(iss: iss, force: force)
         async let subjectsTask = kreta.fetchAllSubjectNames(iss: iss, force: force)
         let (g, s) = await (gradesTask, subjectsTask)
@@ -375,16 +388,18 @@ struct GradesView: View {
             isLoading=false
             return
         }
-        grades = g
+        if grades != g { grades = g }
+        let freshGrades = KretaStore.shared.savedAt(.grades) != gradesBefore || KretaStore.shared.grades == nil
         // Lehúzáskor új jegy → ünneplő kártya (elsőre csak magot vet, duplán nem jelez)
-        NotificationManager.shared.checkGrades(g, userId: user.id)
+        if freshGrades { NotificationManager.shared.checkGrades(g, userId: user.id) }
         // Megjelenítéshez a cache is jöhet (offline), de vissza csak hálózati tárgyakat
         // mentünk — a demo-módból beszennyezett cache így következő online loadkor kigyógyul.
-        let cached = UserDefaults.standard.stringArray(forKey: "firka.cachedSubjects.v1") ?? []
-        allSubjects = Array(Set(s).union(cached)).sorted()
-        if !s.isEmpty { UserDefaults.standard.set(s.sorted(), forKey: "firka.cachedSubjects.v1") }
+        let cached = UserDefaults.standard.stringArray(forKey: KretaClient.cachedSubjectsKey) ?? []
+        let subjectsUnion = Array(Set(s).union(cached)).sorted()
+        if allSubjects != subjectsUnion { allSubjects = subjectsUnion }
+        if !s.isEmpty { UserDefaults.standard.set(s.sorted(), forKey: KretaClient.cachedSubjectsKey) }
         // Apple Watch: a friss jegyek + tárgyak + kerekítések mennek az órára is.
-        WatchSyncSender.pushGrades(grades: grades, subjects: allSubjects)
+        if freshGrades { WatchSyncSender.pushGrades(grades: grades, subjects: allSubjects) }
         isLoading=false
     }
 }

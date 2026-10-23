@@ -656,6 +656,16 @@ final class KretaStore {
         return e.attachments
     }
 
+    /// A már ismert részlet-csatolmányok rávetítése (hálózat nélkül) a fájl
+    /// nélküli házikra — a Feladatok tab így az első képkockán is mutatja.
+    func applyingCachedHomeworkDetails(_ items: [HomeworkItem]) -> [HomeworkItem] {
+        guard !homeworkDetails.isEmpty else { return items }
+        return items.map { hw in
+            guard hw.attachments.isEmpty, let e = homeworkDetails[hw.id], !e.attachments.isEmpty else { return hw }
+            return hw.withAttachments(e.attachments)
+        }
+    }
+
     // MARK: Írás (a KretaClient sikeres hálózati válaszaiból)
 
     /// Sikeres lehúzás beírása + mentés. Más fiók válasza (fiókváltás közben
