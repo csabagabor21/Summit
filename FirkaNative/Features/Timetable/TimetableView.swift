@@ -48,8 +48,10 @@ struct TimetableView: View {
     /// a szeme előtt), a következő belépéskor már nincs.
     @State private var acknowledgedChanges: [String: LessonChange] = [:]
     @Environment(\.scenePhase) private var scenePhase
-    /// Dolgozat-pótlás kapcsoló/elvetés — újraszámolja a kijelzett dátumokat.
-    @State private var rolloverTick = 0
+    /// Óránkénti házi / dolgozat / pótlás-párosítás EGYSZER adatváltozásonként
+    /// (eddig soronként, minden body-ban és 15 mp-es Timeline-tickben a teljes
+    /// házi- és dolgozatlista újraszkennelve + a pótlás újraszámolva).
+    @State private var derived = TimetableDerived()
     @AppStorage("schoolevents.show.v1") private var schoolEventsVisible = true
     /// A hét-sáv kijelölő-korongja (glassEffectID / MC-ben matchedGeometryEffect) és a mérete
     /// (a Dynamic Type-pal együtt nő, hogy a szám sosem lóg ki a körből).
@@ -81,6 +83,8 @@ struct TimetableView: View {
         _calendarDays = State(initialValue: snap.calendarDays)
         _cachedAbsences = State(initialValue: snap.absences)
         _schoolEvents = State(initialValue: SchoolEventsStore.load())
+        _derived = State(initialValue: TimetableDerived.make(lessons: snap.lessons, homeworks: snap.homeworks,
+                                                              exams: snap.exams, absences: snap.absences ?? []))
     }
 
     private static func mondayOfWeek(offset: Int, now: Date = Date()) -> Date {
@@ -134,10 +138,19 @@ struct TimetableView: View {
         if exams != snap.exams { exams = snap.exams }
         if calendarDays != snap.calendarDays { calendarDays = snap.calendarDays }
         if cachedAbsences != snap.absences { cachedAbsences = snap.absences }
+        recomputeDerivedIfNeeded()
         let store = KretaStore.shared
         var markers: [String: LessonChange] = [:]
         for l in snap.lessons { if let c = store.lessonChange(for: l.id) { markers[l.id] = c } }
         if changeMarkers != markers { changeMarkers = markers }
+    }
+
+    /// A származtatott párosítások újraszámolása, ha a bemenetük változott.
+    private func recomputeDerivedIfNeeded(force: Bool = false) {
+        let input = TimetableDerived.Input(lessons: lessons, homeworks: homeworks, exams: exams, absences: cachedAbsences ?? [])
+        guard force || input != derived.input else { return }
+        derived = TimetableDerived.make(lessons: input.lessons, homeworks: input.homeworks,
+                                        exams: input.exams, absences: input.absences)
     }
 
     /// Kijelzendő változás-jelölés egy órához (látatlan vagy ebben a
@@ -510,7 +523,8 @@ struct TimetableView: View {
             }
             // Dolgozat-pótlás kapcsoló/elvetés — a kijelzett dátumok újraszámolódnak.
             .onReceive(NotificationCenter.default.publisher(for: ExamRollover.changedNotification)) { _ in
-                rolloverTick += 1
+                // Dolgozat-pótlás kapcsoló/elvetés — a kijelzett dátumok újraszámolódnak.
+                recomputeDerivedIfNeeded(force: true)
             }
             // Dev idő-csúszka: a widget is kövesse az eltolt időt —
             // ehhez elég újrapublikálni (hálózat nem kell hozzá).
@@ -618,42 +632,24 @@ struct TimetableView: View {
     private func homework(for lesson: LessonItem) -> HomeworkItem? {
         // Szigorúan határidő-napra csatolunk — dátum nélküli fallback nélkül,
         // különben egy házi minden órára ráíródna (HomeworkMatcher)
-        HomeworkMatcher.homework(for: lesson, in: homeworks)
+        if derived.lessonIDs.contains(lesson.id) { return derived.homeworkByLesson[lesson.id] }
+        return HomeworkMatcher.homework(for: lesson, in: homeworks)
     }
     /// Dolgozatok átütemezéssel: a hiányzás napján lévő dolgozat a
     /// következő olyan órán jelenik meg (piros háttérrel) — a csatolás a
     /// kijelzett dátumon történik, az eredeti napról eltűnik.
-    private var displayExams: [ExamItem] {
-        _ = rolloverTick
-        return ExamRollover.displayItems(exams: exams, absences: cachedAbsences ?? [], lessons: lessons).items
-    }
-    private var rolledExamIDs: Set<String> {
-        _ = rolloverTick
-        return ExamRollover.displayItems(exams: exams, absences: cachedAbsences ?? [], lessons: lessons).rolledIDs
-    }
+    private var displayExams: [ExamItem] { derived.displayExams }
+    private var rolledExamIDs: Set<String> { derived.rolledIDs }
     private func exam(for lesson: LessonItem) -> ExamItem? {
         // Óraszámos dolgozat csak a saját órájára kerül (ExamMatcher),
         // óraszám nélkül naponta csak EGY órára (az aznapi legkorábbira).
-        ExamMatcher.exam(for: lesson, in: displayExams, allLessons: lessons)
+        if derived.lessonIDs.contains(lesson.id) { return derived.examByLesson[lesson.id] }
+        return ExamMatcher.exam(for: lesson, in: displayExams, allLessons: lessons)
     }
+    /// Konzervatív: csak az aznapi (határidő-napi) házi vagy a ráTŰZÖTT
+    /// dolgozat színezi a sort (a tárgy-szintű fallback szándékosan nincs).
     private func hasAssignment(for lesson: LessonItem) -> Bool {
-        let cal = Calendar.current
-        let sameDayHW = homeworks.contains { SubjectMatcher.same($0.subject, lesson.subject) && cal.isDate($0.deadline, inSameDayAs: lesson.start) }
-        // Óraszámos dolgozat csak a saját óráját színezi (ExamMatcher)
-        let sameDayExam = exam(for: lesson) != nil
-        if sameDayHW || sameDayExam { return true }
-        // Kanonikus fallback: ha van bármilyen hw/ex ugyanarra a tárgyra, jelezzük
-        let anyHW = homeworks.contains { SubjectMatcher.same($0.subject, lesson.subject) }
-        let anyEx = displayExams.contains { SubjectMatcher.same($0.subject, lesson.subject) }
-        // Csak akkor fehér, ha nincs elmarad/helyettesítés és van csatolt feladat
-        if anyHW || anyEx {
-            // Ne legyen túl agresszív: csak akkor, ha az adott napi leckék között tényleg kevés hw van
-            // Itt visszafogjuk — sameDay prioritás, de ha van legalább 1 hw a tárgyra, mutassuk
-            // mert demo-ban Matek/Angol különben nem látszana
-            return false // konzervatív: csak sameDay számít fehér háttérnek
-        }
-        if homework(for: lesson) != nil { return true }
-        return false
+        homework(for: lesson) != nil || exam(for: lesson) != nil
     }
 
     @ViewBuilder
@@ -800,19 +796,7 @@ struct TimetableView: View {
     /// mint amit a nap idővonala mutat: a pótlással számolt `displayExams`
     /// és az ExamMatcher óra-csatolása. Így a pötty és a sorok sosem
     /// mondanak ellent egymásnak.
-    private var examDays: [Date: Bool] {
-        _ = rolloverTick
-        guard !exams.isEmpty, !lessons.isEmpty else { return [:] }
-        let cal = Calendar.current
-        let resolved = ExamRollover.displayItems(exams: exams, absences: cachedAbsences ?? [], lessons: lessons)
-        var out: [Date: Bool] = [:]
-        for lesson in lessons {
-            guard let e = ExamMatcher.exam(for: lesson, in: resolved.items, allLessons: lessons) else { continue }
-            let day = cal.startOfDay(for: lesson.start)
-            out[day] = (out[day] ?? true) && resolved.rolledIDs.contains(e.id)
-        }
-        return out
-    }
+    private var examDays: [Date: Bool] { derived.examDays }
 
     /// Hétlapozás (chevron és a sáv swipe-ja közös útja): ugyanaz a nap
     /// marad kiválasztva, a hét adata újratöltődik.
@@ -1326,6 +1310,57 @@ struct TimetableView: View {
         WatchSyncSender.pushTimetable(twoWeeks, homeworks: hw, exams: ex, events: schoolEvents, eventsVisible: schoolEventsVisible, noSchoolDays: noSchool)
         // Iskolai események az óra órarend-tetejére (ugyanaz a lista).
         WatchSyncSender.pushSchoolEvents(events: schoolEvents, visible: schoolEventsVisible)
+    }
+}
+
+// MARK: - Órarendi párosítások (egyszer adatváltozásonként)
+/// A kijelzett hét óráihoz tartozó házi, dolgozat (pótlással) és a
+/// dolgozatos napok térképe. A számolás napra bontva fut: az ExamMatcher és
+/// a HomeworkMatcher is csak azonos napi tételt / órát vesz figyelembe, így
+/// az eredmény azonos a soronkénti teljes-lista-szkenneléssel.
+struct TimetableDerived {
+    struct Input: Equatable {
+        var lessons: [LessonItem] = []
+        var homeworks: [HomeworkItem] = []
+        var exams: [ExamItem] = []
+        var absences: [AbsenceItem] = []
+    }
+    var input = Input()
+    var lessonIDs: Set<String> = []
+    var displayExams: [ExamItem] = []
+    var rolledIDs: Set<String> = []
+    var homeworkByLesson: [String: HomeworkItem] = [:]
+    var examByLesson: [String: ExamItem] = [:]
+    var examDays: [Date: Bool] = [:]
+
+    static func make(lessons: [LessonItem], homeworks: [HomeworkItem], exams: [ExamItem], absences: [AbsenceItem],
+                     calendar: Calendar = .current) -> TimetableDerived {
+        var d = TimetableDerived()
+        d.input = Input(lessons: lessons, homeworks: homeworks, exams: exams, absences: absences)
+        d.lessonIDs = Set(lessons.map(\.id))
+        let resolved = ExamRollover.displayItems(exams: exams, absences: absences, lessons: lessons)
+        d.displayExams = resolved.items
+        d.rolledIDs = resolved.rolledIDs
+        // Napra bontás, az eredeti sorrendet megtartva (a "first" egyezés így azonos).
+        var hwByDay: [Date: [HomeworkItem]] = [:]
+        for h in homeworks { hwByDay[calendar.startOfDay(for: h.deadline), default: []].append(h) }
+        var exByDay: [Date: [ExamItem]] = [:]
+        for e in resolved.items { exByDay[calendar.startOfDay(for: e.date), default: []].append(e) }
+        var lessonsByDay: [Date: [LessonItem]] = [:]
+        for l in lessons { lessonsByDay[calendar.startOfDay(for: l.start), default: []].append(l) }
+        for l in lessons {
+            let day = calendar.startOfDay(for: l.start)
+            if let hw = hwByDay[day]?.first(where: { SubjectMatcher.same($0.subject, l.subject) }) {
+                d.homeworkByLesson[l.id] = hw
+            }
+            if let dayExams = exByDay[day],
+               let e = ExamMatcher.exam(for: l, in: dayExams, calendar: calendar, allLessons: lessonsByDay[day] ?? []) {
+                d.examByLesson[l.id] = e
+                // Dolgozatos nap: igaz, ha MINDEN aznapi dolgozat átütemezett (piros pötty).
+                d.examDays[day] = (d.examDays[day] ?? true) && resolved.rolledIDs.contains(e.id)
+            }
+        }
+        return d
     }
 }
 

@@ -238,12 +238,65 @@ struct GradeChartView: View {
     }
 
     // MARK: Shared helpers — 0-s jegy kizárva mindenhonnan
-    private var validGrades: [GradeItem] { grades.filter { $0.value != 0 } }
+    /// A grafikon származtatott adatai (szűrés, havi vödrök, kijelzett pontok,
+    /// futó átlag) EGYSZER bemenetenként — eddig egy body-kiértékelés több
+    /// tucatszor számolta újra, a futó átlagot ráadásul négyzetesen.
+    private struct Derived {
+        var valid: [GradeItem]
+        var buckets: [(monthStart: Date, average: Double, count: Int, subject: String)]
+        var display: [GradeItem]
+        var points: [(date: Date, avg: Double)]
+    }
+    private struct DerivedKey: Hashable {
+        var grades: [GradeItem]
+        var monthly: Bool
+    }
+    /// Kis memó (a Jegyek tab és a tárgy-részletező egyszerre több grafikont tart).
+    @MainActor private static var derivedMemo: [DerivedKey: Derived] = [:]
+
+    private var derived: Derived {
+        let key = DerivedKey(grades: grades, monthly: monthly)
+        if let hit = Self.derivedMemo[key] { return hit }
+        let valid = grades.filter { $0.value != 0 }
+        var buckets: [(monthStart: Date, average: Double, count: Int, subject: String)] = []
+        if monthly {
+            let b = GradingLogic.monthlyBuckets(grades: valid)
+            buckets = b.count >= 2 ? b : []
+        }
+        let display: [GradeItem]
+        if monthly, !buckets.isEmpty {
+            display = buckets.map { b in
+                let value = Int(round(b.average))
+                return GradeItem(id: "monthly-\(b.monthStart.timeIntervalSince1970)", subject: b.subject, value: value, valueText: "\(value)", date: b.monthStart, teacher: "", type: "havi", weight: 100, topic: "")
+            }
+        } else {
+            display = valid
+        }
+        var points: [(date: Date, avg: Double)] = []
+        points.reserveCapacity(display.count)
+        if monthly {
+            points = display.map { ($0.date, Double($0.value)) }
+        } else {
+            // Futó súlyozott átlag lineárisan (azonos a prefixenkénti weightedAverage-dzsel).
+            var sum = 0.0, weight = 0.0
+            for g in display {
+                if g.value != 0 {
+                    sum += Double(g.value) * Double(g.weight) / 100.0
+                    weight += Double(g.weight) / 100.0
+                }
+                points.append((g.date, weight > 0 ? sum / weight : 0))
+            }
+        }
+        let d = Derived(valid: valid, buckets: buckets, display: display, points: points)
+        if Self.derivedMemo.count >= 8 { Self.derivedMemo.removeAll() }
+        Self.derivedMemo[key] = d
+        return d
+    }
+
+    private var validGrades: [GradeItem] { derived.valid }
     /// Havi vödrök (csak monthly módban, min. 2 hónap esetén él).
     private var monthBuckets: [(monthStart: Date, average: Double, count: Int, subject: String)] {
-        guard monthly else { return [] }
-        let b = GradingLogic.monthlyBuckets(grades: validGrades)
-        return b.count >= 2 ? b : []
+        derived.buckets
     }
     /// X-tengely tickek az adatból (havi módban a vödrök hónapkezdetei,
     /// nyers módban a tartomány széle/közepe vagy hónapkezdetei).
@@ -267,35 +320,20 @@ struct GradeChartView: View {
         let mid = min.addingTimeInterval(max.timeIntervalSince(min) / 2)
         return Array(Set([min, mid, max])).sorted()
     }
+    /// Statikus tengelyfelirat-formázók (eddig tick-enként új DateFormatter).
+    static let monthTickFormatter: DateFormatter = {
+        let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "MMM"; return f
+    }()
+    static let dayTickFormatter: DateFormatter = {
+        let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "MM.dd"; return f
+    }()
     private func xTickLabel(for d: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "hu_HU")
         // Havi módban a régi kisbetűs rövid hónapnév (pl. "szept."),
         // nyers módban nap-pontos dátum.
-        guard monthBuckets.isEmpty else {
-            f.dateFormat = "MMM"
-            return f.string(from: d)
-        }
-        f.dateFormat = "MM.dd"
-        return f.string(from: d)
+        (monthBuckets.isEmpty ? Self.dayTickFormatter : Self.monthTickFormatter).string(from: d)
     }
-    private var displayGrades: [GradeItem] {
-        let src = validGrades
-        guard monthly else { return src }
-        let buckets = monthBuckets
-        guard !buckets.isEmpty else { return src }
-        return buckets.map { b in
-            let value = Int(round(b.average))
-            return GradeItem(id: "monthly-\(b.monthStart.timeIntervalSince1970)", subject: b.subject, value: value, valueText: "\(value)", date: b.monthStart, teacher: "", type: "havi", weight: 100, topic: "")
-        }
-    }
-    private var displayPoints: [(date: Date, avg: Double)] {
-        let base = displayGrades
-        if monthly { return base.map { ($0.date, Double($0.value)) } }
-        var pts: [(Date,Double)] = []
-        for idx in 0..<base.count { pts.append((base[idx].date, GradingLogic.weightedAverage(Array(base.prefix(idx+1))))) }
-        return pts
-    }
+    private var displayGrades: [GradeItem] { derived.display }
+    private var displayPoints: [(date: Date, avg: Double)] { derived.points }
     private var xDomain: ClosedRange<Date> {
         let src = displayGrades
         guard let min = src.map(\.date).min(), let max = src.map(\.date).max() else { let now=Date(); return now.addingTimeInterval(-30*86400)...now }
@@ -347,7 +385,7 @@ extension GradeChartView {
     func resolvedXTicks(in plot: CGRect) -> [XTick] {
         let dates=tickDates; guard let minD=displayPoints.map(\.date).min(), let maxD=displayPoints.map(\.date).max(), maxD>minD else { return [] }
         let span=maxD.timeIntervalSince(minD)
-        let fmt: DateFormatter = { let f=DateFormatter(); f.locale=Locale(identifier:"hu_HU"); f.dateFormat=plotSpanDays>90 ? "MMM" : "MM.dd"; return f }()
+        let fmt = plotSpanDays > 90 ? Self.monthTickFormatter : Self.dayTickFormatter
         return dates.map { d in let nx=d.timeIntervalSince(minD)/span; let x=plot.minX+CGFloat(nx)*plot.width; return XTick(x: x, label: fmt.string(from: d).capitalized) }
     }
 }
