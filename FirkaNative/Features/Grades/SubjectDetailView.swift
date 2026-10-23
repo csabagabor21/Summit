@@ -85,100 +85,104 @@ struct SubjectDetailView: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(subject).mcDisplay(22).lineLimit(2)
                             Text(String(format: "Nyers átlag %.2f → kerekítve %d-es", rawAvg, rounded))
-                                .font(.caption.weight(.medium))
+                                .skinFont(.caption, weight: .medium)
                                 .foregroundStyle(.secondary)
                             Text(String(format: "Kerekítés %.2f-től • %d jegy", threshold, allGrades.count))
-                                .font(.caption2.weight(.medium))
+                                .skinFont(.caption2, weight: .medium)
                                 .foregroundStyle(.tertiary)
                         }
                         Spacer()
-                        Text("\(rounded)")
-                            .mcDisplay(22)
-                            .foregroundStyle(colors.gradeColor(for: rounded))
-                            .frame(width: 50, height: 50)
-                            .background {
-                                Circle().fill(Color.clear).glassEffect(.clear, in: .circle)
-                            }
-                            .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1.2))
-                            .shadow(color: colors.gradeColor(for: rounded).opacity(0.18), radius: 10, y: 4)
+                        if MinecraftTheme.isActive {
+                            McGradeBlock(value: rounded, size: 50, fontSize: 22)
+                        } else {
+                            Text("\(rounded)")
+                                .mcDisplay(22)
+                                .foregroundStyle(colors.gradeColor(for: rounded))
+                                .frame(width: 50, height: 50)
+                                .background {
+                                    Circle().fill(Color.clear).glassEffect(.clear, in: .circle)
+                                }
+                                .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1.2))
+                                .shadow(color: colors.gradeColor(for: rounded).opacity(0.18), radius: 10, y: 4)
+                        }
                     }
 
-                    Divider().opacity(0.45)
+                    if MinecraftTheme.isActive { McSeparator(footer: true) } else { Divider().opacity(0.45) }
 
                     // Szűrő — Home Tab stílusú, compact
-                    Picker("", selection: $graphRange) {
-                        ForEach(GraphRange.allCases) { r in Text(r.title).tag(r) }
-                    }
-                    .pickerStyle(.segmented)
-                    .controlSize(.small)
+                    SkinSegmentedPicker(selection: $graphRange, options: GraphRange.allCases.map { ($0, $0.title) })
+                        .controlSize(.small)
 
                     // Grafikon — prémium morph, nem vágja le a tetejét (domain 1...5.45 + 14pt top inset)
                     GradeChartView(grades: chartGrades, accent: colors.accent, showTarget: nil, height: 190, editorial: false)
 
                     // Lábjegyzet — Home LiveCard ihletésű, finom progress jelleg
                     HStack(spacing: 6) {
-                        Circle().fill(colors.accent).frame(width: 6, height: 6)
+                        MinecraftTheme.dot.fill(colors.accent).frame(width: 6, height: 6)
                         Text(String(format: "Jelenlegi átlag %.2f", rawAvg))
-                            .font(.caption.weight(.semibold))
+                            .skinFont(.caption, weight: .semibold)
                             .foregroundStyle(.secondary)
                         Spacer()
                         if let d = deltaText {
-                            Text(d.text).font(.caption2.weight(.bold).monospacedDigit()).foregroundStyle(d.color)
+                            Text(d.text).skinFontDigits(.caption2, weight: .bold).foregroundStyle(d.color)
                                 .padding(.horizontal, 7).padding(.vertical, 3)
-                                .background(Capsule().fill(d.color.opacity(0.12)))
+                                .background(MinecraftTheme.capsule.fill(d.color.opacity(0.12)))
                         } else {
-                            Text("stabil").font(.caption2.weight(.medium)).foregroundStyle(.tertiary)
+                            Text("stabil").skinFont(.caption2, weight: .medium).foregroundStyle(.tertiary)
                         }
                     }
                     if hasPhantom {
                         HStack(spacing: 6) {
-                            Text("FANTOM ELŐNÉZET").font(.caption2.weight(.bold)).foregroundStyle(.orange)
+                            Text("FANTOM ELŐNÉZET").skinFont(.caption2, weight: .bold).foregroundStyle(.orange)
                                 .padding(.horizontal, 7).padding(.vertical, 3)
-                                .background(Capsule().fill(Color.orange.opacity(0.14)))
+                                .background(MinecraftTheme.capsule.fill(Color.orange.opacity(0.14)))
                             Text(String(format: "eredeti %.2f → most %.2f", baseRaw, rawAvg))
-                                .font(.caption2.weight(.medium)).foregroundStyle(.secondary)
+                                .skinFont(.caption2, weight: .medium).foregroundStyle(.secondary)
                             Spacer()
                         }
                     }
                 }
                 .padding(.vertical, 4)
                 .summitRowSurface(colors: colors)
-                .listRowInsets(EdgeInsets(top: 14, leading: 16, bottom: 14, trailing: 16))
+                .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 14, leading: 16, bottom: 14, trailing: 16)))
             } header: {
-                Text("Átlag és grafikon")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
+                Text("Átlag és grafikon").mcSectionHeader()
             }
 
             Section {
                 ForEach(allGrades.sorted(by: { $0.date > $1.date })) { g in
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 10) {
-                            Text("\(g.value)").font(.caption.weight(.bold).monospacedDigit()).foregroundStyle(colors.gradeColor(for: g.value))
+                            if MinecraftTheme.isActive {
+                                McGradeBlock(value: g.value, size: 30, fontSize: 12)
+                                    .opacity(g.id.hasPrefix("phantom") ? 0.6 : 1)
+                            } else {
+                            Text("\(g.value)").skinFontDigits(.caption, weight: .bold).foregroundStyle(colors.gradeColor(for: g.value))
                             .frame(width: 28, height: 28)
                             .background {
                                 Circle().fill(Color.clear).glassEffect(.clear, in: .circle)
                             }
                             .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1))
                             .opacity(g.id.hasPrefix("phantom") ? 0.6 : 1)
+                            }
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(g.date.formatted(date: .abbreviated, time: .omitted) + " • \(g.weight)%").font(.caption.weight(.medium))
+                                Text(g.date.formatted(date: .abbreviated, time: .omitted) + " • \(g.weight)%").skinFont(.caption, weight: .medium)
                                 if g.plainTopic.isEmpty {
-                                    Text(friendlyGradeType(g.type)).font(.caption2).foregroundStyle(.secondary)
+                                    Text(friendlyGradeType(g.type)).skinFont(.caption2).foregroundStyle(.secondary)
                                 }
                             }
                             Spacer()
                             if g.id.hasPrefix("phantom") {
-                                Text("fantom").font(.caption2.weight(.bold)).foregroundStyle(.orange).padding(.horizontal, 6).padding(.vertical, 2).background(Capsule().fill(Color.orange.opacity(0.14)))
+                                Text("fantom").skinFont(.caption2, weight: .bold).foregroundStyle(.orange).padding(.horizontal, 6).padding(.vertical, 2).background(MinecraftTheme.capsule.fill(Color.orange.opacity(0.14)))
                             }
                         }
                         if !g.plainTopic.isEmpty {
-                            Text(g.plainTopic).font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                            Text(g.plainTopic).skinFont(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.top, 2)
                         }
                     }
                     .padding(.vertical, 2)
+                    .mcListRow(fill: colors.surface)
                     // Fantom-vezérlés kizárólag swipe-pal: valódi jegyen a
                     // csere, fantomon az elvetés — kis x gomb nincs.
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -212,21 +216,25 @@ struct SubjectDetailView: View {
         .animation(SummitMotion.gentle, value: graphRange)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button { showAdd = true } label: { Image(systemName: "plus.circle.fill").font(.title3) }
+                Button { showAdd = true } label: { SkinIcon("plus.circle.fill", size: 22).skinFont(.title3) }
+                .skinToolbarItem()
                 .tint(colors.accent)
             }
+            .skinToolbarBackground()
         }
         .sheet(isPresented: $showAdd) {
             NavigationStack {
                 Form {
-                    Section("Érték") { Picker("Jegy", selection: $addValue) { ForEach(1...5, id: \.self) { Text("\($0)").tag($0) } }.pickerStyle(.segmented).summitSelectionHaptic(trigger: addValue) }
-                    Section("Súly") { Picker("Súly", selection: $addWeight) { Text("100%").tag(100); Text("200%").tag(200); Text("50%").tag(50) }.pickerStyle(.segmented).summitSelectionHaptic(trigger: addWeight) }
-                    Section { Text("Előnézet átlag: \(String(format: "%.2f", GradingLogic.weightedAverage(allGrades + [GradeItem(id: "phantom-\(UUID())", subject: subject, value: addValue, valueText: "\(addValue)", date: Date(), teacher: "", type: "Fantom", weight: addWeight, topic: "")])))").font(.callout).foregroundStyle(.secondary) }
+                    SkinFormSection(title: "Érték", fill: colors.surface) { SkinSegmentedPicker(selection: $addValue, options: (1...5).map { ($0, "\($0)") }, accessibilityTitle: "Jegy").summitSelectionHaptic(trigger: addValue) }
+                    SkinFormSection(title: "Súly", fill: colors.surface) { SkinSegmentedPicker(selection: $addWeight, options: [(100, "100%"), (200, "200%"), (50, "50%")], accessibilityTitle: "Súly").summitSelectionHaptic(trigger: addWeight) }
+                    Section { Text("Előnézet átlag: \(String(format: "%.2f", GradingLogic.weightedAverage(allGrades + [GradeItem(id: "phantom-\(UUID())", subject: subject, value: addValue, valueText: "\(addValue)", date: Date(), teacher: "", type: "Fantom", weight: addWeight, topic: "")])))").skinFont(.callout).foregroundStyle(.secondary).mcListRow(fill: colors.surface) }
                 }
+                .skinFormBackground()
                 .navigationTitle("Fantom jegy")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Mégse") { showAdd = false } }
+                    ToolbarItem(placement: .cancellationAction) { Button("Mégse") { showAdd = false }.skinToolbarItem() }
+                        .skinToolbarBackground()
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Hozzáadás") {
                             let g = GradeItem(id: "phantom-\(UUID())", subject: subject, value: addValue, valueText: "\(addValue)", date: Date().addingTimeInterval(Double(phantom.count)*60), teacher: "Fantom", type: "Fantom", weight: addWeight, topic: "")
@@ -234,10 +242,12 @@ struct SubjectDetailView: View {
                             // Fantom felvéve = ünnepelt kimenet (beesik a listába).
                             SummitHaptics.success()
                             showAdd = false
-                        }.tint(colors.accent)
+                        }.skinToolbarItem().tint(colors.accent)
                     }
+                    .skinToolbarBackground()
                 }
             }
+            .skinSheetBackground()
             .presentationDetents([.medium])
         }
         .sheet(item: $replaceTarget) { orig in
@@ -272,6 +282,7 @@ private struct ReplaceGradeSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var theme: ThemeStore
     @Environment(\.colorScheme) var scheme
+    private var colors: AppColors { theme.colors(for: scheme) }
 
     private var preview: Double {
         let cand = GradeItem(id: "preview", subject: subject, value: value,
@@ -283,36 +294,38 @@ private struct ReplaceGradeSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Eredeti jegy") {
+                SkinFormSection(title: "Eredeti jegy", fill: colors.surface) {
                     Text("\(original.value) • \(original.weight)%")
-                        .font(.headline)
+                        .skinFont(.headline)
                 }
-                Section("Mi lett volna ha") {
-                    Picker("Fantom jegy", selection: $value) {
-                        ForEach(1...5, id: \.self) { Text("\($0)").tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .summitSelectionHaptic(trigger: value)
+                SkinFormSection(title: "Mi lett volna ha", fill: colors.surface) {
+                    SkinSegmentedPicker(selection: $value, options: (1...5).map { ($0, "\($0)") }, accessibilityTitle: "Fantom jegy")
+                        .summitSelectionHaptic(trigger: value)
                 }
-                Section("Előnézet") {
+                SkinFormSection(title: "Előnézet", fill: colors.surface) {
                     Text(String(format: "Átlag: %.2f → kerekítve %d-es",
                                 preview, GradingLogic.roundedGrade(raw: preview, threshold: threshold)))
-                        .font(.callout).foregroundStyle(.secondary)
+                        .skinFont(.callout).foregroundStyle(.secondary)
                 }
             }
+            .skinFormBackground()
             .navigationTitle("Mi lett volna ha")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Mégse") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Mégse") { dismiss() }.skinToolbarItem() }
+                    .skinToolbarBackground()
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Csere fantomra") {
                         SummitHaptics.success()
                         onReplace(value); dismiss()
                     }
+                        .skinToolbarItem()
                         .tint(theme.colors(for: scheme).accent)
                 }
+                .skinToolbarBackground()
             }
         }
+        .skinSheetBackground()
         .presentationDetents([.medium])
     }
 }
@@ -324,4 +337,9 @@ enum GraphRange: String, CaseIterable, Identifiable {
     case full = "Teljes"
     var id: String { rawValue }
     var title: String { rawValue }
+}
+
+private extension MinecraftTheme {
+    /// Kis pont-jelző: Summitban kör, Minecraftban négyzet (pixel).
+    static var dot: AnyShape { isActive ? AnyShape(Rectangle()) : AnyShape(Circle()) }
 }
