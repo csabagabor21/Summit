@@ -41,6 +41,10 @@ struct TimetableView: View {
     /// Dolgozat-pótlás kapcsoló/elvetés — újraszámolja a kijelzett dátumokat.
     @State private var rolloverTick = 0
     @AppStorage("schoolevents.show.v1") private var schoolEventsVisible = true
+    /// A hét-sáv kijelölő-korongja (matchedGeometryEffect) és a mérete
+    /// (a Dynamic Type-pal együtt nő, hogy a szám sosem lóg ki a körből).
+    @Namespace private var weekDiscNS
+    @ScaledMetric(relativeTo: .title3) private var discSize: CGFloat = 36
     private let switchToTimetable = Notification.Name("summit.switchToTimetable")
     @Environment(\.colorScheme) var scheme
     @Environment(\.horizontalSizeClass) private var hSize
@@ -226,13 +230,6 @@ struct TimetableView: View {
             }
         }
     }
-    private var currentWeekRangeText: String {
-        let cal = Calendar.current
-        let monday = currentMonday
-        let friday = cal.date(byAdding: .day, value: 4, to: monday)!
-        let df: DateFormatter = { let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "MMM d."; return f }()
-        return "\(df.string(from: monday)) – \(df.string(from: friday))"
-    }
     private var weekTitle: String {
         if weekOffset == 0 { return "Ez a hét" }
         if weekOffset == -1 { return "Múlt hét" }
@@ -253,69 +250,10 @@ struct TimetableView: View {
         NavigationStack {
             ScrollViewReader { proxy in
             List {
-                // MARK: Week pager — előre/hátra a hetekben
+                // MARK: Hét-kártya — hónap-cím + hétlapozó + a 5 nap (Apple Naptár hét-sávja)
                 Section {
-                    HStack(spacing: 0) {
-                        Button {
-                            userHasNavigated = true
-                            SummitHaptics.selection()
-                            withAnimation(SummitMotion.page) { weekOffset -= 1 }
-                            Task { await load() }
-                        } label: {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 36, height: 32)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(weekOffset <= -8)
-
-                        Spacer(minLength: 8)
-
-                        VStack(spacing: 2) {
-                            Text(weekTitle)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.primary)
-                                .contentTransition(.numericText())
-                            Text(currentWeekRangeText)
-                                .font(.caption2.weight(.medium).monospacedDigit())
-                                .foregroundStyle(.secondary)
-                        }
-                        .animation(SummitMotion.page, value: weekOffset)
-                        .onTapGesture {
-                            guard weekOffset != 0 else { return }
-                            goToSmartToday()
-                        }
-
-                        Spacer(minLength: 8)
-
-                        Button {
-                            userHasNavigated = true
-                            SummitHaptics.selection()
-                            withAnimation(SummitMotion.page) { weekOffset += 1 }
-                            Task { await load() }
-                        } label: {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 36, height: 32)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(weekOffset >= 8)
-
-                        // "Ma" gomb: nem csak hetet lapozva, hanem napot
-                        // ellapozva is előjön (a nap-picker és a swipe is
-                        // userHasNavigated-et állít; a gomb azt nullázza).
-                        if weekOffset != 0 || userHasNavigated {
-                            Button("Ma") { goToSmartToday() }
-                            .font(.caption.weight(.semibold))
-                            .tint(colors.accent)
-                            .padding(.leading, 8)
-                        }
-                    }
-                    .padding(.vertical, 2)
+                    weekCard
+                    .onChange(of: selectedDay) { _, _ in userHasNavigated = true }
                     .summitRowSurface(colors: colors)
                     .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
                 }
@@ -331,17 +269,6 @@ struct TimetableView: View {
                             .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
                             .listRowSeparator(.hidden)
                     }
-                }
-
-                // MARK: Day selector — nap + dátum, ugyanaz az inset mint Notes/Home.
-                // Egyedi gombok (nem segmented Picker): a nap neve ALATT a
-                // dátum is látszik ("halálos, hogy nincs dátum kb. sehol").
-                Section {
-                    daySelector
-                    .onChange(of: selectedDay) { _, _ in userHasNavigated = true }
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 6, trailing: 16))
-                    .listRowSeparator(.hidden)
                 }
 
                 // Az idő-eltolás csúszka a Fejlesztői módban él — itt csak az
@@ -364,6 +291,14 @@ struct TimetableView: View {
                         }
                     }
                 } else if filtered.isEmpty {
+                    // Üres napon is ugyanaz a fejléc-cím, mint a teli napon
+                    // (csak az óraszám-sor nélkül).
+                    Section {
+                        dayHeader(showsSummary: false)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 2, trailing: 16))
+                    }
                     // Óra nélküli napon is látszik a tannaptár (pl. tanítás
                     // nélküli munkanap programja) — az üres-állapot alatta marad.
                     if !dayEvents.isEmpty {
@@ -375,16 +310,6 @@ struct TimetableView: View {
                         }
                     }
                     Section {
-                        // Óra nélküli napon is látszik a dátum a nap neve alatt.
-                        Text("\(dayLabel(for: selectedDay)) • \(selectedDayFullDate)")
-                            .font(.caption.weight(.semibold).monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 0, trailing: 16))
-                    }
-                    Section {
                         ContentUnavailableView(emptyDayTitle, systemImage: emptyDayIcon, description: Text(emptyDayDetail))
                             .frame(maxWidth: .infinity, minHeight: 220)
                             .padding(.vertical, 16)
@@ -393,42 +318,11 @@ struct TimetableView: View {
                             .listRowInsets(EdgeInsets(top: 24, leading: 16, bottom: 24, trailing: 16))
                     }
                 } else {
-                    // MARK: Day meta — editorial header (mint Grades "ÖSSZÁTLAG" stílus)
+                    // MARK: Nap-fejléc — "Péntek, október 23." + "6 óra · 8:00 – 13:35"
                     // Az óraszám és az idősáv a záró felmentett órák nélkül értendő
                     // (7 órából az utolsó felmentett → "6 óra", a 6. végéig).
                     Section {
-                        HStack(alignment: .lastTextBaseline, spacing: 12) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(dayLabel(for: selectedDay).uppercased())
-                                    .font(.caption2.weight(.bold))
-                                    .foregroundStyle(.secondary)
-                                    .tracking(1.1)
-                                Text(selectedDayFullDate)
-                                    .font(.caption.weight(.medium).monospacedDigit())
-                                    .foregroundStyle(.secondary)
-                                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                    Text("\(effectiveFiltered.count)")
-                                        .mcDisplay(30)
-                                        .monospacedDigit()
-                                    Text(effectiveFiltered.count == 1 ? "óra" : "óra")
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            Spacer()
-                            VStack(alignment: .trailing, spacing: 2) {
-                                Text("IDŐSÁV")
-                                    .font(.caption2.weight(.bold))
-                                    .foregroundStyle(.secondary)
-                                    .tracking(1.0)
-                                if let first = effectiveFiltered.first, let last = effectiveFiltered.last {
-                                    Text("\(first.start.formatted(date: .omitted, time: .shortened)) – \(last.end.formatted(date: .omitted, time: .shortened))")
-                                        .font(.caption.weight(.semibold).monospacedDigit())
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                        .padding(.vertical, 2)
+                        dayHeader(showsSummary: true)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 2, trailing: 16))
@@ -462,6 +356,7 @@ struct TimetableView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .listSectionSpacing(.compact)
             .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
             .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
@@ -469,7 +364,7 @@ struct TimetableView: View {
             // Lista-szintű .animation (selectedDay/weekOffset) és gesztus
             // NINCS: az egész lista minden napváltáskor és Timeline-ticknél
             // újraanimált — ez dobálta a görgetési pozíciót húzogatáskor.
-            // A napváltás a daySelector koppintásánál és a daySwipeGesture
+            // A napváltás a hét-sáv koppintásánál és a daySwipeGesture
             // végpontjain animál (withAnimation), a lista tartalma meg
             // transition nélkül, azonnal cserélődik.
             .refreshable {
@@ -704,7 +599,7 @@ struct TimetableView: View {
         return days[i]
     }
 
-    /// A napválasztó dátumai: az aktuális hét hétfőjéhez igazítva
+    /// A hét-sáv dátumai: az aktuális hét hétfőjéhez igazítva
     /// (hétlapozáskor a dátumok is vele mennek).
     private func dayDate(for tag: Int) -> Date? {
         let cal = Calendar.current
@@ -712,60 +607,273 @@ struct TimetableView: View {
         return cal.date(byAdding: .day, value: dayIdx, to: currentMonday)
     }
 
-    /// A kiválasztott nap teljes dátuma ("2026. október 21.").
-    private var selectedDayFullDate: String {
-        guard let dd = dayDate(for: selectedDay) else { return "" }
-        return Self.fullDayFormatter.string(from: dd)
+    // MARK: Dátum-formázók (statikus, hu_HU — a rendszer adja a neveket)
+    private static let huLocale = Locale(identifier: "hu_HU")
+    /// "H", "K", "Sze", "Cs", "P" — a rendszer hu_HU rövid hétköznap-nevei
+    /// (index: Calendar-weekday - 1, vasárnap = 0).
+    private static let weekdayShortSymbols: [String] = {
+        var c = Calendar(identifier: .gregorian)
+        c.locale = huLocale
+        return c.shortStandaloneWeekdaySymbols
+    }()
+    private static func formatter(_ format: String) -> DateFormatter {
+        let f = DateFormatter()
+        f.locale = huLocale
+        f.dateFormat = format
+        return f
+    }
+    private static let monthFormatter = formatter("LLLL")
+    /// "péntek, október 23." — az aktuális évben az évszám nem kell.
+    private static let dayTitleFormatter = formatter("EEEE, MMMM d.")
+    private static let dayTitleYearFormatter = formatter("EEEE, yyyy. MMMM d.")
+
+    /// Nagy kezdőbetű (a hu_HU nevek kisbetűsek: "október" → "Október").
+    private static func capitalized(_ s: String) -> String {
+        guard let first = s.first else { return s }
+        return first.uppercased() + s.dropFirst()
     }
 
-    private static let dayDateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "hu_HU")
-        f.dateFormat = "MMM d."
-        return f
-    }()
+    private func isCurrentYear(_ date: Date) -> Bool {
+        let cal = Calendar.current
+        return cal.component(.year, from: date) == cal.component(.year, from: Date())
+    }
 
-    private static let fullDayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "hu_HU")
-        f.dateFormat = "yyyy. MMMM d."
-        return f
-    }()
+    /// Hét-cím fő sora: a hét hónapja ("Október"), hónaphatáron
+    /// "Október – November"; évszám csak ha nem az idei ("Január 2027").
+    private var weekMonthTitle: String {
+        let cal = Calendar.current
+        let monday = currentMonday
+        let friday = cal.date(byAdding: .day, value: 4, to: monday) ?? monday
+        let m1 = Self.capitalized(Self.monthFormatter.string(from: monday))
+        let m2 = Self.capitalized(Self.monthFormatter.string(from: friday))
+        let months = m1 == m2 ? m1 : "\(m1) – \(m2)"
+        if isCurrentYear(monday) && isCurrentYear(friday) { return months }
+        return "\(months) \(cal.component(.year, from: friday))"
+    }
 
-    /// Napválasztó: hétköznap + alatta a dátum. A koppintás az egyetlen
-    /// hely, ahol a napváltás animál (a lista-szintű .animation helyett —
-    /// az rángatta a görgetést).
-    private var daySelector: some View {
-        HStack(spacing: 6) {
-            ForEach(dayTags, id: \.self) { tag in
-                let isSel = tag == selectedDay
-                Button {
-                    guard tag != selectedDay else { return }
-                    SummitHaptics.selection()
-                    withAnimation(SummitMotion.page) { selectedDay = tag }
-                } label: {
-                    VStack(spacing: 1) {
-                        Text(dayLabel(for: tag))
-                            .font(.caption.weight(.semibold))
-                            .lineLimit(1).minimumScaleFactor(0.85)
-                            .foregroundStyle(isSel ? .white : .primary)
-                        Text(dayDate(for: tag).map { Self.dayDateFormatter.string(from: $0) } ?? "")
-                            .font(.caption2.weight(.medium).monospacedDigit())
-                            .lineLimit(1).minimumScaleFactor(0.85)
-                            .foregroundStyle(isSel ? .white.opacity(0.88) : .secondary)
+    /// "Péntek, október 23." (évszámmal, ha nem az idei év).
+    private func dayTitle(for tag: Int) -> String {
+        guard let d = dayDate(for: tag) else { return "" }
+        let f = isCurrentYear(d) ? Self.dayTitleFormatter : Self.dayTitleYearFormatter
+        return Self.capitalized(f.string(from: d))
+    }
+
+    /// Dolgozatos napok (nap eleje → igaz, ha MINDEN aznapi dolgozat átütemezett: piros pötty) — UGYANABBÓL a forrásból,
+    /// mint amit a nap idővonala mutat: a pótlással számolt `displayExams`
+    /// és az ExamMatcher óra-csatolása. Így a pötty és a sorok sosem
+    /// mondanak ellent egymásnak.
+    private var examDays: [Date: Bool] {
+        _ = rolloverTick
+        guard !exams.isEmpty, !lessons.isEmpty else { return [:] }
+        let cal = Calendar.current
+        let resolved = ExamRollover.displayItems(exams: exams, absences: cachedAbsences ?? [], lessons: lessons)
+        var out: [Date: Bool] = [:]
+        for lesson in lessons {
+            guard let e = ExamMatcher.exam(for: lesson, in: resolved.items, allLessons: lessons) else { continue }
+            let day = cal.startOfDay(for: lesson.start)
+            out[day] = (out[day] ?? true) && resolved.rolledIDs.contains(e.id)
+        }
+        return out
+    }
+
+    /// Hétlapozás (chevron és a sáv swipe-ja közös útja): ugyanaz a nap
+    /// marad kiválasztva, a hét adata újratöltődik.
+    private func pageWeek(_ delta: Int) {
+        let target = weekOffset + delta
+        guard (-8...8).contains(target) else { return }
+        userHasNavigated = true
+        SummitHaptics.selection()
+        withAnimation(SummitMotion.page) { weekOffset = target }
+        Task { await load() }
+    }
+
+    // MARK: Hét-kártya — hónap-cím + lapozó + a 5 nap (Apple Naptár hét-sávja)
+    private var weekCard: some View {
+        VStack(spacing: 6) {
+            ZStack {
+                VStack(spacing: 2) {
+                    Text(weekMonthTitle)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1).minimumScaleFactor(0.8)
+                    Text(weekTitle)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+                // A cím mindig középen áll (a "Ma" gomb meg-megjelenése
+                // nem tolja el), a gombok sávját szabadon hagyja.
+                .padding(.horizontal, 88)
+                .contentTransition(.numericText())
+                .animation(SummitMotion.page, value: weekOffset)
+                .onTapGesture {
+                    guard weekOffset != 0 else { return }
+                    goToSmartToday()
+                }
+
+                HStack(spacing: 0) {
+                    Button { pageWeek(-1) } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .frame(width: 40, height: 36)
+                            .contentShape(Rectangle())
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 7)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(isSel ? colors.accent : Color.primary.opacity(scheme == .dark ? 0.08 : 0.06))
+                    .buttonStyle(.plain)
+                    .disabled(weekOffset <= -8)
+                    .accessibilityLabel("Előző hét")
+
+                    Spacer(minLength: 0)
+
+                    // "Ma" gomb: nem csak hetet lapozva, hanem napot
+                    // ellapozva is előjön (a nap-sáv és a swipe is
+                    // userHasNavigated-et állít; a gomb azt nullázza).
+                    if weekOffset != 0 || userHasNavigated {
+                        Button("Ma") { goToSmartToday() }
+                        .font(.subheadline.weight(.semibold))
+                        .tint(colors.accent)
+                        .padding(.trailing, 4)
+                    }
+
+                    Button { pageWeek(1) } label: {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .frame(width: 40, height: 36)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(weekOffset >= 8)
+                    .accessibilityLabel("Következő hét")
+                }
+            }
+            // A cím-sor nem nő a végtelenségig (a chevronok fix méretűek);
+            // a nap-sáv saját, tágabb plafont kap (lásd weekStrip).
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            weekStrip
+        }
+        .padding(.vertical, 4)
+    }
+
+    /// 5 egyenlő oszlop (H–P): hétköznap-betű, nap-szám körben, dolgozat-pötty.
+    /// A koppintás az egyetlen hely, ahol a napváltás animál (a lista-szintű
+    /// .animation helyett — az rángatta a görgetést); a kijelölő-korong
+    /// matchedGeometryEffect-tel csúszik a napok közt.
+    private var weekStrip: some View {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let lessonDays = Set(lessons.map { cal.startOfDay(for: $0.start) })
+        let examMap = examDays
+        // Tanítás nélküli nap halvány — de csak betöltés után, és csak ha a
+        // hétnek egyáltalán van órája (különben minden nap "üres" lenne).
+        let dimEmpty = !isLoading && !lessons.isEmpty
+        return HStack(spacing: 0) {
+            ForEach(dayTags, id: \.self) { tag in
+                if let date = dayDate(for: tag) {
+                    let day = cal.startOfDay(for: date)
+                    weekStripDay(
+                        tag: tag, date: date,
+                        isToday: day == today,
+                        isEmpty: dimEmpty && !lessonDays.contains(day),
+                        examRolled: examMap[day]
                     )
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(dayLabel(for: tag)), \(dayDate(for: tag).map { Self.fullDayFormatter.string(from: $0) } ?? "")")
-                .accessibilityValue(isSel ? "kiválasztva" : "")
             }
         }
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+        .contentShape(Rectangle())
+        // Swipe a sávon: hetet lapoz (a napi tartalom swipe-ja napot).
+        .simultaneousGesture(weekSwipeGesture)
+    }
+
+    private func weekStripDay(tag: Int, date: Date, isToday: Bool, isEmpty: Bool, examRolled: Bool?) -> some View {
+        let isSel = tag == selectedDay
+        let weekday = Calendar.current.component(.weekday, from: date)
+        // Mint az iOS Naptár: ma+kijelölt = accent korong, kijelölt = fekete/fehér
+        // korong, ma = accent szám, tanítás nélküli nap = halvány szám.
+        let number: AnyShapeStyle = isSel
+            ? AnyShapeStyle(isToday ? Color.white : Color(.systemBackground))
+            : isToday ? AnyShapeStyle(colors.accent)
+            : isEmpty ? AnyShapeStyle(.tertiary)
+            : AnyShapeStyle(.primary)
+        var label = dayTitle(for: tag)
+        if isToday { label += ", ma" }
+        if examRolled != nil { label += ", dolgozat" }
+        return Button {
+            guard tag != selectedDay else { return }
+            SummitHaptics.selection()
+            withAnimation(SummitMotion.page) { selectedDay = tag }
+        } label: {
+            VStack(spacing: 3) {
+                Text(Self.weekdayShortSymbols[weekday - 1])
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                ZStack {
+                    if isSel {
+                        Circle()
+                            .fill(isToday ? colors.accent : Color.primary)
+                            .matchedGeometryEffect(id: "weekDisc", in: weekDiscNS)
+                    }
+                    Text("\(Calendar.current.component(.day, from: date))")
+                        .font(.title3.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(number)
+                }
+                .frame(width: discSize, height: discSize)
+                // Dolgozat-pötty: a magassága minden oszlopban foglalt,
+                // hogy semmi ne ugorjon.
+                Circle()
+                    .fill(examRolled == true ? Color.red : Color.orange)
+                    .frame(width: 5, height: 5)
+                    .opacity(examRolled == nil ? 0 : 1)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isSel ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// Nap-fejléc: "Péntek, október 23." + (teli napon) "6 óra · 8:00 – 13:35".
+    /// A cím `mcDisplay` — Minecraft skinben a pixelbetű.
+    private func dayHeader(showsSummary: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(dayTitle(for: selectedDay))
+                .mcDisplay(24)
+                .foregroundStyle(.primary)
+                .lineLimit(1).minimumScaleFactor(0.6)
+                .accessibilityAddTraits(.isHeader)
+            if showsSummary {
+                let items = effectiveFiltered
+                let count = "\(items.count) óra"
+                if let first = items.first, let last = items.last {
+                    Text("\(count) · \(first.start.formatted(date: .omitted, time: .shortened)) – \(last.end.formatted(date: .omitted, time: .shortened))")
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(count)
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        // A cím fix méretű (mcDisplay) — az alsó sor se szaladjon el tőle.
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Hét-lapozó swipe a hét-sávon. Ugyanaz a szigorú vízszintes zár, mint
+    /// a daySwipeGesture-é (64 pt + kétszeres vízszintes túlsúly): a
+    /// függőleges görgetés sosem lapoz hetet. Balra = következő hét.
+    private var weekSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 32, coordinateSpace: .local)
+            .onEnded { value in
+                let dx = value.translation.width
+                let dy = value.translation.height
+                guard abs(dx) > 64, abs(dx) > 2 * abs(dy) else { return }
+                pageWeek(dx < 0 ? 1 : -1)
+            }
     }
 
     /// Nap/hét-váltó swipe a napi tartalmon. Szigorú vízszintes zár
