@@ -389,12 +389,16 @@ struct TimetableView: View {
                     }
                     Section {
                         TimetableEmptyState(title: emptyDayTitle, icon: emptyDayIcon, detail: emptyDayDetail)
-                            .frame(maxWidth: .infinity, minHeight: 220)
-                            .padding(.vertical, 16)
+                            // Minecraftban a talaj a lista alsó része fölé lóg: a
+                            // magas, középre igazított üres-állapot szövege a fű
+                            // mögé csúszna, ezért ott a dátum alá tapad.
+                            .frame(maxWidth: .infinity, minHeight: MinecraftTheme.isActive ? nil : 220)
+                            .padding(.vertical, MinecraftTheme.isActive ? 0 : 16)
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets(top: 24, leading: 16, bottom: 24, trailing: 16))
+                            .listRowInsets(EdgeInsets(top: MinecraftTheme.isActive ? 8 : 24, leading: 16, bottom: 24, trailing: 16))
                     }
+                    .listSectionSpacing(MinecraftTheme.isActive ? .custom(0) : .default)
                 } else {
                     // MARK: Day meta — editorial header (mint Grades "ÖSSZÁTLAG" stílus)
                     // Az óraszám és az idősáv a záró felmentett órák nélkül értendő

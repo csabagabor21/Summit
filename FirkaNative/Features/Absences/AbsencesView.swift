@@ -245,7 +245,7 @@ struct AbsencesView: View {
                                 Spacer()
                             }
                             .summitRowSurface(colors: colors)
-                            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                            .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
                         } else {
                             ForEach(unjustifiedItems.prefix(unjustifiedExpanded ? 100 : 3)) { a in
                                 let isDelay = a.delay != nil && (a.type.lowercased().contains("késés") || a.type.lowercased().contains("keses"))
@@ -268,7 +268,7 @@ struct AbsencesView: View {
                                     .contentShape(Rectangle())
                                 }
                                 .summitRowSurface(colors: colors)
-                                .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                                .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
                             }
                         }
                     } header: {
@@ -305,7 +305,7 @@ struct AbsencesView: View {
                                 Spacer()
                             }
                             .summitRowSurface(colors: colors)
-                            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                            .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
                         } else {
                             ForEach(justifiedItems.prefix(justifiedExpanded ? 100 : 3)) { a in
                                 let isDelay = a.delay != nil && (a.type.lowercased().contains("késés") || a.type.lowercased().contains("keses"))
@@ -328,7 +328,7 @@ struct AbsencesView: View {
                                     .contentShape(Rectangle())
                                 }
                                 .summitRowSurface(colors: colors)
-                                .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                                .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
                             }
                         }
                     } header: {

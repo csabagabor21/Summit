@@ -52,16 +52,19 @@ struct MainTabView: View {
     var body: some View {
         Group {
             if useCustomHotbar {
-                // Minecraft keskeny kijelzőn: a fűblokk a layout része
-                // (a tartalom sosem csúszik mögé), a hotbar rajta ül.
-                // Szélesen (iPad/Mac sidebar) a natív sáv marad.
-                VStack(spacing: 0) {
-                    tabContent
-                    McGrassBlockFooter(height: 148)
-                }
-                .overlay(alignment: .bottom) {
-                    mcHotbar.padding(.bottom, 6)
-                }
+                // Minecraft keskeny kijelzőn: a tartalom a teljes magasságot
+                // kitölti és görgetéskor a fű és a föld MÖGÉ csúszik (nincs
+                // éles vágás a fűsáv fölött); a tabok alsó safe area-ja
+                // (`mcTabChrome`) akkora, hogy a lista vége a virágok fölött
+                // álljon meg. A hotbar a földön ül. Szélesen (iPad/Mac
+                // sidebar) a natív sáv marad.
+                tabContent
+                    .overlay(alignment: .bottom) {
+                        McGrassBlockFooter(height: Self.mcFooterHeight)
+                    }
+                    .overlay(alignment: .bottom) {
+                        mcHotbar.padding(.bottom, 6)
+                    }
                 // Az ég a fűsáv mögé is lenyúlik: a növények az égre rajzolódnak,
                 // nem a tab-tartalom alatti üres (fehér) sávra.
                 .background { MinecraftBackdrop(ground: false) }
@@ -222,6 +225,8 @@ struct MainTabView: View {
     /// Minecraft keskeny kijelzőn: a rendszer-tabsáv rejtve — helyette
     /// saját hotbar jön a fűblokkra. Máshol a natív sáv marad.
     private var useCustomHotbar: Bool { theme.isMinecraft && !isWide }
+    /// A fűblokk-talaj magassága a home-jelző fölött.
+    static let mcFooterHeight: CGFloat = 148
 
     /// Hotbar-slotok: (tab, eredeti item-sprite, cím).
     private var mcTabs: [(Int, String, String)] {
@@ -281,6 +286,13 @@ private extension View {
     func mcTabChrome(hidden: Bool) -> some View {
         if hidden {
             self.toolbar(.hidden, for: .tabBar)
+                // A tartalom alá behúzódik a talaj + a növények sávja: a
+                // görgetett sorok mögé csúsznak, a lista vége fölöttük áll meg.
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    Color.clear
+                        .frame(height: MainTabView.mcFooterHeight + McFlora.maxHeight)
+                        .allowsHitTesting(false)
+                }
         } else {
             self
         }

@@ -151,7 +151,7 @@ struct GradesView: View {
                                             Spacer()
                                         }.padding(.vertical, 2)
                                     }
-                                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                    .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
                                     .mcListRow(fill: colors.surface)
                                 } else {
                                     // Nincs még jegy — KRÉTA tudja a tantárgyat, üresen mutatjuk
@@ -165,7 +165,7 @@ struct GradesView: View {
                                             Spacer()
                                         }.padding(.vertical, 2)
                                     }
-                                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                    .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
                                     .mcListRow(fill: colors.surface)
                                 }
                             }
@@ -209,7 +209,7 @@ struct GradesView: View {
                                     Spacer()
                                 }
                                 .padding(.vertical, 2)
-                                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
                                 .mcListRow(fill: colors.surface)
                             }
                             Section {
@@ -245,7 +245,7 @@ struct GradesView: View {
                                     Spacer()
                                 }
                                 .padding(.vertical, 2)
-                                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
                                 .mcListRow(fill: colors.surface)
                             }
                         }
@@ -399,7 +399,7 @@ private extension View {
             self.mcListRow(fill: fill)
         } else {
             self.listRowBackground(Color.clear).listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)))
         }
     }
 }
