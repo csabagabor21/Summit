@@ -35,4 +35,18 @@ let v1: [String: Any] = ["updatedAt": ["timestampValue": "2026-10-23T11:00:00Z"]
 let (merged, won) = SummitSyncKey.mergeFields(opened, v1, fieldNames: names)
 check(won && ((merged["theme"] as? [String: Any])?["stringValue"] as? String) == "light", "newer v1 field wins")
 check(((merged["metaAIKey"] as? [String: Any])?["stringValue"] as? String) == "sk-secret", "older v1 field loses")
+let fresh = "2026-10-23T12:00:00Z", old = "2026-09-01T00:00:00Z"
+var bulkDoc: [String: Any] = [:]
+let allNames = ["theme","accentHex","sizeKey","skin","photo","rounding","exempted","completedHw","completedEx","notifyEnabled"]
+for n in allNames { bulkDoc[n] = ["stringValue": "x"]; bulkDoc["ts_\(n)"] = ["timestampValue": fresh] }
+bulkDoc["ts_notifyEnabled"] = ["timestampValue": old]
+let v2Updated = ISO8601DateFormatter().date(from: "2026-10-23T10:00:00Z")
+check(SummitSyncKey.isBulkUpload(bulkDoc, fieldNames: allNames, newerThan: v2Updated), "fresh bulk upload detected (90% shared stamp)")
+var editDoc = bulkDoc
+for n in allNames { editDoc["ts_\(n)"] = ["timestampValue": old] }
+editDoc["ts_theme"] = ["timestampValue": fresh]
+check(!SummitSyncKey.isBulkUpload(editDoc, fieldNames: allNames, newerThan: v2Updated), "normal old-device edit is not bulk")
+let v2doc: [String: Any] = ["updatedAt": ["timestampValue": "2026-10-23T10:00:00Z"], "photo": ["stringValue": "PHOTO"], "ts_photo": ["timestampValue": "2026-10-20T00:00:00Z"]]
+let (m2, _) = SummitSyncKey.mergeFields(v2doc, bulkDoc, fieldNames: allNames, onlyMissing: true)
+check(((m2["photo"] as? [String: Any])?["stringValue"] as? String) == "PHOTO" && m2["theme"] != nil, "onlyMissing keeps v2, fills gaps")
 print("ALL OK")

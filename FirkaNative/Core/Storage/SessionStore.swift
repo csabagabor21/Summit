@@ -62,7 +62,11 @@ final class SessionStore: ObservableObject {
             }
             defaults.set(true, forKey: Self.installedKey)
         }
-        let data = KeychainHelper.load(service: Self.keychainService, account: Self.keychainAccount) ?? legacy
+        // A nyílt másolat, ha létezik, mindig a frissebb: átállás előtti
+        // állapot, aláíratlan Mac-tartalék, vagy egy régebbi build írta
+        // vissza (TestFlight-visszalépés) — a Keychainben akkor elavult
+        // (esetleg már rotált refresh) token ülne.
+        let data = legacy ?? KeychainHelper.load(service: Self.keychainService, account: Self.keychainAccount)
         guard let data, let decoded = try? JSONDecoder().decode(StoredUsers.self, from: data) else { return }
         isLoading = true
         users = decoded.users

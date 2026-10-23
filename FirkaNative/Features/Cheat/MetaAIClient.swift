@@ -54,13 +54,17 @@ enum MetaAIKeyStore {
             if legacy == nil { KeychainHelper.delete(service: keychainService, account: keychainAccount) }
             defaults.set(true, forKey: installedKey)
         }
+        // A nyílt másolat, ha létezik, a frissebb (átállás előtt, vagy egy
+        // régebbi build írta vissza) — átköltözik, és a nyílt példány törlődik.
+        if let legacy {
+            store(legacy)
+            return legacy
+        }
         if let d = KeychainHelper.load(service: keychainService, account: keychainAccount),
            let s = String(data: d, encoding: .utf8) {
             return s
         }
-        guard let legacy else { return "" }
-        store(legacy)
-        return legacy
+        return ""
     }
 
     /// Üres kulcs = törlés. Sikeres Keychain-írás után a nyílt másolat

@@ -166,7 +166,8 @@ enum SummitSyncKey {
     /// egy még régi appot futtató eszköz a v1 docba írhatott a v2
     /// létrejötte után is, és ezek a szerkesztések nem veszhetnek el.
     /// - Returns: az összefésült térkép + volt-e mező, ahol `b` nyert.
-    static func mergeFields(_ a: [String: Any], _ b: [String: Any], fieldNames: [String]) -> (fields: [String: Any], bWon: Bool) {
+    /// `onlyMissing`: `b` csak az `a`-ból hiányzó mezőket töltheti ki.
+    static func mergeFields(_ a: [String: Any], _ b: [String: Any], fieldNames: [String], onlyMissing: Bool = false) -> (fields: [String: Any], bWon: Bool) {
         func date(_ m: [String: Any], _ k: String) -> Date? {
             guard let raw = (m[k] as? [String: Any])?["timestampValue"] as? String else { return nil }
             return parseISO(raw)
@@ -179,7 +180,7 @@ enum SummitSyncKey {
             guard let bv = b[name] else { continue }
             let aTs = date(a, "ts_\(name)") ?? aUpdated
             let bTs = date(b, "ts_\(name)") ?? bUpdated
-            if a[name] == nil || bTs > aTs {
+            if a[name] == nil || (!onlyMissing && bTs > aTs) {
                 out[name] = bv
                 out["ts_\(name)"] = ["timestampValue": isoString(bTs)]
                 bWon = true
@@ -187,6 +188,34 @@ enum SummitSyncKey {
         }
         if bUpdated > aUpdated { out["updatedAt"] = ["timestampValue": isoString(bUpdated)] }
         return (out, bWon)
+    }
+
+    /// „Mindent feltöltöttem" alakú doc-e: egy régi app a szinkron
+    /// bekapcsolásakor (szerver-doc híján) szinte minden mezőt UGYANAZZAL a
+    /// friss bélyeggel tölt fel. Ha ez a közös bélyeg újabb, mint a már élő
+    /// v2 doc utolsó írása, az nem valódi szerkesztés, hanem egy régi eszköz
+    /// alapállapota (üres listák, kép nélkül) — nem nyerhet mezőnként.
+    /// Egy régi eszköz normál szerkesztése nem ilyen: ott a nem szerkesztett
+    /// mezők a saját (régebbi) bélyegüket viszik.
+    static func isBulkUpload(_ fields: [String: Any], fieldNames: [String], newerThan reference: Date?) -> Bool {
+        let stamps = fieldNames.compactMap { name -> String? in
+            guard fields[name] != nil else { return nil }
+            return (fields["ts_\(name)"] as? [String: Any])?["timestampValue"] as? String
+        }
+        guard stamps.count >= 5 else { return false }
+        var counts: [String: Int] = [:]
+        for t in stamps { counts[t, default: 0] += 1 }
+        guard let (common, n) = counts.max(by: { $0.value < $1.value }),
+              Double(n) >= 0.8 * Double(stamps.count),
+              let commonDate = parseISO(common) else { return false }
+        guard let reference else { return true }
+        return commonDate > reference
+    }
+
+    /// A REST-mezőtérkép `updatedAt`-ja dátumként.
+    static func updatedAt(_ fields: [String: Any]) -> Date? {
+        guard let raw = (fields["updatedAt"] as? [String: Any])?["timestampValue"] as? String else { return nil }
+        return parseISO(raw)
     }
 
     private static func parseISO(_ s: String) -> Date? {

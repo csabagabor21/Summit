@@ -9,8 +9,8 @@ import FirebaseAppCheck
 /// módosítatlan appból jön — a publikus API-kulcs egymagában így nem
 /// elég a backend eléréséhez (a repo nyílt forrású, a kulcs nem titok).
 ///
-/// - Release: App Attest (Secure Enclave), ahol nem támogatott (pl. régebbi
-///   Mac), ott DeviceCheck.
+/// - Release: App Attest (Secure Enclave); ahol nem támogatott vagy hibázik
+///   (pl. régebbi Mac, hiányzó App Attest capability), ott DeviceCheck.
 /// - Debug: debug-provider — az első futáskor a konzolba írt debug tokent
 ///   a Firebase konzolban (App Check → Apps → Manage debug tokens) kell
 ///   regisztrálni, különben a szimulátoros build kérései enforce után
@@ -76,11 +76,41 @@ enum SummitAppCheck {
             #if DEBUG
             return AppCheckDebugProvider(app: app)
             #else
-            if DCAppAttestService.shared.isSupported, let attest = AppAttestProvider(app: app) {
-                return attest
-            }
-            return DeviceCheckProvider(app: app)
+            let attest = DCAppAttestService.shared.isSupported ? AppAttestProvider(app: app) : nil
+            return AttestWithFallbackProvider(attest: attest, deviceCheck: DeviceCheckProvider(app: app))
             #endif
+        }
+    }
+
+    /// App Attest, és ha az nem ad tokent (nem támogatott eszköz, hiányzó
+    /// App Attest capability a profilban, Apple-oldali hiba), DeviceCheck —
+    /// így egy attesztációs hiba nem vágja el az appot a backendtől.
+    private final class AttestWithFallbackProvider: NSObject, AppCheckProvider {
+        private let attest: AppAttestProvider?
+        private let deviceCheck: DeviceCheckProvider?
+
+        init(attest: AppAttestProvider?, deviceCheck: DeviceCheckProvider?) {
+            self.attest = attest
+            self.deviceCheck = deviceCheck
+        }
+
+        func getToken(completion handler: @escaping (AppCheckToken?, Error?) -> Void) {
+            guard let attest else { fallback(error: nil, handler); return }
+            attest.getToken { token, error in
+                if let token { handler(token, nil) } else { self.fallback(error: error, handler) }
+            }
+        }
+
+        private func fallback(error: Error?, _ handler: @escaping (AppCheckToken?, Error?) -> Void) {
+            if let error {
+                log.error("App Attest hiba, DeviceCheck jön: \(error.localizedDescription, privacy: .public)")
+            }
+            guard let deviceCheck else {
+                handler(nil, error ?? NSError(domain: "SummitAppCheck", code: 1,
+                                              userInfo: [NSLocalizedDescriptionKey: "Nincs App Check provider"]))
+                return
+            }
+            deviceCheck.getToken(completion: handler)
         }
     }
 }
