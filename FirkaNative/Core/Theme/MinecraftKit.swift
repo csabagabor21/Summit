@@ -278,41 +278,29 @@ extension View {
     /// Skin-érzékeny szövegstílus: Summitban a gyári Dynamic Type stílus,
     /// Minecraftban Monocraft ugyanazzal a Dynamic Type skálázással.
     /// A `.font(.headline)` / `.font(.caption.weight(.semibold))` cseréje.
-    @ViewBuilder
+    /// Egyetlen `.font`-modifier (nem két ágú nézet): a skin-elágazás a
+    /// betű ÉRTÉKÉBEN van, így a nézet típusa nem duplázódik — a sok
+    /// egymásba ágyazott if/else-típustól a készüléken a Swift runtime
+    /// stack-túlcsordulással elszállt (Beállítások megnyitásakor).
     func skinFont(_ style: Font.TextStyle, weight: Font.Weight? = nil, design: Font.Design? = nil) -> some View {
-        if MinecraftTheme.isActive {
-            self.font(MinecraftTheme.font(style))
-        } else if let weight {
-            self.font(.system(style, design: design, weight: weight))
-        } else {
-            self.font(.system(style, design: design))
-        }
+        self.font(MinecraftTheme.isActive ? MinecraftTheme.font(style)
+                  : weight.map { Font.system(style, design: design, weight: $0) } ?? Font.system(style, design: design))
     }
 }
 
 extension View {
     /// `.font(.system(size:weight:design:))` skin-érzékeny cseréje:
     /// Minecraftban Monocraft (a számok is, a `.rounded` design helyett).
-    @ViewBuilder
     func skinFont(size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> some View {
-        if MinecraftTheme.isActive {
-            self.font(MinecraftFontLoader.font(size: (size * 0.92).rounded()))
-        } else {
-            self.font(.system(size: size, weight: weight, design: design))
-        }
+        self.font(MinecraftTheme.isActive ? MinecraftFontLoader.font(size: (size * 0.92).rounded())
+                  : .system(size: size, weight: weight, design: design))
     }
 
     /// Mint a `skinFont(_:weight:)`, de a Summit-ág `monospacedDigit()`-et
     /// is kap (az óra-/szám-kiírásokhoz); a Monocraft eleve egyenközű.
-    @ViewBuilder
     func skinFontDigits(_ style: Font.TextStyle, weight: Font.Weight? = nil) -> some View {
-        if MinecraftTheme.isActive {
-            self.font(MinecraftTheme.font(style))
-        } else if let weight {
-            self.font(.system(style, weight: weight).monospacedDigit())
-        } else {
-            self.font(.system(style).monospacedDigit())
-        }
+        self.font(MinecraftTheme.isActive ? MinecraftTheme.font(style)
+                  : (weight.map { Font.system(style, weight: $0) } ?? Font.system(style)).monospacedDigit())
     }
 }
 
@@ -436,12 +424,19 @@ struct McCheckboxToggleStyle: ToggleStyle {
 
 extension View {
     /// Skin-érzékeny kapcsoló-stílus: Summitban gyári switch.
-    @ViewBuilder
     func skinToggleStyle() -> some View {
+        self.toggleStyle(SkinToggleStyle())
+    }
+}
+
+/// Egy típusú kapcsoló-stílus, az elágazás a stílus belsejében: Minecraftban
+/// checkbox, Summitban a gyári (automatic) kapcsoló.
+struct SkinToggleStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
         if MinecraftTheme.isActive {
-            self.toggleStyle(McCheckboxToggleStyle())
+            McCheckboxToggleStyle().makeBody(configuration: configuration)
         } else {
-            self
+            Toggle(configuration).toggleStyle(.automatic)
         }
     }
 }
@@ -801,13 +796,9 @@ extension View {
 extension View {
     /// `.font(.system(size:weight:design:).monospacedDigit())` skin-érzékeny
     /// cseréje: Minecraftban Monocraft (az eleve egyenközű).
-    @ViewBuilder
     func skinFontDigits(size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> some View {
-        if MinecraftTheme.isActive {
-            self.font(MinecraftFontLoader.font(size: (size * 0.92).rounded()))
-        } else {
-            self.font(.system(size: size, weight: weight, design: design).monospacedDigit())
-        }
+        self.font(MinecraftTheme.isActive ? MinecraftFontLoader.font(size: (size * 0.92).rounded())
+                  : .system(size: size, weight: weight, design: design).monospacedDigit())
     }
 }
 

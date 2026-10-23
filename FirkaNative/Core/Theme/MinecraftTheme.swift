@@ -253,50 +253,34 @@ extension View {
 
     /// Szekció-fejléc: Summitban a gyári caption-uppercase, Minecraftban
     /// pixelbetű + blokk-árnyék. Közvetlenül a régi lánc helyére tehető.
-    @ViewBuilder
+    /// (Egy típusú lánc: a skin az értékekben ágazik, lásd `skinFont`.)
     func mcSectionHeader() -> some View {
-        if MinecraftTheme.isActive {
-            self
-                .font(MinecraftTheme.headerFont(size: 12))
-                .tracking(0.5)
-                .foregroundStyle(.secondary)
-                .shadow(color: .black.opacity(0.4), radius: 0, x: 1, y: 1)
-        } else {
-            self
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-        }
+        let mc = MinecraftTheme.isActive
+        return self
+            .font(mc ? MinecraftTheme.headerFont(size: 12) : .caption.weight(.semibold))
+            .tracking(mc ? 0.5 : 0)
+            .foregroundStyle(.secondary)
+            .textCase(mc ? nil : .uppercase)
+            .shadow(color: mc ? .black.opacity(0.4) : .clear, radius: 0, x: 1, y: 1)
     }
 
     /// Cím-szöveg (üdvözlés): Summitban gyári title2, Minecraftban
     /// nagy pixelbetű blokk-árnyékkal.
-    @ViewBuilder
     func mcTitle() -> some View {
-        if MinecraftTheme.isActive {
-            self
-                .font(MinecraftTheme.headerFont(size: 26))
-                .foregroundStyle(.primary)
-                .shadow(color: .black.opacity(0.45), radius: 0, x: 2, y: 2)
-        } else {
-            self
-                .font(.title2.weight(.bold))
-                .foregroundStyle(.primary)
-        }
+        let mc = MinecraftTheme.isActive
+        return self
+            .font(mc ? MinecraftTheme.headerFont(size: 26) : .title2.weight(.bold))
+            .foregroundStyle(.primary)
+            .shadow(color: mc ? .black.opacity(0.45) : .clear, radius: 0, x: 2, y: 2)
     }
 
     /// Kijelző-számok (átlagok, hero-számok): Summitban rounded,
     /// Minecraftban pixelbetű blokk-árnyékkal.
-    @ViewBuilder
     func mcDisplay(_ size: CGFloat) -> some View {
-        if MinecraftTheme.isActive {
-            self
-                .font(MinecraftTheme.headerFont(size: size))
-                .shadow(color: .black.opacity(0.45), radius: 0, x: 2, y: 2)
-        } else {
-            self
-                .font(.system(size: size, weight: .bold, design: .rounded))
-        }
+        let mc = MinecraftTheme.isActive
+        return self
+            .font(mc ? MinecraftTheme.headerFont(size: size) : .system(size: size, weight: .bold, design: .rounded))
+            .shadow(color: mc ? .black.opacity(0.45) : .clear, radius: 0, x: 2, y: 2)
     }
 }
 

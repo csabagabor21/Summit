@@ -587,10 +587,13 @@ struct SettingsView: View {
             // (/blur) nem függ a sziget méretétől.
             SummitGlassGroup {
             VStack(spacing: 20) {
-            settingsTopSection
-            settingsMidSection
-            settingsAccountSection
-            settingsBottomSection
+            // Típustörlés szekciónként: a négy szekció együttes nézet-típusa
+            // a készülék stackjén túl mély a Swift runtime-nak (crash a
+            // Beállítások megnyitásakor) — így mindegyik külön oldódik fel.
+            AnyView(settingsTopSection)
+            AnyView(settingsMidSection)
+            AnyView(settingsAccountSection)
+            AnyView(settingsBottomSection)
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)

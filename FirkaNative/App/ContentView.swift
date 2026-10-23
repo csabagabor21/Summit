@@ -488,9 +488,8 @@ extension View {
 
     /// Minecraftban a megadott pixelbetű-stílus; Summitban nem nyúl semmihez
     /// (olyan helyre, ahol a gyári betű nincs kifejezetten megadva).
-    @ViewBuilder
     func mcFont(_ style: Font.TextStyle) -> some View {
-        if MinecraftTheme.isActive { self.font(MinecraftTheme.font(style)) } else { self }
+        self.transformEnvironment(\.font) { if MinecraftTheme.isActive { $0 = MinecraftTheme.font(style) } }
     }
 
     /// Kerek/kapszula háttér helyett: Summitban a kapszula (kitöltés és/vagy
