@@ -13,28 +13,29 @@ struct TeacherRoundingView: View {
 
     var body: some View {
         List {
-            Section(footer: Text("Koppints egy tárgyra a kerekítés finomhangolásához. 0,50 = 3,50-től 4-es, 0,80 = csak 3,80-tól 4-es.").font(.caption2).foregroundStyle(.secondary)) {
+            Section(footer: Text("Koppints egy tárgyra a kerekítés finomhangolásához. 0,50 = 3,50-től 4-es, 0,80 = csak 3,80-tól 4-es.").skinFont(.caption2).foregroundStyle(.secondary)) {
                 if isLoading {
                     ForEach(0..<3, id: \.self) { _ in
                         HStack { Text("Betöltés…").redacted(reason: .placeholder); Spacer() }
                     }
                 } else if subjects.isEmpty {
-                    Text("Nincs elérhető tantárgy. Jelentkezz be vagy frissíts.").font(.subheadline).foregroundStyle(.secondary)
+                    Text("Nincs elérhető tantárgy. Jelentkezz be vagy frissíts.").skinFont(.subheadline).foregroundStyle(.secondary)
                 } else {
                     ForEach(subjects, id: \.self) { subj in
                         let thr = thresholds[subj] ?? GradingLogic.defaultThreshold
-                        NavigationLink { RoundingDetailView(subject: subj) } label: {
+                        SkinNavLink { RoundingDetailView(subject: subj) } label: {
                             HStack {
-                                Text(subj).font(.subheadline.weight(.semibold)).lineLimit(1)
+                                Text(subj).skinFont(.subheadline, weight: .semibold).lineLimit(1)
                                 Spacer()
                                 Text(String(format: "%.2f", thr))
-                                    .font(.caption.monospacedDigit().weight(.medium))
+                                    .skinFont(.caption, weight: .medium).monospacedDigit()
                                     .foregroundStyle(.secondary)
                             }
                         }
                     }
                 }
             }
+            .mcListRowComfy(fill: colors.surface)
 
             Section {
                 Button("Összes visszaállítása (0,50)") {
@@ -42,9 +43,11 @@ struct TeacherRoundingView: View {
                     thresholds = GradingLogic.loadThresholds()
                 }
                 .tint(.red)
+                .mcInlineButton()
             } footer: {
-                Text("Minden tantárgy kerekítését visszaállítja az alapértelmezett 0,50-re.").font(.caption2).foregroundStyle(.secondary)
+                Text("Minden tantárgy kerekítését visszaállítja az alapértelmezett 0,50-re.").skinFont(.caption2).foregroundStyle(.secondary)
             }
+            .mcListRowComfy(fill: colors.surface)
         }
         .listStyle(.insetGrouped)
         .summitListChrome(colors: colors)

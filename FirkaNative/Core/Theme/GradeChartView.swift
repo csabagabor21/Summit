@@ -215,7 +215,7 @@ struct GradeChartView: View {
     @ViewBuilder
     private var mcBody: some View {
         if displayGrades.count < 2 {
-            SkinEmptyState(title: "Nincs elég adat", systemImage: "chart.line.flattrend.xyaxis", description: "Adj hozzá jegyet")
+            SkinEmptyState(title: "Nincs elég adat", systemImage: "chart.line.flattrend.xyaxis", description: Text("Adj hozzá jegyet"))
                 .frame(height: height)
         } else {
             mcChart

@@ -1414,7 +1414,7 @@ private struct TimetableLiquidProgress: View {
     let colors: AppColors
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            SkinProgress(value: progress, tint: tint)
+            SkinProgressBar(value: progress, tint: tint)
                 .animation(SummitMotion.progress, value: progress)
             Text(remainingText).skinFont(.caption2, weight: .medium).foregroundStyle(.secondary).monospacedDigit()
                 .contentTransition(.numericText())
@@ -1571,7 +1571,7 @@ private struct LessonDetailSheet: View {
                             Button { openTasks(flash: hw.id) } label: {
                                 TimetableOpenLabel(title: "Megnyitás a Feladatokban", icon: "checklist", colors: colors)
                             }
-                            .mcButtonOrPlain()
+                            .mcButtonOrPlain(compact: false)
                             .padding(.top, 2)
                         }
                         .padding(.vertical, 4)
@@ -1608,7 +1608,7 @@ private struct LessonDetailSheet: View {
                             Button { openTasks(segment: "exams", flash: ex.id) } label: {
                                 TimetableOpenLabel(title: "Megnyitás a Dolgozatokban", icon: "doc.text.fill", colors: colors)
                             }
-                            .mcButtonOrPlain()
+                            .mcButtonOrPlain(compact: false)
                             .padding(.top, 2)
                         }
                         .padding(.vertical, 4)
@@ -1811,17 +1811,6 @@ private extension View {
             self.buttonStyle(McButtonStyle(compact: true))
         } else {
             self
-        }
-    }
-
-    /// Szöveges akciógomb: Summitban `.plain` (a felirat maga rajzolja a
-    /// kapszulát), Minecraftban teljes kő-gomb.
-    @ViewBuilder
-    func mcButtonOrPlain() -> some View {
-        if MinecraftTheme.isActive {
-            self.buttonStyle(McButtonStyle())
-        } else {
-            self.buttonStyle(.plain)
         }
     }
 }

@@ -66,6 +66,51 @@ struct AbsencesView: View {
     private var unjustifiedItems: [AbsenceItem] { absences.filter { !$0.isJustified }.sorted { $0.date > $1.date } }
     private var justifiedItems: [AbsenceItem] { absences.filter { $0.isJustified }.sorted { $0.date > $1.date } }
 
+    /// Késés-mérő: Summitban gyűrű, Minecraftban a szám + igazi XP-sáv
+    /// (a 45 perces ciklus töltöttsége).
+    @ViewBuilder
+    private var delayGauge: some View {
+        if MinecraftTheme.isActive {
+            VStack(spacing: 8) {
+                Text("\(displayedDelay)")
+                    .mcDisplay(26)
+                    .monospacedDigit()
+                    .foregroundStyle(isFullCycle ? Color.red : .primary)
+                McProgressBar(value: ringProgress)
+            }
+            .frame(minHeight: 78)
+        } else {
+            ZStack {
+                Circle().stroke(Color.primary.opacity(scheme == .dark ? 0.08 : 0.07), lineWidth: 7)
+                Circle()
+                    .trim(from: 0, to: ringTrim)
+                    .stroke({
+                        if ringProgress >= 0.85 || hoursFromDelay > 0 { return Color.red }
+                        if ringProgress >= 0.55 { return colors.orange }
+                        return colors.accent
+                    }(), style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .shadow(color: {
+                        if ringProgress >= 0.85 || hoursFromDelay > 0 { return Color.red }
+                        if ringProgress >= 0.55 { return colors.orange }
+                        return colors.accent
+                    }().opacity(0.32), radius: 5, y: 2)
+                    .animation(.spring(response: 0.9, dampingFraction: 0.82), value: ringTrim)
+                Circle().fill({
+                    if ringProgress >= 0.85 || hoursFromDelay > 0 { return Color.red }
+                    if ringProgress >= 0.55 { return colors.orange }
+                    return colors.accent
+                }().opacity(scheme == .dark ? 0.08 : 0.06)).padding(9)
+                Text("\(displayedDelay)")
+                    .mcDisplay(26)
+                    .monospacedDigit()
+                    .foregroundStyle(isFullCycle ? Color.red : .primary)
+                    .contentTransition(.numericText())
+            }
+            .frame(width: 78, height: 78)
+        }
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -75,51 +120,24 @@ struct AbsencesView: View {
                         // Bal: késések — ring + szöveg — javított spacing, középre igazítva
                         VStack(spacing: 10) {
                             HStack {
-                                Label("KÉSÉSEK", systemImage: "clock.fill")
-                                    .font(.caption2.weight(.bold))
+                                SkinLabel("KÉSÉSEK", systemImage: "clock.fill")
+                                    .skinFont(.caption2, weight: .bold)
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.7)
                                 Spacer(minLength: 4)
                                 if hoursFromDelay > 0 {
                                     Text("+\(hoursFromDelay) óra")
-                                        .font(.caption2.weight(.bold))
+                                        .skinFont(.caption2, weight: .bold)
                                         .foregroundStyle(.white)
                                         .padding(.horizontal, 6).padding(.vertical, 3)
-                                        .background(Capsule().fill(Color.red))
+                                        .skinPill(fill: Color.red)
                                         .lineLimit(1)
                                 }
                             }
-                            ZStack {
-                                Circle().stroke(Color.primary.opacity(scheme == .dark ? 0.08 : 0.07), lineWidth: 7)
-                                Circle()
-                                    .trim(from: 0, to: ringTrim)
-                                    .stroke({
-                                        if ringProgress >= 0.85 || hoursFromDelay > 0 { return Color.red }
-                                        if ringProgress >= 0.55 { return colors.orange }
-                                        return colors.accent
-                                    }(), style: StrokeStyle(lineWidth: 7, lineCap: .round))
-                                    .rotationEffect(.degrees(-90))
-                                    .shadow(color: {
-                                        if ringProgress >= 0.85 || hoursFromDelay > 0 { return Color.red }
-                                        if ringProgress >= 0.55 { return colors.orange }
-                                        return colors.accent
-                                    }().opacity(0.32), radius: 5, y: 2)
-                                    .animation(.spring(response: 0.9, dampingFraction: 0.82), value: ringTrim)
-                                Circle().fill({
-                                    if ringProgress >= 0.85 || hoursFromDelay > 0 { return Color.red }
-                                    if ringProgress >= 0.55 { return colors.orange }
-                                    return colors.accent
-                                }().opacity(scheme == .dark ? 0.08 : 0.06)).padding(9)
-                                Text("\(displayedDelay)")
-                                    .mcDisplay(26)
-                                    .monospacedDigit()
-                                    .foregroundStyle(isFullCycle ? Color.red : .primary)
-                                    .contentTransition(.numericText())
-                            }
-                            .frame(width: 78, height: 78)
+                            delayGauge
                             Text(isFullCycle ? "beszámítva" : totalDelay == 0 ? "nincs késés" : "\(displayedDelay) / 45 perc")
-                                .font(.caption.weight(.semibold))
+                                .skinFont(.caption, weight: .semibold)
                                 .foregroundStyle(isFullCycle ? Color.red : .secondary)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
@@ -136,9 +154,9 @@ struct AbsencesView: View {
                         // Jobb: hiányzások — felül igazolt, alul igazolatlan — javított vertikális spacing, középre igazítva
                         VStack(alignment: .leading, spacing: 10) {
                             HStack(spacing: 6) {
-                                Image(systemName: "person.fill.xmark").font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+                                SkinIcon("person.fill.xmark", size: 16).skinFont(.caption2, weight: .bold).foregroundStyle(.secondary)
                                 Text("HIÁNYZÁSOK")
-                                    .font(.caption2.weight(.bold))
+                                    .skinFont(.caption2, weight: .bold)
                                     .foregroundStyle(.secondary)
                                     .tracking(0.4)
                                     .lineLimit(1)
@@ -204,10 +222,11 @@ struct AbsencesView: View {
                     ForEach(0..<3, id: \.self) { _ in
                         HStack { Text("Betöltés…").redacted(reason: .placeholder) }
                             .summitRowSurface(colors: colors)
+                            .mcRowChrome()
                     }
                 } else if absences.isEmpty {
                     Section {
-                        ContentUnavailableView("Nincs hiányzás", systemImage: "checkmark.shield.fill", description: Text("Szép munka — nincs rögzített hiányzás"))
+                        SkinEmptyState(title: "Nincs hiányzás", systemImage: "checkmark.shield.fill", description: Text("Szép munka — nincs rögzített hiányzás"))
                             .frame(maxWidth: .infinity, minHeight: 180)
                             .padding(.vertical, 12)
                             .listRowBackground(Color.clear)
@@ -219,17 +238,9 @@ struct AbsencesView: View {
                     Section {
                         if unjustifiedItems.isEmpty {
                             HStack(spacing: 10) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(Color.green)
-                                    .frame(width: 30, height: 30)
-                                    .background {
-                                        Circle().fill(Color.clear)
-                                            .glassEffect(.clear, in: .circle)
-                                    }
-                                    .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1))
+                                AbsenceBadge(icon: "checkmark.circle.fill", tint: AnyShapeStyle(Color.green), fontSize: 14, weight: .semibold, side: 30, colors: colors)
                                 Text("Nincs igazolatlan hiányzás")
-                                    .font(.subheadline.weight(.medium))
+                                    .skinFont(.subheadline, weight: .medium)
                                     .foregroundStyle(.secondary)
                                 Spacer()
                             }
@@ -247,10 +258,10 @@ struct AbsencesView: View {
                                 } label: {
                                     HStack {
                                         Text(unjustifiedExpanded ? "Kevesebb" : "További \(unjustifiedItems.count - 3)")
-                                            .font(.subheadline.weight(.semibold))
+                                            .skinFont(.subheadline, weight: .semibold)
                                         Spacer()
-                                        Image(systemName: "chevron.down")
-                                            .font(.caption.weight(.bold))
+                                        SkinIcon("chevron.down")
+                                            .skinFont(.caption, weight: .bold)
                                             .rotationEffect(.degrees(unjustifiedExpanded ? 180 : 0))
                                     }
                                     .foregroundStyle(colors.accent)
@@ -262,15 +273,15 @@ struct AbsencesView: View {
                         }
                     } header: {
                         HStack(spacing: 6) {
-                            Circle().fill(colors.red).frame(width: 6, height: 6)
+                            SkinDot(color: colors.red)
                             Text(unjustifiedItems.isEmpty ? "Igazolatlan" : "Igazolatlan • \(unjustifiedItems.count)")
-                                .font(.caption.weight(.semibold))
+                                .skinFont(.caption, weight: .semibold)
                                 .foregroundStyle(colors.red)
                                 .textCase(.uppercase)
                             Spacer()
                             if unjustifiedItems.count > 3 {
-                                Image(systemName: unjustifiedExpanded ? "chevron.up" : "chevron.down")
-                                    .font(.caption2.weight(.bold))
+                                SkinIcon(unjustifiedExpanded ? "chevron.up" : "chevron.down")
+                                    .skinFont(.caption2, weight: .bold)
                                     .foregroundStyle(.secondary)
                                     .animation(SummitMotion.gentle, value: unjustifiedExpanded)
                             }
@@ -287,17 +298,9 @@ struct AbsencesView: View {
                     Section {
                         if justifiedItems.isEmpty {
                             HStack(spacing: 10) {
-                                Image(systemName: "minus.circle.fill")
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(.secondary)
-                                    .frame(width: 30, height: 30)
-                                    .background {
-                                        Circle().fill(Color.clear)
-                                            .glassEffect(.clear, in: .circle)
-                                    }
-                                    .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1))
+                                AbsenceBadge(icon: "minus.circle.fill", tint: AnyShapeStyle(.secondary), fontSize: 14, weight: .regular, side: 30, colors: colors)
                                 Text("Nincs igazolt hiányzás")
-                                    .font(.subheadline.weight(.medium))
+                                    .skinFont(.subheadline, weight: .medium)
                                     .foregroundStyle(.secondary)
                                 Spacer()
                             }
@@ -315,10 +318,10 @@ struct AbsencesView: View {
                                 } label: {
                                     HStack {
                                         Text(justifiedExpanded ? "Kevesebb" : "További \(justifiedItems.count - 3)")
-                                            .font(.subheadline.weight(.semibold))
+                                            .skinFont(.subheadline, weight: .semibold)
                                         Spacer()
-                                        Image(systemName: "chevron.down")
-                                            .font(.caption.weight(.bold))
+                                        SkinIcon("chevron.down")
+                                            .skinFont(.caption, weight: .bold)
                                             .rotationEffect(.degrees(justifiedExpanded ? 180 : 0))
                                     }
                                     .foregroundStyle(colors.accent)
@@ -330,15 +333,15 @@ struct AbsencesView: View {
                         }
                     } header: {
                         HStack(spacing: 6) {
-                            Circle().fill(Color.green).frame(width: 6, height: 6)
+                            SkinDot(color: Color.green)
                             Text(justifiedItems.isEmpty ? "Igazolt" : "Igazolt • \(justifiedItems.count)")
-                                .font(.caption.weight(.semibold))
+                                .skinFont(.caption, weight: .semibold)
                                 .foregroundStyle(.secondary)
                                 .textCase(.uppercase)
                             Spacer()
                             if justifiedItems.count > 3 {
-                                Image(systemName: justifiedExpanded ? "chevron.up" : "chevron.down")
-                                    .font(.caption2.weight(.bold))
+                                SkinIcon(justifiedExpanded ? "chevron.up" : "chevron.down")
+                                    .skinFont(.caption2, weight: .bold)
                                     .foregroundStyle(.secondary)
                                     .animation(SummitMotion.gentle, value: justifiedExpanded)
                             }
@@ -414,18 +417,18 @@ private struct DelayRingWidget: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Label("KÉSÉSEK", systemImage: "clock.fill")
-                    .font(.caption2.weight(.bold))
+                SkinLabel("KÉSÉSEK", systemImage: "clock.fill")
+                    .skinFont(.caption2, weight: .bold)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
                 Spacer(minLength: 4)
                 if hoursFromDelay > 0 {
                     Text("+\(hoursFromDelay) óra")
-                        .font(.caption2.weight(.bold))
+                        .skinFont(.caption2, weight: .bold)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6).padding(.vertical, 3)
-                        .background(Capsule().fill(Color.red))
+                        .skinPill(fill: Color.red)
                         .lineLimit(1)
                 }
             }
@@ -449,7 +452,7 @@ private struct DelayRingWidget: View {
             .frame(width: 98, height: 98)
             Spacer().frame(height: 10)
             Text(isFull ? "beszámítva" : total == 0 ? "nincs késés" : "\(displayed) / 45 perc")
-                .font(.caption.weight(.semibold))
+                .skinFont(.caption, weight: .semibold)
                 .foregroundStyle(isFull ? Color.red : .secondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
@@ -485,15 +488,15 @@ private struct HeroStatsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
-                Image(systemName: "person.fill.xmark").font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+                SkinIcon("person.fill.xmark", size: 16).skinFont(.caption2, weight: .bold).foregroundStyle(.secondary)
                 Text("HIÁNYZÁSOK")
-                    .font(.caption2.weight(.bold))
+                    .skinFont(.caption2, weight: .bold)
                     .foregroundStyle(.secondary)
                     .tracking(0.4)
                     .lineLimit(1)
                 Spacer(minLength: 2)
                 Text("\(justified) igazolt" + (delayCount > 0 ? " • \(delayCount) késés" : ""))
-                    .font(.caption2.weight(.medium))
+                    .skinFont(.caption2, weight: .medium)
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -567,36 +570,28 @@ private struct AbsenceRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: iconName)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(dotIconColor)
-                .frame(width: 32, height: 32)
-                .background {
-                    Circle().fill(Color.clear)
-                        .glassEffect(.clear, in: .circle)
-                }
-                .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1))
+            AbsenceBadge(icon: iconName, tint: AnyShapeStyle(dotIconColor), fontSize: 12, weight: .bold, side: 32, colors: colors)
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    Text(item.subject).font(.subheadline.weight(.semibold)).lineLimit(1)
+                    Text(item.subject).skinFont(.subheadline, weight: .semibold).lineLimit(1)
                     if let d = item.delay, d > 0 {
                         Text("\(d) perc")
-                            .font(.caption2.weight(.bold).monospacedDigit())
+                            .skinFont(.caption2, weight: .bold).monospacedDigit()
                             .foregroundStyle(.white)
                             .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(Capsule().fill(colors.orange))
+                            .skinPill(fill: colors.orange)
                     }
                 }
                 HStack(spacing: 6) {
                     Text(item.date.formatted(date: .abbreviated, time: .omitted))
-                        .font(.caption2.weight(.medium))
+                        .skinFont(.caption2, weight: .medium)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 7).padding(.vertical, 3)
-                        .background(Capsule().fill(Color.primary.opacity(scheme == .dark ? 0.08 : 0.06)))
+                        .skinPill(fill: Color.primary.opacity(scheme == .dark ? 0.08 : 0.06))
                     if !isDelay {
                         Text(friendlyAbsenceType(item.type))
-                            .font(.caption2.weight(.semibold))
+                            .skinFont(.caption2, weight: .semibold)
                             .foregroundStyle(isUnjustified ? colors.red : Color.green)
                             .lineLimit(1)
                     }
@@ -625,5 +620,34 @@ private struct AbsenceRow: View {
         if isUnjustified { return colors.red.opacity(scheme == .dark ? 0.10 : 0.06) }
         if isDelay { return colors.orange.opacity(scheme == .dark ? 0.08 : 0.05) }
         return colors.surface
+    }
+}
+
+// MARK: - Kerek ikon-jelvény (Summit) / inventory-slot (Minecraft)
+
+private struct AbsenceBadge: View {
+    let icon: String
+    let tint: AnyShapeStyle
+    let fontSize: CGFloat
+    let weight: Font.Weight
+    let side: CGFloat
+    let colors: AppColors
+
+    var body: some View {
+        if MinecraftTheme.isActive {
+            SkinIcon(icon, size: side * 0.6)
+                .frame(width: side, height: side)
+                .background { McInventorySlot() }
+        } else {
+            SkinIcon(icon)
+                .font(.system(size: fontSize, weight: weight))
+                .foregroundStyle(tint)
+                .frame(width: side, height: side)
+                .background {
+                    Circle().fill(Color.clear)
+                        .glassEffect(.clear, in: .circle)
+                }
+                .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1))
+        }
     }
 }

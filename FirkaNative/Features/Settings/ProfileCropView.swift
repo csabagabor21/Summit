@@ -90,11 +90,12 @@ struct ProfileCropView: View {
                 VStack {
                     HStack {
                         Button("Mégse") { onCancel() }
-                            .font(.body.weight(.medium))
+                            .skinFont(.body, weight: .medium)
                             .foregroundStyle(.white)
+                            .mcInlineButton()
                         Spacer()
                         Text("Kivágás")
-                            .font(.headline.weight(.semibold))
+                            .skinFont(.headline, weight: .semibold)
                             .foregroundStyle(.white)
                         Spacer()
                         Button("Kész") {
@@ -104,8 +105,9 @@ struct ProfileCropView: View {
                                 onCancel()
                             }
                         }
-                        .font(.body.weight(.bold))
+                        .skinFont(.body, weight: .bold)
                         .foregroundStyle(.white)
+                        .mcInlineButton()
                     }
                     .padding(.horizontal, 20)
                     // fullScreenCover a notch / óra alá is benyúlik —
@@ -113,7 +115,7 @@ struct ProfileCropView: View {
                     .padding(.top, geo.safeAreaInsets.top + 12)
                     Spacer()
                     Text("Húzd és csippentsd a megfelelő részlethez")
-                        .font(.caption.weight(.medium))
+                        .skinFont(.caption, weight: .medium)
                         .foregroundStyle(.white.opacity(0.75))
                         .padding(.bottom, geo.safeAreaInsets.bottom + 24)
                 }

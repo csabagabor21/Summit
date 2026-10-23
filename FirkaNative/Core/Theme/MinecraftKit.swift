@@ -218,6 +218,14 @@ extension MinecraftTheme {
         case "person.fill.badge.plus": return .sprite("mc_item_name_tag")
         case "door.left.hand.open": return .sprite("mc_item_oak_door")
         case "briefcase.fill", "briefcase": return .sprite("mc_block_crafting_table")
+        case "iphone", "iphone.gen2": return .sprite("mc_item_repeater")
+        case "app.badge.fill": return .sprite("mc_item_name_tag")
+        case "person.slash.fill", "key.slash.fill", "location.slash.fill": return .sprite("mc_item_barrier")
+        case "envelope.open", "doc.richtext.fill": return .sprite("mc_item_paper")
+        case "tablecells.fill": return .sprite("mc_block_crafting_table")
+        case "rectangle.on.rectangle.fill": return .sprite("mc_item_item_frame")
+        case "archivebox.fill": return .sprite("mc_block_barrel")
+        case "film.fill": return .sprite("mc_item_music_disc_13")
         default: return nil
         }
     }
@@ -697,7 +705,7 @@ struct SkinSegmentedPicker<Value: Hashable>: View {
 
 /// `ProgressView(value:).tint(_)` skin-érzékeny cseréje: Minecraftban az
 /// igazi XP-sáv, Summitban a gyári lineáris folyamatjelző.
-struct SkinProgress: View {
+struct SkinProgressBar: View {
     var value: Double
     var tint: Color
     var body: some View {
@@ -754,34 +762,6 @@ struct McAdvancementToast: View {
 }
 
 // MARK: - Üres állapot / űrlap-szekció
-
-/// `ContentUnavailableView(_, systemImage:, description:)` skin-érzékeny
-/// cseréje: Minecraftban item-textúra + Monocraft szöveg (a rendszer-
-/// nézet SF-ikont és rendszerbetűt rajzolna). Summitban a gyári nézet.
-struct SkinEmptyState: View {
-    var title: String
-    var systemImage: String
-    var description: String
-    var body: some View {
-        if MinecraftTheme.isActive {
-            VStack(spacing: 8) {
-                SkinIcon(systemImage, size: 40)
-                Text(title)
-                    .font(MinecraftTheme.font(.headline))
-                    .multilineTextAlignment(.center)
-                Text(description)
-                    .font(MinecraftTheme.font(.footnote))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .accessibilityElement(children: .combine)
-        } else {
-            ContentUnavailableView(title, systemImage: systemImage, description: Text(description))
-        }
-    }
-}
 
 /// `Section("Cím") { … }` skin-érzékeny párja űrlapokhoz: Minecraftban
 /// pixelbetűs fejléc és blokk-sor háttér (`fill`), Summitban a gyári

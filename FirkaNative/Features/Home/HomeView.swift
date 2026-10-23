@@ -885,7 +885,7 @@ private struct HomeLiquidProgress: View {
     let colors: AppColors
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            SkinProgress(value: progress, tint: tint)
+            SkinProgressBar(value: progress, tint: tint)
                 .animation(SummitMotion.progress, value: progress)
             Text(remainingText).skinFont(.caption2, weight: .medium).foregroundStyle(.secondary).monospacedDigit().contentTransition(.numericText())
         }

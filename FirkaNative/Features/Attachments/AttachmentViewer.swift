@@ -43,38 +43,61 @@ struct AttachmentRow: View {
     @Environment(\.colorScheme) var scheme
 
     var body: some View {
-        Button {
-            Task { await store.open(att, ownerId: ownerId, kreta: kreta) }
-        } label: {
-            HStack(spacing: 8) {
-                if store.loadingId == att.id {
-                    ProgressView().scaleEffect(0.8)
-                } else {
-                    Image(systemName: att.symbol)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 20)
+        if MinecraftTheme.isActive {
+            // Kő-gomb a kapszula helyett (a felirat fehér, árnyékkal).
+            Button {
+                Task { await store.open(att, ownerId: ownerId, kreta: kreta) }
+            } label: {
+                HStack(spacing: 8) {
+                    if store.loadingId == att.id {
+                        SkinProgress(color: .white).frame(width: 20)
+                    } else {
+                        SkinIcon(att.symbol, size: 20)
+                    }
+                    Text(att.name).lineLimit(1)
+                    if let s = att.sizeText {
+                        Text(s).skinFont(.caption2).monospacedDigit().opacity(0.7)
+                    }
+                    Spacer(minLength: 4)
+                    McGlyph(kind: .chevronRight, size: 14)
                 }
-                Text(att.name)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                if let s = att.sizeText {
-                    Text(s).font(.caption2).foregroundStyle(.tertiary).monospacedDigit()
-                }
-                Spacer(minLength: 4)
-                Image(systemName: "chevron.right")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 10).padding(.vertical, 8)
-            .background(
-                Capsule()
-                    .fill(Color.primary.opacity(scheme == .dark ? 0.08 : 0.05))
-                    .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
-            )
+            .buttonStyle(McButtonStyle(compact: true))
+        } else {
+            Button {
+                Task { await store.open(att, ownerId: ownerId, kreta: kreta) }
+            } label: {
+                HStack(spacing: 8) {
+                    if store.loadingId == att.id {
+                        SkinProgress().scaleEffect(0.8)
+                    } else {
+                        SkinIcon(att.symbol)
+                            .skinFont(.caption, weight: .semibold)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 20)
+                    }
+                    Text(att.name)
+                        .skinFont(.caption, weight: .medium)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    if let s = att.sizeText {
+                        Text(s).skinFont(.caption2).foregroundStyle(.tertiary).monospacedDigit()
+                    }
+                    Spacer(minLength: 4)
+                    SkinIcon("chevron.right")
+                        .skinFont(.caption2, weight: .semibold)
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal, 10).padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(Color.primary.opacity(scheme == .dark ? 0.08 : 0.05))
+                        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+                )
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
     }
 }
 
@@ -95,8 +118,8 @@ struct AttachmentsBlock: View {
                     AttachmentRow(att: att, ownerId: ownerId, store: store)
                 }
                 if let err = store.errorText {
-                    Label(err, systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption).foregroundStyle(.orange)
+                    SkinLabel(err, systemImage: "exclamationmark.triangle.fill")
+                        .skinFont(.caption).foregroundStyle(.orange)
                 }
             }
             .sheet(isPresented: $showPreview) {

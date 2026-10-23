@@ -68,7 +68,7 @@ struct GradesView: View {
                         switch selectedTab {
                     case .evkozi:
                         if displayEvkoziSubjects.isEmpty {
-                            SkinEmptyState(title: "Nincs tantárgy", systemImage: "books.vertical", description: "Még nincs felvett tantárgy.").mcListRow(fill: colors.surface)
+                            SkinEmptyState(title: "Nincs tantárgy", systemImage: "books.vertical", description: Text("Még nincs felvett tantárgy.")).mcListRow(fill: colors.surface)
                         } else {
                             // Átlag + grafikon — mindig látszik, akkor is ha nincs jegy (üres állapot)
                             Section {
@@ -184,7 +184,7 @@ struct GradesView: View {
                         }
                     case .felevi:
                         if feleviGrades.isEmpty {
-                            SkinEmptyState(title: "Nincs félévi jegy", systemImage: "star.slash", description: "Még nem érkezett félévi értékelés.").mcListRow(fill: colors.surface)
+                            SkinEmptyState(title: "Nincs félévi jegy", systemImage: "star.slash", description: Text("Még nem érkezett félévi értékelés.")).mcListRow(fill: colors.surface)
                         } else {
                             Section {
                                 HStack(alignment: .firstTextBaseline) {
@@ -220,7 +220,7 @@ struct GradesView: View {
                         }
                     case .evvegi:
                         if evvegiGrades.isEmpty {
-                            SkinEmptyState(title: "Nincs év végi jegy", systemImage: "star.slash", description: "Még nem érkezett év végi értékelés.").mcListRow(fill: colors.surface)
+                            SkinEmptyState(title: "Nincs év végi jegy", systemImage: "star.slash", description: Text("Még nem érkezett év végi értékelés.")).mcListRow(fill: colors.surface)
                         } else {
                             Section {
                                 HStack(alignment: .firstTextBaseline) {
