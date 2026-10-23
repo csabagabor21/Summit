@@ -531,7 +531,13 @@ struct TimetableView: View {
             .onChange(of: previewMinutes) { _, _ in publishWidgetSnapshot() }
             .onChange(of: isPreviewActive) { _, _ in publishWidgetSnapshot() }
             .navigationTitle("Órarend")
-            .navigationBarTitleDisplayMode(.large)
+            // inlineLarge, nem .large: a hét-sáv (safeAreaBar) a nagy cím és a
+            // lista közé ékelődik, így a nagy cím nem tudja folyamatosan követni
+            // a görgetést — ~55 pt-nál egy képkocka alatt csukódott (nav-sáv
+            // 106 → 54 pt, a hét-sáv vele ugrott), lassú húzásnál a küszöb
+            // körül oda-vissza. Az inlineLarge ugyanaz a nagy cím a sávban,
+            // a sáv magassága görgetéskor állandó.
+            .toolbarTitleDisplayMode(.inlineLarge)
             .summitToolbarBackground()
             .task {
                 if UserDefaults.standard.object(forKey: "home.demoPreviewMinutes") == nil {
@@ -2170,3 +2176,4 @@ private extension View {
         }
     }
 }
+
