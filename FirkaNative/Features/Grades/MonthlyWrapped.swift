@@ -194,6 +194,38 @@ struct MonthlyWrappedCard: View {
     }
 
     var body: some View {
+        Group {
+            if MinecraftTheme.isActive {
+                mcBody
+            } else {
+                summitBody
+            }
+        }
+        .onAppear {
+            SummitHaptics.success()
+            // Forgatási pozíció rögzítése + számláló léptetése a következő
+            // megnyitásra (csak egyszer — az openIndex őrzi a mostanit).
+            if openIndex == nil {
+                openIndex = WrappedStarStore.openCount(monthId: month.id)
+                WrappedStarStore.bumpOpen(monthId: month.id)
+            }
+            withAnimation(SummitMotion.gentle) { appeared = true }
+            // Minecraft: a kártya „toast-ként" érkezik (csak MC-skinben szól).
+            McSound.play(.toastIn)
+        }
+        // Csillag-változás (ezen az eszközön vagy syncről): új kép/ikon.
+        .onReceive(NotificationCenter.default.publisher(for: WrappedStarStore.changedNotification)) { _ in
+            starsTick += 1
+        }
+        .fullScreenCover(isPresented: $showPicker) {
+            WrappedSharePicker(month: month, stats: stats, distColors: distColors,
+                               art: shownArt, personTitle: personTitle)
+        }
+    }
+
+    // MARK: Summit ág (fotó + Liquid Glass) — változatlan
+
+    private var summitBody: some View {
         ZStack {
             if photo {
                 WrappedArtPhoto(art: art)
@@ -360,24 +392,190 @@ struct MonthlyWrappedCard: View {
                 .padding(.bottom, 18)
             }
         }
-        .onAppear {
-            SummitHaptics.success()
-            // Forgatási pozíció rögzítése + számláló léptetése a következő
-            // megnyitásra (csak egyszer — az openIndex őrzi a mostanit).
-            if openIndex == nil {
-                openIndex = WrappedStarStore.openCount(monthId: month.id)
-                WrappedStarStore.bumpOpen(monthId: month.id)
+    }
+
+    // MARK: Minecraft ág — az advancements-képernyő hangulata
+
+    /// A hónap statisztikája a játék nyelvén: menü-háttér, sötét pala-panelek,
+    /// advancement-keretes item-ikonok, toast-fejléc, XP-sáv.
+    private var mcBody: some View {
+        ZStack {
+            McMenuBackground()
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(alignment: .center, spacing: 8) {
+                            Text(month.wrappedTitle.uppercased())
+                                .mcInk(0xAAAAAA, .caption2)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                            Spacer()
+                            Button(action: toggleStar) {
+                                SkinIcon("star", size: 24).opacity(isStarred ? 1 : 0.45)
+                            }
+                            .buttonStyle(McButtonStyle(compact: true))
+                            .accessibilityLabel(isStarred ? "Csillag levétele (a kép újra forog)" : "Kép rögzítése erre a hónapra")
+                            Button {
+                                SummitHaptics.selection()
+                                share()
+                            } label: {
+                                SkinIcon("square.and.arrow.up", size: 24)
+                            }
+                            .buttonStyle(McButtonStyle(compact: true))
+                            .accessibilityLabel("Megosztás")
+                            Button(action: onClose) {
+                                SkinIcon("xmark", size: 24)
+                            }
+                            .buttonStyle(McButtonStyle(compact: true))
+                            .accessibilityLabel("Bezárás")
+                        }
+                        .padding(.top, 8)
+
+                        // Hős: toast-fejléc (item + sárga cím) + az átlag
+                        // XP-szintként, alatta az 1–5 skálán töltött sávval.
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(spacing: 12) {
+                                McSprite(name: "mc_item_nether_star", size: 16 * MinecraftTheme.px)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Előrelépés elérve!")
+                                        .mcInk(0xFFFF00, .subheadline)
+                                    Text(month.title)
+                                        .mcInk(0xFFFFFF, .title3)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.6)
+                                    Text("\(stats.count) jegy • \(stats.exams) dolgozat")
+                                        .mcInk(0xAAAAAA, .footnote)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text(String(format: "%.1f", stats.avg))
+                                    .mcDisplay(64)
+                                    .foregroundStyle(Color(hex: 0x80FF20))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.6)
+                                Text("átlag").mcInk(0xAAAAAA, .subheadline)
+                            }
+                            McProgressBar(value: stats.avg / 5)
+                        }
+                        .padding(.horizontal, 8 * MinecraftTheme.px)
+                        .padding(.vertical, 8 * MinecraftTheme.px)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(McNineSlice("mc_toast_advancement", top: 2, left: 2, bottom: 0, right: 2))
+                        .padding(.top, 14)
+                        .stagger(appeared, 0)
+
+                        // Csempék: egy-egy advancement-keret az itemmel
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 12) {
+                            mcTile(item: "mc_item_nether_star", frame: "mc_adv_task_frame", value: "\(stats.fives)",
+                                   label: "ötös", sub: "\(stats.count) jegyből")
+                            mcTile(item: "mc_item_clock", frame: "mc_adv_task_frame", value: "\(stats.absences)",
+                                   label: "hiányzás", sub: stats.unjustified == 0 ? "mind igazolt" : "\(stats.unjustified) igazolatlan")
+                            mcTile(item: "mc_item_bell", frame: "mc_adv_task_frame", value: "\(stats.lateCount)",
+                                   label: "késés", sub: stats.lateCount == 0 ? "egyszer sem" : "\(stats.lateMinutes) perc")
+                            mcTile(item: "mc_item_paper", frame: "mc_adv_task_frame", value: "\(stats.exams)",
+                                   label: "dolgozat", sub: "e hónapban")
+                        }
+                        .padding(.top, 20)
+                        .stagger(appeared, 0.16)
+
+                        // Legjobb + legtöbbet javult: goal / challenge keretes sorok
+                        VStack(spacing: 0) {
+                            if let best = stats.bestSubject {
+                                mcRow(item: "mc_item_diamond", frame: "mc_adv_goal_frame",
+                                      title: "Legjobb tárgyad",
+                                      value: "\(best.name) • \(String(format: "%.1f", best.avg))")
+                                if stats.mostImproved != nil {
+                                    Rectangle().fill(Color.black.opacity(0.55)).frame(height: MinecraftTheme.px)
+                                }
+                            }
+                            if let imp = stats.mostImproved {
+                                mcRow(item: "mc_item_experience_bottle", frame: "mc_adv_challenge_frame",
+                                      title: "Legtöbbet javultál",
+                                      value: "\(imp.name) • +\(String(format: "%.1f", imp.delta))")
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 6)
+                        .background(McWrappedPanel())
+                        .padding(.top, 12)
+                        .stagger(appeared, 0.24)
+
+                        // Eloszlás: jegyszínű blokk-sáv + darabszámok
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("ELOSZLÁS").mcInk(0xAAAAAA, .caption2)
+                            WrappedDistBar(distribution: stats.distribution, colors: distColors)
+                            HStack(spacing: 10) {
+                                ForEach([5, 4, 3, 2, 1], id: \.self) { v in
+                                    HStack(spacing: 4) {
+                                        Text("\(v)").mcInk(0xFFFFFF, .caption)
+                                        Text("×\(stats.distribution[v] ?? 0)").mcInk(0xAAAAAA, .caption2)
+                                    }
+                                }
+                                Spacer(minLength: 0)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(14)
+                        .background(McWrappedPanel())
+                        .padding(.top, 12)
+                        .padding(.bottom, 24)
+                        .stagger(appeared, 0.32)
+                    }
+                    .padding(.horizontal, 20)
+                }
+                // Lábléc: a diák Wrappedje (fotó nincs, így fotós sem).
+                Text(personTitle.uppercased())
+                    .mcInk(0x7E7E7E, .caption2)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .padding(.bottom, 18)
             }
-            withAnimation(SummitMotion.gentle) { appeared = true }
         }
-        // Csillag-változás (ezen az eszközön vagy syncről): új kép/ikon.
-        .onReceive(NotificationCenter.default.publisher(for: WrappedStarStore.changedNotification)) { _ in
-            starsTick += 1
+    }
+
+    /// Advancement-keretes item: a 26×26-os keret 2×-es nagyításban, a
+    /// 16×16-os item a közepén (a játék a kereten belül 5 px-re rajzolja).
+    private func mcFrameIcon(item: String, frame: String) -> some View {
+        ZStack {
+            McSprite(name: frame, size: 52)
+            McSprite(name: item, size: 32)
         }
-        .fullScreenCover(isPresented: $showPicker) {
-            WrappedSharePicker(month: month, stats: stats, distColors: distColors,
-                               art: shownArt, personTitle: personTitle)
+        .frame(width: 52, height: 52)
+        .accessibilityHidden(true)
+    }
+
+    private func mcTile(item: String, frame: String, value: String, label: String, sub: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                mcFrameIcon(item: item, frame: frame)
+                Text(value)
+                    .mcDisplay(28)
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            Text(label).mcInk(0xFFFFFF, .caption).lineLimit(1)
+            Text(sub).mcInk(0xAAAAAA, .caption2).lineLimit(1).minimumScaleFactor(0.7)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(McWrappedPanel())
+        .accessibilityElement(children: .combine)
+    }
+
+    private func mcRow(item: String, frame: String, title: String, value: String) -> some View {
+        HStack(spacing: 12) {
+            mcFrameIcon(item: item, frame: frame)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).mcInk(0xAAAAAA, .caption)
+                Text(value).mcInk(0xFFFFFF, .subheadline).lineLimit(1).minimumScaleFactor(0.7)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .accessibilityElement(children: .combine)
     }
 
     private func wrappedTile(icon: String, value: String, label: String, sub: String) -> some View {
@@ -434,6 +632,28 @@ struct MonthlyWrappedCard: View {
     }
 }
 
+/// Wrapped-panel Minecraftban: sötét pala-blokk fekete körvonallal, lépcsős
+/// sarokkal. Az árnyalatok explicitek (nem a színsémából jönnek), így a
+/// képernyő és a megosztott kép (ImageRenderer, mindig világos séma) ugyanaz.
+private struct McWrappedPanel: View {
+    var body: some View {
+        McBlockPanel(face: Color(hex: 0x2E2E33), outline: .black,
+                     highlight: .white.opacity(0.10), shade: .black.opacity(0.35))
+    }
+}
+
+private extension View {
+    /// Játékbeli szöveg: Monocraft + a szín negyed fényerejű, 1 px-es kemény
+    /// árnyéka (fehér → #3F3F3F, mint a gombfeliratoknál).
+    func mcInk(_ hex: UInt, _ style: Font.TextStyle) -> some View {
+        let shadow = ((hex >> 16 & 0xFF) / 4) << 16 | ((hex >> 8 & 0xFF) / 4) << 8 | (hex & 0xFF) / 4
+        return self
+            .font(MinecraftTheme.font(style))
+            .foregroundStyle(Color(hex: hex))
+            .shadow(color: Color(hex: shadow), radius: 0, x: MinecraftTheme.px / 1.5, y: MinecraftTheme.px / 1.5)
+    }
+}
+
 /// Lépcsőzött belépés egy blokkra (késleltetett fade + csúszás).
 private struct Stagger: ViewModifier {
     var appeared: Bool
@@ -469,6 +689,40 @@ struct WrappedDistBar: View {
     var distribution: [Int: Int]
     var colors: [Int: Color]
     var body: some View {
+        if MinecraftTheme.isActive {
+            mcBar
+        } else {
+            summitBar
+        }
+    }
+
+    /// Minecraft: fekete keretes sáv, a jegyszínű szakaszok kemény élű
+    /// blokkok 1 px-es világos felső éllel, köztük 1 px-es fekete osztás.
+    private var mcBar: some View {
+        let u = MinecraftTheme.px
+        return GeometryReader { geo in
+            let total = max(1, distribution.values.reduce(0, +))
+            let live = [5, 4, 3, 2, 1].filter { (distribution[$0] ?? 0) > 0 }
+            let inner = max(0, geo.size.width - 2 * u - u * CGFloat(max(0, live.count - 1)))
+            HStack(spacing: u) {
+                ForEach(live, id: \.self) { v in
+                    let n = distribution[v] ?? 0
+                    Rectangle()
+                        .fill(colors[v] ?? .gray)
+                        .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.38)).frame(height: u) }
+                        .overlay(alignment: .bottom) { Rectangle().fill(Color.black.opacity(0.28)).frame(height: u) }
+                        .frame(width: max(2 * u, inner * CGFloat(n) / CGFloat(total)))
+                }
+            }
+            .padding(u)
+            .frame(width: geo.size.width, alignment: .leading)
+            .background(Color.black)
+        }
+        .frame(height: 7 * u)
+        .accessibilityHidden(true)
+    }
+
+    private var summitBar: some View {
         GeometryReader { geo in
             let total = max(1, distribution.values.reduce(0, +))
             HStack(spacing: 2) {
@@ -696,6 +950,104 @@ struct WrappedPeakPage: View {
     }
 
     var body: some View {
+        if MinecraftTheme.isActive {
+            mcBody
+        } else {
+            summitBody
+        }
+    }
+
+    /// Minecraft: menü-háttér, pala-panelek, advancement-keretes ikonok —
+    /// fotó és üveg nélkül (a megosztott képen is ugyanez, ezért a render-
+    /// példánynak sincs külön ága: a panelek eleve tömörek).
+    private var mcBody: some View {
+        ZStack {
+            McMenuBackground()
+            VStack(alignment: .leading, spacing: 0) {
+                Text(personTitle.uppercased())
+                    .mcInk(0xFFFF00, .footnote)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .padding(.top, 8)
+                Spacer(minLength: 8)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 10) {
+                        McSprite(name: "mc_item_nether_star", size: 16 * MinecraftTheme.px)
+                        Text("\(stats.count) jegy • \(stats.exams) dolgozat")
+                            .mcInk(0xAAAAAA, .subheadline)
+                            .lineLimit(2)
+                        Spacer(minLength: 0)
+                    }
+                    Text(String(format: "%.1f", stats.avg))
+                        .mcDisplay(84)
+                        .foregroundStyle(Color(hex: 0x80FF20))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                    McProgressBar(value: stats.avg / 5)
+                    if let best = stats.bestSubject {
+                        Text("Legjobb: \(best.name) • \(String(format: "%.1f", best.avg))")
+                            .mcInk(0xFFFFFF, .subheadline)
+                            .lineLimit(2)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(18)
+                .background(McNineSlice("mc_toast_advancement", top: 2, left: 2, bottom: 0, right: 2))
+                Spacer(minLength: 10)
+                HStack(spacing: 10) {
+                    mcMini(item: "mc_item_nether_star", value: "\(stats.fives)", label: "ötös", sub: "\(stats.count) jegyből")
+                    mcMini(item: "mc_item_clock", value: "\(stats.absences)", label: "hiányzás", sub: absenceSub)
+                    mcMini(item: "mc_item_bell", value: "\(stats.lateCount)", label: lateLabel)
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    WrappedDistBar(distribution: stats.distribution, colors: distColors)
+                    HStack(spacing: 10) {
+                        ForEach([5, 4, 3, 2, 1], id: \.self) { v in
+                            HStack(spacing: 3) {
+                                Text("\(v)").mcInk(0xFFFFFF, .caption)
+                                Text("×\(stats.distribution[v] ?? 0)").mcInk(0xAAAAAA, .caption2)
+                            }
+                        }
+                        Spacer()
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .background(McWrappedPanel())
+                .padding(.top, 10)
+                Spacer(minLength: 10)
+                Text("SUMMIT")
+                    .mcInk(0x7E7E7E, .caption)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.bottom, 4)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 56)
+            .padding(.bottom, 16)
+        }
+    }
+
+    private func mcMini(item: String, value: String, label: String, sub: String? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            McSprite(name: item, size: 24)
+            Text(value)
+                .mcDisplay(26)
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(label).mcInk(0xFFFFFF, .caption).lineLimit(1).minimumScaleFactor(0.6)
+            Text(sub ?? " ")
+                .mcInk(0xAAAAAA, .caption2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .opacity(sub == nil ? 0 : 1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(McWrappedPanel())
+    }
+
+    private var summitBody: some View {
         ZStack {
             if let renderImage {
                 // Render-út: kész UIImage (távoli fotó vagy bundle-tartalék).
@@ -877,6 +1229,11 @@ struct WrappedSharePicker: View {
             VStack {
                 HStack {
                     Spacer()
+                    if MinecraftTheme.isActive {
+                        Button { dismiss() } label: { SkinIcon("xmark", size: 24) }
+                            .buttonStyle(McButtonStyle(compact: true))
+                            .accessibilityLabel("Bezárás")
+                    } else {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 15, weight: .bold))
@@ -886,10 +1243,23 @@ struct WrappedSharePicker: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Bezárás")
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 10)
                 Spacer()
+                if MinecraftTheme.isActive {
+                    Button {
+                        SummitHaptics.selection()
+                        Task { await renderAndShare() }
+                    } label: {
+                        SkinLabel("Megosztás", systemImage: "square.and.arrow.up")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(McButtonStyle(prominent: true))
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+                } else {
                 Button {
                     SummitHaptics.selection()
                     Task { await renderAndShare() }
@@ -904,6 +1274,7 @@ struct WrappedSharePicker: View {
                 .buttonStyle(.plain)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
+                }
             }
         }
         .sheet(isPresented: $showShare) {
@@ -925,6 +1296,19 @@ struct WrappedSharePicker: View {
         items.append("\(month.title) • \(personTitle): \(String(format: "%.1f", stats.avg)) átlag, \(stats.count) jegy — Summit")
         shareItems = items
         showShare = true
+    }
+}
+
+private extension View {
+    /// Minecraftban az égbolt-háttér a lista mögött (mint a többi
+    /// lista-képernyőn); Summitban semmi nem változik.
+    @ViewBuilder
+    func mcArchiveChrome(colors: AppColors) -> some View {
+        if MinecraftTheme.isActive {
+            self.summitListChrome(colors: colors)
+        } else {
+            self
+        }
     }
 }
 
@@ -967,7 +1351,8 @@ struct MonthlyArchiveView: View {
         List {
             if grades.isEmpty {
                 Text("Még nincs jegy — az első hónap után itt lesz a Wrapped.")
-                    .font(.subheadline).foregroundStyle(.secondary)
+                    .skinFont(.subheadline).foregroundStyle(.secondary)
+                    .mcListRow(fill: colors.surface)
             } else {
                 ForEach(MonthlyWrapped.months(grades: grades), id: \.id) { m in
                     let st = MonthlyWrapped.stats(grades: grades, month: m, exams: exams, absences: absences)
@@ -982,19 +1367,21 @@ struct MonthlyArchiveView: View {
                                 .monospacedDigit()
                                 .frame(width: 52)
                             VStack(alignment: .leading, spacing: 1) {
-                                Text(m.title).font(.subheadline.weight(.semibold))
+                                Text(m.title).skinFont(.subheadline, weight: .semibold)
                                 Text("\(st.count) jegy • \(st.fives) ötös")
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .skinFont(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                            SkinIcon("chevron.right")
+                                .skinFont(.caption, weight: .semibold).foregroundStyle(.tertiary)
                         }
                     }
                     .buttonStyle(.plain)
+                    .mcListRow(fill: colors.surface)
                 }
             }
         }
+        .mcArchiveChrome(colors: colors)
         .navigationTitle("Havi összefoglalók")
         .navigationBarTitleDisplayMode(.inline)
         .summitToolbarBackground()
