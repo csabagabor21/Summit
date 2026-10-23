@@ -21,9 +21,7 @@
 		1AA7945A597E20CF228545D2 /* TimetableWidgetLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = A84585AABBDBE7320433B315 /* TimetableWidgetLogic.swift */; };
 		1EB9A7C506BAEA92AFD144F2 /* TimetableWidgetLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = A84585AABBDBE7320433B315 /* TimetableWidgetLogic.swift */; };
 		2318ABF5F2C7E205618489DC /* ic_splash.png in Resources */ = {isa = PBXBuildFile; fileRef = 225D81CC5A3BF3C9D730B87F /* ic_splash.png */; };
-		4AD19592E25145EBBF4E79B7 /* mc_dirt.png in Resources */ = {isa = PBXBuildFile; fileRef = 15B92408A49044EA9262110F /* mc_dirt.png */; };
 		726FD1354C9341F18F596A51 /* mc_grass_side.png in Resources */ = {isa = PBXBuildFile; fileRef = 17A872D4E35C40E3A9ED1EF0 /* mc_grass_side.png */; };
-		162AAE60718042DABF48C184 /* mc_grass_top.png in Resources */ = {isa = PBXBuildFile; fileRef = ABB2AE894A6244DF9E794529 /* mc_grass_top.png */; };
 		3CFF5BC98C6D4B25A696ECCD /* mc_item_barrier.png in Resources */ = {isa = PBXBuildFile; fileRef = 32494B393BBE46469B739702 /* mc_item_barrier.png */; };
 		B309F39361154B329E6FA8D2 /* mc_item_clock.png in Resources */ = {isa = PBXBuildFile; fileRef = A425538893894177A340E980 /* mc_item_clock.png */; };
 		9498DDF5DAE84EBB9E24D301 /* mc_item_compass.png in Resources */ = {isa = PBXBuildFile; fileRef = 11081A2F8B2C49659053D458 /* mc_item_compass.png */; };
@@ -81,6 +79,7 @@
 		6F57A7559D0EC6EE41ACBD3F /* WatchPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = F46888F9B5AABCFE8AF91CF4 /* WatchPayload.swift */; };
 		6FD6D376BF8C8537963C516F /* GradeCircle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19DFC7C10A0189809286952D /* GradeCircle.swift */; };
 		7A1B2C3D4E5F60718293A4B5 /* MinecraftTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B2C3D4E5F60718293A4B5C6 /* MinecraftTheme.swift */; };
+		C41D2E3F4A5B6C7D8E9F0A1B /* MinecraftKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52E3F4A5B6C7D8E9F0A1B2C /* MinecraftKit.swift */; };
 		79486CB87A01E8EC73A80F16 /* RoundingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F5EC6EB282C3C33E5FB6F00 /* RoundingDetailView.swift */; };
 		79B56C5EA8956C3CA4D3F923 /* CheatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C2A1E29F6A708D112C24AF6 /* CheatView.swift */; };
 		7D969EE8488778FF82B72229 /* FilterBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83B9022E76AD6AB32842452B /* FilterBarView.swift */; };
@@ -230,6 +229,7 @@
 		194B529DC564DF78077C938A /* SubjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectDetailView.swift; sourceTree = "<group>"; };
 		19DFC7C10A0189809286952D /* GradeCircle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeCircle.swift; sourceTree = "<group>"; };
 		8B2C3D4E5F60718293A4B5C6 /* MinecraftTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftTheme.swift; sourceTree = "<group>"; };
+		D52E3F4A5B6C7D8E9F0A1B2C /* MinecraftKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinecraftKit.swift; sourceTree = "<group>"; };
 		1D92783AAF33901FDCC0CB3B /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		1E84D5228585755250AA0D05 /* GradingLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradingLogic.swift; sourceTree = "<group>"; };
 		225D81CC5A3BF3C9D730B87F /* ic_splash.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ic_splash.png; sourceTree = "<group>"; };
@@ -239,8 +239,6 @@
 		9A818FD7BCB049829A01E60C /* mc_item_diamond.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mc_item_diamond.png; sourceTree = "<group>"; };
 		3416FE5FE2AD4F04AF595463 /* mc_item_writable_book.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mc_item_writable_book.png; sourceTree = "<group>"; };
 		17A872D4E35C40E3A9ED1EF0 /* mc_grass_side.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mc_grass_side.png; sourceTree = "<group>"; };
-		15B92408A49044EA9262110F /* mc_dirt.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mc_dirt.png; sourceTree = "<group>"; };
-		ABB2AE894A6244DF9E794529 /* mc_grass_top.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mc_grass_top.png; sourceTree = "<group>"; };
 		B2C3D4E5F60718293A4B01C2 /* Monocraft.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Monocraft.ttf; sourceTree = "<group>"; };
 		90B614281CC34D96B052E3C8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		22EE35060AC05385D57607A4 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -465,8 +463,6 @@
 				9A818FD7BCB049829A01E60C /* mc_item_diamond.png */,
 				3416FE5FE2AD4F04AF595463 /* mc_item_writable_book.png */,
 				17A872D4E35C40E3A9ED1EF0 /* mc_grass_side.png */,
-				15B92408A49044EA9262110F /* mc_dirt.png */,
-				ABB2AE894A6244DF9E794529 /* mc_grass_top.png */,
 				B2C3D4E5F60718293A4B01C2 /* Monocraft.ttf */,
 				1D92783AAF33901FDCC0CB3B /* LaunchScreen.storyboard */,
 				89E8B5ED4F9208BE53619044 /* showcase1.png */,
@@ -548,6 +544,7 @@
 				343E8AF99B84335349319C56 /* GradeChartView.swift */,
 				19DFC7C10A0189809286952D /* GradeCircle.swift */,
 				8B2C3D4E5F60718293A4B5C6 /* MinecraftTheme.swift */,
+				D52E3F4A5B6C7D8E9F0A1B2C /* MinecraftKit.swift */,
 				3D59A6CCFD64FBB01C3CF5B5 /* SummitMotion.swift */,
 				58E3C021CA7F83DB9478FE33 /* ThemeStore.swift */,
 			);
@@ -927,8 +924,6 @@
 				7671CE9F63B34DFBA06FFD53 /* mc_item_diamond.png in Resources */,
 				0548E20B37FB4B17943A8D44 /* mc_item_writable_book.png in Resources */,
 				726FD1354C9341F18F596A51 /* mc_grass_side.png in Resources */,
-				4AD19592E25145EBBF4E79B7 /* mc_dirt.png in Resources */,
-				162AAE60718042DABF48C184 /* mc_grass_top.png in Resources */,
 				A1B2C3D4E5F60718293A4B01 /* Monocraft.ttf in Resources */,
 				497DBC3AB13FF8515F308F9E /* showcase1.png in Resources */,
 				1794ABDF8895488700C4BF24 /* showcase2.png in Resources */,
@@ -1034,6 +1029,7 @@
 				04D92300F2F40E2E33AE52DB /* GradeChartView.swift in Sources */,
 				6FD6D376BF8C8537963C516F /* GradeCircle.swift in Sources */,
 				7A1B2C3D4E5F60718293A4B5 /* MinecraftTheme.swift in Sources */,
+				C41D2E3F4A5B6C7D8E9F0A1B /* MinecraftKit.swift in Sources */,
 				F8233A954E2118EBB3EBFD56 /* GradesView.swift in Sources */,
 				D98770305ADBCA9B0CCC1D6D /* GradingLogic.swift in Sources */,
 				3DD981EF753741F402A6F479 /* HomeView.swift in Sources */,

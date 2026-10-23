@@ -17,7 +17,17 @@ struct ProfileImageView: View {
                     Image(uiImage: ui)
                         .resizable().scaledToFill()
                         .frame(width: size, height: size)
-                        .clipShape(Circle())
+                        .skinClip(Circle())
+                        // Minecraftban a fej keretezett, négyzetes (mint az inventory-slot).
+                        .overlay { if MinecraftTheme.isActive { McSlotFrame() } }
+                } else if MinecraftTheme.isActive {
+                    // Minecraft: akcent-színű pixel-blokk, Monocraft monogrammal.
+                    Text(initials)
+                        .font(MinecraftFontLoader.font(size: (size * 0.38).rounded()))
+                        .foregroundStyle(.white)
+                        .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: MinecraftTheme.px / 1.5, y: MinecraftTheme.px / 1.5)
+                        .frame(width: size, height: size)
+                        .background(McBlockPanel(face: colors.accent, castsShadow: false))
                 } else {
                     Circle()
                         .fill(colors.accent)
@@ -30,9 +40,15 @@ struct ProfileImageView: View {
                 }
             }
             if badge {
-                Circle().fill(Color.red).frame(width: 10, height: 10)
-                    .overlay(Circle().stroke(.white, lineWidth: 1.5))
-                    .offset(x: 2, y: -2)
+                if MinecraftTheme.isActive {
+                    Rectangle().fill(Color.red).frame(width: 10, height: 10)
+                        .overlay(Rectangle().strokeBorder(.white, lineWidth: MinecraftTheme.px / 2))
+                        .offset(x: 2, y: -2)
+                } else {
+                    Circle().fill(Color.red).frame(width: 10, height: 10)
+                        .overlay(Circle().stroke(.white, lineWidth: 1.5))
+                        .offset(x: 2, y: -2)
+                }
             }
         }
     }

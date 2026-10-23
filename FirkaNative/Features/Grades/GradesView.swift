@@ -7,6 +7,24 @@ enum GradeTab: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// Jegy nélküli tantárgy jelvénye: Summitban üres karika, Minecraftban
+/// üres inventory-slot (a játék szürke rekesze) kötőjellel.
+private struct EmptySubjectBadge: View {
+    let scheme: ColorScheme
+    var body: some View {
+        ZStack {
+            if MinecraftTheme.isActive {
+                McInventorySlot().frame(width: 44, height: 44)
+            } else {
+                Circle().fill(Color.clear)
+                    .overlay(Circle().strokeBorder(Color.primary.opacity(scheme == .dark ? 0.14 : 0.10), lineWidth: 1.2))
+                    .frame(width: 44, height: 44)
+            }
+            Text("—").mcDisplay(18).foregroundStyle(.tertiary)
+        }.frame(width: 44, height: 44)
+    }
+}
+
 struct GradesView: View {
     @EnvironmentObject var theme: ThemeStore
     @EnvironmentObject var session: SessionStore
@@ -31,17 +49,10 @@ struct GradesView: View {
                     Section {
                         // Egyedi binding: csak user-koppintásra tick —
                         // az üres tabra való visszaugrás (onChange) néma.
-                        Picker("", selection: Binding(
+                        SkinSegmentedPicker(selection: Binding(
                             get: { selectedTab },
                             set: { if $0 != selectedTab { SummitHaptics.selection() }; selectedTab = $0 }
-                        )) {
-                            Text(GradeTab.evkozi.rawValue).tag(GradeTab.evkozi)
-                            Text(GradeTab.felevi.rawValue).tag(GradeTab.felevi)
-                            if !evvegiGrades.isEmpty {
-                                Text(GradeTab.evvegi.rawValue).tag(GradeTab.evvegi)
-                            }
-                        }
-                        .pickerStyle(.segmented)
+                        ), options: gradeTabOptions)
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
                         .listRowSeparator(.hidden)
@@ -51,28 +62,28 @@ struct GradesView: View {
                 }
 
                 if isLoading {
-                    ForEach(0..<3, id: \.self) { _ in Text("Betöltés…").redacted(reason: .placeholder) }
+                    ForEach(0..<3, id: \.self) { _ in Text("Betöltés…").redacted(reason: .placeholder).mcListRow(fill: colors.surface) }
                 } else {
                     Group {
                         switch selectedTab {
                     case .evkozi:
                         if displayEvkoziSubjects.isEmpty {
-                            ContentUnavailableView("Nincs tantárgy", systemImage: "books.vertical", description: Text("Még nincs felvett tantárgy."))
+                            SkinEmptyState(title: "Nincs tantárgy", systemImage: "books.vertical", description: Text("Még nincs felvett tantárgy.")).mcListRow(fill: colors.surface)
                         } else {
                             // Átlag + grafikon — mindig látszik, akkor is ha nincs jegy (üres állapot)
                             Section {
                                 HStack(alignment: .lastTextBaseline, spacing: 16) {
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text("ÖSSZÁTLAG").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).tracking(1)
+                                        Text("ÖSSZÁTLAG").skinFont(.caption2, weight: .semibold).foregroundStyle(.secondary).tracking(1)
                                         Text(groupedEvkozi.isEmpty ? "—" : String(format: "%.2f", overallEvkozi)).mcDisplay(34)
                                     }
                                     Spacer()
                                     VStack(alignment: .trailing, spacing: 2) {
-                                        Text("KEREKÍTVE").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).tracking(1)
+                                        Text("KEREKÍTVE").skinFont(.caption2, weight: .semibold).foregroundStyle(.secondary).tracking(1)
                                         Text(groupedEvkozi.isEmpty ? "—" : String(format: "%.2f", overallRoundedEvkozi)).mcDisplay(34)
                                     }
                                 }
-                                .listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                                .mcSummaryRow(fill: colors.surface)
                             }
                             Section {
                                 GradeChartView(grades: evkoziGrades.sorted { $0.date < $1.date }, accent: colors.accent, height: 150, monthly: true, editorial: true)
@@ -103,10 +114,10 @@ struct GradesView: View {
                                             } label: {
                                                 HStack(spacing: 12) {
                                                     GradeCircle(value: rnd, size: 44)
-                                                    VStack(alignment: .leading, spacing: 3) { Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1); Text(String(format: "%.2f • %d jegy", raw, items.count)).font(.caption2).foregroundStyle(.secondary).lineLimit(1) }
+                                                    VStack(alignment: .leading, spacing: 3) { Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1); Text(String(format: "%.2f • %d jegy", raw, items.count)).skinFont(.caption2).foregroundStyle(.secondary).lineLimit(1) }
                                                     Spacer()
-                                                    Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
-                                                }.padding(12).background(RoundedRectangle(cornerRadius: 14).fill(colors.surface).overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)))
+                                                    SkinIcon("chevron.right", size: 14).skinFont(.caption2, weight: .semibold).foregroundStyle(.tertiary)
+                                                }.padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 14))
                                             }.buttonStyle(.plain)
                                         } else {
                                             Button {
@@ -115,11 +126,11 @@ struct GradesView: View {
                                                 path.append(subject)
                                             } label: {
                                                 HStack(spacing: 12) {
-                                                    ZStack { Circle().fill(Color.clear).overlay(Circle().strokeBorder(Color.primary.opacity(scheme == .dark ? 0.14 : 0.10), lineWidth: 1.2)).frame(width: 44, height: 44); Text("—").mcDisplay(18).foregroundStyle(.tertiary) }.frame(width: 44, height: 44)
-                                                    VStack(alignment: .leading, spacing: 3) { Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1); Text("Nincs jegy").font(.caption2).foregroundStyle(.tertiary).lineLimit(1) }
+                                                    EmptySubjectBadge(scheme: scheme)
+                                                    VStack(alignment: .leading, spacing: 3) { Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1); Text("Nincs jegy").skinFont(.caption2).foregroundStyle(.tertiary).lineLimit(1) }
                                                     Spacer()
-                                                    Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
-                                                }.padding(12).background(RoundedRectangle(cornerRadius: 14).fill(colors.surface).overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)))
+                                                    SkinIcon("chevron.right", size: 14).skinFont(.caption2, weight: .semibold).foregroundStyle(.tertiary)
+                                                }.padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 14))
                                             }.buttonStyle(.plain)
                                         }
                                     }
@@ -130,35 +141,32 @@ struct GradesView: View {
                                     let raw = GradingLogic.weightedAverage(items)
                                     let thr = GradingLogic.threshold(for: subject)
                                     let rnd = GradingLogic.roundedGrade(raw: raw, threshold: thr)
-                                    NavigationLink(value: subject) {
+                                    subjectLink(subject) {
                                         HStack(spacing: 12) {
                                             GradeCircle(value: rnd, size: 44)
                                             VStack(alignment: .leading, spacing: 3) {
-                                                Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                                Text(String(format: "%.2f • %d jegy • kerekítés %.2f-től", raw, items.count, thr)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                                                Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1)
+                                                Text(String(format: "%.2f • %d jegy • kerekítés %.2f-től", raw, items.count, thr)).skinFont(.caption2).foregroundStyle(.secondary).lineLimit(1)
                                             }
                                             Spacer()
                                         }.padding(.vertical, 2)
                                     }
-                                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                    .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
+                                    .mcListRow(fill: colors.surface)
                                 } else {
                                     // Nincs még jegy — KRÉTA tudja a tantárgyat, üresen mutatjuk
-                                    NavigationLink(value: subject) {
+                                    subjectLink(subject) {
                                         HStack(spacing: 12) {
-                                            ZStack {
-                                                Circle().fill(Color.clear)
-                                                    .overlay(Circle().strokeBorder(Color.primary.opacity(scheme == .dark ? 0.14 : 0.10), lineWidth: 1.2))
-                                                    .frame(width: 44, height: 44)
-                                                Text("—").mcDisplay(18).foregroundStyle(.tertiary)
-                                            }.frame(width: 44, height: 44)
+                                            EmptySubjectBadge(scheme: scheme)
                                             VStack(alignment: .leading, spacing: 3) {
-                                                Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                                Text("Nincs jegy").font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+                                                Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1)
+                                                Text("Nincs jegy").skinFont(.caption2).foregroundStyle(.tertiary).lineLimit(1)
                                             }
                                             Spacer()
                                         }.padding(.vertical, 2)
                                     }
-                                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                    .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
+                                    .mcListRow(fill: colors.surface)
                                 }
                             }
                             }
@@ -166,9 +174,9 @@ struct GradesView: View {
                                 let gradedCount = groupedEvkozi.count
                                 let totalCount = displayEvkoziSubjects.count
                                 if gradedCount == totalCount {
-                                    Text("\(evkoziGrades.count) jegy • \(gradedCount) tárgy").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center)
+                                    Text("\(evkoziGrades.count) jegy • \(gradedCount) tárgy").skinFont(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center)
                                 } else {
-                                    Text("\(evkoziGrades.count) jegy • \(gradedCount)/\(totalCount) tárgy értékelve").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center)
+                                    Text("\(evkoziGrades.count) jegy • \(gradedCount)/\(totalCount) tárgy értékelve").skinFont(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center)
                                 }
                             }
                             .listRowBackground(Color.clear)
@@ -176,17 +184,17 @@ struct GradesView: View {
                         }
                     case .felevi:
                         if feleviGrades.isEmpty {
-                            ContentUnavailableView("Nincs félévi jegy", systemImage: "star.slash", description: Text("Még nem érkezett félévi értékelés."))
+                            SkinEmptyState(title: "Nincs félévi jegy", systemImage: "star.slash", description: Text("Még nem érkezett félévi értékelés.")).mcListRow(fill: colors.surface)
                         } else {
                             Section {
                                 HStack(alignment: .firstTextBaseline) {
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text("FÉLÉVI ÁTLAG").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).tracking(1)
+                                        Text("FÉLÉVI ÁTLAG").skinFont(.caption2, weight: .semibold).foregroundStyle(.secondary).tracking(1)
                                         Text(String(format: "%.2f", overallFelevi)).mcDisplay(34)
                                     }
                                     Spacer()
                                 }
-                                .listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                                .mcSummaryRow(fill: colors.surface)
                             }
                             ForEach(groupedFelevi.keys.sorted(), id: \.self) { subject in
                                 let items = groupedFelevi[subject]!
@@ -194,34 +202,35 @@ struct GradesView: View {
                                 HStack(spacing: 12) {
                                     GradeCircle(value: latest.value, size: 44)
                                     VStack(alignment: .leading, spacing: 3) {
-                                        Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                        Text("Félévkor \(latest.value)-es lettél").font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                                        Text(latest.date.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.tertiary)
+                                        Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1)
+                                        Text("Félévkor \(latest.value)-es lettél").skinFont(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                        Text(latest.date.formatted(date: .abbreviated, time: .omitted)).skinFont(.caption2).foregroundStyle(.tertiary)
                                     }
                                     Spacer()
                                 }
                                 .padding(.vertical, 2)
-                                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
+                                .mcListRow(fill: colors.surface)
                             }
                             Section {
-                                Text("\(feleviGrades.count) jegy • \(groupedFelevi.count) tárgy").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center)
+                                Text("\(feleviGrades.count) jegy • \(groupedFelevi.count) tárgy").skinFont(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center)
                             }
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
                         }
                     case .evvegi:
                         if evvegiGrades.isEmpty {
-                            ContentUnavailableView("Nincs év végi jegy", systemImage: "star.slash", description: Text("Még nem érkezett év végi értékelés."))
+                            SkinEmptyState(title: "Nincs év végi jegy", systemImage: "star.slash", description: Text("Még nem érkezett év végi értékelés.")).mcListRow(fill: colors.surface)
                         } else {
                             Section {
                                 HStack(alignment: .firstTextBaseline) {
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text("ÉV VÉGI ÁTLAG").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).tracking(1)
+                                        Text("ÉV VÉGI ÁTLAG").skinFont(.caption2, weight: .semibold).foregroundStyle(.secondary).tracking(1)
                                         Text(String(format: "%.2f", overallEvvegi)).mcDisplay(34)
                                     }
                                     Spacer()
                                 }
-                                .listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                                .mcSummaryRow(fill: colors.surface)
                             }
                             ForEach(groupedEvvegi.keys.sorted(), id: \.self) { subject in
                                 let items = groupedEvvegi[subject]!
@@ -229,14 +238,15 @@ struct GradesView: View {
                                 HStack(spacing: 12) {
                                     GradeCircle(value: latest.value, size: 44)
                                     VStack(alignment: .leading, spacing: 3) {
-                                        Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                        Text("Év végén \(latest.value)-es lettél").font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                                        Text(latest.date.formatted(date: .abbreviated, time: .omitted)).font(.caption2).foregroundStyle(.tertiary)
+                                        Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1)
+                                        Text("Év végén \(latest.value)-es lettél").skinFont(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                        Text(latest.date.formatted(date: .abbreviated, time: .omitted)).skinFont(.caption2).foregroundStyle(.tertiary)
                                     }
                                     Spacer()
                                 }
                                 .padding(.vertical, 2)
-                                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
+                                .mcListRow(fill: colors.surface)
                             }
                         }
                     }
@@ -256,7 +266,7 @@ struct GradesView: View {
             }
             .task { await load() }
             .navigationDestination(for: String.self) { subject in
-                SubjectDetailView(subject: subject, grades: gradesFor(subject))
+                SubjectDetailView(subject: subject, grades: gradesFor(subject)).mcBackButton()
             }
             .onChange(of: grades) { _, _ in
                 if selectedTab == .felevi && feleviGrades.isEmpty { selectedTab = .evkozi }
@@ -267,6 +277,31 @@ struct GradesView: View {
             .summitToolbarBackground()
         }
         .tint(colors.accent)
+    }
+
+    /// Szegmens-választó opciói: az Év végi csak akkor jelenik meg, ha van.
+    private var gradeTabOptions: [(value: GradeTab, title: String)] {
+        var opts: [(value: GradeTab, title: String)] = [(.evkozi, GradeTab.evkozi.rawValue), (.felevi, GradeTab.felevi.rawValue)]
+        if !evvegiGrades.isEmpty { opts.append((.evvegi, GradeTab.evvegi.rawValue)) }
+        return opts
+    }
+
+    /// Tantárgy-sor navigációval: Summitban a gyári `NavigationLink`,
+    /// Minecraftban rejtett link + saját pixel-nyíl (a rendszer-chevron
+    /// SF-ikon, az nem maradhat).
+    @ViewBuilder
+    private func subjectLink<Content: View>(_ subject: String, @ViewBuilder content: () -> Content) -> some View {
+        if MinecraftTheme.isActive {
+            ZStack {
+                NavigationLink(value: subject) { EmptyView() }.opacity(0)
+                HStack(spacing: 8) {
+                    content()
+                    SkinIcon("chevron.right", size: 14).foregroundStyle(.tertiary)
+                }
+            }
+        } else {
+            NavigationLink(value: subject) { content() }
+        }
     }
 
     // MARK: - Filtering by típus (nyers kód és szép név is: "evkozi_jegy_ertekeles" / "Évközi értékelés")
@@ -351,5 +386,20 @@ struct GradesView: View {
         // Apple Watch: a friss jegyek + tárgyak + kerekítések mennek az órára is.
         WatchSyncSender.pushGrades(grades: grades, subjects: allSubjects)
         isLoading=false
+    }
+}
+
+private extension View {
+    /// Átlag-összefoglaló sor: Summitban átlátszó, elválasztó nélküli sor
+    /// (a háttéren lebeg), Minecraftban blokk-panel — az ég előtt a
+    /// szám különben nem lenne olvasható.
+    @ViewBuilder
+    func mcSummaryRow(fill: Color) -> some View {
+        if MinecraftTheme.isActive {
+            self.mcListRow(fill: fill)
+        } else {
+            self.listRowBackground(Color.clear).listRowSeparator(.hidden)
+                .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)))
+        }
     }
 }

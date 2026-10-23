@@ -31,6 +31,45 @@ struct GradeCelebrationView: View {
     }
 
     var body: some View {
+        Group {
+            if theme.isMinecraft {
+                mcContent
+            } else {
+                summitContent
+            }
+        }
+        .onAppear {
+            // Új jegy = ünnepelt kimenet: egyetlen success a konfettival együtt.
+            SummitHaptics.success()
+            withAnimation(SummitMotion.gentle) { appeared = true }
+            if theme.isMinecraft {
+                // Minecraft: a 5-ös „Kihívás teljesítve", a többi level-up hang
+                // (egyszer; a kihívás-fanfár hosszú, ezért zárásnál leállítjuk).
+                McSound.play(grade.value == 5 ? .challengeComplete : .levelUp)
+            } else {
+                withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { pulse = true }
+            }
+        }
+        .onDisappear {
+            McSound.stop(.challengeComplete)
+            McSound.stop(.levelUp)
+        }
+        .task {
+            // Százalék felpörgetése 0-ról a célra (ha nincs valós %, nincs animáció sem)
+            guard let target = percent else { return }
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            let steps = 24
+            for i in 1...steps {
+                try? await Task.sleep(nanoseconds: 1_300_000_000 / UInt64(steps))
+                if Task.isCancelled { return }
+                shownPct = target * i / steps
+            }
+        }
+    }
+
+    // MARK: Summit (Liquid Glass) ág — változatlan
+
+    private var summitContent: some View {
         ZStack {
             // Ünnepi háttér: jegy-szín fény felül, alatta az app-háttér
             LinearGradient(
@@ -152,21 +191,134 @@ struct GradeCelebrationView: View {
                 .animation(SummitMotion.entrance(delay: 0.3), value: appeared)
             }
         }
-        .onAppear {
-            // Új jegy = ünnepelt kimenet: egyetlen success a konfettival együtt.
-            SummitHaptics.success()
-            withAnimation(SummitMotion.gentle) { appeared = true }
-            withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { pulse = true }
+    }
+
+    // MARK: Minecraft ág — „Előrelépés elérve!" / „Kihívás teljesítve!"
+
+    /// A jegyhez tartozó item (toast-ikon): 5 = nether-csillag, 4 = gyémánt,
+    /// 3 = smaragd, 2 = aranyrúd, 1 = szén.
+    private var mcItem: String {
+        switch grade.value {
+        case 5: return "mc_item_nether_star"
+        case 4: return "mc_item_diamond"
+        case 3: return "mc_item_emerald"
+        case 2: return "mc_item_gold_ingot"
+        default: return "mc_item_coal"
         }
-        .task {
-            // Százalék felpörgetése 0-ról a célra (ha nincs valós %, nincs animáció sem)
-            guard let target = percent else { return }
-            try? await Task.sleep(nanoseconds: 400_000_000)
-            let steps = 24
-            for i in 1...steps {
-                try? await Task.sleep(nanoseconds: 1_300_000_000 / UInt64(steps))
-                if Task.isCancelled { return }
-                shownPct = target * i / steps
+    }
+
+    /// A játék szöveg-árnyéka: a szín negyed fényereje (fehér → #3F3F3F).
+    private func mcShadow(_ hex: UInt) -> Color {
+        Color(hex: ((hex >> 16 & 0xFF) / 4) << 16 | ((hex >> 8 & 0xFF) / 4) << 8 | (hex & 0xFF) / 4)
+    }
+
+    private var mcContent: some View {
+        let px = MinecraftTheme.px
+        // A %-sor és az XP-sáv ugyanazt a számot követi (pörgő százalék);
+        // % nélkül a jegy az 5-ös skálán töltött sáv.
+        let xp = percent != nil ? Double(shownPct) / 100 : Double(grade.value) / 5
+        return ZStack {
+            McMenuBackground()
+            // A játék menü-sötétítése a háttér fölött.
+            Color.black.opacity(0.35).ignoresSafeArea()
+            VStack(spacing: 0) {
+                HStack {
+                    Spacer()
+                    Button {
+                        NotificationManager.shared.celebrationGrade = nil
+                    } label: {
+                        SkinIcon("xmark", size: 24)
+                    }
+                    .buttonStyle(McButtonStyle(compact: true))
+                    .accessibilityLabel("Bezárás")
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+
+                // A toast jobbról csúszik be, lineárisan (nincs rugó).
+                McAdvancementToast(icon: mcItem,
+                                   title: grade.value == 5 ? "Kihívás teljesítve!" : "Előrelépés elérve!",
+                                   message: "Új jegy: \(grade.subject)",
+                                   challenge: grade.value == 5)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+                    .offset(x: appeared ? 0 : 420)
+                    .animation(.easeOut(duration: 0.35), value: appeared)
+
+                Text(dateText)
+                    .font(MinecraftTheme.font(.caption))
+                    .foregroundStyle(Color(hex: 0xAAAAAA))
+                    .shadow(color: mcShadow(0xAAAAAA), radius: 0, x: px / 1.5, y: px / 1.5)
+                    .padding(.top, 10)
+
+                Spacer(minLength: 12)
+
+                // Hős: a jegy tömör concrete-blokkon, mint a Jegyek tabon.
+                Text("\(grade.value)")
+                    .mcDisplay(76)
+                    .foregroundStyle(.white)
+                    .frame(width: 168, height: 168)
+                    .background(
+                        McBlockPanel(face: gradeColor, outline: Color(hex: 0x1E1A16),
+                                     highlight: .white.opacity(0.38), shade: .black.opacity(0.28))
+                    )
+                    .opacity(appeared ? 1 : 0)
+                    .animation(.easeOut(duration: 0.2).delay(0.25), value: appeared)
+
+                // XP-sáv + (ha a tanár beleírta) a valós százalék.
+                VStack(spacing: 8) {
+                    if percent != nil {
+                        Text("\(shownPct)%")
+                            .mcDisplay(40)
+                            .foregroundStyle(Color(hex: 0x80FF20))
+                            .shadow(color: mcShadow(0x80FF20), radius: 0, x: px / 1.5, y: px / 1.5)
+                    }
+                    McProgressBar(value: xp)
+                        .frame(width: 280)
+                }
+                .padding(.top, 16)
+                .opacity(appeared ? 1 : 0)
+
+                Spacer(minLength: 16)
+
+                // Balra zárt infóblokk: tantárgy + mire kapta
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(grade.subject)
+                        .mcDisplay(26)
+                        .foregroundStyle(.white)
+                    Text(topicLine)
+                        .font(MinecraftTheme.font(.headline))
+                        .foregroundStyle(Color(hex: 0xAAAAAA))
+                        .shadow(color: mcShadow(0xAAAAAA), radius: 0, x: px / 1.5, y: px / 1.5)
+                    Text("\(friendlyGradeType(grade.type)) • \(grade.teacher)")
+                        .font(MinecraftTheme.font(.subheadline))
+                        .foregroundStyle(Color(hex: 0xAAAAAA))
+                        .shadow(color: mcShadow(0xAAAAAA), radius: 0, x: px / 1.5, y: px / 1.5)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 28)
+                .opacity(appeared ? 1 : 0)
+
+                Spacer(minLength: 20)
+
+                VStack(spacing: 10) {
+                    Button {
+                        NotificationManager.shared.celebrationGrade = nil
+                        NotificationCenter.default.post(name: switchToGrades, object: nil)
+                    } label: {
+                        Text("Megnézem a jegyeim").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(McButtonStyle(prominent: true))
+                    Button {
+                        NotificationManager.shared.celebrationGrade = nil
+                    } label: {
+                        Text("Szuper!").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(McButtonStyle())
+                }
+                .padding(.horizontal, 28)
+                .padding(.bottom, 8)
+                .opacity(appeared ? 1 : 0)
             }
         }
     }

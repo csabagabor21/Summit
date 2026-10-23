@@ -52,16 +52,22 @@ struct MainTabView: View {
     var body: some View {
         Group {
             if useCustomHotbar {
-                // Minecraft keskeny kijelzőn: a fűblokk a layout része
-                // (a tartalom sosem csúszik mögé), a hotbar rajta ül.
-                // Szélesen (iPad/Mac sidebar) a natív sáv marad.
-                VStack(spacing: 0) {
-                    tabContent
-                    McGrassBlockFooter(height: 148)
-                }
-                .overlay(alignment: .bottom) {
-                    mcHotbar.padding(.bottom, 46)
-                }
+                // Minecraft keskeny kijelzőn: a tartalom a teljes magasságot
+                // kitölti és görgetéskor a fű és a föld MÖGÉ csúszik (nincs
+                // éles vágás a fűsáv fölött); a tabok alsó safe area-ja
+                // (`mcTabChrome`) akkora, hogy a lista vége a virágok fölött
+                // álljon meg. A hotbar a földön ül. Szélesen (iPad/Mac
+                // sidebar) a natív sáv marad.
+                tabContent
+                    .overlay(alignment: .bottom) {
+                        McGrassBlockFooter(height: Self.mcFooterHeight)
+                    }
+                    .overlay(alignment: .bottom) {
+                        mcHotbar.padding(.bottom, 6)
+                    }
+                // Az ég a fűsáv mögé is lenyúlik: a növények az égre rajzolódnak,
+                // nem a tab-tartalom alatti üres (fehér) sávra.
+                .background { MinecraftBackdrop(ground: false) }
             } else {
                 tabContent
             }
@@ -113,6 +119,8 @@ struct MainTabView: View {
             if !wide, selected == 3 { selected = 5 }
         }
         .onChange(of: selected) { _, tab in
+            // Széles elrendezés (rendszer-tabsáv): itt nincs hotbar-callback.
+            if theme.isMinecraft, !useCustomHotbar { McSound.play(.click) }
             // Minden tabváltást hirdetünk — a másik eszköz dockjában
             // ettől jön fel a Summit ikon az aktuális hellyel.
             HandoffCenter.shared.setTab(tab)
@@ -157,34 +165,46 @@ struct MainTabView: View {
     @available(iOS 18.0, *)
     private var nativeSidebar: some View {
         TabView(selection: $selected) {
-            Tab(tabTitle(0), systemImage: tabIcon(0), value: 0) {
-                HomeView().mcTabChrome(hidden: useCustomHotbar)
-            }
-            Tab(tabTitle(1), systemImage: tabIcon(1), value: 1) {
-                GradesView().mcTabChrome(hidden: useCustomHotbar)
-            }
-            Tab(tabTitle(2), systemImage: tabIcon(2), value: 2) {
-                TimetableView().mcTabChrome(hidden: useCustomHotbar)
-            }
-            Tab(tabTitle(5), systemImage: tabIcon(5), value: 5) {
-                NotesView().mcTabChrome(hidden: useCustomHotbar)
-            }
-            Tab(tabTitle(4), systemImage: tabIcon(4), value: 4) {
-                AbsencesView().mcTabChrome(hidden: useCustomHotbar)
-            }
+            Tab(value: 0) {
+                HomeView().mcTabChrome(hidden: useCustomHotbar).id(mcRootTokens[0, default: 0])
+            } label: { tabLabel(0) }
+            Tab(value: 1) {
+                GradesView().mcTabChrome(hidden: useCustomHotbar).id(mcRootTokens[1, default: 0])
+            } label: { tabLabel(1) }
+            Tab(value: 2) {
+                TimetableView().mcTabChrome(hidden: useCustomHotbar).id(mcRootTokens[2, default: 0])
+            } label: { tabLabel(2) }
+            Tab(value: 5) {
+                NotesView().mcTabChrome(hidden: useCustomHotbar).id(mcRootTokens[5, default: 0])
+            } label: { tabLabel(5) }
+            Tab(value: 4) {
+                AbsencesView().mcTabChrome(hidden: useCustomHotbar).id(mcRootTokens[4, default: 0])
+            } label: { tabLabel(4) }
             // Watch-tab CSAK széles elrendezésen (iPad / Mac sidebar) —
             // iPhone-on nincs (ott a Feladatok bal felső toolbar-gombja
             // nyitja, különben 6 tab már zsúfolt lenne).
             if watchTabVisible {
-                Tab("Watch", systemImage: "applewatch", value: 3) {
+                Tab(value: 3) {
                     CheatView()
-                }
+                } label: { tabLabel(3) }
             }
         }
         .tabViewStyle(.sidebarAdaptable)
         // Ne tegyél ide .toolbarBackground vagy .glassEffect-et:
         // iOS 26-on a TabBar/Sidebar chrome magától Liquid Glass.
         // Content glass tilos — "glass can't sample other glass".
+    }
+
+    /// Tab-címke: Summitban a gyári `Label(cím, systemImage:)`, Minecraftban
+    /// az eredeti item-textúra (előre, élesen felnagyítva — a tab-sáv
+    /// maga simítaná a 16 px-es képet) a széles elrendezés sávjában.
+    @ViewBuilder
+    private func tabLabel(_ tab: Int) -> some View {
+        if theme.isMinecraft, let ui = MinecraftTheme.tabBarImage(for: tab) {
+            Label { Text(tabTitle(tab)) } icon: { Image(uiImage: ui) }
+        } else {
+            Label(tabTitle(tab), systemImage: tabIcon(tab))
+        }
     }
 
     /// Minecraft-skinben blokkos ikonok + címek, különben a gyáriak.
@@ -205,6 +225,12 @@ struct MainTabView: View {
     /// Minecraft keskeny kijelzőn: a rendszer-tabsáv rejtve — helyette
     /// saját hotbar jön a fűblokkra. Máshol a natív sáv marad.
     private var useCustomHotbar: Bool { theme.isMinecraft && !isWide }
+    /// Hotbar-újrakoppintás: az aktív slotra koppintva a tab navigációs
+    /// verme a gyökérre ugrik (mint a rendszer-tabsávon) — az új azonosító
+    /// újraépíti a tab NavigationStackjét.
+    @State private var mcRootTokens: [Int: Int] = [:]
+    /// A fűblokk-talaj magassága a home-jelző fölött.
+    static let mcFooterHeight: CGFloat = 148
 
     /// Hotbar-slotok: (tab, eredeti item-sprite, cím).
     private var mcTabs: [(Int, String, String)] {
@@ -213,43 +239,22 @@ struct MainTabView: View {
          (4, "mc_item_barrier", "Hiányzások")]
     }
 
-    /// Saját minecraft-hotbar: sötét áttetsző sáv, a kijelölt slot
-    /// fűzöld, fehér kerettel — mint a játékban.
+    /// Saját minecraft-hotbar (lásd `McHotbar`): a kijelölt slot neve a
+    /// sáv fölött, a játékbeli szöveg-árnyékkal.
     private var mcHotbar: some View {
-        HStack(spacing: 6) {
-            ForEach(mcTabs, id: \.0) { tab, icon, title in
-                Button {
-                    SummitHaptics.selection()
-                    selected = tab
-                } label: {
-                    VStack(spacing: 2) {
-                        MinecraftTheme.mcPixelImage(icon, size: 30)
-                        Text(title)
-                            .font(MinecraftFontLoader.font(size: 8))
-                    }
-                    .foregroundStyle(selected == tab ? .white : .white.opacity(0.55))
-                    .frame(width: 56, height: 52)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(selected == tab
-                                  ? MinecraftTheme.grass.opacity(0.9)
-                                  : Color.black.opacity(0.45))
-                            .overlay(RoundedRectangle(cornerRadius: 8)
-                                .strokeBorder(selected == tab ? .white : .white.opacity(0.3),
-                                              lineWidth: selected == tab ? 3 : 1.5))
-                    )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text(title))
+        McHotbar(
+            slots: mcTabs.map { McHotbar.Slot(tab: $0.0, sprite: $0.1, title: $0.2) },
+            selected: selected
+        ) { tab in
+            SummitHaptics.selection()
+            // A hotbar-slot kattan, mint a játékban (csak MC-skinben szól).
+            McSound.play(.click)
+            if tab == selected {
+                mcRootTokens[tab, default: 0] += 1
+            } else {
+                selected = tab
             }
         }
-        .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color.black.opacity(0.45))
-                .overlay(RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(.white.opacity(0.25), lineWidth: 2))
-        )
     }
 
     private func tabTitle(_ tab: Int) -> String {
@@ -270,13 +275,13 @@ struct MainTabView: View {
     // MARK: - iOS 17 fallback (Summit target régebbi OS-en) — natív TabView
     private var phoneTabsLegacy: some View {
         TabView(selection: $selected) {
-            HomeView().mcTabChrome(hidden: useCustomHotbar).tabItem { Label(tabTitle(0), systemImage: tabIcon(0)) }.tag(0)
-            GradesView().mcTabChrome(hidden: useCustomHotbar).tabItem { Label(tabTitle(1), systemImage: tabIcon(1)) }.tag(1)
-            TimetableView().mcTabChrome(hidden: useCustomHotbar).tabItem { Label(tabTitle(2), systemImage: tabIcon(2)) }.tag(2)
-            NotesView().mcTabChrome(hidden: useCustomHotbar).tabItem { Label(tabTitle(5), systemImage: tabIcon(5)) }.tag(5)
-            AbsencesView().mcTabChrome(hidden: useCustomHotbar).tabItem { Label(tabTitle(4), systemImage: tabIcon(4)) }.tag(4)
+            HomeView().mcTabChrome(hidden: useCustomHotbar).tabItem { tabLabel(0) }.tag(0)
+            GradesView().mcTabChrome(hidden: useCustomHotbar).tabItem { tabLabel(1) }.tag(1)
+            TimetableView().mcTabChrome(hidden: useCustomHotbar).tabItem { tabLabel(2) }.tag(2)
+            NotesView().mcTabChrome(hidden: useCustomHotbar).tabItem { tabLabel(5) }.tag(5)
+            AbsencesView().mcTabChrome(hidden: useCustomHotbar).tabItem { tabLabel(4) }.tag(4)
             if watchTabVisible {
-                CheatView().tabItem { Label("Watch", systemImage: "applewatch") }.tag(3)
+                CheatView().tabItem { tabLabel(3) }.tag(3)
             }
         }
     }
@@ -289,8 +294,153 @@ private extension View {
     func mcTabChrome(hidden: Bool) -> some View {
         if hidden {
             self.toolbar(.hidden, for: .tabBar)
+                // A tartalom alá behúzódik a talaj + a növények sávja: a
+                // görgetett sorok mögé csúsznak, a lista vége fölöttük áll meg.
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    Color.clear
+                        .frame(height: MainTabView.mcFooterHeight + McFlora.maxHeight)
+                        .allowsHitTesting(false)
+                }
         } else {
             self
         }
+    }
+}
+
+/// Minecraft Java/Bedrock hotbar, pixelrácsra rajzolva: 1 játék-pixel =
+/// `px` pt, minden él egész számú játék-pixelre esik, nincs lekerekítés.
+/// A slotok 20×20 px-esek (1 px sötét keret, 1 px letört él, 16×16 px
+/// belső tér az itemnek), a kijelölést a vanilla `hotbar_selection`
+/// mintájú, slotonként 2 px-szel túlnyúló fehér keret jelzi. A kijelölt
+/// item neve a sáv fölött áll fehér Minecraft-betűvel, 1 px-es
+/// (#3F3F3F) szövegárnyékkal.
+private struct McHotbar: View {
+    struct Slot: Identifiable {
+        let tab: Int
+        let sprite: String
+        let title: String
+        var id: Int { tab }
+    }
+
+    let slots: [Slot]
+    let selected: Int
+    let onSelect: (Int) -> Void
+
+    /// Egy játék-pixel pontban (3 pt → 6/9 fizikai pixel, mindig egész).
+    private let px: CGFloat = 3
+    private let slotPx = 20
+    private var barWidthPx: Int { slotPx * slots.count + 2 }
+    private let barHeightPx = 22
+
+    private var selectedIndex: Int? { slots.firstIndex { $0.tab == selected } }
+    private var selectedTitle: String { slots.first { $0.tab == selected }?.title ?? "" }
+
+    var body: some View {
+        VStack(spacing: 2 * px) {
+            itemName
+            ZStack(alignment: .topLeading) {
+                barArt
+                ForEach(Array(slots.enumerated()), id: \.element.id) { index, slot in
+                    MinecraftTheme.mcPixelImage(slot.sprite, size: 16 * px)
+                        .offset(x: CGFloat(1 + index * slotPx + 2) * px,
+                                y: 3 * px)
+                        .allowsHitTesting(false)
+                }
+                selectionFrame
+                ForEach(Array(slots.enumerated()), id: \.element.id) { index, slot in
+                    Button { onSelect(slot.tab) } label: {
+                        Color.clear
+                            .frame(width: CGFloat(slotPx) * px, height: CGFloat(barHeightPx) * px)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text(slot.title))
+                    .accessibilityAddTraits(slot.tab == selected ? .isSelected : [])
+                    .offset(x: CGFloat(1 + index * slotPx) * px - px)
+                }
+            }
+            .frame(width: CGFloat(barWidthPx) * px, height: CGFloat(barHeightPx) * px,
+                   alignment: .topLeading)
+        }
+    }
+
+    /// A kijelölt item neve: fehér szöveg + sötétszürke árnyék 1 px-szel
+    /// jobbra-le, váltáskor áttűnéssel (mint a játékban).
+    private var itemName: some View {
+        let font = MinecraftFontLoader.font(size: 8 * px)
+        return ZStack(alignment: .topLeading) {
+            Text(selectedTitle)
+                .font(font)
+                .foregroundStyle(Color(red: 0.247, green: 0.247, blue: 0.247))
+                .offset(x: px, y: px)
+            Text(selectedTitle)
+                .font(font)
+                .foregroundStyle(.white)
+        }
+        .fixedSize()
+        .padding(.trailing, px)
+        .padding(.bottom, px)
+        .id(selected)
+        .transition(.opacity.animation(.easeOut(duration: 0.18)))
+        .accessibilityHidden(true)
+        .frame(height: 12 * px)
+    }
+
+    /// Sáv + slotok. Koordináták játék-pixelben.
+    private var barArt: some View {
+        Canvas { ctx, _ in
+            func rect(_ x: Int, _ y: Int, _ w: Int, _ h: Int, _ c: Color) {
+                ctx.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px,
+                                     width: CGFloat(w) * px, height: CGFloat(h) * px)), with: .color(c))
+            }
+            // Sötét, áttetsző alap + 1 px külső keret.
+            rect(0, 0, barWidthPx, barHeightPx, Color(white: 0.06, opacity: 0.88))
+            rect(1, 1, barWidthPx - 2, barHeightPx - 2, Color(white: 0.16, opacity: 0.80))
+            for i in 0..<slots.count {
+                let x = 1 + i * slotPx
+                // Slot-keret (sötét) és 18×18-as test.
+                rect(x, 1, slotPx, 20, Color(white: 0.04, opacity: 0.95))
+                rect(x + 1, 2, 18, 18, Color(white: 0.42, opacity: 0.62))
+                // Letört élek: bal/felső sötét, jobb/alsó világos.
+                rect(x + 1, 2, 18, 1, Color(white: 0.215, opacity: 0.95))
+                rect(x + 1, 2, 1, 18, Color(white: 0.215, opacity: 0.95))
+                rect(x + 1, 19, 18, 1, Color(white: 1.0, opacity: 0.55))
+                rect(x + 18, 2, 1, 18, Color(white: 1.0, opacity: 0.55))
+                // A két sarok (egyetlen pixel) a klasszikus slot szerint.
+                rect(x + 1, 19, 1, 1, Color(white: 0.42, opacity: 0.62))
+                rect(x + 18, 2, 1, 1, Color(white: 0.42, opacity: 0.62))
+            }
+        }
+        .frame(width: CGFloat(barWidthPx) * px, height: CGFloat(barHeightPx) * px)
+        .allowsHitTesting(false)
+    }
+
+    /// Kijelölő keret: 24×24 px, 1 px fekete külső él, 2 px fehér gyűrű,
+    /// 1 px világosszürke belső él; a slotot minden oldalon 2 px-szel
+    /// túllépi (a belső 16×16 itemtér szabad marad).
+    private var selectionFrame: some View {
+        Canvas { ctx, _ in
+            guard let i = selectedIndex else { return }
+            // A vászon 2 px-szel nagyobb a sávnál minden oldalon, hogy a
+            // túlnyúló keret ne vágódjon le.
+            let ox = 1 + i * slotPx
+            let oy = 1
+            func ring(_ inset: Int, _ c: Color) {
+                let side = 24 - inset * 2
+                let outer = CGRect(x: CGFloat(ox + inset) * px, y: CGFloat(oy + inset) * px,
+                                   width: CGFloat(side) * px, height: CGFloat(side) * px)
+                let inner = outer.insetBy(dx: px, dy: px)
+                var p = Path(outer)
+                p.addRect(inner)
+                ctx.fill(p, with: .color(c), style: FillStyle(eoFill: true))
+            }
+            ring(0, Color(white: 0.0, opacity: 0.9))
+            ring(1, .white)
+            ring(2, .white)
+            ring(3, Color(white: 0.55))
+        }
+        .frame(width: CGFloat(barWidthPx + 4) * px, height: CGFloat(barHeightPx + 4) * px)
+        .offset(x: -2 * px, y: -2 * px)
+        .allowsHitTesting(false)
     }
 }

@@ -75,7 +75,10 @@ extension View {
     // Keep only for primary floating CTA if needed — otherwise use .buttonStyle(.glass) native
     @ViewBuilder
     func functionalGlass(cornerRadius: CGFloat = 20, tint: Color? = nil) -> some View {
-        if #available(iOS 26.0, *) {
+        // Minecraft-skinben a kártya pixel-blokk, nem üveg.
+        if MinecraftTheme.isActive {
+            self
+        } else if #available(iOS 26.0, *) {
             if let t = tint { self.glassEffect(.regular.tint(t).interactive(), in: .rect(cornerRadius: cornerRadius)) }
             else { self.glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius)) }
         } else {
@@ -92,7 +95,10 @@ extension View {
 
     @ViewBuilder
     func glassEffectIfAvailable(in circle: Circle = Circle(), tint: Color? = nil) -> some View {
-        if #available(iOS 26.0, *) {
+        // Minecraftban nincs üveg: a hívó saját pixel-háttere marad.
+        if MinecraftTheme.isActive {
+            self
+        } else if #available(iOS 26.0, *) {
             if let t = tint { self.glassEffect(.regular.tint(t).interactive(), in: circle) }
             else { self.glassEffect(.regular.interactive(), in: circle) }
         } else {
@@ -102,7 +108,9 @@ extension View {
 
     @ViewBuilder
     func glassEffectIfAvailable(in rect: RoundedRectangle, tint: Color? = nil) -> some View {
-        if #available(iOS 26.0, *) {
+        if MinecraftTheme.isActive {
+            self
+        } else if #available(iOS 26.0, *) {
             if let t = tint { self.glassEffect(.regular.tint(t).interactive(), in: rect) }
             else { self.glassEffect(.regular.interactive(), in: rect) }
         } else {
@@ -117,7 +125,16 @@ extension View {
     /// Beviteli mező látható dobozzal: a csupasz TextField nem jelzi,
     /// hogy oda szöveget kell írni — ez ad neki hátteret + keretet.
     /// Világos és sötét módban is olvasható, kontrasztot nem tör meg.
+    @ViewBuilder
     func summitInput() -> some View {
+        if MinecraftTheme.isActive {
+            self.modifier(McTextFieldFrame())
+        } else {
+            summitInputBox()
+        }
+    }
+
+    private func summitInputBox() -> some View {
         self
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
@@ -175,7 +192,9 @@ extension View {
     /// nincs felülírás — a rendszer rajzolja az átlátszó Liquid Glass bart.
     @ViewBuilder
     func summitToolbarBackground() -> some View {
-        if MacSupport.isNativeMac {
+        // Minecraft: a nav-sáv a játék menü-fejléce (földcsempe), a tetején
+        // átlátszó — a kényszerített rendszer-sáv helyett az appearance dönt.
+        if MinecraftTheme.isActive || MacSupport.isNativeMac {
             self
         } else {
             self.toolbarBackground(.visible, for: .navigationBar)
@@ -188,11 +207,7 @@ extension View {
     @ViewBuilder
     func summitRowSurface(colors: AppColors) -> some View {
         if MinecraftTheme.isActive {
-            self.listRowBackground(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(colors.surface)
-                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(MinecraftTheme.dirtDark, lineWidth: 2))
-            )
+            self.listRowBackground(McRowPanel(face: colors.surface))
         } else if MacSupport.isNativeMac {
             self.listRowBackground(Color.clear)
         } else {
@@ -204,7 +219,9 @@ extension View {
     /// natív Mac-ablakban átlátszó — a mögöttes tartalom áttűnik.
     @ViewBuilder
     func summitSheetBackground() -> some View {
-        if MacSupport.isNativeMac {
+        if MinecraftTheme.isActive {
+            self.background { McMenuBackground() }
+        } else if MacSupport.isNativeMac {
             self.background(Color.clear)
         } else {
             self.background(Color(.systemBackground).ignoresSafeArea())

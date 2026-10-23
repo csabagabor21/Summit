@@ -29,10 +29,9 @@ struct MessagesView: View {
     var body: some View {
         List {
                 Section {
-                    Picker("", selection: $topTab) {
-                        Text("Üzenetek").tag(0); Text("Feljegyzések").tag(1)
-                    }
-                    .pickerStyle(.segmented)
+                    SkinSegmented(selection: $topTab, options: [
+                        SkinOption(value: 0, title: "Üzenetek"), SkinOption(value: 1, title: "Feljegyzések"),
+                    ])
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
                     .listRowSeparator(.hidden)
@@ -41,12 +40,11 @@ struct MessagesView: View {
 
                 if topTab == 0 {
                     Section {
-                        Picker("", selection: $box) {
-                            Text("Beérkezett").tag(KretaAPI.Mailbox.incoming)
-                            Text("Elküldött").tag(KretaAPI.Mailbox.sent)
-                            Text("Törölt").tag(KretaAPI.Mailbox.trash)
-                        }
-                        .pickerStyle(.segmented)
+                        SkinSegmented(selection: $box, options: [
+                            SkinOption(value: KretaAPI.Mailbox.incoming, title: "Beérkezett"),
+                            SkinOption(value: KretaAPI.Mailbox.sent, title: "Elküldött"),
+                            SkinOption(value: KretaAPI.Mailbox.trash, title: "Törölt"),
+                        ])
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 4, trailing: 16))
                         .listRowSeparator(.hidden)
@@ -58,10 +56,11 @@ struct MessagesView: View {
                         ForEach(0..<3, id: \.self) { _ in
                             HStack { Text("Betöltés…").redacted(reason: .placeholder) }
                                 .summitRowSurface(colors: colors)
+                                .mcRowChrome()
                         }
                     } else if messages.isEmpty {
                         Section {
-                            ContentUnavailableView("Nincs üzenet", systemImage: "envelope",
+                            SkinEmptyState(title: "Nincs üzenet", systemImage: "envelope",
                                 description: Text(box == .incoming ? "A beérkezett postaláda üres."
                                     : box == .sent ? "Nincs elküldött üzenet." : "A kuka üres."))
                                 .frame(maxWidth: .infinity, minHeight: 220)
@@ -73,44 +72,46 @@ struct MessagesView: View {
                     } else {
                         Section {
                             ForEach(messages) { m in
-                                NavigationLink {
+                                SkinNavLink {
                                     MessageDetailView(message: m)
                                 } label: {
                                     HStack(spacing: 10) {
-                                        Image(systemName: m.isRead ? "envelope.open" : "envelope.fill")
-                                            .font(.subheadline)
+                                        SkinIcon(m.isRead ? "envelope.open" : "envelope.fill")
+                                            .skinFont(.subheadline)
                                             .foregroundStyle(m.isRead ? .secondary : colors.accent)
                                             .frame(width: 24)
                                         VStack(alignment: .leading, spacing: 2) {
-                                            Text(m.sender).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                            Text(m.subject).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                                            Text(m.sender).skinFont(.subheadline, weight: .semibold).lineLimit(1)
+                                            Text(m.subject).skinFont(.caption).foregroundStyle(.secondary).lineLimit(2)
                                             HStack(spacing: 6) {
                                                 Text(m.date.formatted(date: .abbreviated, time: .omitted))
-                                                    .font(.caption2).foregroundStyle(.tertiary)
+                                                    .skinFont(.caption2).foregroundStyle(.tertiary)
                                                 if !m.attachments.isEmpty {
-                                                    Label("\(m.attachments.count)", systemImage: "paperclip")
-                                                        .font(.caption2.weight(.medium)).foregroundStyle(.secondary)
+                                                    SkinLabel("\(m.attachments.count)", systemImage: "paperclip")
+                                                        .skinFont(.caption2, weight: .medium).foregroundStyle(.secondary)
                                                 }
                                             }
                                         }
                                         Spacer(minLength: 4)
                                         if !m.isRead {
-                                            Circle().fill(colors.accent).frame(width: 8, height: 8)
+                                            SkinDot(color: colors.accent, size: 8)
                                         }
                                     }
                                 }
                             }
                         }
+                        .mcListRowComfy(fill: colors.surface)
                     }
                 } else {
                     if isLoadingNotes {
                         ForEach(0..<3, id: \.self) { _ in
                             HStack { Text("Betöltés…").redacted(reason: .placeholder) }
                                 .summitRowSurface(colors: colors)
+                                .mcRowChrome()
                         }
                     } else if notes.isEmpty {
                         Section {
-                            ContentUnavailableView("Nincs feljegyzés", systemImage: "note.text",
+                            SkinEmptyState(title: "Nincs feljegyzés", systemImage: "note.text",
                                 description: Text("Az iskola nem küldött elektronikus feljegyzést."))
                                 .frame(maxWidth: .infinity, minHeight: 220)
                                 .padding(.vertical, 16)
@@ -151,35 +152,35 @@ struct MessagesView: View {
         let expanded = expandedNoteIDs.contains(n.id)
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(n.title).font(.subheadline.weight(.semibold)).lineLimit(expanded ? nil : 2)
+                Text(n.title).skinFont(.subheadline, weight: .semibold).lineLimit(expanded ? nil : 2)
                 Spacer(minLength: 8)
                 Button { toggleNote(n.id, expanded: expanded) } label: {
-                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                        .font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                    SkinIcon(expanded ? "chevron.up" : "chevron.down")
+                        .skinFont(.caption, weight: .semibold).foregroundStyle(.tertiary)
                 }
                 .buttonStyle(.plain)
             }
             .contentShape(Rectangle())
             .onTapGesture { toggleNote(n.id, expanded: expanded) }
             HStack(spacing: 6) {
-                Text(n.displayType).font(.caption2.weight(.semibold))
+                Text(n.displayType).skinFont(.caption2, weight: .semibold)
                     .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(Capsule().fill(colors.accent.opacity(0.14)))
+                    .skinPill(fill: colors.accent.opacity(0.14))
                 if !n.teacher.isEmpty {
-                    Text(n.teacher).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    Text(n.teacher).skinFont(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Text(huDate(n.date))
-                    .font(.caption2).foregroundStyle(.tertiary)
+                    .skinFont(.caption2).foregroundStyle(.tertiary)
             }
             if expanded {
                 if n.plainBody.isEmpty {
-                    Text("Nincs megjeleníthető szöveg.").font(.callout).foregroundStyle(.tertiary)
+                    Text("Nincs megjeleníthető szöveg.").skinFont(.callout).foregroundStyle(.tertiary)
                 } else {
-                    Text(n.plainBody).font(.callout).textSelection(.enabled)
+                    Text(n.plainBody).skinFont(.callout).textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             } else if !n.plainBody.isEmpty {
-                Text(n.plainBody).font(.callout).foregroundStyle(.secondary).lineLimit(3)
+                Text(n.plainBody).skinFont(.callout).foregroundStyle(.secondary).lineLimit(3)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
                     .onTapGesture { toggleNote(n.id, expanded: expanded) }
@@ -187,6 +188,7 @@ struct MessagesView: View {
         }
         .padding(.vertical, 4)
         .summitRowSurface(colors: colors)
+        .mcRowChrome()
     }
 
     // Magyar dátum — az eszköz nyelve angol is lehet (a szimulátoron is),
@@ -253,38 +255,40 @@ private struct MessageDetailView: View {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(shown.subject)
-                        .font(.headline)
+                        .skinFont(.headline)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     HStack(spacing: 6) {
-                        Text(shown.sender).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        Text(shown.sender).skinFont(.caption, weight: .semibold).foregroundStyle(.secondary)
                         Text("•").foregroundStyle(.tertiary)
                         Text(shown.date.formatted(date: .abbreviated, time: .shortened))
-                            .font(.caption).foregroundStyle(.secondary)
+                            .skinFont(.caption).foregroundStyle(.secondary)
                     }
-                    Divider().opacity(0.5)
+                    SkinDivider().opacity(0.5)
                     if isLoading && shown.body.isEmpty {
-                        Text("Betöltés…").redacted(reason: .placeholder).font(.callout)
+                        Text("Betöltés…").redacted(reason: .placeholder).skinFont(.callout)
                     } else if shown.plainBody.isEmpty {
-                        Text("Nincs megjeleníthető szöveg.").font(.callout).foregroundStyle(.tertiary)
+                        Text("Nincs megjeleníthető szöveg.").skinFont(.callout).foregroundStyle(.tertiary)
                     } else {
-                        Text(shown.plainBody).font(.callout).textSelection(.enabled)
+                        Text(shown.plainBody).skinFont(.callout).textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
                 .padding(.vertical, 4)
             }
+            .mcListRowComfy(fill: colors.surface)
             if !shown.attachments.isEmpty {
                 Section {
                     ForEach(shown.attachments) { att in
                         AttachmentRow(att: att, store: attStore)
                     }
                     if let err = attStore.errorText {
-                        Label(err, systemImage: "exclamationmark.triangle.fill")
-                            .font(.caption).foregroundStyle(.orange)
+                        SkinLabel(err, systemImage: "exclamationmark.triangle.fill")
+                            .skinFont(.caption).foregroundStyle(.orange)
                     }
                 } header: {
                     Text("Csatolmányok (\(shown.attachments.count))")
                 }
+                .mcListRowComfy(fill: colors.surface)
             }
         }
         .listStyle(.insetGrouped)

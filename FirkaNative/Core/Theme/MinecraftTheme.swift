@@ -46,8 +46,8 @@ enum MinecraftTheme {
     static let skyTop: Color = Color(hex: 0x6EC1F5)     // shader-ég felül
     static let skyBottom: Color = Color(hex: 0xCDEBFF)  // horizont-pára
     static let sun: Color = Color(hex: 0xFFE9A8)        // meleg napkorong
-    static let nightTop: Color = Color(hex: 0x0B1026)   // éjszakai shader-ég
-    static let nightBottom: Color = Color(hex: 0x1E2A52)
+    static let nightTop: Color = Color(hex: 0x02030A)   // vanilla éjjeli ég: majdnem fekete
+    static let nightBottom: Color = Color(hex: 0x0E1322) // horizont-köd éjjel
 
     /// Jegy → modern concrete/wool szín (telített, nem pasztell).
     static func gradeColor(for value: Int) -> Color {
@@ -97,9 +97,7 @@ enum MinecraftTheme {
 @ViewBuilder
 static func skinRowBackground(_ color: Color) -> some View {
     if isActive {
-        RoundedRectangle(cornerRadius: 10).fill(color)
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(MinecraftTheme.dirtDark, lineWidth: 2))
-            .overlay(McBevelEdges())
+        McRowPanel(face: color)
     } else {
         color
     }
@@ -125,8 +123,7 @@ static func skinRowBackground(_ color: Color) -> some View {
     /// nem találja meg megbízhatóan).
     static func mcPixelImage(_ name: String, size: CGFloat) -> some View {
         Group {
-            if let path = Bundle.main.path(forResource: name, ofType: "png"),
-               let ui = UIImage(contentsOfFile: path) {
+            if let ui = MinecraftTheme.sprite(name) {
                 Image(uiImage: ui)
                     .resizable()
                     .interpolation(.none)
@@ -172,22 +169,56 @@ static func skinRowBackground(_ color: Color) -> some View {
         let nav = UINavigationBar.appearance()
         let tabItem = UITabBarItem.appearance()
         if minecraft {
-            if let big = UIFont(name: MinecraftFontLoader.familyName, size: 32) {
-                nav.largeTitleTextAttributes = [.font: big]
-            }
-            if let small = UIFont(name: MinecraftFontLoader.familyName, size: 16),
-               let tiny = UIFont(name: MinecraftFontLoader.familyName, size: 10) {
+            let big = UIFont(name: MinecraftFontLoader.familyName, size: 32)
+            let small = UIFont(name: MinecraftFontLoader.familyName, size: 16)
+            let tiny = UIFont(name: MinecraftFontLoader.familyName, size: 10)
+            if let big { nav.largeTitleTextAttributes = [.font: big] }
+            if let small, let tiny {
                 nav.titleTextAttributes = [.font: small]
                 tabItem.setTitleTextAttributes([.font: tiny], for: .normal)
                 tabItem.setTitleTextAttributes([.font: tiny], for: .selected)
             }
+            // Nav-sáv: görgetve a játék paneljének kő-szürkéje (a rendszer
+            // iOS 26-on a háttérképet nem rajzolja, a címszínt pedig a
+            // SwiftUI adja — ezért olvasható, világos/sötét sávszín kell),
+            // keményen elválasztva; a tetején átlátszó.
+            let title: [NSAttributedString.Key: Any] = {
+                var a: [NSAttributedString.Key: Any] = [:]
+                if let small { a[.font] = small }
+                return a
+            }()
+            let large: [NSAttributedString.Key: Any] = big.map { [.font: $0] } ?? [:]
+            let scrolled = UINavigationBarAppearance()
+            scrolled.configureWithOpaqueBackground()
+            scrolled.backgroundColor = UIColor { $0.userInterfaceStyle == .dark
+                ? UIColor(red: 0x2E / 255, green: 0x2E / 255, blue: 0x33 / 255, alpha: 1)
+                : UIColor(red: 0xC6 / 255, green: 0xC6 / 255, blue: 0xC6 / 255, alpha: 1) }
+            scrolled.shadowColor = UIColor(red: 0x37 / 255, green: 0x37 / 255, blue: 0x37 / 255, alpha: 1)
+            scrolled.titleTextAttributes = title
+            scrolled.largeTitleTextAttributes = large
+            let top = UINavigationBarAppearance()
+            top.configureWithTransparentBackground()
+            top.titleTextAttributes = title
+            top.largeTitleTextAttributes = large
+            nav.standardAppearance = scrolled
+            nav.compactAppearance = scrolled
+            nav.scrollEdgeAppearance = top
         } else {
             nav.largeTitleTextAttributes = [:]
             nav.titleTextAttributes = [:]
             tabItem.setTitleTextAttributes([:], for: .normal)
             tabItem.setTitleTextAttributes([:], for: .selected)
+            // Visszaállás a rendszer-alapra (csak ha volt Minecraft-appearance).
+            if chromeOverridden {
+                nav.standardAppearance = UINavigationBarAppearance()
+                nav.compactAppearance = UINavigationBarAppearance()
+                nav.scrollEdgeAppearance = nil
+            }
         }
+        chromeOverridden = minecraft
     }
+
+    private static var chromeOverridden = false
 }
 
 // MARK: - Blokkos felület-modifierek
@@ -209,20 +240,7 @@ extension View {
             .shadow(color: .black.opacity(0.6), radius: 0, x: 2, y: 2)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(tint)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .strokeBorder(MinecraftTheme.dirtDark, lineWidth: 3)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .strokeBorder(Color.white.opacity(0.4), lineWidth: 1)
-                            .padding(2)
-                    )
-                    .shadow(color: .black.opacity(0.4), radius: 0, x: 0, y: 4)
-            )
+            .background(McBlockPanel(face: tint, outline: Color(hex: 0x1F2A12), highlight: .white.opacity(0.35), shade: .black.opacity(0.28)))
     }
 
     /// Minecraft-fejlécszöveg: pixel-ritmus + enyhe blokk-árnyék.
@@ -235,63 +253,49 @@ extension View {
 
     /// Szekció-fejléc: Summitban a gyári caption-uppercase, Minecraftban
     /// pixelbetű + blokk-árnyék. Közvetlenül a régi lánc helyére tehető.
-    @ViewBuilder
+    /// (Egy típusú lánc: a skin az értékekben ágazik, lásd `skinFont`.)
     func mcSectionHeader() -> some View {
-        if MinecraftTheme.isActive {
-            self
-                .font(MinecraftTheme.headerFont(size: 12))
-                .tracking(0.5)
-                .foregroundStyle(.secondary)
-                .shadow(color: .black.opacity(0.4), radius: 0, x: 1, y: 1)
-        } else {
-            self
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-        }
+        let mc = MinecraftTheme.isActive
+        return self
+            .font(mc ? MinecraftTheme.headerFont(size: 12) : .caption.weight(.semibold))
+            .tracking(mc ? 0.5 : 0)
+            .textCase(mc ? nil : .uppercase)
+            .skinSecondaryOnSky()
     }
 
     /// Cím-szöveg (üdvözlés): Summitban gyári title2, Minecraftban
     /// nagy pixelbetű blokk-árnyékkal.
-    @ViewBuilder
     func mcTitle() -> some View {
-        if MinecraftTheme.isActive {
-            self
-                .font(MinecraftTheme.headerFont(size: 26))
-                .foregroundStyle(.primary)
-                .shadow(color: .black.opacity(0.45), radius: 0, x: 2, y: 2)
-        } else {
-            self
-                .font(.title2.weight(.bold))
-                .foregroundStyle(.primary)
-        }
+        let mc = MinecraftTheme.isActive
+        return self
+            .font(mc ? MinecraftTheme.headerFont(size: 26) : .title2.weight(.bold))
+            .foregroundStyle(.primary)
+            .shadow(color: mc ? .black.opacity(0.45) : .clear, radius: 0, x: 2, y: 2)
     }
 
     /// Kijelző-számok (átlagok, hero-számok): Summitban rounded,
     /// Minecraftban pixelbetű blokk-árnyékkal.
-    @ViewBuilder
     func mcDisplay(_ size: CGFloat) -> some View {
-        if MinecraftTheme.isActive {
-            self
-                .font(MinecraftTheme.headerFont(size: size))
-                .shadow(color: .black.opacity(0.45), radius: 0, x: 2, y: 2)
-        } else {
-            self
-                .font(.system(size: size, weight: .bold, design: .rounded))
-        }
+        let mc = MinecraftTheme.isActive
+        return self
+            .font(mc ? MinecraftTheme.headerFont(size: size) : .system(size: size, weight: .bold, design: .rounded))
+            .shadow(color: mc ? .black.opacity(0.45) : .clear, radius: 0, x: 2, y: 2)
     }
 }
 
 /// Élő Minecraft-égbolt (shader-hangulat, BSL/Complementary-íz):
 /// a nap reggeltől estig valós idő szerint vándorol át az égen
-/// (éjjel pixel-hold + csillagok), az ég színe napszak szerint vált
-/// (hajnal-narancs, dél-türkiz, alkony-lila, éjjel-mélykék), a lapos
-/// blokk-felhők lassan sodródnak, alul fűsáv + opcionális pixel-hegy.
-/// Tiszta SwiftUI-rajz, asset nélkül. `mountain: true` a Beállítások
+/// (éjjel a játék holdja a valós holdfázissal + csillagok), az ég színe
+/// napszak szerint vált (hajnal-narancs, dél-türkiz, alkony-lila, éjjel
+/// vanilla-fekete), a lapos blokk-felhők lassan sodródnak, alul fűsáv +
+/// opcionális pixel-hegy. Sötét módban egész nap éjszaka van, 1:1 a játék
+/// éjjeli ege. `mountain: true` a Beállítások
 /// mögé hegyet is tesz.
 struct MinecraftBackdrop: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.accessibilityReduceTransparency) var reduceTransparency
+    /// Sötét módban mindig éjszaka van (vanilla éjjeli ég, valós holdfázis).
+    @Environment(\.colorScheme) var scheme
     var scrollOffset: CGFloat = 0
     var mountain: Bool = false
     /// Alsó fűsáv: a lista-hátterekben kikapcsoljuk, mert ott a
@@ -314,10 +318,12 @@ struct MinecraftBackdrop: View {
             let w = proxy.size.width, h = proxy.size.height
             let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
             let hour = Double(comps.hour ?? 12) + Double(comps.minute ?? 0) / 60
-            let night = hour < 5.5 || hour >= 20.5
+            let forcedNight = scheme == .dark
+            let night = forcedNight || hour < 5.5 || hour >= 20.5
             let shift = min(0, max(-h * 0.2, scrollOffset * 0.25))
             ZStack {
-                LinearGradient(colors: skyColors(hour: hour), startPoint: .top, endPoint: .bottom)
+                LinearGradient(colors: forcedNight ? [MinecraftTheme.nightTop, MinecraftTheme.nightBottom] : skyColors(hour: hour),
+                               startPoint: .top, endPoint: .bottom)
                     .ignoresSafeArea()
                 // God-ray: ferde fénysáv nappal (BSL-hangulat), nagyon halvány.
                 if !night {
@@ -325,36 +331,36 @@ struct MinecraftBackdrop: View {
                                    startPoint: .topLeading, endPoint: .bottomTrailing)
                         .ignoresSafeArea()
                 }
-                // Nap nappal (reggel keleten alacsonyan → délben magasan →
-                // este nyugaton alacsonyan), éjjel pixel-hold kráterekkel.
+                // Éjjel csillagok a hold és a felhők mögött (a játékban is
+                // az ég-kupolán ülnek, mindennél hátrébb).
                 if night {
-                    mcMoon().position(x: w * moonX(hour: hour), y: 150 + shift)
+                    McStarField(shift: shift * 0.4)
+                }
+                // Nap nappal (reggel keleten alacsonyan → délben magasan →
+                // este nyugaton alacsonyan), éjjel a játék holdja a valós
+                // holdfázissal.
+                if night {
+                    McMoon(phase: MinecraftTheme.moonPhase(at: date))
+                        .position(x: w * moonX(hour: hour), y: 150 + shift)
                 } else {
                     let (sx, sy, tint) = sunPose(hour: hour, w: w)
-                    RoundedRectangle(cornerRadius: 4)
+                    // Kemény négyzet-nap, világosabb maggal (mint a játék napja);
+                    // nincs lekerekítés, nincs derengés.
+                    Rectangle()
                         .fill(tint)
-                        .frame(width: 64, height: 64)
+                        .frame(width: 48, height: 48)
+                        .overlay(Rectangle().fill(Color.white.opacity(0.55)).frame(width: 24, height: 24))
                         .position(x: sx, y: sy + shift)
-                        .shadow(color: tint.opacity(0.5), radius: 24)
                 }
                 // Rendes minecraft-felhők: lapos fehér blokk-lapok, lassan sodródnak.
                 mcCloudLane(width: w, top: 110, night: night, duration: 140)
                 mcCloudLane(width: w, top: 210, night: night, duration: 200)
                 mcCloudLane(width: w, top: 300, night: night, duration: 260)
-                // Éjjel csillagpixelek.
-                if night {
-                    ForEach(0..<24, id: \.self) { i in
-                        Rectangle()
-                            .fill(.white.opacity(0.7))
-                            .frame(width: 3, height: 3)
-                            .position(x: w * Double((i * 37) % 100) / 100,
-                                      y: h * Double((i * 53) % 45) / 100 + 40 + shift * 0.4)
-                    }
-                }
                 // Pixel-hegy (Beállítások): hátsó párás csúcs + elülső
                 // hósapkás csúcs, tövében fűsávval.
                 if mountain {
                     mcMountainRange(width: w, baseY: h - 46 + shift * 0.3)
+                        .colorMultiply(MinecraftTheme.lightTint(MinecraftTheme.daylight(at: date, scheme: scheme)))
                 }
                 // Fűsáv alul igazi textúrából (lista-háttérben kikapcsolva
                 // — ott a tab-blokk a föld).
@@ -412,8 +418,10 @@ struct MinecraftBackdrop: View {
     /// magasan (meleg fehér-arany), 18h-kor nyugaton (narancs).
     private func sunPose(hour: Double, w: CGFloat) -> (CGFloat, CGFloat, Color) {
         let t = min(1, max(0, (hour - 6) / 12))
-        let x = w * (0.10 + 0.80 * t)
-        let y = 330 - sin(t * .pi) * 230
+        // A jobb oldali sávban vándorol, a nagy cím mellett: balra a
+        // címet takarná, feljebb a toolbar-gombokat, lejjebb a tartalmat.
+        let x = w * (0.66 + 0.18 * t)
+        let y = 160 - sin(t * .pi) * 20
         let edge = min(t, 1 - t) * 2
         let tint: Color = edge < 0.35
             ? Color(hex: 0xFFB347)
@@ -421,22 +429,14 @@ struct MinecraftBackdrop: View {
         return (x, y, tint)
     }
 
+    /// Hold-pozíció: este keleten kel (18h), hajnalban nyugaton nyugszik
+    /// (6h). Sötét módban nappal az ív közepén áll (ott nincs valós pálya).
     private func moonX(hour: Double) -> CGFloat {
-        let t = hour >= 18 ? (hour - 18) / 12 : (hour + 6) / 12
-        return 0.10 + 0.80 * min(1, max(0, t))
-    }
-
-    /// Pixel-hold: fakó kocka sötétebb kráter-kockákkal + halvány fénnyel.
-    private func mcMoon() -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(Color(hex: 0xE8EDF5))
-                .frame(width: 56, height: 56)
-            RoundedRectangle(cornerRadius: 2).fill(Color(hex: 0xB9C2D4)).frame(width: 14, height: 14).offset(x: -10, y: -8)
-            RoundedRectangle(cornerRadius: 2).fill(Color(hex: 0xB9C2D4)).frame(width: 10, height: 10).offset(x: 12, y: 6)
-            RoundedRectangle(cornerRadius: 2).fill(Color(hex: 0xC7CFE0)).frame(width: 8, height: 8).offset(x: 2, y: -14)
-        }
-        .shadow(color: Color.white.opacity(0.4), radius: 20)
+        let t: Double
+        if hour >= 18 { t = (hour - 18) / 12 }
+        else if hour < 6 { t = (hour + 6) / 12 }
+        else { t = 0.5 }
+        return 0.66 + 0.18 * t
     }
 
     // MARK: - Felhők
@@ -445,7 +445,8 @@ struct MinecraftBackdrop: View {
     /// egy réteg éles téglalap), végtelen lineáris sodrással.
     /// Reduce Motion mellett áll.
     private func mcCloudLane(width: CGFloat, top: CGFloat, night: Bool, duration: Double) -> some View {
-        let tint: Color = night ? Color(hex: 0x3A4666).opacity(0.6) : .white.opacity(0.9)
+        // Éjjel a vanilla felhő is szinte az ég színére sötétül.
+        let tint: Color = night ? Color(hex: 0x161A26).opacity(0.85) : .white.opacity(0.9)
         return DriftingCloud(width: width, top: top, duration: duration, reduceMotion: reduceMotion) {
             HStack(spacing: 0) {
                 Rectangle().fill(tint).frame(width: 120, height: 14)
@@ -530,7 +531,9 @@ func mcListRow(fill: Color) -> some View {
     if MinecraftTheme.isActive {
         self.listRowBackground(MinecraftTheme.skinRowBackground(fill))
             .listRowSeparator(.hidden)
-            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+            .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
+    } else {
+        self
     }
 }
 
@@ -539,8 +542,7 @@ func mcListRow(fill: Color) -> some View {
 @ViewBuilder
 func mcHairlineBorder(cornerRadius: CGFloat = 12) -> some View {
     if MinecraftTheme.isActive {
-        self.overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(MinecraftTheme.dirtDark, lineWidth: 2))
-            .overlay(McBevelEdges())
+        self.clipShape(McPixelShape(steps: 2)).overlay(McBlockPanel(face: .clear, castsShadow: false))
     } else {
         self.overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
     }
@@ -548,57 +550,433 @@ func mcHairlineBorder(cornerRadius: CGFloat = 12) -> some View {
 
 }
 
-/// Igazi minecraft fűblokk-lábazat EREDETI textúrákból (saját
-/// 1.21.11-es telepítés: grass_block_side + dirt, 3x nearest-neighbor
-/// csempézve). Magas, a tab-sáv fölé nyúlik, a home-jelző alá is lemegy.
-struct McGrassBlockFooter: View {
-    var height: CGFloat = 148
-    private let tile: CGFloat = 48
-    var body: some View {
-        GeometryReader { proxy in
-            let w = proxy.size.width
-            let cols = max(1, Int(ceil(w / tile)))
-            VStack(spacing: 0) {
-                // Sötét körvonal a legtetején.
-                Rectangle().fill(MinecraftTheme.dirtDark).frame(height: 3)
-                // Felső sor: igazi fűblokk-oldal csempézve.
-                HStack(spacing: 0) {
-                    ForEach(0..<cols, id: \.self) { _ in
-                        MinecraftTheme.mcPixelImage("mc_grass_side", size: tile)
-                    }
-                }
-                // Alatta: igazi földcsempék.
-                HStack(spacing: 0) {
-                    ForEach(0..<cols, id: \.self) { _ in
-                        MinecraftTheme.mcPixelImage("mc_dirt", size: tile)
-                    }
-                }
-                HStack(spacing: 0) {
-                    ForEach(0..<cols, id: \.self) { _ in
-                        MinecraftTheme.mcPixelImage("mc_dirt", size: tile)
-                    }
-                }
-            }
-        }
-        .frame(height: height)
+// MARK: - Talaj
+
+/// Determinisztikus pixel-zaj: ugyanaz a (x, y, mag) mindig ugyanazt adja,
+/// így a föld és a növények nem keverednek újra minden rajzolásnál.
+private enum McNoise {
+    static func hash(_ x: Int, _ y: Int, _ seed: Int = 0) -> Int {
+        var h = UInt64(bitPattern: Int64(x &* 374_761_393 &+ y &* 668_265_263 &+ seed &* 1_442_695_041))
+        h = (h ^ (h >> 13)) &* 1_274_126_177
+        h ^= h >> 16
+        return Int(h & 0x7FFF_FFFF)
+    }
+    static func unit(_ x: Int, _ y: Int, _ seed: Int = 0) -> Double {
+        Double(hash(x, y, seed) % 10_000) / 10_000
     }
 }
 
-/// Vékony fűsáv igazi textúrából: a Beállítások hátterének aljára
-/// (egyetlen sor fűblokk-oldal csempézve).
-struct McGroundStrip: View {
-    private let tile: CGFloat = 48
+extension MinecraftTheme {
+    /// Napfény 0…1 a valós idő szerint (ugyanazok a sarokpontok, mint az
+    /// égbolté): éjjel 0, hajnalban/alkonykor átúszik, nappal 1. Sötét
+    /// módban mindig éjszaka van.
+    static func daylight(at date: Date, scheme: ColorScheme) -> Double {
+        if scheme == .dark { return 0 }
+        let c = Calendar.current.dateComponents([.hour, .minute], from: date)
+        let h = Double(c.hour ?? 12) + Double(c.minute ?? 0) / 60
+        switch h {
+        case ..<4.5: return 0
+        case ..<8.5: return (h - 4.5) / 4
+        case ..<16: return 1
+        case ..<20.5: return 1 - (h - 16) / 4.5
+        default: return 0
+        }
+    }
+
+    /// Világítás-szorzó (a játék lightmapje): nappal fehér (nincs hatás),
+    /// éjjel sötét, kékes égfény — a talajra, fűre, hegyre egyformán.
+    static func lightTint(_ light: Double) -> Color {
+        let k = 1 - min(1, max(0, light))
+        return Color(red: 1 - 0.68 * k, green: 1 - 0.66 * k, blue: 1 - 0.52 * k)
+    }
+
+    /// A játék nyolc holdfázisa a sajátja sorrendjében (0 = újhold,
+    /// 4 = telihold), a hozzájuk tartozó 1.21.11-es textúrával.
+    static let moonSprites: [String] = [
+        "mc_env_moon_new_moon", "mc_env_moon_waxing_crescent", "mc_env_moon_first_quarter",
+        "mc_env_moon_waxing_gibbous", "mc_env_moon", "mc_env_moon_waning_gibbous",
+        "mc_env_moon_third_quarter", "mc_env_moon_waning_crescent",
+    ]
+
+    /// Valós holdfázis 0…7-re kerekítve: az égen ugyanaz a hold látszik,
+    /// ami kint. Referencia-újhold 2000-01-06 18:14 UTC, szinodikus hónap
+    /// 29,530588853 nap (a hiba pár óra, a 8 fokozathoz bőven elég).
+    static func moonPhase(at date: Date) -> Int {
+        let synodic = 29.530588853
+        let reference = Date(timeIntervalSince1970: 947_182_440)
+        let days = date.timeIntervalSince(reference) / 86_400
+        let age = (days.truncatingRemainder(dividingBy: synodic) + synodic).truncatingRemainder(dividingBy: synodic)
+        return Int((age / synodic * 8).rounded()) % 8
+    }
+}
+
+/// A játék holdja: a 32×32-es textúra (a 8×8-as korong + derengés) 6 pt-os
+/// pixelekkel, additív keveréssel — a fekete háttere így eltűnik, a
+/// derengés az égre világít, pont ahogy a játék rajzolja.
+struct McMoon: View {
+    var phase: Int
+
     var body: some View {
-        GeometryReader { proxy in
-            let cols = max(1, Int(ceil(proxy.size.width / tile)))
-            HStack(spacing: 0) {
-                ForEach(0..<cols, id: \.self) { _ in
-                    MinecraftTheme.mcPixelImage("mc_grass_side", size: tile)
+        MinecraftTheme.mcPixelImage(MinecraftTheme.moonSprites[(phase % 8 + 8) % 8], size: 32 * 6)
+            .blendMode(.plusLighter)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
+/// Éjjeli csillagmező: apró, eltérő fényerejű négyzetek fix (seedelt)
+/// helyen, nem villognak — a vanilla csillagai sem. Egy Canvasban, hogy
+/// a sok pont ne legyen sok nézet.
+struct McStarField: View {
+    var shift: CGFloat = 0
+
+    var body: some View {
+        Canvas { ctx, size in
+            // Sűrűség területarányosan: kb. egy csillag 3000 pt²-enként a
+            // felső 70 %-ban (lent a horizont-köd elnyeli őket).
+            let band = size.height * 0.7
+            let count = Int(size.width * band / 3000)
+            for i in 0..<count {
+                let x = McNoise.unit(i, 1, 101) * size.width
+                let y = McNoise.unit(i, 2, 103) * band + shift
+                let s: CGFloat = McNoise.hash(i, 3, 107) % 4 == 0 ? 3 : 2
+                let fade = 1 - y / max(1, band)
+                let a = (0.35 + McNoise.unit(i, 4, 109) * 0.45) * (0.4 + 0.6 * fade)
+                ctx.fill(Path(CGRect(x: x.rounded(), y: y.rounded(), width: s, height: s)),
+                         with: .color(.white.opacity(a)))
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Saját rajzolású fűblokk-talaj (nincs benne Mojang-textúra): 3 pt-os
+/// pixelrácson seedelt földzaj, csöpögő fűperem, kavicsok, lefelé
+/// sötétedő mélység, a tetején szélben ringó fű és virágok. A fény a
+/// napszakot követi, mint az égbolt; sötét módban éjszaka van. A home-jelző alá is lenyúlik.
+struct McGrassBlockFooter: View {
+    var height: CGFloat = 148
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        TimelineView(.everyMinute) { tl in
+            let light = MinecraftTheme.daylight(at: tl.date, scheme: scheme)
+            McSoil()
+                .overlay(alignment: .top) {
+                    McFlora(animated: !reduceMotion)
+                        .frame(height: McFlora.maxHeight)
+                        .offset(y: -McFlora.maxHeight + McSoil.unit)
+                        .allowsHitTesting(false)
+                }
+                // Szorzás, nem rátett réteg: a talaj fölé lógó fű és
+                // virágok is ugyanúgy sötétülnek, az ég nem.
+                .colorMultiply(MinecraftTheme.lightTint(light))
+        }
+        // Előbb a safe area elengedése, utána a fix magasság: így a föld a
+        // keret alján túl, a home-jelző alá is lenyúlik (fordítva a fix
+        // keret középre tenné, és alul kilátszana a lista).
+        .ignoresSafeArea(.container, edges: .bottom)
+        .frame(height: height)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Föld + fűperem, egyetlen Canvasban (raszterizálva, nem rajzol újra
+/// görgetéskor).
+struct McSoil: View {
+    static let unit: CGFloat = 3
+
+    private static let grass: [Color] = [Color(hex: 0x5DAE34), Color(hex: 0x6CBF3C), Color(hex: 0x4E9A2B)]
+    private static let grassLip: Color = Color(hex: 0x86D44E)
+    private static let dirt: [Color] = [Color(hex: 0x8B6142), Color(hex: 0x7C5538), Color(hex: 0x966C4A), Color(hex: 0x6E4A30)]
+    private static let speckDark: Color = Color(hex: 0x553722)
+    private static let speckLight: Color = Color(hex: 0xA98057)
+    private static let pebble: [Color] = [Color(hex: 0x8E8C88), Color(hex: 0x6F6D69), Color(hex: 0xB2AFA8)]
+
+    var body: some View {
+        Canvas(rendersAsynchronously: true) { ctx, size in
+            let u = Self.unit
+            let cols = Int(ceil(size.width / u)), rows = Int(ceil(size.height / u))
+            func px(_ x: Int, _ y: Int, _ c: Color, w: Int = 1) {
+                ctx.fill(Path(CGRect(x: CGFloat(x) * u, y: CGFloat(y) * u, width: CGFloat(w) * u, height: u)), with: .color(c))
+            }
+            // Alap földszín egy darabban, utána csak az eltérő pixelek.
+            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Self.dirt[0]))
+            for y in 0..<rows {
+                var x = 0
+                while x < cols {
+                    // Vízszintes 1–2 px-es foltok: ettől lesz "föld", nem tévézaj.
+                    let n = McNoise.unit(x, y, 7)
+                    let w = McNoise.hash(x, y, 3) % 3 == 0 ? 2 : 1
+                    if n < 0.07 { px(x, y, Self.speckDark, w: w) }
+                    else if n < 0.12 { px(x, y, Self.speckLight, w: 1) }
+                    else if n < 0.40 { px(x, y, Self.dirt[1 + McNoise.hash(x, y, 11) % 3], w: w) }
+                    x += w
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            // Kavicsok: ritka 2–3 px-es kőcsomók a mélyebb rétegben.
+            var gx = 4 + McNoise.hash(1, 1, 5) % 14
+            while gx < cols - 3 {
+                let gy = 9 + McNoise.hash(gx, 0, 9) % max(1, rows - 12)
+                px(gx, gy, Self.pebble[0], w: 2)
+                px(gx + 1, gy - 1, Self.pebble[2])
+                px(gx, gy + 1, Self.pebble[1], w: 3)
+                gx += 22 + McNoise.hash(gx, 1, 13) % 30
+            }
+            // Fűperem: 3 sor tömör fű + oszloponként 0–3 px "csöpögés",
+            // szomszédokhoz simítva (így ível, nem fésű).
+            for x in 0..<cols {
+                let a = McNoise.hash(x, 0, 21) % 4, b = McNoise.hash(x + 1, 0, 21) % 4
+                let drip = 3 + (a + b + 1) / 2
+                for y in 0..<drip {
+                    px(x, y, Self.grass[McNoise.hash(x, y, 31) % 3])
+                }
+                // Árnyék-sor a fű alatt: mélységet ad a peremnek.
+                px(x, drip, Self.speckDark.opacity(0.55))
+                if McNoise.hash(x, 0, 41) % 3 != 0 { px(x, 0, Self.grassLip) }
+            }
+            // Lefelé sötétedő mélység (ambient occlusion).
+            ctx.fill(Path(CGRect(x: 0, y: u * 8, width: size.width, height: size.height - u * 8)),
+                     with: .linearGradient(Gradient(colors: [.clear, .black.opacity(0.38)]),
+                                           startPoint: CGPoint(x: 0, y: u * 8),
+                                           endPoint: CGPoint(x: 0, y: size.height)))
         }
-        .frame(height: 48)
+    }
+}
+
+/// Fű és virágok a talaj tetején, saját pixel-sprite-okból. Szélben
+/// ringanak: a sprite sorai magasságarányosan, egész pixelre lépve
+/// tolódnak el (mint a játék hullámzó-növény shadere), nem simán dőlnek.
+struct McFlora: View {
+    static let maxHeight: CGFloat = 8 * McSoil.unit
+    var animated: Bool
+
+    private struct Sprite {
+        let rows: [String]
+        let palette: [Character: Color]
+    }
+
+    private static let stem: [Character: Color] = ["g": Color(hex: 0x3F8A25), "l": Color(hex: 0x5DB536)]
+    private static func with(_ extra: [Character: Color]) -> [Character: Color] { stem.merging(extra) { $1 } }
+
+    private static let sprites: [Sprite] = [
+        // 0 fűcsomó
+        Sprite(rows: [".a...a.", ".a.a.a.", "ba.a.ab", ".bab.a.", ".babab."],
+               palette: ["a": Color(hex: 0x7CCB45), "b": Color(hex: 0x4E9A2B)]),
+        // 1 kis fűcsomó
+        Sprite(rows: ["a..a", "a.ab", "bab.", ".ba."],
+               palette: ["a": Color(hex: 0x7CCB45), "b": Color(hex: 0x4E9A2B)]),
+        // 2 pipacs
+        Sprite(rows: [".rrr.", "rrkrr", ".RrR.", "..g..", ".lg..", "..g..", "..gl.", "..g.."],
+               palette: with(["r": Color(hex: 0xE0302B), "R": Color(hex: 0xA41E1E), "k": Color(hex: 0x2B1B12)])),
+        // 3 pitypang
+        Sprite(rows: [".yy.", "yoyy", ".yy.", "..g.", ".lg.", "..gl", "..g."],
+               palette: with(["y": Color(hex: 0xFFD83A), "o": Color(hex: 0xE8A317)])),
+        // 4 búzavirág
+        Sprite(rows: [".b.b.", "bBbBb", ".bBb.", "..g..", "..gl.", ".lg..", "..g.."],
+               palette: with(["b": Color(hex: 0x5B7CF5), "B": Color(hex: 0x3346BD)])),
+        // 5 margaréta
+        Sprite(rows: [".w.w.", "wwyww", ".w.w.", "..g..", ".lg..", "..gl.", "..g.."],
+               palette: with(["w": Color(hex: 0xF6F4EC), "y": Color(hex: 0xF2C230)])),
+    ]
+
+    /// Növény-helyek: 5–17 px-es lépésekkel, determinisztikusan; minden
+    /// negyedik-ötödik virág, a többi fű.
+    private static func layout(cols: Int) -> [(x: Int, sprite: Int, phase: Double)] {
+        var out: [(Int, Int, Double)] = []
+        var x = 2 + McNoise.hash(0, 9, 3) % 5
+        var i = 0
+        while x < cols - 7 {
+            let r = McNoise.hash(i, 0, 77) % 100
+            let sprite = r < 38 ? 0 : r < 62 ? 1 : 2 + (McNoise.hash(i, 1, 79) % 4)
+            out.append((x, sprite, McNoise.unit(i, 2, 81) * .pi * 2))
+            x += 5 + McNoise.hash(i, 3, 83) % 13
+            i += 1
+        }
+        return out
+    }
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 12, paused: !animated)) { tl in
+            let t = animated ? tl.date.timeIntervalSinceReferenceDate : 0
+            Canvas { ctx, size in
+                let u = McSoil.unit
+                let cols = Int(size.width / u)
+                for p in Self.layout(cols: cols) {
+                    let sp = Self.sprites[p.sprite]
+                    let h = sp.rows.count
+                    // Lassú alaphullám + apró rezgés: 0…1 px kitérés a csúcson.
+                    let wave = sin(t * 1.3 + p.phase) * 0.8 + sin(t * 3.1 + p.phase * 1.7) * 0.25
+                    for (ry, row) in sp.rows.enumerated() {
+                        let lift = Double(h - ry) / Double(h)
+                        let dx = (wave * lift * 1.6).rounded()
+                        for (rx, ch) in row.enumerated() {
+                            guard let c = sp.palette[ch] else { continue }
+                            let x = CGFloat(p.x + rx) * u + CGFloat(dx) * u
+                            let y = size.height - CGFloat(h - ry) * u
+                            ctx.fill(Path(CGRect(x: x, y: y, width: u, height: u)), with: .color(c))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Vékony talajcsík a háttér aljára (pl. a Beállítások hegye alatt).
+struct McGroundStrip: View {
+    var body: some View {
+        McGrassBlockFooter(height: 48)
+    }
+}
+
+// MARK: - Pixel-panel
+
+/// Minecraft-GUI körvonal: egyenes élek, a sarkok `steps` darab
+/// pixellépcsővel letörve (a játék ablakai és gombjai így néznek ki).
+struct McPixelShape: InsettableShape {
+    var unit: CGFloat = 3
+    var steps: Int = 2
+    var inset: CGFloat = 0
+
+    func inset(by amount: CGFloat) -> McPixelShape {
+        var s = self; s.inset += amount; return s
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let r = rect.insetBy(dx: inset, dy: inset)
+        let s = unit, n = max(0, min(steps, Int(min(r.width, r.height) / (2 * s))))
+        var p = Path()
+        guard r.width > 0, r.height > 0 else { return p }
+        var x = r.maxX - CGFloat(n) * s, y = r.minY
+        p.move(to: CGPoint(x: r.minX + CGFloat(n) * s, y: r.minY))
+        p.addLine(to: CGPoint(x: x, y: y))
+        for _ in 0..<n { y += s; p.addLine(to: CGPoint(x: x, y: y)); x += s; p.addLine(to: CGPoint(x: x, y: y)) }
+        x = r.maxX; y = r.maxY - CGFloat(n) * s
+        p.addLine(to: CGPoint(x: x, y: y))
+        for _ in 0..<n { x -= s; p.addLine(to: CGPoint(x: x, y: y)); y += s; p.addLine(to: CGPoint(x: x, y: y)) }
+        x = r.minX + CGFloat(n) * s; y = r.maxY
+        p.addLine(to: CGPoint(x: x, y: y))
+        for _ in 0..<n { y -= s; p.addLine(to: CGPoint(x: x, y: y)); x -= s; p.addLine(to: CGPoint(x: x, y: y)) }
+        x = r.minX; y = r.minY + CGFloat(n) * s
+        p.addLine(to: CGPoint(x: x, y: y))
+        for _ in 0..<n { x += s; p.addLine(to: CGPoint(x: x, y: y)); y -= s; p.addLine(to: CGPoint(x: x, y: y)) }
+        p.closeSubpath()
+        return p
+    }
+}
+
+/// Pixel-blokk háttér: sötét körvonal lépcsős sarkokkal, 1 px fényél
+/// felül-balra, 1 px árnyékél alul-jobbra, alatta kemény 1 px vetett
+/// árnyék. Minden él 3 pt-os rácson — nincs lekerekítés sehol.
+struct McBlockPanel: View {
+    var face: Color
+    var outline: Color? = nil
+    var highlight: Color? = nil
+    var shade: Color? = nil
+    var castsShadow = true
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        let u = McSoil.unit
+        let dark = scheme == .dark
+        let line: Color = outline ?? (dark ? Color.black : Color(hex: 0x3A2A1C) as Color)
+        let hi = highlight ?? .white.opacity(dark ? 0.10 : 0.65)
+        let lo = shade ?? .black.opacity(dark ? 0.35 : 0.13)
+        Canvas { ctx, size in
+            let rect = CGRect(origin: .zero, size: size)
+            ctx.fill(McPixelShape(unit: u, steps: 2).path(in: rect), with: .color(line))
+            let inner = rect.insetBy(dx: u, dy: u)
+            // A körvonal belsejét előbb kivágjuk, hogy az áttetsző face
+            // ne a sötét körvonalon keresztül látsszon.
+            ctx.blendMode = .clear
+            ctx.fill(McPixelShape(unit: u, steps: 1).path(in: inner), with: .color(.black))
+            ctx.blendMode = .normal
+            ctx.fill(McPixelShape(unit: u, steps: 1).path(in: inner), with: .color(face))
+            guard inner.width > 2 * u, inner.height > 2 * u else { return }
+            ctx.fill(Path(CGRect(x: inner.minX + u, y: inner.minY, width: inner.width - 2 * u, height: u)), with: .color(hi))
+            ctx.fill(Path(CGRect(x: inner.minX, y: inner.minY + u, width: u, height: inner.height - 2 * u)), with: .color(hi))
+            ctx.fill(Path(CGRect(x: inner.minX + u, y: inner.maxY - u, width: inner.width - 2 * u, height: u)), with: .color(lo))
+            ctx.fill(Path(CGRect(x: inner.maxX - u, y: inner.minY + u, width: u, height: inner.height - 2 * u)), with: .color(lo))
+        }
+        .background {
+            if castsShadow {
+                McPixelShape(unit: u, steps: 2).fill(Color.black.opacity(dark ? 0.45 : 0.22)).offset(y: u)
+            }
+        }
+    }
+}
+
+/// Lista-sor háttere pixel-panelként. A sor-hátteret a rendszer a
+/// szekció lekerekített sarkára vágja — a panel ezért annyira be van
+/// húzva, hogy a vágás sosem érje el a lépcsős sarkot.
+extension MinecraftTheme {
+    /// Áttetsző állapot-szín (pl. narancs 8%) opak panel-archoz: a panel
+    /// alap-színére keverve — a játék paneljein nem látszik át az ég.
+    static func opaqueFace(_ color: Color) -> Color {
+        let ui = UIColor(color)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        guard ui.getRed(&r, green: &g, blue: &b, alpha: &a), a < 0.99 else { return color }
+        let dark = UITraitCollection.current.userInterfaceStyle == .dark
+        let base = UIColor(dark ? Color(hex: 0x2B2B30) : Color(hex: 0xF7F0DC))
+        var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
+        base.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
+        return Color(red: Double(br + (r - br) * a), green: Double(bg + (g - bg) * a), blue: Double(bb + (b - bb) * a))
+    }
+
+    /// Sor-margó skin-érzékenyen: Minecraftban a `McRowPanel` behúzásával
+    /// (+ a körvonal és a bevel két pixelével) bővítve, hogy a szöveg ne
+    /// a kereten üljön. Summitban az eredeti érték (nil = rendszer-alap).
+    static func rowInsets(_ base: EdgeInsets?) -> EdgeInsets? {
+        guard isActive else { return base }
+        let b = base ?? EdgeInsets(top: 11, leading: 16, bottom: 11, trailing: 16)
+        let h = McRowPanel.horizontalInset, v = McSoil.unit
+        return EdgeInsets(top: b.top + v, leading: b.leading + h, bottom: b.bottom + v + McSoil.unit, trailing: b.trailing + h)
+    }
+}
+
+struct McRowPanel: View {
+    var face: Color
+    /// A szekció-vágás sugara iOS 26/27 insetGrouped listán ~30 pt (mérve).
+    /// Egy (x, y) pont akkor marad ki a vágásból, ha (R−x)² + (R−y)² ≤ R²;
+    /// a lépcsős sarok legkülső pontjaira (6,0), (3,3), (0,6) ez 9 pt
+    /// oldalt és 6 pt függőleges behúzással teljesül, R = 31-ig.
+    /// Alul +3 pt a vetett árnyéknak.
+    static let horizontalInset: CGFloat = 9
+    static let verticalInset: CGFloat = 6
+    var body: some View {
+        McBlockPanel(face: MinecraftTheme.opaqueFace(face))
+            .padding(.horizontal, Self.horizontalInset)
+            .padding(.top, Self.verticalInset)
+            .padding(.bottom, Self.verticalInset + McSoil.unit)
+    }
+}
+
+/// Üres inventory-slot (a játék szürke rekesze, fordított bevellel:
+/// sötét felül-balra, világos alul-jobbra) — jegy nélküli tárgyhoz.
+struct McInventorySlot: View {
+    var body: some View {
+        McBlockPanel(face: Color(hex: 0x8B8B8B), outline: Color(hex: 0x373737),
+                     highlight: .black.opacity(0.28), shade: .white.opacity(0.55), castsShadow: false)
+    }
+}
+
+/// Kártya-háttér skin-érzékenyen: Minecraftban pixel-panel, Summitban
+/// a gyári lekerekített felület hajszálvonallal.
+struct McCardBackground: View {
+    var fill: Color
+    var cornerRadius: CGFloat = 12
+    var body: some View {
+        if MinecraftTheme.isActive {
+            McBlockPanel(face: fill)
+        } else {
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(fill)
+                .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
+        }
     }
 }
 
@@ -611,34 +989,9 @@ struct McPanelStyle: ViewModifier {
     var radius: CGFloat = 6
     func body(content: Content) -> some View {
         content
-            .background(RoundedRectangle(cornerRadius: radius).fill(panel))
-            .overlay(McBevelEdges())
-            .overlay(RoundedRectangle(cornerRadius: radius)
-                .strokeBorder(Color.black.opacity(scheme == .dark ? 0.85 : 0.6), lineWidth: 2))
-            .shadow(color: .black.opacity(0.45), radius: 0, x: 0, y: 3)
+            .background(McBlockPanel(face: panel))
     }
     private var panel: Color {
         scheme == .dark ? Color(hex: 0x2E2E33) : Color(hex: 0xC6C6C6)
-    }
-}
-
-/// MC-bevel: felül-balra fényél, alul-jobbra árnyékél (2px-es Path-ok).
-struct McBevelEdges: View {
-    var body: some View {
-        GeometryReader { p in
-            let w = p.size.width, h = p.size.height
-            Path { path in
-                path.move(to: CGPoint(x: 2, y: h - 2))
-                path.addLine(to: CGPoint(x: 2, y: 2))
-                path.addLine(to: CGPoint(x: w - 2, y: 2))
-            }
-            .stroke(Color.white.opacity(0.5), lineWidth: 2)
-            Path { path in
-                path.move(to: CGPoint(x: w - 2, y: 2))
-                path.addLine(to: CGPoint(x: w - 2, y: h - 2))
-                path.addLine(to: CGPoint(x: 2, y: h - 2))
-            }
-            .stroke(Color.black.opacity(0.5), lineWidth: 2)
-        }
     }
 }

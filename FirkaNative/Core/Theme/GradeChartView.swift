@@ -82,6 +82,11 @@ struct GradeChartView: View {
     @Environment(\.colorScheme) var scheme
 
     var body: some View {
+        // Minecraft: mindkét mód ugyanaz a pixel-rácsra rajzolt grafikon
+        // (a Charts-tengelyfeliratok nem kaphatnak pixelbetűt).
+        if MinecraftTheme.isActive {
+            mcBody
+        } else
         // Jegyek fő képernyő: monthly+editorial → régi jól bevált Charts, nem nyúlunk hozzá
         if monthly && editorial {
             classicBody
@@ -203,6 +208,35 @@ struct GradeChartView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
+    // MARK: Minecraft — pixel-grafikon
+
+    /// A grafikon adatai 0…1-re normálva (x: dátum a `xDomain`-ban, y: jegy
+    /// a MC-skála szerint), hogy a rajzoló nézet ne ismerjen modellt.
+    @ViewBuilder
+    private var mcBody: some View {
+        if displayGrades.count < 2 {
+            SkinEmptyState(title: "Nincs elég adat", systemImage: "chart.line.flattrend.xyaxis", description: Text("Adj hozzá jegyet"))
+                .frame(height: height)
+        } else {
+            mcChart
+        }
+    }
+
+    private var mcChart: some View {
+        let dom = xDomain
+        let span = max(1, dom.upperBound.timeIntervalSince(dom.lowerBound))
+        func nx(_ d: Date) -> Double { min(1, max(0, d.timeIntervalSince(dom.lowerBound) / span)) }
+        let dots: [McPixelChart.Dot] = displayGrades.count <= 12
+            ? displayGrades.map { McPixelChart.Dot(x: nx($0.date), value: Double($0.value), heavy: $0.weight >= 200, phantom: $0.id.hasPrefix("phantom")) }
+            : []
+        return McPixelChart(
+            line: displayPoints.map { McPixelChart.Point(x: nx($0.date), value: $0.avg) },
+            dots: dots,
+            ticks: xTickDates.map { McPixelChart.Tick(x: nx($0), label: xTickLabel(for: $0)) },
+            height: height
+        )
+    }
+
     // MARK: Shared helpers — 0-s jegy kizárva mindenhonnan
     private var validGrades: [GradeItem] { grades.filter { $0.value != 0 } }
     /// Havi vödrök (csak monthly módban, min. 2 hónap esetén él).
@@ -315,5 +349,128 @@ extension GradeChartView {
         let span=maxD.timeIntervalSince(minD)
         let fmt: DateFormatter = { let f=DateFormatter(); f.locale=Locale(identifier:"hu_HU"); f.dateFormat=plotSpanDays>90 ? "MMM" : "MM.dd"; return f }()
         return dates.map { d in let nx=d.timeIntervalSince(minD)/span; let x=plot.minX+CGFloat(nx)*plot.width; return XTick(x: x, label: fmt.string(from: d).capitalized) }
+    }
+}
+
+
+// MARK: - Minecraft pixel-grafikon
+
+/// Pixel-rácsra (3 pt) rajzolt vonaldiagram sötét, inventory-szerű
+/// panelben: Bresenham-vonal 1 px vastagon, négyzet-pontok, szaggatott
+/// pixel-rácsvonalak, Monocraft tengelyfeliratok. Se görbe, se átmenet,
+/// se lágy árnyék — minden él a rácsra esik.
+private struct McPixelChart: View {
+    struct Point { var x: Double; var value: Double }
+    struct Dot { var x: Double; var value: Double; var heavy: Bool; var phantom: Bool }
+    struct Tick { var x: Double; var label: String }
+
+    var line: [Point]
+    var dots: [Dot]
+    var ticks: [Tick]
+    var height: CGFloat
+
+    /// Függőleges skála: kicsit a 1 alatt és az 5 felett, hogy a szélső
+    /// pontok ne a keretre üljenek.
+    private let yLo = 0.6
+    private let yHi = 5.4
+    private let u = MinecraftTheme.px
+    private let left: CGFloat = 27
+    private let right: CGFloat = 12
+    private let top: CGFloat = 12
+    private let bottom: CGFloat = 27
+
+    private static let lineColor: Color = Color(hex: 0x55FF55)
+    private static let gridColor: Color = Color(hex: 0x8B8B8B)
+
+    var body: some View {
+        GeometryReader { geo in
+            let plot = plotRect(geo.size)
+            ZStack(alignment: .topLeading) {
+                Canvas { ctx, _ in draw(&ctx, plot: plot) }
+                ForEach(1...5, id: \.self) { v in
+                    Text("\(v)")
+                        .font(MinecraftFontLoader.font(size: 11))
+                        .foregroundStyle(Color(hex: 0xE0E0E0))
+                        .frame(width: left - u, alignment: .trailing)
+                        .position(x: (left - u) / 2 + 3, y: snapY(Double(v), plot: plot))
+                }
+                ForEach(Array(ticks.enumerated()), id: \.offset) { _, t in
+                    Text(t.label)
+                        .font(MinecraftFontLoader.font(size: 10))
+                        .foregroundStyle(Color(hex: 0xA0A0A0))
+                        .fixedSize()
+                        .position(x: min(geo.size.width - 18, max(left + 18, plot.minX + plot.width * t.x)),
+                                  y: geo.size.height - 12)
+                }
+            }
+        }
+        .frame(height: height)
+        .background(McBlockPanel(face: Color(hex: 0x1D1D21), outline: .black, highlight: .clear, shade: .clear, castsShadow: false))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Átlag alakulása grafikon")
+        .accessibilityValue(line.last.map { String(format: "utolsó érték %.2f", $0.value) } ?? "")
+    }
+
+    private func plotRect(_ size: CGSize) -> CGRect {
+        CGRect(x: left, y: top, width: max(u, size.width - left - right), height: max(u, size.height - top - bottom))
+    }
+    private func snapY(_ v: Double, plot: CGRect) -> CGFloat {
+        let t = (v - yLo) / (yHi - yLo)
+        let y = plot.maxY - CGFloat(t) * plot.height
+        return (y / u).rounded() * u
+    }
+    private func snapX(_ x: Double, plot: CGRect) -> CGFloat {
+        ((plot.minX + CGFloat(x) * plot.width) / u).rounded() * u
+    }
+
+    private func draw(_ ctx: inout GraphicsContext, plot: CGRect) {
+        func cell(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat = 1, _ h: CGFloat = 1, _ c: Color) {
+            ctx.fill(Path(CGRect(x: x, y: y, width: u * w, height: u * h)), with: .color(c))
+        }
+        // Szaggatott pixel-rácsvonalak (1 px be, 1 px ki) az 1…5 értékeknél.
+        for v in 1...5 {
+            let y = snapY(Double(v), plot: plot)
+            var x = (plot.minX / u).rounded() * u
+            var on = true
+            while x < plot.maxX {
+                if on { cell(x, y, 1, 1, Self.gridColor.opacity(0.35)) }
+                on.toggle(); x += u
+            }
+        }
+        // Tengelyek: tömör 1 px-es bal és alsó él.
+        let axis: Color = Color(hex: 0x8B8B8B)
+        let x0 = (plot.minX / u).rounded() * u - u
+        let yBottom = (plot.maxY / u).rounded() * u + u
+        cell(x0, plot.minY, 1, (yBottom - plot.minY) / u + 1, axis)
+        cell(x0, yBottom, (plot.maxX - x0) / u + 1, 1, axis)
+        // Vonal: pontok közt Bresenham, rácscellánként egy négyzet.
+        let pts = line.map { CGPoint(x: snapX($0.x, plot: plot), y: snapY(min(yHi, max(yLo, $0.value)), plot: plot)) }
+        for i in 0..<max(0, pts.count - 1) { bresenham(pts[i], pts[i + 1], cell: { cell($0, $1, 1, 1, Self.lineColor) }) }
+        if pts.count == 1, let p = pts.first { cell(p.x, p.y, 1, 1, Self.lineColor) }
+        // Pontok: fekete kerettel körbevett fehér (fantom: narancs) négyzet.
+        for d in dots {
+            let side: CGFloat = d.heavy ? 9 : 6
+            let c = CGPoint(x: snapX(d.x, plot: plot), y: snapY(min(yHi, max(yLo, d.value)), plot: plot))
+            let o = ((side / 2) / u).rounded() * u
+            ctx.fill(Path(CGRect(x: c.x - o - u, y: c.y - o - u, width: side + 2 * u, height: side + 2 * u)), with: .color(.black))
+            ctx.fill(Path(CGRect(x: c.x - o, y: c.y - o, width: side, height: side)),
+                     with: .color(d.phantom ? Color(hex: 0xFFAA00) : .white))
+        }
+    }
+
+    /// Egész rács-cellákon lépkedő vonalrajzolás (a végpontok már a rácson ülnek).
+    private func bresenham(_ a: CGPoint, _ b: CGPoint, cell: (CGFloat, CGFloat) -> Void) {
+        var x = Int((a.x / u).rounded()), y = Int((a.y / u).rounded())
+        let x1 = Int((b.x / u).rounded()), y1 = Int((b.y / u).rounded())
+        let dx = abs(x1 - x), dy = -abs(y1 - y)
+        let sx = x < x1 ? 1 : -1, sy = y < y1 ? 1 : -1
+        var err = dx + dy
+        while true {
+            cell(CGFloat(x) * u, CGFloat(y) * u)
+            if x == x1 && y == y1 { break }
+            let e2 = 2 * err
+            if e2 >= dy { err += dy; x += sx }
+            if e2 <= dx { err += dx; y += sy }
+        }
     }
 }

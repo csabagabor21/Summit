@@ -51,9 +51,16 @@ private struct TourHighlightModifier: ViewModifier {
         content
             .overlay {
                 if active {
-                    RoundedRectangle(cornerRadius: 20)
-                        .strokeBorder(accent, lineWidth: 2.5)
-                        .shadow(color: accent.opacity(0.5), radius: reduceMotion ? 0 : (pulse ? 10 : 4))
+                    if MinecraftTheme.isActive {
+                        // Pixel-keret (a játék kijelölés-sárgája), puha ragyogás nélkül.
+                        McPixelShape(steps: 2)
+                            .strokeBorder(Color(hex: 0xFFFF55), lineWidth: MinecraftTheme.px)
+                            .allowsHitTesting(false)
+                    } else {
+                        RoundedRectangle(cornerRadius: 20)
+                            .strokeBorder(accent, lineWidth: 2.5)
+                            .shadow(color: accent.opacity(0.5), radius: reduceMotion ? 0 : (pulse ? 10 : 4))
+                    }
                 }
             }
             .onChange(of: active) { _, on in
@@ -84,36 +91,57 @@ struct SettingsTourCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("Beállítások túra • \(i + 1)/\(SettingsTour.steps.count)")
-                        .font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+                        .skinFont(.caption2, weight: .bold).foregroundStyle(.secondary)
                     Spacer()
                     Button("Kihagyás") { step = nil; onFinish() }
-                        .font(.caption.weight(.semibold))
+                        .skinFont(.caption, weight: .semibold)
+                        .mcInlineButton()
                 }
-                Text(s.title).font(.headline)
-                Text(s.body).font(.subheadline).foregroundStyle(.secondary)
+                Text(s.title).skinFont(.headline)
+                Text(s.body).skinFont(.subheadline).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack {
                     Button("Vissza") { step = max(0, i - 1) }
-                        .font(.subheadline.weight(.semibold))
+                        .skinFont(.subheadline, weight: .semibold)
                         .disabled(i == 0)
+                        .mcInlineButton()
                     Spacer()
                     if i < SettingsTour.steps.count - 1 {
                         Button("Tovább") { step = i + 1 }
-                            .font(.subheadline.weight(.bold))
+                            .skinFont(.subheadline, weight: .bold)
+                            .mcInlineButton()
                     } else {
                         Button("Kész") { step = nil; onFinish() }
-                            .font(.subheadline.weight(.bold))
+                            .skinFont(.subheadline, weight: .bold)
+                            .mcInlineButton()
                     }
                 }
                 .tint(accent)
             }
             .padding(16)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-            .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(accent.opacity(0.4)))
-            .shadow(radius: 12)
+            .modifier(TourCardSurface(accent: accent))
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
             .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+}
+
+/// A túra-kártya felülete: Summitban az átlátszó anyag + akcentkeret,
+/// Minecraftban a játék dialógus-panelje kemény árnyékkal.
+private struct TourCardSurface: ViewModifier {
+    var accent: Color
+
+    func body(content: Content) -> some View {
+        if MinecraftTheme.isActive {
+            content
+                .padding(MinecraftTheme.px)
+                .background { McBlockPanel(face: MinecraftTheme.panelFace) }
+        } else {
+            content
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(accent.opacity(0.4)))
+                .shadow(radius: 12)
         }
     }
 }

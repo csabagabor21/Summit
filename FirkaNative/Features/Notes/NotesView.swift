@@ -58,13 +58,12 @@ struct NotesView: View {
                 Section {
                     // Egyedi binding: a setter CSAK user-koppintásra fut —
                     // a deeplink/Handoff szegmensugrás néma marad.
-                    Picker("", selection: Binding(
+                    SkinSegmented(selection: Binding(
                         get: { filter },
                         set: { if $0 != filter { SummitHaptics.selection() }; filter = $0 }
-                    )) {
-                        Text("Feladatok").tag(0); Text("Dolgozatok").tag(1); Text("Kész").tag(2)
-                    }
-                    .pickerStyle(.segmented)
+                    ), options: [
+                        SkinOption(value: 0, title: "Feladatok"), SkinOption(value: 1, title: "Dolgozatok"), SkinOption(value: 2, title: "Kész"),
+                    ])
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
                     .listRowSeparator(.hidden)
@@ -75,11 +74,12 @@ struct NotesView: View {
                     ForEach(0..<3, id: \.self) { _ in
                         HStack { Text("Betöltés…").redacted(reason: .placeholder) }
                             .summitRowSurface(colors: colors)
+                            .mcRowChrome()
                     }
                 } else if currentIsEmpty {
                     Section {
-                        ContentUnavailableView(
-                            filter == 1 ? "Nincs dolgozat" : filter == 2 ? "Nincs kész feladat" : "Nincs feladat",
+                        SkinEmptyState(
+                            title: filter == 1 ? "Nincs dolgozat" : filter == 2 ? "Nincs kész feladat" : "Nincs feladat",
                             systemImage: filter == 1 ? "doc.text" : "checklist",
                             description: Text(filter == 1 ? "Nincs bejelentett számonkérés" : filter == 2 ? "A kipipált feladatok ide kerülnek" : "Minden kész")
                         )
@@ -155,16 +155,16 @@ struct NotesView: View {
                 // Sheetben nyílik a saját X-ével — pusholva a beágyazott
                 // NavigationStack miatt nem lenne látható visszaút.
                 if watchAvailability.showTab && !isWide {
-                    ToolbarItem(placement: .topBarLeading) {
+                    SkinToolbarItem(placement: .topBarLeading) {
                         Button { showingWatch = true } label: {
-                            Image(systemName: "applewatch")
+                            SkinIcon("applewatch")
                         }
                         .accessibilityLabel("Watch")
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                SkinToolbarItem(placement: .topBarTrailing) {
                     Button { pendingLesson = nil; showingPicker = true } label: {
-                        Image(systemName: "plus")
+                        SkinIcon("plus")
                     }
                     .accessibilityLabel(filter == 1 ? "Saját dolgozat hozzáadása" : "Saját feladat hozzáadása")
                 }
@@ -357,7 +357,7 @@ struct NotesView: View {
             let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "MMM d., EEEE"
             title = f.string(from: day).capitalized
         }
-        return Text("\(title) • \(count) db")
+        return Text("\(title) • \(count) db").skinSecondaryOnSky()
     }
     private var currentIsEmpty: Bool {
         if filter == 1 { return filteredExams.isEmpty }
@@ -421,6 +421,29 @@ struct NotesView: View {
         }
     }
 
+    /// Az órarendből átjött tétel villanó kerete / háttere: Summitban lekerekített,
+    /// Minecraftban pixel-lépcsős alakzat.
+    @ViewBuilder
+    private func flashStroke(_ isFlash: Bool) -> some View {
+        let color = colors.accent.opacity(isFlash ? (flashPulse ? 0.95 : 0.22) : 0)
+        let width: CGFloat = isFlash ? 2.2 : 0
+        if MinecraftTheme.isActive {
+            McPixelShape(steps: 1).strokeBorder(color, lineWidth: isFlash ? MinecraftTheme.px : 0).allowsHitTesting(false)
+        } else {
+            RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(color, lineWidth: width)
+        }
+    }
+
+    @ViewBuilder
+    private func flashFill(_ isFlash: Bool) -> some View {
+        let color = colors.accent.opacity(isFlash ? (flashPulse ? 0.16 : 0.04) : 0)
+        if MinecraftTheme.isActive {
+            McPixelShape(steps: 1).fill(color)
+        } else {
+            RoundedRectangle(cornerRadius: 12, style: .continuous).fill(color)
+        }
+    }
+
     @ViewBuilder
     private func homeworkRow(_ hw: HomeworkItem, isFlash: Bool = false) -> some View {
         let done = completed.isHomeworkDone(hw.id) || hw.isDone
@@ -432,7 +455,7 @@ struct NotesView: View {
                 if !hw.isDone { SummitHaptics.taskToggled(markedDone: !done) }
                 withAnimation(SummitMotion.snappy) { completed.toggleHomework(hw.id) }
             } label: {
-                Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                SkinIcon(done ? "checkmark.circle.fill" : "circle", size: 30)
                     .font(.system(size: 22))
                     .foregroundStyle(done ? Color.green : .secondary)
             }
@@ -441,44 +464,42 @@ struct NotesView: View {
             VStack(alignment: .leading, spacing: 6) {
                 // Csak a fejléc és az előnézet nyit-csuk — a kinyitott
                 // részletező blokkban a gombok önállóan működnek
-                HStack { Text(hw.subject).font(.subheadline.weight(.semibold)); if CustomTasksStore.isCustomId(hw.id) { Text("Saját").font(.caption2.weight(.bold)).foregroundStyle(colors.accent).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(colors.accent.opacity(0.12))) }; Spacer(); if !hw.attachments.isEmpty { HStack(spacing: 3) { Image(systemName: "paperclip"); if hw.attachments.count > 1 { Text("\(hw.attachments.count)") } }.font(.caption2.weight(.semibold)).foregroundStyle(.secondary).accessibilityLabel("\(hw.attachments.count) csatolmány") }; if let idx = lessonIndexText(for: hw) { Text(idx).font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.primary.opacity(0.06))) } }
+                HStack { Text(hw.subject).skinFont(.subheadline, weight: .semibold); if CustomTasksStore.isCustomId(hw.id) { Text("Saját").skinFont(.caption2, weight: .bold).foregroundStyle(colors.accent).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: colors.accent.opacity(0.12)) }; Spacer(); if !hw.attachments.isEmpty { HStack(spacing: 3) { SkinIcon("paperclip"); if hw.attachments.count > 1 { Text("\(hw.attachments.count)") } }.skinFont(.caption2, weight: .semibold).foregroundStyle(.secondary).accessibilityLabel("\(hw.attachments.count) csatolmány") }; if let idx = lessonIndexText(for: hw) { Text(idx).skinFont(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: Color.primary.opacity(0.06)) } }
                     .contentShape(Rectangle())
                     .onTapGesture { toggleExpanded(hw.id, expanded: expanded) }
                 if expanded {
                     // Teljes szöveg KRÉTA-formázással (félkövér, listák, linkek),
                     // nyers HTML-tagek nélkül
                     Text(HomeworkHTML.formatted(hw.title))
-                        .font(.callout)
+                        .skinFont(.callout)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     // Határidő: saját tételnél a választott tanóra + nap
                     // (nincs falióra-idő), KRÉTA-tételnél a megszokott időpont.
                     if let p = customPeriods[hw.id] {
-                        Label("\(p). óra • \(huDate(hw.deadline))", systemImage: "clock")
-                            .font(.caption).foregroundStyle(.secondary)
+                        SkinLabel("\(p). óra • \(huDate(hw.deadline))", systemImage: "clock")
+                            .skinFont(.caption).foregroundStyle(.secondary)
                     } else {
-                        Label(hw.deadline.formatted(date: .abbreviated, time: .shortened), systemImage: "clock")
-                            .font(.caption).foregroundStyle(.secondary)
+                        SkinLabel(hw.deadline.formatted(date: .abbreviated, time: .shortened), systemImage: "clock")
+                            .skinFont(.caption).foregroundStyle(.secondary)
                     }
                     if !hw.teacher.isEmpty {
-                        Label(hw.teacher, systemImage: "person.fill")
-                            .font(.caption).foregroundStyle(.secondary)
+                        SkinLabel(hw.teacher, systemImage: "person.fill")
+                            .skinFont(.caption).foregroundStyle(.secondary)
                     }
                     // Órarend-ugrás (a csatolmány-blokk fölött), majd a fájlok.
                     Button {
                         NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": hw.subject, "deadline": hw.deadline.timeIntervalSince1970, "hwId": hw.id])
                     } label: {
-                        Label("Mutatás az órarendben", systemImage: "calendar")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(colors.accent)
-                            .padding(.horizontal, 12).padding(.vertical, 8)
-                            .background(Capsule().strokeBorder(colors.accent.opacity(0.35), lineWidth: 1))
+                        SkinLabel("Mutatás az órarendben", systemImage: "calendar")
+                            .skinFont(.caption, weight: .semibold)
+                            .skinOutlinePill(colors.accent)
                     }
-                    .buttonStyle(.plain)
+                    .mcButtonOrPlain()
                     // Csatolt fájlok (PDF, kép…) — koppintásra QuickLook.
                     AttachmentsBlock(attachments: hw.attachments, ownerId: hw.id)
                 } else {
                     Text(hw.plainTitle.isEmpty ? "(nincs leírás)" : hw.plainTitle)
-                        .font(.callout).foregroundStyle(.secondary).lineLimit(3)
+                        .skinFont(.callout).foregroundStyle(.secondary).lineLimit(3)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
                         .onTapGesture { toggleExpanded(hw.id, expanded: expanded) }
@@ -486,22 +507,17 @@ struct NotesView: View {
             }
             Spacer(minLength: 0)
             Button { toggleExpanded(hw.id, expanded: expanded) } label: {
-                Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                    .font(.caption.weight(.semibold))
+                SkinIcon(expanded ? "chevron.up" : "chevron.down")
+                    .skinFont(.caption, weight: .semibold)
                     .foregroundStyle(.tertiary)
                     .padding(.top, 6)
             }
             .buttonStyle(.plain)
         }
-        .listRowBackground(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(colors.accent.opacity(isFlash ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlash ? 2.2 : 0)
-        )
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(colors.accent.opacity(isFlash ? (flashPulse ? 0.16 : 0.04) : 0))
-        )
+        .listRowBackground(MinecraftTheme.skinRowBackground(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface))
+        .listRowInsets(MinecraftTheme.rowInsets(nil))
+        .overlay(flashStroke(isFlash))
+        .background(flashFill(isFlash))
         .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if CustomTasksStore.isCustomId(hw.id) {
@@ -510,7 +526,7 @@ struct NotesView: View {
                     SummitHaptics.light()
                     CustomTasksStore.remove(id: hw.id)
                 } label: {
-                    Label("Törlés", systemImage: "trash")
+                    SkinLabel("Törlés", systemImage: "trash")
                 }
             }
         }
@@ -527,60 +543,58 @@ struct NotesView: View {
                 SummitHaptics.taskToggled(markedDone: !ready)
                 withAnimation(SummitMotion.snappy) { completed.toggleExam(exam.id) }
             } label: {
-                Image(systemName: ready ? "checkmark.circle.fill" : "circle")
+                SkinIcon(ready ? "checkmark.circle.fill" : "circle", size: 30)
                     .font(.system(size: 22))
                     .foregroundStyle(ready ? Color.green : .secondary)
             }
             .buttonStyle(.plain)
             .padding(.top, 2)
             VStack(alignment: .leading, spacing: 6) {
-                HStack { Text(exam.subject).font(.subheadline.weight(.semibold)); if CustomTasksStore.isCustomId(exam.id) { Text("Saját").font(.caption2.weight(.bold)).foregroundStyle(colors.accent).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(colors.accent.opacity(0.12))) }; Spacer(); if rolled { Text("Pótló").font(.caption2.weight(.bold)).foregroundStyle(.red).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.red.opacity(0.12))) }; if let n = exam.lessonIndex { Text("\(n). óra").font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Color.orange.opacity(0.14))) } }
+                HStack { Text(exam.subject).skinFont(.subheadline, weight: .semibold); if CustomTasksStore.isCustomId(exam.id) { Text("Saját").skinFont(.caption2, weight: .bold).foregroundStyle(colors.accent).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: colors.accent.opacity(0.12)) }; Spacer(); if rolled { Text("Pótló").skinFont(.caption2, weight: .bold).foregroundStyle(.red).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: Color.red.opacity(0.12)) }; if let n = exam.lessonIndex { Text("\(n). óra").skinFont(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: Color.orange.opacity(0.14)) } }
                     .contentShape(Rectangle())
                     .onTapGesture { toggleExpanded(exam.id, expanded: expanded) }
                 if expanded {
                     Text(exam.mode)
-                        .font(.callout.weight(.semibold))
+                        .skinFont(.callout, weight: .semibold)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if !exam.plainDescription.isEmpty {
                         Text(exam.plainDescription)
-                            .font(.callout).foregroundStyle(.secondary)
+                            .skinFont(.callout).foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     if !exam.teacher.isEmpty {
-                        Label(exam.teacher, systemImage: "person.fill")
-                            .font(.caption).foregroundStyle(.secondary)
+                        SkinLabel(exam.teacher, systemImage: "person.fill")
+                            .skinFont(.caption).foregroundStyle(.secondary)
                     }
                     // Dátum időponttal (éjfélkor csak dátum) + hányadik óra — a hivatalos
                     // app is írja: "2026. szeptember 15., kedd (1. óra)"
-                    Label(examDateLine(exam), systemImage: "clock")
-                        .font(.caption).foregroundStyle(.secondary)
+                    SkinLabel(examDateLine(exam), systemImage: "clock")
+                        .skinFont(.caption).foregroundStyle(.secondary)
                     // Pótló dolgozatnál az eredeti nap is látszik
                     if rolled, let orig = originalDate {
-                        Label("Eredeti: \(huDate(orig))", systemImage: "calendar.badge.exclamationmark")
-                            .font(.caption.weight(.medium)).foregroundStyle(.red)
+                        SkinLabel("Eredeti: \(huDate(orig))", systemImage: "calendar.badge.exclamationmark")
+                            .skinFont(.caption, weight: .medium).foregroundStyle(.red)
                     }
                     if let announced = exam.announcedDate {
-                        Label("Bejelentve: \(huDate(announced))", systemImage: "megaphone")
-                            .font(.caption).foregroundStyle(.secondary)
+                        SkinLabel("Bejelentve: \(huDate(announced))", systemImage: "megaphone")
+                            .skinFont(.caption).foregroundStyle(.secondary)
                     }
                     if !exam.groupName.isEmpty {
-                        Label(exam.groupName, systemImage: "person.2.fill")
-                            .font(.caption).foregroundStyle(.secondary)
+                        SkinLabel(exam.groupName, systemImage: "person.2.fill")
+                            .skinFont(.caption).foregroundStyle(.secondary)
                     }
                     Button {
                         NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": exam.subject, "deadline": exam.date.timeIntervalSince1970])
                     } label: {
-                        Label("Mutatás az órarendben", systemImage: "calendar")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(colors.accent)
-                            .padding(.horizontal, 12).padding(.vertical, 8)
-                            .background(Capsule().strokeBorder(colors.accent.opacity(0.35), lineWidth: 1))
+                        SkinLabel("Mutatás az órarendben", systemImage: "calendar")
+                            .skinFont(.caption, weight: .semibold)
+                            .skinOutlinePill(colors.accent)
                     }
-                    .buttonStyle(.plain)
+                    .mcButtonOrPlain()
                     AttachmentsBlock(attachments: exam.attachments, ownerId: exam.id)
                 } else {
                     Text(exam.plainDescription.isEmpty ? exam.mode : "\(exam.mode) • \(exam.plainDescription)")
-                        .font(.callout).foregroundStyle(.secondary).lineLimit(2)
+                        .skinFont(.callout).foregroundStyle(.secondary).lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
                         .onTapGesture { toggleExpanded(exam.id, expanded: expanded) }
@@ -588,8 +602,8 @@ struct NotesView: View {
             }
             Spacer(minLength: 0)
             Button { toggleExpanded(exam.id, expanded: expanded) } label: {
-                Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                    .font(.caption.weight(.semibold))
+                SkinIcon(expanded ? "chevron.up" : "chevron.down")
+                    .skinFont(.caption, weight: .semibold)
                     .foregroundStyle(.tertiary)
                     .padding(.top, 6)
             }
@@ -597,15 +611,10 @@ struct NotesView: View {
         }
         // Pótló dolgozat piros háttere (mint a kipipált zöld, csak piros) —
         // a kész (zöld) állapot nyer, ha mindkettő igaz.
-        .listRowBackground(ready ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : rolled ? Color.red.opacity(scheme == .dark ? 0.16 : 0.10) : colors.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(colors.accent.opacity(isFlash ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlash ? 2.2 : 0)
-        )
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(colors.accent.opacity(isFlash ? (flashPulse ? 0.16 : 0.04) : 0))
-        )
+        .listRowBackground(MinecraftTheme.skinRowBackground(ready ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : rolled ? Color.red.opacity(scheme == .dark ? 0.16 : 0.10) : colors.surface))
+        .listRowInsets(MinecraftTheme.rowInsets(nil))
+        .overlay(flashStroke(isFlash))
+        .background(flashFill(isFlash))
         .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             // Pótló átütemezés elvetése — az eredeti dátum marad
@@ -614,7 +623,7 @@ struct NotesView: View {
                     SummitHaptics.light()
                     ExamRollover.dismiss(exam.id)
                 } label: {
-                    Label("Elvetés", systemImage: "xmark")
+                    SkinLabel("Elvetés", systemImage: "xmark")
                 }
                 .tint(.orange)
             }
@@ -623,7 +632,7 @@ struct NotesView: View {
                     SummitHaptics.light()
                     CustomTasksStore.remove(id: exam.id)
                 } label: {
-                    Label("Törlés", systemImage: "trash")
+                    SkinLabel("Törlés", systemImage: "trash")
                 }
             }
         }
@@ -737,6 +746,9 @@ struct LessonPickerSheet: View {
     let onPick: (LessonItem) -> Void
     let onSkip: () -> Void
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var theme: ThemeStore
+    @Environment(\.colorScheme) var scheme
+    var colors: AppColors { theme.colors(for: scheme) }
     @State private var day: Date
 
     init(lessons: [LessonItem], onPick: @escaping (LessonItem) -> Void, onSkip: @escaping () -> Void) {
@@ -767,8 +779,8 @@ struct LessonPickerSheet: View {
         NavigationStack {
             List {
                 if days.isEmpty {
-                    ContentUnavailableView(
-                        "Nincs betöltött óra",
+                    SkinEmptyState(
+                        title: "Nincs betöltött óra",
                         systemImage: "calendar.badge.exclamationmark",
                         description: Text("Húzd le a Feladatok tabot a frissítéshez, vagy vidd fel naptár szerint.")
                     )
@@ -778,6 +790,7 @@ struct LessonPickerSheet: View {
                             .datePickerStyle(.graphical)
                             .labelsHidden()
                     }
+                    .mcListRowComfy(fill: colors.surface)
                     Section("Órák") {
                         if dayLessons.isEmpty {
                             Text("Ezen a napon nincs óra.").foregroundStyle(.secondary)
@@ -786,20 +799,23 @@ struct LessonPickerSheet: View {
                                 Button { onPick(lesson) } label: {
                                     HStack(spacing: 10) {
                                         Text(lesson.index)
-                                            .font(.subheadline.weight(.bold).monospacedDigit())
+                                            .skinFont(.subheadline, weight: .bold).monospacedDigit()
                                             .frame(width: 28, height: 28)
-                                            .background(Circle().fill(Color.primary.opacity(0.08)))
+                                            .background {
+                                                if MinecraftTheme.isActive { McInventorySlot() }
+                                                else { Circle().fill(Color.primary.opacity(0.08)) }
+                                            }
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(lesson.subject)
-                                                .font(.subheadline.weight(.semibold))
+                                                .skinFont(.subheadline, weight: .semibold)
                                                 .foregroundStyle(.primary)
                                             Text("\(lesson.start.formatted(date: .omitted, time: .shortened)) • \(lesson.room)")
-                                                .font(.caption)
+                                                .skinFont(.caption)
                                                 .foregroundStyle(.secondary)
                                         }
                                         Spacer()
-                                        Image(systemName: "chevron.right")
-                                            .font(.caption2.weight(.semibold))
+                                        SkinIcon("chevron.right")
+                                            .skinFont(.caption2, weight: .semibold)
                                             .foregroundStyle(.tertiary)
                                     }
                                 }
@@ -807,15 +823,19 @@ struct LessonPickerSheet: View {
                             }
                         }
                     }
+                    .mcListRowComfy(fill: colors.surface)
                 }
                 Section {
                     Button("Naptár szerint viszem fel") { onSkip() }
+                        .mcInlineButton()
                 }
+                .mcListRowComfy(fill: colors.surface)
             }
+            .skinFormChrome()
             .navigationTitle("Melyik órához?")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                SkinToolbarItem(placement: .cancellationAction) {
                     Button("Mégse") { dismiss() }
                 }
             }
@@ -831,6 +851,9 @@ struct AddCustomTaskSheet: View {
     let subjects: [String]
     let onSave: () -> Void
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var theme: ThemeStore
+    @Environment(\.colorScheme) var scheme
+    var colors: AppColors { theme.colors(for: scheme) }
     @State private var selectedKind: CustomTaskKind
     @State private var subject = ""
     @State private var title = ""
@@ -879,38 +902,43 @@ struct AddCustomTaskSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    Picker("", selection: $selectedKind) {
-                        Text("Feladat").tag(CustomTaskKind.homework)
-                        Text("Dolgozat").tag(CustomTaskKind.exam)
-                    }
-                    .pickerStyle(.segmented)
+                    SkinSegmented(selection: $selectedKind, options: [
+                        SkinOption(value: CustomTaskKind.homework, title: "Feladat"),
+                        SkinOption(value: CustomTaskKind.exam, title: "Dolgozat"),
+                    ])
+                    .padding(.horizontal, theme.isMinecraft ? 16 : 0)
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 }
                 if isLessonBound {
                     Section("Óra") {
-                        Label("\(subject) • \(lessonBoundDateText) • \(period). óra", systemImage: "calendar")
-                            .font(.callout)
+                        SkinLabel("\(subject) • \(lessonBoundDateText) • \(period). óra", systemImage: "calendar")
+                            .skinFont(.callout)
                     }
+                    .mcListRowComfy(fill: colors.surface)
                 } else {
                     Section("Tantárgy") {
                         if subjects.isEmpty {
                             Text("Még nincs tantárgy — húzd le a Jegyek tabot.")
-                                .font(.callout).foregroundStyle(.secondary)
+                                .skinFont(.callout).foregroundStyle(.secondary)
                         } else {
-                            Picker("Tantárgy", selection: $subject) {
-                                ForEach(subjects, id: \.self) { s in
-                                    Text(s).tag(s)
-                                }
-                            }
-                            .pickerStyle(.menu)
+                            SkinMenuPicker(
+                                title: "Tantárgy",
+                                selection: $subject,
+                                options: subjects.map { SkinOption(value: $0, title: $0) }
+                            )
                         }
                     }
+                    .mcListRowComfy(fill: colors.surface)
                 }
                 Section(isExam ? "Megnevezés" : "Leírás") {
                     TextField(isExam ? "Pl. Témazáró – Egyenletek" : "Pl. 5-ös fejezet vázlat",
-                              text: $title, axis: .vertical)
+                              text: $title,
+                              prompt: skinPrompt(isExam ? "Pl. Témazáró – Egyenletek" : "Pl. 5-ös fejezet vázlat"),
+                              axis: .vertical)
+                        .mcInput()
                 }
+                .mcListRowComfy(fill: colors.surface)
                 if !isLessonBound {
                     Section("Nap") {
                         DatePicker("Nap", selection: $day,
@@ -919,18 +947,21 @@ struct AddCustomTaskSheet: View {
                         .datePickerStyle(.graphical)
                         .labelsHidden()
                     }
+                    .mcListRowComfy(fill: colors.surface)
                     Section(isExam ? "Hányadik órában" : "Hányadik órára") {
-                        Stepper("\(period). óra", value: $period, in: 1...15)
+                        SkinStepper(title: "\(period). óra", value: $period, range: 1...15)
                     }
+                    .mcListRowComfy(fill: colors.surface)
                 }
             }
+            .skinFormChrome()
             .navigationTitle(isExam ? "Saját dolgozat" : "Saját feladat")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                SkinToolbarItem(placement: .cancellationAction) {
                     Button("Mégse") { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
+                SkinToolbarItem(placement: .confirmationAction) {
                     Button("Mentés") {
                         // A nap éjféli kezdete + választott tanóra-sorszám.
                         let date = Calendar.current.startOfDay(for: day)
@@ -963,13 +994,20 @@ enum HomeworkHTML {
         for s in segs {
             var c = AttributeContainer()
             var font = UIFont.preferredFont(forTextStyle: s.heading ? .headline : .body)
+            // Minecraft-skin: Monocraft ugyanazzal a Dynamic Type skálával
+            // (a pixelbetűnek nincs félkövér/dőlt változata, a jelölés így
+            // csak az aláhúzásból / linkből látszik).
+            let mcFont = MinecraftTheme.isActive
+                ? UIFont(name: MinecraftFontLoader.familyName, size: s.heading ? 15 : 14).map {
+                    UIFontMetrics(forTextStyle: s.heading ? .headline : .body).scaledFont(for: $0)
+                } : nil
             var traits: UIFontDescriptor.SymbolicTraits = []
             if s.bold { traits.insert(.traitBold) }
             if s.italic { traits.insert(.traitItalic) }
-            if !traits.isEmpty, let d = font.fontDescriptor.withSymbolicTraits(traits) {
+            if mcFont == nil, !traits.isEmpty, let d = font.fontDescriptor.withSymbolicTraits(traits) {
                 font = UIFont(descriptor: d, size: 0)
             }
-            c.font = font
+            c.font = mcFont ?? font
             if s.underline { c.underlineStyle = NSUnderlineStyle.single }
             if s.strike { c.strikethroughStyle = NSUnderlineStyle.single }
             if let l = s.link { c.link = l }

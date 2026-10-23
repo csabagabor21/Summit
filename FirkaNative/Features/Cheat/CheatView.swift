@@ -37,27 +37,31 @@ struct CheatView: View {
                 if !MetaAIKeyStore.hasKey {
                     Section {
                         Button { showKeyField.toggle() } label: {
-                            Label("Meta AI-kulcs hozzáadása", systemImage: "key.fill")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(colors.accent)
+                            SkinLabel("Meta AI-kulcs hozzáadása", systemImage: "key.fill")
+                                .skinFont(.subheadline, weight: .semibold)
+                                .skinAccent(colors.accent)
                         }
+                        .mcInlineButton()
                         if showKeyField {
-                            SecureField("Meta AI API-kulcs", text: $apiKeyDraft)
+                            SecureField("Meta AI API-kulcs", text: $apiKeyDraft, prompt: skinPrompt("Meta AI API-kulcs"))
                                 .textContentType(.password)
                                 .autocorrectionDisabled()
                                 .textInputAutocapitalization(.never)
+                                .mcInput()
                             Button("Kulcs mentése") {
                                 MetaAIKeyStore.save(apiKeyDraft)
                                 apiKeyDraft = ""
                                 showKeyField = false
                             }
                             .disabled(apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .mcInlineButton()
                         } else {
                             Text("Saját kulcs nélkül is megy: a közös ingyenes Gemini (gyenge) készíti a jegyzetet — saját kulccsal jobb minőség.")
-                                .font(.caption)
+                                .skinFont(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .mcListRowComfy(fill: colors.surface)
                 }
                 if isLoading {
                     ForEach(0..<3, id: \.self) { _ in
@@ -66,8 +70,8 @@ struct CheatView: View {
                     }
                 } else if sheets.isEmpty {
                     Section {
-                        ContentUnavailableView(
-                            "Nincs jegyzetlap",
+                        SkinEmptyState(
+                            title: "Nincs jegyzetlap",
                             systemImage: "applewatch",
                             description: Text("Vegyél fel egy lapot egy dolgozathoz (pl. Babits Mihály), tölts fel anyagokat, és az AI témánként jegyzetet csinál belőlük.")
                         )
@@ -78,28 +82,28 @@ struct CheatView: View {
                 } else {
                     Section {
                         ForEach(sheets) { sheet in
-                            NavigationLink {
+                            SkinNavLink {
                                 CheatSheetView(sheetID: sheet.id, exams: exams, subjects: subjects)
                             } label: {
                                 VStack(alignment: .leading, spacing: 4) {
                                     HStack {
                                         Text(sheet.subject)
-                                            .font(.subheadline.weight(.semibold))
+                                            .skinFont(.subheadline, weight: .semibold)
                                         Spacer()
                                         if sheet.topics.isEmpty {
                                             Text("\(sheet.materials.count) anyag")
-                                                .font(.caption2).foregroundStyle(.secondary)
+                                                .skinFont(.caption2).foregroundStyle(.secondary)
                                         } else {
                                             Text("\(sheet.topics.count) téma")
-                                                .font(.caption2).foregroundStyle(.secondary)
+                                                .skinFont(.caption2).foregroundStyle(.secondary)
                                         }
                                     }
                                     Text(sheet.title)
-                                        .font(.callout).foregroundStyle(.secondary)
+                                        .skinFont(.callout).foregroundStyle(.secondary)
                                         .lineLimit(2)
                                     if let examTitle = linkedExamTitle(for: sheet) {
-                                        Label(examTitle, systemImage: "doc.text")
-                                            .font(.caption).foregroundStyle(colors.accent)
+                                        SkinLabel(examTitle, systemImage: "doc.text")
+                                            .skinFont(.caption).skinAccent(colors.accent)
                                             .lineLimit(1)
                                     }
                                 }
@@ -114,6 +118,7 @@ struct CheatView: View {
                     } header: {
                         Text("Jegyzetlapok • \(sheets.count) db")
                     }
+                    .mcListRowComfy(fill: colors.surface)
                 }
             }
             .listStyle(.insetGrouped)
@@ -126,16 +131,16 @@ struct CheatView: View {
             .summitToolbarBackground()
             .toolbar {
                 if showCloseButton {
-                    ToolbarItem(placement: .cancellationAction) {
+                    SkinToolbarItem(placement: .cancellationAction) {
                         Button { dismiss() } label: {
-                            Image(systemName: "xmark")
+                            SkinIcon("xmark")
                         }
                         .accessibilityLabel("Bezárás")
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                SkinToolbarItem(placement: .topBarTrailing) {
                     Button { showingAdd = true } label: {
-                        Image(systemName: "plus")
+                        SkinIcon("plus")
                     }
                     .accessibilityLabel("Új jegyzetlap")
                 }
@@ -199,6 +204,9 @@ private struct AddCheatSheetView: View {
     let subjects: [String]
     let onSave: (CheatSheet) -> Void
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var theme: ThemeStore
+    @Environment(\.colorScheme) var scheme
+    var colors: AppColors { theme.colors(for: scheme) }
     @State private var title = ""
     @State private var subject = ""
     @State private var examID: String? = nil
@@ -207,29 +215,34 @@ private struct AddCheatSheetView: View {
         NavigationStack {
             Form {
                 Section("Miről szól") {
-                    TextField("Cím (pl. Babits Mihály)", text: $title)
-                    Picker("Tantárgy", selection: $subject) {
-                        Text("Válassz…").tag("")
-                        ForEach(subjects, id: \.self) { Text($0).tag($0) }
-                    }
+                    TextField("Cím (pl. Babits Mihály)", text: $title, prompt: skinPrompt("Cím (pl. Babits Mihály)"))
+                        .mcInput()
+                    SkinMenuPicker(
+                        title: "Tantárgy",
+                        selection: $subject,
+                        options: [SkinOption(value: "", title: "Válassz…")] + subjects.map { SkinOption(value: $0, title: $0) }
+                    )
                 }
+                .mcListRowComfy(fill: colors.surface)
                 Section("Dolgozat (opcionális)") {
-                    Picker("Kapcsolt dolgozat", selection: $examID) {
-                        Text("Nincs").tag(nil as String?)
-                        ForEach(exams, id: \.id) { ex in
-                            Text("\(ex.subject) • \(ex.mode) • \(huDate(ex.date))").tag(ex.id as String?)
-                        }
-                    }
-                    .pickerStyle(.navigationLink)
+                    SkinMenuPicker(
+                        title: "Kapcsolt dolgozat",
+                        selection: $examID,
+                        options: [SkinOption(value: nil as String?, title: "Nincs")]
+                            + exams.map { SkinOption(value: $0.id as String?, title: "\($0.subject) • \($0.mode) • \(huDate($0.date))") },
+                        navigationStyle: true
+                    )
                 }
+                .mcListRowComfy(fill: colors.surface)
             }
+            .skinFormChrome()
             .navigationTitle("Új jegyzetlap")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                SkinToolbarItem(placement: .cancellationAction) {
                     Button("Mégse") { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
+                SkinToolbarItem(placement: .confirmationAction) {
                     Button("Kész") {
                         let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !t.isEmpty, !subject.isEmpty else { return }
