@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import AVFoundation
 
 // Közös Minecraft-építőkockák: igazi 1.21.11-es GUI-sprite-ok (gomb,
 // checkbox, csúszka, XP-sáv, menü-háttér) és az SF-ikonok item-megfelelői.
@@ -263,6 +264,32 @@ extension View {
     }
 }
 
+extension View {
+    /// `.font(.system(size:weight:design:))` skin-érzékeny cseréje:
+    /// Minecraftban Monocraft (a számok is, a `.rounded` design helyett).
+    @ViewBuilder
+    func skinFont(size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> some View {
+        if MinecraftTheme.isActive {
+            self.font(MinecraftFontLoader.font(size: (size * 0.92).rounded()))
+        } else {
+            self.font(.system(size: size, weight: weight, design: design))
+        }
+    }
+
+    /// Mint a `skinFont(_:weight:)`, de a Summit-ág `monospacedDigit()`-et
+    /// is kap (az óra-/szám-kiírásokhoz); a Monocraft eleve egyenközű.
+    @ViewBuilder
+    func skinFontDigits(_ style: Font.TextStyle, weight: Font.Weight? = nil) -> some View {
+        if MinecraftTheme.isActive {
+            self.font(MinecraftTheme.font(style))
+        } else if let weight {
+            self.font(.system(style, weight: weight).monospacedDigit())
+        } else {
+            self.font(.system(style).monospacedDigit())
+        }
+    }
+}
+
 extension MinecraftTheme {
     /// Monocraft a rendszer-stílus alapméretén, Dynamic Type-pal skálázva.
     /// A pixelbetű nagyobb x-magasságú, ezért ~10%-kal kisebbre vesszük.
@@ -314,6 +341,10 @@ struct McButtonStyle: ButtonStyle {
             .frame(minWidth: compact ? 36 : nil, minHeight: compact ? 36 : 44)
             .background(McNineSlice(sprite, border: 3))
             .contentShape(Rectangle())
+            // A játék a lenyomás pillanatában kattan, nem elengedéskor.
+            .onChange(of: configuration.isPressed) { _, pressed in
+                if pressed { McSound.play(.click) }
+            }
     }
 }
 
@@ -361,6 +392,7 @@ extension View {
 struct McCheckboxToggleStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         Button {
+            McSound.play(.pop)
             configuration.isOn.toggle()
         } label: {
             HStack(spacing: 12) {
@@ -458,9 +490,10 @@ extension MinecraftTheme {
 
     /// Skin-érzékeny alakzat a `RoundedRectangle(cornerRadius:)` helyére
     /// (fill/stroke/background-ban): Minecraftban lépcsős pixelsarok.
-    static func shape(cornerRadius: CGFloat) -> AnyShape {
+    /// `continuous: false` a sima (`.circular`) `RoundedRectangle` Summit-ága.
+    static func shape(cornerRadius: CGFloat, continuous: Bool = true) -> AnyShape {
         isActive ? AnyShape(McPixelShape(steps: cornerRadius >= 12 ? 2 : 1))
-                 : AnyShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                 : AnyShape(RoundedRectangle(cornerRadius: cornerRadius, style: continuous ? .continuous : .circular))
     }
 
     /// Skin-érzékeny kapszula / kör.
@@ -515,5 +548,186 @@ struct McTextFieldFrame: ViewModifier {
             .padding(.vertical, 9)
             .background(Color.black)
             .overlay(Rectangle().strokeBorder(focused ? Color.white : Color(hex: 0xA0A0A0), lineWidth: MinecraftTheme.px / 1.5))
+    }
+}
+
+// MARK: - Hangok
+
+/// Igazi Minecraft UI-hangok (a játék `.ogg`-jai AAC-ra konvertálva, az
+/// asset catalog `Minecraft/` mappájában Data Setként). Csak Minecraft-
+/// skinben szólal meg; `.ambient` munkamenet, így a némító kapcsoló
+/// elnémítja, és sosem szakítja meg a zenét. Hangerő-/némítás-beállítás
+/// az appban nincs, a rendszeré érvényes.
+enum McSound: String, CaseIterable {
+    case click = "mc_snd_click_stereo"
+    case levelUp = "mc_snd_levelup"
+    case orb = "mc_snd_orb"
+    case pop = "mc_snd_pop"
+    case toastIn = "mc_snd_toast_in"
+    case challengeComplete = "mc_snd_challenge_complete"
+
+    /// Hangonként kis lejátszó-készlet: gyors egymásutánban (tabváltás,
+    /// sorozatos gombnyomás) a hangok átfedhetnek, nem vágják el egymást.
+    private static var pool: [McSound: [AVAudioPlayer]] = [:]
+    private static var sessionReady = false
+    private static let poolSize = 3
+
+    static func play(_ sound: McSound, volume: Float = 1) {
+        guard MinecraftTheme.isActive else { return }
+        guard prepareSession() else { return }
+        var players = pool[sound] ?? []
+        if players.count < poolSize, let fresh = makePlayer(sound) {
+            players.append(fresh)
+            pool[sound] = players
+        }
+        // Szabad lejátszó, különben a legrégebbit indítjuk újra.
+        guard let player = players.first(where: { !$0.isPlaying }) ?? players.first else { return }
+        player.volume = volume
+        player.currentTime = 0
+        player.play()
+    }
+
+    /// Hosszú hang (pl. a 5-ös jegy fanfárja) idő előtti leállítása.
+    static func stop(_ sound: McSound) {
+        pool[sound]?.forEach { $0.stop() }
+    }
+
+    private static func prepareSession() -> Bool {
+        if sessionReady { return true }
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default, options: [])
+            sessionReady = true
+        } catch {
+            #if DEBUG
+            print("McSound: audio session hiba: \(error)")
+            #endif
+        }
+        return sessionReady
+    }
+
+    private static func makePlayer(_ sound: McSound) -> AVAudioPlayer? {
+        guard let asset = NSDataAsset(name: sound.rawValue) else {
+            #if DEBUG
+            print("McSound: hiányzó hang-asset: \(sound.rawValue)")
+            #endif
+            return nil
+        }
+        do {
+            let player = try AVAudioPlayer(data: asset.data)
+            player.prepareToPlay()
+            return player
+        } catch {
+            #if DEBUG
+            print("McSound: dekódolási hiba (\(sound.rawValue)): \(error)")
+            #endif
+            return nil
+        }
+    }
+}
+
+// MARK: - Szegmens-választó (fül-sor)
+
+/// `Picker(.segmented)` skin-érzékeny cseréje: Summitban pontosan a gyári
+/// szegmens-választó, Minecraftban a 1.21-es játék fül-sora (`widget/tab`,
+/// a kijelölt fehér keretes `tab_selected` sprite-tal), kattanással.
+struct SkinSegmentedPicker<Value: Hashable>: View {
+    @Binding var selection: Value
+    var options: [(value: Value, title: String)]
+    var accessibilityTitle: String = ""
+
+    var body: some View {
+        if MinecraftTheme.isActive {
+            HStack(spacing: 0) {
+                ForEach(Array(options.enumerated()), id: \.offset) { _, option in
+                    let isOn = option.value == selection
+                    Button {
+                        if !isOn { McSound.play(.click) }
+                        selection = option.value
+                    } label: {
+                        Text(option.title)
+                            .font(MinecraftTheme.font(.subheadline))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .foregroundStyle(isOn ? Color.white : Color(hex: 0xA0A0A0))
+                            .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: MinecraftTheme.px / 1.5, y: MinecraftTheme.px / 1.5)
+                            .frame(maxWidth: .infinity, minHeight: 40)
+                            .background(McNineSlice(isOn ? "mc_widget_tab_sel" : "mc_widget_tab",
+                                                    top: 2, left: 2, bottom: 0, right: 2))
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(isOn ? .isSelected : [])
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(accessibilityTitle)
+        } else {
+            Picker(accessibilityTitle, selection: $selection) {
+                ForEach(Array(options.enumerated()), id: \.offset) { _, option in
+                    Text(option.title).tag(option.value)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+    }
+}
+
+// MARK: - Folyamatjelző
+
+/// `ProgressView(value:).tint(_)` skin-érzékeny cseréje: Minecraftban az
+/// igazi XP-sáv, Summitban a gyári lineáris folyamatjelző.
+struct SkinProgress: View {
+    var value: Double
+    var tint: Color
+    var body: some View {
+        if MinecraftTheme.isActive {
+            McProgressBar(value: value)
+        } else {
+            ProgressView(value: value).tint(tint)
+        }
+    }
+}
+
+// MARK: - Toolbar
+
+extension ToolbarContent {
+    /// A rendszer Liquid Glass kapszulája a toolbar-elem mögött Minecraftban
+    /// rejtve (a gombot `skinToolbarItem()` stílusozza), Summitban marad.
+    func skinToolbarBackground() -> some ToolbarContent {
+        self.sharedBackgroundVisibility(MinecraftTheme.isActive ? .hidden : .automatic)
+    }
+}
+
+// MARK: - Advancement-toast
+
+/// A játék „Advancement Made!" értesítése: `toast/advancement` kilenc-
+/// szeletes sprite, balra az item-ikon, mellette sárga cím és fehér
+/// szöveg 1 px-es szürke árnyékkal. Challenge-nél lila cím (#FF55FF).
+struct McAdvancementToast: View {
+    var icon: String
+    var title: String
+    var message: String
+    var challenge = false
+
+    var body: some View {
+        HStack(spacing: 4 * MinecraftTheme.px) {
+            McSprite(name: icon, size: 16 * MinecraftTheme.px)
+            VStack(alignment: .leading, spacing: MinecraftTheme.px) {
+                Text(title)
+                    .font(MinecraftTheme.font(.subheadline))
+                    .foregroundStyle(challenge ? Color(hex: 0xFF55FF) : Color(hex: 0xFFFF00))
+                    .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: MinecraftTheme.px / 1.5, y: MinecraftTheme.px / 1.5)
+                Text(message)
+                    .font(MinecraftTheme.font(.footnote))
+                    .foregroundStyle(.white)
+                    .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: MinecraftTheme.px / 1.5, y: MinecraftTheme.px / 1.5)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8 * MinecraftTheme.px)
+        .padding(.vertical, 8 * MinecraftTheme.px)
+        .background(McNineSlice("mc_toast_advancement", top: 2, left: 2, bottom: 0, right: 2))
+        .accessibilityElement(children: .combine)
     }
 }
