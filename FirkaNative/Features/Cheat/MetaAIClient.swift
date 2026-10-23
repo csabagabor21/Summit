@@ -1,95 +1,141 @@
 import Foundation
+import Security
 import UIKit
 import PDFKit
 
 // MARK: - Meta AI kulcstár
-// A kulcs UserDefaults-ban él, és a SummitSync `metaAIKey` mezőjében
-// átmegy a többi eszközre; az órára a WatchConnectivity-context tolja
-// át (WatchSyncSender.pushMetaKeyNow + minden push). A user később
-// kapja meg a kulcsot: addig a jegyzetek kézzel is felvehetők,
-// a generálás a kulcs megadásakor élesedik.
+// A kulcs a Keychainben él (ezen az eszközön, első feloldás után
+// olvashatóan), és a SummitSync `metaAIKey` mezőjében — végponttól
+// végpontig titkosítva — megy át a többi eszközre; az órára a
+// WatchConnectivity-context tolja át (WatchSyncSender.pushMetaKeyNow +
+// minden push). A user később kapja meg a kulcsot: addig a jegyzetek
+// kézzel is felvehetők, a generálás a kulcs megadásakor élesedik.
 enum MetaAIKeyStore {
+    /// Régi, nyílt UserDefaults-kulcs — csak az átálláshoz és az
+    /// aláíratlan (Keychain-entitlement nélküli) Mac-build tartalékaként.
     static let key = "summit.metaAIKey.v1"
     static let changedNotification = Notification.Name("summit.metaAIKeyChanged")
+    private static let keychainService = "hu.flint.summit.metaai"
+    private static let keychainAccount = "apiKey"
+    private static let installedKey = "summit.metaAIKey.keychain.installed.v1"
+
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var cache: String?
 
     static var apiKey: String {
-        (UserDefaults.standard.string(forKey: key) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        lock.lock()
+        defer { lock.unlock() }
+        if let cache { return cache }
+        let value = loadAndMigrate()
+        cache = value
+        return value
     }
     static var hasKey: Bool { !apiKey.isEmpty }
 
     static func save(_ k: String) {
-        UserDefaults.standard.set(k.trimmingCharacters(in: .whitespacesAndNewlines), forKey: key)
+        let clean = k.trimmingCharacters(in: .whitespacesAndNewlines)
+        lock.lock()
+        store(clean)
+        cache = clean
+        lock.unlock()
         NotificationCenter.default.post(name: changedNotification, object: nil)
         // Azonnal átmegy az órára is — onnantól az óra a saját netjén,
         // a telefon nélkül kérdezhet (WatchSyncSender.pushMetaKeyNow).
         WatchSyncSender.pushMetaKeyNow()
     }
     static func clear() { save("") }
+
+    /// Keychain → (átállás) régi UserDefaults. A Keychain túléli az app
+    /// törlését: friss telepítéskor a régi telepítés kulcsa törlődik.
+    private static func loadAndMigrate() -> String {
+        let defaults = UserDefaults.standard
+        let legacy = defaults.string(forKey: key)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !defaults.bool(forKey: installedKey) {
+            if legacy == nil { KeychainHelper.delete(service: keychainService, account: keychainAccount) }
+            defaults.set(true, forKey: installedKey)
+        }
+        // A nyílt másolat, ha létezik, a frissebb (átállás előtt, vagy egy
+        // régebbi build írta vissza) — átköltözik, és a nyílt példány törlődik.
+        if let legacy {
+            store(legacy)
+            return legacy
+        }
+        if let d = KeychainHelper.load(service: keychainService, account: keychainAccount),
+           let s = String(data: d, encoding: .utf8) {
+            return s
+        }
+        return ""
+    }
+
+    /// Üres kulcs = törlés. Sikeres Keychain-írás után a nyílt másolat
+    /// törlődik; ha a Keychain nem érhető el (aláíratlan Mac), az marad.
+    private static func store(_ value: String) {
+        if value.isEmpty {
+            KeychainHelper.delete(service: keychainService, account: keychainAccount)
+            UserDefaults.standard.removeObject(forKey: key)
+            return
+        }
+        let status = KeychainHelper.save(Data(value.utf8), service: keychainService, account: keychainAccount,
+                                         accessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
+        if status == errSecSuccess {
+            UserDefaults.standard.removeObject(forKey: key)
+        } else {
+            UserDefaults.standard.set(value, forKey: key)
+        }
+    }
 }
 
-// MARK: - Közös Gemini-tartalék saját kulcs nélkül (Firebase-ből)
-// A kulcs NINCS az appba égetve: futásidőben jön a Firestore
-// `public/ai_fallback` docból (`geminiKey` + `geminiModel` stringmezők —
-// bárki olvashatja, senki nem írhatja, rotálás = doc-csere konzolból).
-// Direkt a legolcsóbb free-tier modell jár hozzá (gyenge minőség!) —
-// saját Meta AI-kulccsal a rendes Meta-végpont dolgozik helyette.
-// Offline-ra az utolsó ismert érték gyorsítótárazva van.
+// MARK: - Közös Gemini-tartalék saját kulcs nélkül (worker-proxy)
+// A Gemini-kulcs SOHA nem kerül az eszközre: a Summit Cloudflare-worker
+// (`/ai/generate`) tartja secretként, és csak érvényes App Check tokennel
+// (valódi, módosítatlan app) továbbítja a kérést a Gemini natív
+// `generateContent` végpontjára. A modellt is a worker választja
+// (`GEMINI_MODEL`), a kliens nem írhatja felül — így egy kiszivárgott
+// token sem költheti drágább modellre a közös keretet.
+// Korábban a kulcs a mindenki által olvasható `public/ai_fallback`
+// Firestore-docból jött, és az eszköz el is tárolta — a régi
+// gyorsítótárat a `purgeLegacyCache()` induláskor törli.
 enum GeminiFallback {
-    static let projectId = "summit-14b74"
-    /// Firestore-olvasáshoz (publikus doc, lásd a többi REST-hívást).
-    static let restKey = "AIzaSyA1TttM0aUUHsvjjAItYMbdID_no1vzg9s"
-    static let docId = "ai_fallback"
-    /// Alapértelmezett modell, ha a docban nincs más: a legolcsóbb
-    /// free-tieres lite (direkt gyenge) — a modellnév a docból
-    /// felülírható, appfrissítés nélkül.
-    static let defaultModel = "gemini-3.5-flash-lite"
-    /// Gemini OpenAI-kompatibilis chat-végpont (ugyanaz a kérés/alak,
-    /// mint a Meta-klón — `Authorization: Bearer <API-kulcs>`).
-    static let endpoint = URL(string: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions")!
-
-    struct Config { var key: String; var model: String }
-    private static var mem: Config?
-    private static let keyCacheKey = "summit.geminiFallbackKey.v1"
-    private static let modelCacheKey = "summit.geminiFallbackModel.v1"
-
-    static func config() async -> Config? {
-        if let m = mem, !m.key.isEmpty { return m }
-        if let doc = await fetchDoc(), let k = doc["geminiKey"], !k.isEmpty {
-            let rawModel = doc["geminiModel"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let c = Config(key: k, model: rawModel.isEmpty ? defaultModel : rawModel)
-            mem = c
-            UserDefaults.standard.set(c.key, forKey: keyCacheKey)
-            UserDefaults.standard.set(c.model, forKey: modelCacheKey)
-            return c
-        }
-        // Offline: utolsó ismert érték (a tartalék attól még élhet).
-        if let k = UserDefaults.standard.string(forKey: keyCacheKey), !k.isEmpty {
-            let c = Config(key: k, model: UserDefaults.standard.string(forKey: modelCacheKey) ?? defaultModel)
-            mem = c
-            return c
-        }
-        return nil
+    @MainActor static var endpoint: URL? {
+        guard SummitPushSync.isConfigured else { return nil }
+        return URL(string: SummitPushSync.baseURL + "/ai/generate")
     }
 
-    static func forgetCache() {
-        mem = nil
-        UserDefaults.standard.removeObject(forKey: keyCacheKey)
-        UserDefaults.standard.removeObject(forKey: modelCacheKey)
+    /// A régi appverziók által eltárolt (azóta visszavont) kulcs és modell
+    /// törlése. Idempotens, minden indításkor hívható.
+    static func purgeLegacyCache() {
+        UserDefaults.standard.removeObject(forKey: "summit.geminiFallbackKey.v1")
+        UserDefaults.standard.removeObject(forKey: "summit.geminiFallbackModel.v1")
     }
 
-    private static func fetchDoc() async -> [String: String]? {
-        guard let url = URL(string: "https://firestore.googleapis.com/v1/projects/\(projectId)/databases/(default)/documents/public/\(docId)?key=\(restKey)") else { return nil }
-        var req = URLRequest(url: url)
-        req.timeoutInterval = 15
-        guard let (data, resp) = try? await URLSession.shared.data(for: req),
-              (resp as? HTTPURLResponse)?.statusCode == 200,
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let fields = json["fields"] as? [String: Any] else { return nil }
-        var out: [String: String] = [:]
-        for (k, v) in fields {
-            if let s = (v as? [String: String])?["stringValue"] { out[k] = s }
+    /// Gemini natív kérés-törzs: rendszerutasítás + egy user-üzenet
+    /// (szöveg + JPEG-képek inline), JSON-válaszmóddal.
+    static func requestBody(system: String, prompt: String, imageDataURLs: [String]) -> [String: Any] {
+        var parts: [[String: Any]] = [["text": prompt]]
+        for url in imageDataURLs {
+            guard let comma = url.firstIndex(of: ","), url.hasPrefix("data:") else { continue }
+            let header = url[url.index(url.startIndex, offsetBy: 5)..<comma]
+            let mime = header.split(separator: ";").first.map(String.init) ?? "image/jpeg"
+            parts.append(["inlineData": ["mimeType": mime, "data": String(url[url.index(after: comma)...])]])
         }
-        return out
+        return [
+            "systemInstruction": ["parts": [["text": system]]],
+            "contents": [["role": "user", "parts": parts]],
+            "generationConfig": ["temperature": 0.3, "responseMimeType": "application/json"],
+        ]
+    }
+
+    struct WirePart: Decodable { var text: String? }
+    struct WireContent: Decodable { var parts: [WirePart]? }
+    struct WireCandidate: Decodable { var content: WireContent? }
+    struct WireResp: Decodable { var candidates: [WireCandidate]? }
+
+    /// A válasz első jelöltjének szövege (a részek összefűzve).
+    static func content(from data: Data) -> String? {
+        guard let resp = try? JSONDecoder().decode(WireResp.self, from: data),
+              let parts = resp.candidates?.first?.content?.parts else { return nil }
+        let text = parts.compactMap(\.text).joined()
+        return text.isEmpty ? nil : text
     }
 }
 
@@ -98,8 +144,8 @@ enum GeminiFallback {
 // (nincs karaktersáv): szöveg + pdf-oldalak képként + fotók.
 // Minden téma egy cím + szöveges bejegyzés. A válasz JSON, amit a
 // kliens CheatTopic-fává alakít; a user a lapon utólag szerkesztheti.
-// Saját Meta-kulcs nélkül a Firebase-ből jövő közös, ingyenes
-// Gemini-tartalék dolgozik (gyenge!) — saját kulccsal a Meta-végpont.
+// Saját Meta-kulcs nélkül a közös, ingyenes Gemini-tartalék dolgozik a
+// Summit-workeren át (gyenge!) — saját kulccsal a Meta-végpont.
 enum MetaAIClient {
     /// Meta Model API, OpenAI-kompatibilis chat-végpont.
     /// MINDIG a contributor-tier: muse-spark-1.3-contributor.
@@ -113,6 +159,9 @@ enum MetaAIClient {
         case badStatus(Int)
         case rateLimited
         case badResponse
+        /// A közös tartalék-proxy elutasította az app-igazolást (App Check)
+        /// vagy nincs beállítva a szerveren.
+        case fallbackUnavailable
         var errorDescription: String? {
             switch self {
             case .noKey: return "Nincs AI-elérés — ellenőrizd a netet, vagy adj meg saját Meta AI-kulcsot."
@@ -123,6 +172,7 @@ enum MetaAIClient {
                 : "Az AI hibát adott (\(c)) — próbáld újra később."
             case .rateLimited: return "A közös ingyenes keret épp betelt (429) — próbáld később, vagy adj meg saját Meta AI-kulcsot."
             case .badResponse: return "Értelmezhetetlen válasz érkezett — próbáld újra."
+            case .fallbackUnavailable: return "A közös AI most nem érhető el — frissítsd az appot, vagy adj meg saját Meta AI-kulcsot."
             }
         }
     }
@@ -130,20 +180,12 @@ enum MetaAIClient {
     /// Témajegyzékek generálása az anyagok szövegéből.
     static func generateTopics(subject: String, title: String, materials: [CheatMaterial]) async throws -> [CheatTopic] {
         // Szolgáltató-választás: saját kulcs → Meta, különben a közös
-        // Firebase-es Gemini-tartalék (ha az sem érhető el, nincs generálás).
-        let target: URL
-        let targetModel: String
-        let authKey: String
-        if MetaAIKeyStore.hasKey {
-            target = Self.endpoint
-            targetModel = Self.model
-            authKey = MetaAIKeyStore.apiKey
-        } else {
-            guard let fb = await GeminiFallback.config() else { throw AIError.noKey }
-            target = GeminiFallback.endpoint
-            targetModel = fb.model
-            authKey = fb.key
-        }
+        // Gemini-tartalék a Summit-workeren át (ha az sem érhető el,
+        // nincs generálás).
+        let metaKey = MetaAIKeyStore.apiKey
+        let useMeta = !metaKey.isEmpty
+        let fallbackURL = await GeminiFallback.endpoint
+        guard useMeta || fallbackURL != nil else { throw AIError.noKey }
         // TELJES szöveg a lemez-tárból (nincs 15k/24k vágás) — a
         // UserDefaults-beli vágott másolat csak tartalék régi anyagokhoz.
         let corpus = materials.map { CheatStore.fullText(id: $0.id) ?? $0.text }
@@ -172,31 +214,46 @@ enum MetaAIClient {
         TANANYAG:
         \(corpus)
         """
-        // Multimodális user-üzenet: szöveg + képek (pdf-oldalak, fotók).
-        // Kép nélkül marad a sima string-alak (régi viselkedés).
-        var userContent: Any = prompt
-        if !imageURLs.isEmpty {
-            var parts: [[String: Any]] = [["type": "text", "text": prompt]]
-            parts += imageURLs.map { ["type": "image_url", "image_url": ["url": $0]] }
-            userContent = parts
+        let system = "Magyar nyelvű tanulójegyzet-készítő vagy. Mindig csak érvényes JSON-t válaszolsz."
+        let body: [String: Any]
+        if useMeta {
+            // Multimodális user-üzenet: szöveg + képek (pdf-oldalak, fotók).
+            // Kép nélkül marad a sima string-alak (régi viselkedés).
+            var userContent: Any = prompt
+            if !imageURLs.isEmpty {
+                var parts: [[String: Any]] = [["type": "text", "text": prompt]]
+                parts += imageURLs.map { ["type": "image_url", "image_url": ["url": $0]] }
+                userContent = parts
+            }
+            body = [
+                "model": Self.model,
+                "messages": [
+                    ["role": "system", "content": system],
+                    ["role": "user", "content": userContent],
+                ],
+                "temperature": 0.3,
+            ]
+        } else {
+            body = GeminiFallback.requestBody(system: system, prompt: prompt, imageDataURLs: imageURLs)
         }
-        let body: [String: Any] = [
-            "model": targetModel,
-            "messages": [
-                ["role": "system", "content": "Magyar nyelvű tanulójegyzet-készítő vagy. Mindig csak érvényes JSON-t válaszolsz."],
-                ["role": "user", "content": userContent],
-            ],
-            "temperature": 0.3,
-        ]
         guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else { throw AIError.badResponse }
-        // Durva plafon: ~20 MB kérés fölött inkább érthető hiba, mint lógás.
+        // Durva plafon: ~20 MB kérés fölött inkább érthető hiba, mint lógás
+        // (a worker is ennyit enged át).
         guard httpBody.count < 20_000_000 else {
             throw AIError.network("Az anyag képekkel együtt túl nagy (\(httpBody.count / 1_000_000) MB) — vegyél ki oldalakat, és próbáld újra.")
         }
-        var req = URLRequest(url: target)
+        var req: URLRequest
+        if useMeta {
+            req = URLRequest(url: Self.endpoint)
+            req.setValue("Bearer \(metaKey)", forHTTPHeaderField: "Authorization")
+        } else if let fallbackURL {
+            req = URLRequest(url: fallbackURL)
+            await SummitAppCheck.attach(to: &req)
+        } else {
+            throw AIError.noKey
+        }
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("Bearer \(authKey)", forHTTPHeaderField: "Authorization")
         req.httpBody = httpBody
         req.timeoutInterval = 180
         let data: Data
@@ -211,8 +268,17 @@ enum MetaAIClient {
         // A közös tartalék-keret kimerülése külön, érthető üzenetet kap
         // (429) — ilyenkor a saját kulcs a kiút.
         if status == 429 { throw AIError.rateLimited }
+        // Worker: 401 = App Check elutasítva, 503 = nincs beállítva a
+        // proxy, 413 = túl nagy kérés. Ezek nem a user kulcsának hibái.
+        if !useMeta {
+            if status == 401 || status == 503 { throw AIError.fallbackUnavailable }
+            if status == 413 { throw AIError.network("Az anyag képekkel együtt túl nagy — vegyél ki oldalakat, és próbáld újra.") }
+        }
         guard status == 200 else { throw AIError.badStatus(status) }
-        guard let topics = Self.parseTopics(from: data), !topics.isEmpty else { throw AIError.badResponse }
+        let content = useMeta ? Self.chatContent(from: data) : GeminiFallback.content(from: data)
+        guard let content, let topics = Self.parseTopics(fromContent: content), !topics.isEmpty else {
+            throw AIError.badResponse
+        }
         return topics
     }
 
@@ -283,10 +349,15 @@ enum MetaAIClient {
     struct WireChoice: Decodable { var message: WireChoiceMsg? }
     struct WireResp: Decodable { var choices: [WireChoice]? }
 
-    static func parseTopics(from data: Data) -> [CheatTopic]? {
+    /// OpenAI-kompatibilis chat-válasz (Meta) első üzenetének szövege.
+    static func chatContent(from data: Data) -> String? {
         guard let resp = try? JSONDecoder().decode(WireResp.self, from: data),
               let content = resp.choices?.first?.message?.content,
               !content.isEmpty else { return nil }
+        return content
+    }
+
+    static func parseTopics(fromContent content: String) -> [CheatTopic]? {
         // A modell néha ```json kerítésbe teszi — azt lefejtjük.
         let json = Self.stripFences(content)
         guard let jdata = json.data(using: .utf8),

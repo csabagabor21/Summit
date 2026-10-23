@@ -41,6 +41,55 @@ def canned(mapping):
     return fetch
 
 
+class TestNameSanitizing(unittest.TestCase):
+    """A heartbeat `school_name`-je bárki által írható: jelölő-, idéző-,
+    vezérlőkarakteres, link-szerű vagy túl hosszú név nem kerülhet sem a
+    nyilvános térképre, sem a geokódolóba."""
+
+    def test_real_names_still_usable(self):
+        self.assertEqual(aggregate.usable_name(MATHIASZ), MATHIASZ)
+        self.assertEqual(aggregate.usable_name("Petőfi Sándor Gimnázium"),
+                         "Petőfi Sándor Gimnázium")
+        # Magyar (nem ASCII) idézőjel megengedett — valódi intézménynevekben előfordul.
+        name = "„Szent László” Katolikus Gimnázium"
+        self.assertEqual(aggregate.usable_name(name), name)
+
+    def test_markup_and_quotes_rejected(self):
+        for bad in ("<script>alert(1)</script> Gimnázium",
+                    "Gimi <img src=x onerror=alert(1)>",
+                    'Gimnázium" onmouseover="x',
+                    "Gimnázium' OR 1=1",
+                    "Gimnázium `cmd`",
+                    "Gimnázium {{7*7}}",
+                    "Gimnázium \\ x"):
+            self.assertIsNone(aggregate.usable_name(bad), bad)
+
+    def test_links_rejected(self):
+        for bad in ("Látogass el: https://spam.example Gimnázium",
+                    "HTTP Gimnázium Budapest",
+                    "www.spam.hu Gimnázium",
+                    "ftp://x Gimnázium"):
+            self.assertIsNone(aggregate.usable_name(bad), bad)
+
+    def test_control_chars_rejected(self):
+        for bad in ("Gimnázium\nBudapest", "Gimnázium\x00", "Gimn\x85ázium Pécs",
+                    "Gimnázium\x7f Győr"):
+            self.assertIsNone(aggregate.usable_name(bad), repr(bad))
+
+    def test_too_long_rejected(self):
+        self.assertIsNone(aggregate.usable_name("Gimnázium " + "a" * 120))
+        ok = ("Gimnázium " + "a" * 110)[:120]
+        self.assertEqual(aggregate.usable_name(ok), ok)
+
+    def test_unsafe_name_falls_back_to_code(self):
+        # Veszélyes név mellett a kód (CODEBOOK) még feloldhat — a név maga
+        # sosem jelenik meg.
+        code = next(iter(aggregate.CODEBOOK))
+        self.assertEqual(aggregate.resolve_display("<b>x</b> Gimnázium", code),
+                         aggregate.CODEBOOK[code])
+        self.assertIsNone(aggregate.resolve_display("<b>x</b> Gimnázium", ""))
+
+
 class TestSchoolNameThreshold(unittest.TestCase):
     def test_threshold_is_six(self):
         self.assertEqual(aggregate.SCHOOL_NAME_THRESHOLD, 6)

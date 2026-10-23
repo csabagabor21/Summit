@@ -223,6 +223,14 @@ final class AnalyticsStore: ObservableObject {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try? JSONSerialization.data(withJSONObject: doc)
+        // App Check token (a Firestore enforce után kötelező), aztán küldés.
+        Task { [weak self] in
+            await SummitAppCheck.attach(to: &req)
+            self?.send(req, day: day, daily: daily)
+        }
+    }
+
+    private func send(_ req: URLRequest, day: String, daily: Bool) {
         URLSession.shared.dataTask(with: req) { [weak self] _, resp, err in
             let code = (resp as? HTTPURLResponse)?.statusCode
             let result: String

@@ -95,6 +95,7 @@
 		9452445D4637696EEF502A31 /* GradingLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E84D5228585755250AA0D05 /* GradingLogic.swift */; };
 		94AD1980D99DE0FB7EEC9EC4 /* TimetableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 038E0AFC6C033CBCCCA58205 /* TimetableView.swift */; };
 		952CC5EA8265073FC9C0C7BF /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = AC7D44EC5172AB0DE3C2616C /* FirebaseFirestore */; };
+		C6B04ECD0B1C273B383F13DF /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = A83B12453F2AC8E06A5B304B /* FirebaseAppCheck */; };
 		95CE7EB4304633540076C893 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 95CE7EB3304633540076C893 /* AppIcon.icon */; };
 		9789AAA16FD9B3D6B4ABA252 /* ProfileImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510DB597EF2AEFBA9384D46D /* ProfileImageStore.swift */; };
 		9856CC0997152BD4EF5C6851 /* TimetableWidgetLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = A84585AABBDBE7320433B315 /* TimetableWidgetLogic.swift */; };
@@ -131,6 +132,7 @@
 		C1D2E3F405162738495A6B01 /* WatchAskAnswer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1D2E3F405162738495A6B02 /* WatchAskAnswer.swift */; };
 		DF031CE0F1D65920D1D003E7 /* LiveCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F94AC888464350A05C1090C /* LiveCardView.swift */; };
 		E18B6A9B4FA1105E20981AF6 /* KretaAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62D820C4CC82989E7AB176A3 /* KretaAPI.swift */; };
+		100F442921ECCB438D9A6172 /* SummitAppCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE2A439CE54D934FD9E0FD97 /* SummitAppCheck.swift */; };
 		E3E071A24AC9AB1AFCFB58A7 /* CustomTasksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D3E0B0FDF4604B9398AA272 /* CustomTasksStore.swift */; };
 		E598547D4480AFB303E33F50 /* LiveActivityStateBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD687285FF927AFC07229437 /* LiveActivityStateBuilder.swift */; };
 		E9854B23F285356AEC2118E4 /* WatchSyncStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78F66BBD733EBA04C7CB0856 /* WatchSyncStore.swift */; };
@@ -288,6 +290,7 @@
 		5FE74420CE9DA6A0EA10197C /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		605575164AE3A708FB5F88D5 /* VacationWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VacationWidget.swift; sourceTree = "<group>"; };
 		62D820C4CC82989E7AB176A3 /* KretaAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaAPI.swift; sourceTree = "<group>"; };
+		AE2A439CE54D934FD9E0FD97 /* SummitAppCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummitAppCheck.swift; sourceTree = "<group>"; };
 		64D00B43D3C4A6D54B036246 /* TasksWatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksWatchView.swift; sourceTree = "<group>"; };
 		66A280F65EA8973C9BD6A643 /* KretaWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaWebView.swift; sourceTree = "<group>"; };
 		6E0E94310269FCFFF2F115AC /* AnalyticsConsentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsConsentView.swift; sourceTree = "<group>"; };
@@ -359,6 +362,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				952CC5EA8265073FC9C0C7BF /* FirebaseFirestore in Frameworks */,
+				C6B04ECD0B1C273B383F13DF /* FirebaseAppCheck in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -530,6 +534,7 @@
 			isa = PBXGroup;
 			children = (
 				62D820C4CC82989E7AB176A3 /* KretaAPI.swift */,
+				AE2A439CE54D934FD9E0FD97 /* SummitAppCheck.swift */,
 				749530AC3E1096307CE8ED24 /* KretaClient.swift */,
 			);
 			path = Networking;
@@ -761,6 +766,7 @@
 			name = Summit;
 			packageProductDependencies = (
 				AC7D44EC5172AB0DE3C2616C /* FirebaseFirestore */,
+				A83B12453F2AC8E06A5B304B /* FirebaseAppCheck */,
 			);
 			productName = Summit;
 			productReference = 0BAE871D50553D3FF30F87AD /* Summit.app */;
@@ -1034,6 +1040,7 @@
 				333705F710AABC832AC38E7C /* HomeViewModel.swift in Sources */,
 				4A3A1F774121CB67FC9D79B8 /* KeychainHelper.swift in Sources */,
 				E18B6A9B4FA1105E20981AF6 /* KretaAPI.swift in Sources */,
+				100F442921ECCB438D9A6172 /* SummitAppCheck.swift in Sources */,
 				5F20AD0975C509783B0C6515 /* KretaClient.swift in Sources */,
 				EB0BA8A61112DF3F8C21100C /* KretaModels.swift in Sources */,
 				25F89268618A3B90B1444BDD /* KretaWebView.swift in Sources */,
@@ -1624,6 +1631,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D5DB33949EF45B4DE4C651CD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFirestore;
+		};
+		A83B12453F2AC8E06A5B304B /* FirebaseAppCheck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D5DB33949EF45B4DE4C651CD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAppCheck;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

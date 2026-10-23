@@ -39,13 +39,18 @@ enum SummitSyncField: String, CaseIterable {
 
 /// Eszközök közötti beállítás-szinkron Blaze nélkül, tisztán Sparkon.
 ///
-/// Kulcsképzés az eszközön: `SHA256("summit-sync-v1" + stabilUserKulcs + jelmondat)`.
+/// Kulcsképzés az eszközön (v2, `sync2` collection, lásd SummitSyncKey):
+/// `PBKDF2-SHA256(jelmondat, "summit-sync-v2" + stabilUserKulcs, 600k)` →
+/// HKDF-fel külön doc-ID és külön AES-GCM mezőkulcs.
 /// - A stabil kulcs a JWT `sub`/`email` (minden eszközön azonos).
 /// - A jelmondat (min. 8 kar.) csak a Keychainben él, sehova nem megy ki.
-/// - A szerverre csak a lenyomat (doc-ID) + beállítások kerülnek — OM, e-mail,
-///   token, jegy SOHA. A doc-ID kitalálhatatlan a jelmondat nélkül, ez a
-///   hozzáférési jogosultság ("unguessable capability"); a rules gyűjtést
-///   (list) nem enged, írásnál szigorú sémát és méretkorlátot kényszerít.
+/// - A szerverre csak a doc-ID, a bélyegek és TITKOSÍTOTT mezőértékek
+///   kerülnek: a szerver (és aki a projekthez hozzáfér) sem látja a képet,
+///   a jegyzeteket vagy a Meta AI-kulcsot. A doc-ID ismerete a hozzáférési
+///   jogosultság; a rules gyűjtést (list) nem enged, minden kérés App
+///   Check tokent visz, a lassú kulcsképzés pedig a próbálgatást drágítja.
+/// - Átállás: a régi, nyílt `sync` (v1) docot az első v2-es kör beolvassa,
+///   összefésüli, titkosítva átírja, majd törli (lásd migrateLegacyIfNeeded).
 ///
 /// Delta-elv: a feltöltés csak a piszkos mezőket írja felül (a többit a
 /// szerverről visszakeverve), a lehúzás csak az újabb bélyegű mezőket
@@ -152,14 +157,40 @@ final class SummitSync: ObservableObject {
 
     // MARK: - Kulcsképzés
 
-    /// SHA256-hex lenyomat a szinkron-doc ID-jához. Nil, ha a tokenből
-    /// nincs stabil kulcs, vagy a jelmondat túl rövid. A JWT-sub mellé
-    /// a review-fiók helyi kulcsa is beszáll (`SummitSyncKey`), így a
+    /// Eszközfüggetlen stabil kulcs a tokenből. A JWT-sub mellé a
+    /// review-fiók helyi kulcsa is beszáll (`SummitSyncKey`), így a
     /// summitreview is tud szinkronizálni — a demo továbbra sem.
-    static func syncId(accessToken: String, passphrase: String) -> String? {
-        let stable = JWT.stableUserKey(from: accessToken)
-            ?? SummitSyncKey.localStableKey(from: accessToken)
-        return SummitSyncKey.syncId(stableKey: stable, passphrase: passphrase)
+    private static func stableKey(accessToken: String) -> String? {
+        JWT.stableUserKey(from: accessToken) ?? SummitSyncKey.localStableKey(from: accessToken)
+    }
+
+    /// Gyors (PBKDF2 nélküli) előellenőrzés a Beállításoknak: képezhető-e
+    /// szinkronkulcs ebből a tokenből és jelmondatból.
+    static func canSync(accessToken: String, passphrase: String) -> Bool {
+        stableKey(accessToken: accessToken) != nil
+            && passphrase.count >= SummitSyncKey.minPassphraseLength
+    }
+
+    /// v2 kulcsanyag a tokenhez + a mentett jelmondathoz. A PBKDF2 a
+    /// főszálon kívül fut, és fiók+jelmondat páronként egyszer: az
+    /// eredmény memóriában marad (a jelmondat ujjlenyomatával kulcsolva).
+    private func v2Keys(accessToken: String) async -> SummitSyncKey.V2Keys? {
+        guard let pass = Self.loadPassphrase(),
+              let stable = Self.stableKey(accessToken: accessToken) else { return nil }
+        let fingerprint = SHA256.hash(data: Data("\(stable)\n\(pass)".utf8))
+            .map { String(format: "%02x", $0) }.joined()
+        if let c = keyCache, c.fingerprint == fingerprint { return c.keys }
+        let keys = await Task.detached(priority: .userInitiated) {
+            SummitSyncKey.deriveV2(stableKey: stable, passphrase: pass)
+        }.value
+        if let keys { keyCache = (fingerprint, keys) }
+        return keys
+    }
+
+    /// A régi (v1) doc-ID — csak az átálláshoz és a törléshez.
+    private static func legacySyncId(accessToken: String) -> String? {
+        guard let pass = loadPassphrase() else { return nil }
+        return SummitSyncKey.syncId(stableKey: stableKey(accessToken: accessToken), passphrase: pass)
     }
 
     static func savePassphrase(_ s: String) {
@@ -219,8 +250,73 @@ final class SummitSync: ObservableObject {
 
     // MARK: - REST
 
-    private static func docURL(_ syncId: String) -> URL? {
-        URL(string: "https://firestore.googleapis.com/v1/projects/\(projectId)/databases/(default)/documents/sync/\(syncId)?key=\(apiKey)")
+    private static let collectionV2 = "sync2"
+    private static let collectionLegacy = "sync"
+
+    private static func docURL(collection: String, id: String) -> URL? {
+        URL(string: "https://firestore.googleapis.com/v1/projects/\(projectId)/databases/(default)/documents/\(collection)/\(id)?key=\(apiKey)")
+    }
+
+    /// REST-hívás App Check tokennel. - Returns: (törzs, HTTP-kód) vagy
+    /// (nil, nil) hálózati hibánál.
+    private static func send(_ url: URL, method: String, body: Data? = nil) async -> (Data?, Int?) {
+        var req = URLRequest(url: url)
+        req.httpMethod = method
+        if let body {
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = body
+        }
+        await SummitAppCheck.attach(to: &req)
+        do {
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            return (data, (resp as? HTTPURLResponse)?.statusCode)
+        } catch {
+            return (nil, nil)
+        }
+    }
+
+    /// Egy doc nyers REST-mezői. - Returns: (mezők, HTTP-kód); a kód nil
+    /// hálózati hibánál, 404 ha nincs doc.
+    private static func fetchRawFields(collection: String, id: String) async -> ([String: Any]?, Int?) {
+        let (fields, _, code) = await fetchRawDoc(collection: collection, id: id)
+        return (fields, code)
+    }
+
+    /// Mint a fetchRawFields, plusz a doc `updateTime`-ja (feltételes íráshoz).
+    private static func fetchRawDoc(collection: String, id: String) async -> ([String: Any]?, String?, Int?) {
+        guard let url = docURL(collection: collection, id: id) else { return (nil, nil, nil) }
+        let (data, code) = await send(url, method: "GET")
+        guard code == 200, let data,
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let fields = json["fields"] as? [String: Any] else { return (nil, nil, code) }
+        return (fields, json["updateTime"] as? String, code)
+    }
+
+    private static var fieldNames: [String] { SummitSyncField.allCases.map(\.rawValue) }
+
+    /// Plaintext mezők titkosítása és teljes doc-írás a `sync2`-be.
+    /// - Returns: HTTP-kód (nil = hálózati hiba) + a méret miatt kihagyott mezők.
+    /// Feltétel a doc-íráshoz: csak akkor írjon, ha a doc azóta nem változott
+    /// (`updateTime`), illetve ha még nem létezik.
+    enum WritePrecondition {
+        case updateTime(String)
+        case notExists
+    }
+
+    private static func writeV2(_ plain: [String: Any], keys: SummitSyncKey.V2Keys, precondition: WritePrecondition? = nil) async -> (Int?, [String]) {
+        let (sealed, skipped) = SummitSyncKey.sealFields(plain, fieldNames: fieldNames, keys: keys)
+        var url = docURL(collection: collectionV2, id: keys.docId)
+        if let base = url, let precondition, var comps = URLComponents(url: base, resolvingAgainstBaseURL: false) {
+            switch precondition {
+            case .updateTime(let t): comps.queryItems?.append(URLQueryItem(name: "currentDocument.updateTime", value: t))
+            case .notExists: comps.queryItems?.append(URLQueryItem(name: "currentDocument.exists", value: "false"))
+            }
+            url = comps.url
+        }
+        guard let url,
+              let body = try? JSONSerialization.data(withJSONObject: ["fields": sealed]) else { return (nil, skipped) }
+        let (_, code) = await send(url, method: "PATCH", body: body)
+        return (code, skipped)
     }
 
     private static func isoNow() -> String {
@@ -323,25 +419,43 @@ final class SummitSync: ObservableObject {
     /// így egy friss eszköz alapértelmezései nem ölik meg a többi eszköz
     /// beállításait. Üres dirty-halmaz = nincs teendő (nem nyúlunk a doc-hoz).
     func pushNow() async -> Bool {
-        guard let at = lastToken, liveTheme != nil,
-              let pass = Self.loadPassphrase(),
-              let id = Self.syncId(accessToken: at, passphrase: pass),
-              let url = Self.docURL(id),
-              let local = localValues() else {
+        guard let at = lastToken, liveTheme != nil, localValues() != nil,
+              let keys = await v2Keys(accessToken: at) else {
             status = "nincs kulcs"
             return false
         }
         let pending = dirtyFields
         guard !pending.isEmpty else { return true }
+        await migrateLegacyIfNeeded(accessToken: at, keys: keys)
+        // A helyi pillanatkép a (lassú) kulcsképzés és az átállás UTÁN
+        // készül, hogy a közben történt szerkesztések is benne legyenek.
+        guard let local = localValues() else {
+            status = "nincs kulcs"
+            return false
+        }
         let now = Date()
         let nowISO = Self.isoString(from: now)
-        let (remote, _) = await fetchPayload(url: url)
+        let (remote, remoteCode) = await fetchPayload(keys: keys)
+        // Csak ismert távoli állapotra írunk: 200 (van doc) vagy 404 (nincs).
+        // Hálózati hiba, 403 (pl. még nincs App Check token), 429 (betelt
+        // olvasási keret) vagy 5xx esetén a vak írás a másik eszköz újabb
+        // mezőit taposná el — a jelölések maradnak, később újra.
+        guard remoteCode == 200 || remoteCode == 404 else {
+            status = remoteCode == nil ? "hálózati hiba" : "olvasási hiba (HTTP \(remoteCode ?? 0))"
+            return false
+        }
+        /// A távoli docban tényleg ott van-e a mező (titkosítva kimaradt vagy
+        /// visszafejthetetlen mező = nincs, ilyenkor a helyi érték megy).
+        func remoteHas(_ field: SummitSyncField) -> Bool {
+            remote?.fieldDates[field.rawValue] != nil
+        }
 
         // Segéd: piszkos mezőnél a helyi érték csak akkor nyer, ha a
         // szerkesztése újabb a távolinál — egy beragadt régi jelölés
         // nem írhatja felül a frissebb szervert. Tisztánál a távoli
         // (ha van), különben a helyi a régi bélyegével.
-        func pick<T>(_ field: SummitSyncField, local: T, remote: T?) -> (T, Date) {
+        func pick<T>(_ field: SummitSyncField, local: T, remote remoteValue: T?) -> (T, Date) {
+            let remote = remoteHas(field) ? remoteValue : nil
             if pending.contains(field.rawValue) {
                 let editAt = dirtyTimes[field.rawValue] ?? now
                 if let r = remote,
@@ -456,7 +570,7 @@ final class SummitSync: ObservableObject {
         let photoPair: (String, Date)
         if pending.contains(SummitSyncField.photo.rawValue), let s = local.photo {
             photoPair = (s, now)
-        } else if let r = remote?.photoRaw {
+        } else if remoteHas(.photo), let r = remote?.photoRaw {
             photoPair = (r, remoteDate(for: .photo))
         } else if let s = local.photo {
             photoPair = (s, fieldTimestamps[SummitSyncField.photo.rawValue] ?? now)
@@ -501,50 +615,9 @@ final class SummitSync: ObservableObject {
         ]
         for (f, d) in tsPairs { fields[f.tsKey] = ts(d) }
 
-        func patch(_ fields: [String: Any]) async -> Int? {
-            var req = URLRequest(url: url)
-            req.httpMethod = "PATCH"
-            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            req.httpBody = try? JSONSerialization.data(withJSONObject: ["fields": fields])
-            do {
-                let (_, resp) = try await URLSession.shared.data(for: req)
-                return (resp as? HTTPURLResponse)?.statusCode
-            } catch {
-                return nil
-            }
-        }
-        let code = await patch(fields)
-        if code == 403 {
-            // Átmeneti védelem: a szerveren még a régi szabály élhet
-            // (`ts_*` és iskolai események nélkül) — ilyenkor egyszer
-            // visszalépünk a régi sémára, hogy a szinkron ne haljon meg
-            // a szabály-deployig (az események a deploy után mennek).
-            var legacy = fields
-            for f in SummitSyncField.allCases { legacy.removeValue(forKey: f.tsKey) }
-            legacy.removeValue(forKey: "schoolEvents")
-            legacy.removeValue(forKey: "schoolEventsShow")
-            legacy.removeValue(forKey: "schoolEventsURL")
-            legacy.removeValue(forKey: "customTasks")
-            legacy.removeValue(forKey: "cheatSheets")
-            legacy.removeValue(forKey: "metaAIKey")
-            legacy.removeValue(forKey: "examRollover")
-            legacy.removeValue(forKey: "travelMode")
-            legacy.removeValue(forKey: "wrappedStars")
-            legacy.removeValue(forKey: "hasWatch")
-            // A régi szabály a három per-típus kapcsolót követeli meg —
-            // a főkapcsoló értékét mindháromba belemásoljuk, az új kulcs
-            // és bélyege pedig kikerül (azt a régi szabály nem ismeri).
-            legacy.removeValue(forKey: "notifyEnabled")
-            legacy.removeValue(forKey: "ts_notifyEnabled")
-            legacy["notifyGrades"] = bool(neV)
-            legacy["notifyTasks"] = bool(neV)
-            legacy["notifyAbsences"] = bool(neV)
-            guard await patch(legacy) == 200 else {
-                status = "feltöltés hiba"
-                return false
-            }
-        } else if code != 200 {
-            status = code == nil ? "hálózati hiba" : "feltöltés hiba"
+        let (code, skipped) = await Self.writeV2(fields, keys: keys)
+        guard code == 200 else {
+            status = code == nil ? "hálózati hiba" : "feltöltés hiba (HTTP \(code ?? 0))"
             return false
         }
         for (f, d) in tsPairs { fieldTimestamps[f.rawValue] = d }
@@ -563,7 +636,9 @@ final class SummitSync: ObservableObject {
         }
         persistDirty()
         lastApplied = nowISO
-        status = "szinkronizálva"
+        // Titkosítva a korlát fölé nőtt mező nem ment fel (a többi eszközön
+        // a helyi érték marad) — ezt látni kell, nem lehet néma.
+        status = skipped.isEmpty ? "szinkronizálva" : "szinkronizálva, túl nagy, kimaradt: \(skipped.joined(separator: ", "))"
         return true
     }
 
@@ -699,132 +774,20 @@ final class SummitSync: ObservableObject {
         return .distantFuture
     }
 
-    /// SDK-snapshot (natív típusok) ugyanarra a Payloadra.
-    private static func parseSnapshot(data: [String: Any]) -> Payload? {
-        guard let ts = data["updatedAt"] as? Timestamp,
-              let theme = data["theme"] as? String,
-              let sizeKey = data["sizeKey"] as? String else { return nil }
-        let accent: Int?
-        if let v = data["accentHex"] as? Int64 { accent = Int(v) }
-        else if let v = data["accentHex"] as? Int { accent = v }
-        else { accent = nil }
-        guard let accent else { return nil }
-        let date = ts.dateValue()
-        func tsDate(_ k: String) -> Date {
-            (data[k] as? Timestamp)?.dateValue() ?? date
-        }
-        var fieldDates: [String: Date] = [:]
-        for f in SummitSyncField.allCases { fieldDates[f.rawValue] = tsDate(f.tsKey) }
-        let photoRaw = data["photo"] as? String ?? ""
-        var photo: UIImage? = nil
-        var photoDecodeFailed = false
-        if !photoRaw.isEmpty {
-            if let pdata = Data(base64Encoded: photoRaw), let img = UIImage(data: pdata) {
-                photo = img
-            } else {
-                photoDecodeFailed = true
-            }
-        }
-        let roundingRaw = data["rounding"] as? String ?? ""
-        let exemptedRaw = data["exempted"] as? String ?? ""
-        let completedHwRaw = data["completedHw"] as? String ?? ""
-        let completedExRaw = data["completedEx"] as? String ?? ""
-        guard let rounding = decodeRounding(roundingRaw),
-              let exempted = decodeStringArray(exemptedRaw, maxChars: 8_000, maxCount: 128),
-              let completedHw = decodeStringArray(completedHwRaw, maxChars: 12_000, maxCount: 256),
-              let completedEx = decodeStringArray(completedExRaw, maxChars: 12_000, maxCount: 256),
-              let notifyEnabled = data["notifyEnabled"] as? Bool,
-              let liveActivity = data["liveActivity"] as? Bool else { return nil }
-        // Iskolai események: régi docban hiányozhatnak (nil = helyi marad).
-        // Sérült (túl nagy / nem string) mezőnél szintén a helyi marad —
-        // csak az ép string (az üres is: az tudatos törlés) alkalmazható.
-        let schoolEventsRaw: String? = {
-            guard let raw = data["schoolEvents"] as? String,
-                  raw.count <= maxSchoolEventsChars else { return nil }
-            return raw
-        }()
-        let schoolEventsShow = data["schoolEventsShow"] as? Bool
-        // Mentett link: régi docban hiányozhat (nil = helyi marad).
-        // Sérült (túl nagy / nem string) mezőnél szintén a helyi marad —
-        // csak az ép string (az üres is: az a link törlése) alkalmazható.
-        let schoolEventsURLRaw: String? = {
-            guard let raw = data["schoolEventsURL"] as? String,
-                  raw.count <= maxSchoolEventsURLChars else { return nil }
-            return raw
-        }()
-        // Saját feladatok: régi docban hiányozhat (nil = helyi marad).
-        // Sérült (túl nagy / nem string) mezőnél szintén a helyi marad —
-        // csak az ép string (az üres is: az tudatos törlés) alkalmazható.
-        let customTasksRaw: String? = {
-            guard let raw = data["customTasks"] as? String,
-                  raw.count <= maxCustomTasksChars else { return nil }
-            return raw
-        }()
-        // Tanulójegyzet-lapok: ugyanaz az opcionális szemantika.
-        let cheatSheetsRaw: String? = {
-            guard let raw = data["cheatSheets"] as? String,
-                  raw.count <= maxCheatSheetsChars else { return nil }
-            return raw
-        }()
-        // Meta AI-kulcs: ugyanaz az opcionális szemantika.
-        let metaAIKeyRaw: String? = {
-            guard let raw = data["metaAIKey"] as? String,
-                  raw.count <= maxMetaAIKeyChars else { return nil }
-            return raw
-        }()
-        // Utazás-intervallum: régi docban hiányozhat (nil = helyi marad).
-        // Sérült (túl hosszú / nem string) mezőnél szintén a helyi marad.
-        let travelModeRaw: String? = {
-            guard let raw = data["travelMode"] as? String,
-                  raw.count <= maxTravelModeChars else { return nil }
-            return raw
-        }()
-        // Wrapped-csillagok: régi docban hiányozhat (nil = helyi marad).
-        // Sérült (túl hosszú / nem string) mezőnél szintén a helyi marad —
-        // csak az ép string (az üres `"{}"` is: az a csillagok törlése) alkalmazható.
-        let wrappedStarsRaw: String? = {
-            guard let raw = data["wrappedStars"] as? String,
-                  raw.count <= maxWrappedStarsChars else { return nil }
-            return raw
-        }()
-        // Dolgozat-pótlás kapcsoló: régi docban hiányozhat (nil = helyi marad).
-        let examRollover = data["examRollover"] as? Bool
-        // Órajelenlét: régi docban hiányozhat (nil = helyi peer-jel marad).
-        let hasWatch = data["hasWatch"] as? Bool
-        // Felület-skin: régi docban hiányozhat (nil = helyi marad).
-        let skinRaw = data["skin"] as? String
-        return Payload(updatedAt: isoPlain.string(from: date), updatedAtDate: date,
-                       theme: theme, accentHex: accent, sizeKey: sizeKey, skinRaw: skinRaw,
-                       photoRaw: photoRaw, photo: photo, photoDecodeFailed: photoDecodeFailed,
-                       rounding: rounding, roundingRaw: roundingRaw,
-                       exempted: exempted, exemptedRaw: exemptedRaw,
-                       completedHw: completedHw, completedHwRaw: completedHwRaw,
-                       completedEx: completedEx, completedExRaw: completedExRaw,
-                       notifyEnabled: notifyEnabled, liveActivity: liveActivity,
-                       examRollover: examRollover,
-                       hasWatch: hasWatch,
-                       schoolEventsRaw: schoolEventsRaw, schoolEventsShow: schoolEventsShow,
-                       schoolEventsURLRaw: schoolEventsURLRaw,
-                       customTasksRaw: customTasksRaw,
-                       cheatSheetsRaw: cheatSheetsRaw,
-                       metaAIKeyRaw: metaAIKeyRaw,
-                       travelModeRaw: travelModeRaw,
-                       wrappedStarsRaw: wrappedStarsRaw,
-                       fieldDates: fieldDates)
-    }
-
     /// Letöltés + alkalmazás (csak az újabb bélyegű mezők).
     /// - Returns: "applied", "fresh" (nincs újabb), "nodoc", "error".
     func pullNow() async -> String {
         guard let at = lastToken, liveTheme != nil, liveProfile != nil,
-              let pass = Self.loadPassphrase(),
-              let id = Self.syncId(accessToken: at, passphrase: pass),
-              let url = Self.docURL(id) else {
+              let keys = await v2Keys(accessToken: at) else {
             return "error"
         }
-        let (payload, code) = await fetchPayload(url: url)
+        await migrateLegacyIfNeeded(accessToken: at, keys: keys)
+        let (payload, code) = await fetchPayload(keys: keys)
         guard code == 200, let p = payload else {
-            return code == nil ? "error" : "nodoc"
+            // Csak a tényleges 404 jelent „nincs doc"-ot — a Beállítások erre
+            // mindent piszkosnak jelöl és feltölt, egy 403/429/5xx-re ez a
+            // másik eszköz teljes állapotát taposná el.
+            return code == 404 ? "nodoc" : "error"
         }
         guard let theme = liveTheme, let profile = liveProfile else { return "error" }
         guard applyRemote(p, theme: theme, profile: profile, completed: liveCompleted) else { return "fresh" }
@@ -834,20 +797,67 @@ final class SummitSync: ObservableObject {
     /// Közös GET a push-merge és a pull számára.
     /// - Returns: a payload (nil, ha nincs doc vagy hibás) + HTTP-kód
     ///   (nil = hálózati hiba).
-    private func fetchPayload(url: URL) async -> (Payload?, Int?) {
-        do {
-            let (data, resp) = try await URLSession.shared.data(from: url)
-            let code = (resp as? HTTPURLResponse)?.statusCode
-            guard code == 200,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let fields = json["fields"] as? [String: Any],
-                  let p = Self.parse(fields: fields) else {
-                return (nil, code)
-            }
-            return (p, code)
-        } catch {
-            return (nil, nil)
+    private func fetchPayload(keys: SummitSyncKey.V2Keys) async -> (Payload?, Int?) {
+        let (raw, code) = await Self.fetchRawFields(collection: Self.collectionV2, id: keys.docId)
+        guard let raw else { return (nil, code) }
+        let plain = SummitSyncKey.openFields(raw, fieldNames: Self.fieldNames, keys: keys)
+        return (Self.parse(fields: plain), code)
+    }
+
+    /// Egyszeri (és naponta egyszer újraellenőrzött) átállás a régi, nyílt
+    /// `sync` docról a titkosított `sync2`-re: a v1 tartalmát mezőnként
+    /// összefésüli a v2-vel (az újabb bélyeg nyer), titkosítva visszaírja,
+    /// majd törli a v1 docot. A napi újraellenőrzés azért kell, mert egy
+    /// még régi appot futtató másik eszköz újra létrehozhatja a v1 docot —
+    /// az ő szerkesztései így sem vesznek el, és a nyílt másolat sem marad
+    /// fent. Hálózati hibánál nem jelöl: a következő kör újrapróbálja.
+    private func migrateLegacyIfNeeded(accessToken: String, keys: SummitSyncKey.V2Keys) async {
+        // Egyszerre csak egy átállás fut (push, pull és listener is hívja) —
+        // a második megvárja az elsőt, nem olvas-ír párhuzamosan.
+        if let running = migrationTask {
+            await running.value
+            return
         }
+        let task = Task { await self.runLegacyMigration(accessToken: accessToken, keys: keys) }
+        migrationTask = task
+        await task.value
+        migrationTask = nil
+    }
+
+    private func runLegacyMigration(accessToken: String, keys: SummitSyncKey.V2Keys) async {
+        var checks = UserDefaults.standard.dictionary(forKey: Self.legacyCheckKey) as? [String: Double] ?? [:]
+        let now = Date().timeIntervalSince1970
+        if let last = checks[keys.docId], now - last < 24 * 3600 { return }
+        guard let legacyId = Self.legacySyncId(accessToken: accessToken) else { return }
+        let (legacy, legacyCode) = await Self.fetchRawFields(collection: Self.collectionLegacy, id: legacyId)
+        guard let legacyCode else { return }
+        if let legacy, legacyCode == 200 {
+            let (current, updateTime, currentCode) = await Self.fetchRawDoc(collection: Self.collectionV2, id: keys.docId)
+            guard currentCode == 200 || currentCode == 404 else { return }
+            let opened = current.map { SummitSyncKey.openFields($0, fieldNames: Self.fieldNames, keys: keys) } ?? [:]
+            // Egy régi app bekapcsoláskori „mindent feltöltök" docja a már
+            // élő v2 mellett csak a hiányzó mezőket pótolhatja — különben a
+            // régi eszköz alapállapota (üres listák, kép nélkül) mindent
+            // felülírna a frissített eszközökön.
+            let bulk = current != nil && SummitSyncKey.isBulkUpload(
+                legacy, fieldNames: Self.fieldNames, newerThan: SummitSyncKey.updatedAt(opened))
+            let (merged, legacyWon) = SummitSyncKey.mergeFields(opened, legacy, fieldNames: Self.fieldNames, onlyMissing: bulk)
+            if current == nil || legacyWon {
+                // Feltételes írás: ha közben valaki a v2-be írt, nem tapossuk
+                // el — a következő kör friss állapotból újra összefésül.
+                let precondition: WritePrecondition? = current == nil ? .notExists : updateTime.map { .updateTime($0) }
+                let (code, _) = await Self.writeV2(merged, keys: keys, precondition: precondition)
+                guard code == 200 else { return }
+            }
+            guard let url = Self.docURL(collection: Self.collectionLegacy, id: legacyId) else { return }
+            let (_, delCode) = await Self.send(url, method: "DELETE")
+            // 403: a 2. fázis rules-a már a régi collectiont is tiltja.
+            guard delCode == 200 || delCode == 404 || delCode == 403 else { return }
+        } else if legacyCode != 404 && legacyCode != 403 {
+            return
+        }
+        checks[keys.docId] = now
+        UserDefaults.standard.set(checks, forKey: Self.legacyCheckKey)
     }
 
     private static func parse(fields: [String: Any]) -> Payload? {
@@ -861,7 +871,12 @@ final class SummitSync: ObservableObject {
               let theme = s("theme"), let sizeKey = s("sizeKey"), let accent = i("accentHex") else { return nil }
         let updatedAtDate = isoDate(updatedAt)
         var fieldDates: [String: Date] = [:]
-        for f in SummitSyncField.allCases { fieldDates[f.rawValue] = tsDate(f.tsKey, fallback: updatedAtDate) }
+        // Bélyeg csak a docban ténylegesen meglévő mezőhöz jár: a hiányzó
+        // (régi kliens, méret miatt kimaradt vagy visszafejthetetlen) mező
+        // így sosem „újabb", a helyi érték marad (applyRemote / pushNow).
+        for f in SummitSyncField.allCases where fields[f.rawValue] != nil {
+            fieldDates[f.rawValue] = tsDate(f.tsKey, fallback: updatedAtDate)
+        }
         let photoRaw = s("photo") ?? ""
         var photo: UIImage? = nil
         var photoDecodeFailed = false
@@ -1108,6 +1123,12 @@ final class SummitSync: ObservableObject {
     private var liveProfile: ProfileImageStore?
     private var liveCompleted: CompletedStore?
     private var liveUserId: String?
+    /// A legutóbb képzett v2 kulcsanyag (a jelmondat+fiók ujjlenyomatával).
+    private var keyCache: (fingerprint: String, keys: SummitSyncKey.V2Keys)?
+    /// Utolsó v1→v2 egyeztetés ideje doc-onként (lásd migrateLegacyIfNeeded).
+    private static let legacyCheckKey = "summitsync.legacyCheck.v1"
+    /// A futó v1→v2 átállás (legfeljebb egy egyszerre).
+    private var migrationTask: Task<Void, Never>?
     private var dirtyTask: Task<Void, Never>?
     private var pushing = false
 
@@ -1198,9 +1219,12 @@ final class SummitSync: ObservableObject {
 
     /// Firebase-init, ha a GoogleService-Info.plist bekerült a bundle-be.
     /// Nélküle a listener néma marad, a REST push/pull tovább működik.
+    /// Az App Check provider-gyár a configure ELŐTT kerül be (különben az
+    /// SDK nem használja).
     static func configureIfNeeded() {
         guard FirebaseApp.app() == nil,
               Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil else { return }
+        SummitAppCheck.installProviderFactory()
         FirebaseApp.configure()
     }
 
@@ -1248,30 +1272,59 @@ final class SummitSync: ObservableObject {
 
     /// Élő követés indítása/életben tartása. A listener csak az újabb
     /// bélyegű mezőket alkalmazza, így nincs visszhang-hurok.
+    /// A kulcsképzés (PBKDF2) aszinkron, ezért a feliratkozás egy Taskban
+    /// történik; a hívó szinkron marad.
     func startListener() {
         guard isEnabled, FirebaseApp.app() != nil, liveTheme != nil,
-              let at = lastToken,
-              let pass = Self.loadPassphrase(),
-              let id = Self.syncId(accessToken: at, passphrase: pass) else {
+              let at = lastToken, Self.loadPassphrase() != nil else {
             stopListener()
             return
         }
-        guard liveId != id || listener == nil else { return }
-        stopListener()
-        liveId = id
-        lastToken = at
-        realtimeActive = true
-        listener = Firestore.firestore().collection("sync").document(id)
-            .addSnapshotListener { [weak self] snap, _ in
-                guard let self,
-                      let data = snap?.data(),
-                      let p = Self.parseSnapshot(data: data) else { return }
-                Task { @MainActor [weak self] in
-                    guard let self,
-                          let theme = self.liveTheme, let profile = self.liveProfile else { return }
-                    self.applyRemote(p, theme: theme, profile: profile, completed: self.liveCompleted)
-                }
+        Task { [weak self] in
+            guard let self, let keys = await self.v2Keys(accessToken: at) else {
+                self?.stopListener()
+                return
             }
+            // Közben kikapcsolhatták / kijelentkezhettek / fiókot válthattak.
+            guard self.isEnabled, self.lastToken == at else { return }
+            guard self.liveId != keys.docId || self.listener == nil else { return }
+            await self.migrateLegacyIfNeeded(accessToken: at, keys: keys)
+            guard self.isEnabled, self.lastToken == at,
+                  self.liveId != keys.docId || self.listener == nil else { return }
+            self.stopListener()
+            self.liveId = keys.docId
+            self.realtimeActive = true
+            self.listener = Firestore.firestore().collection(Self.collectionV2).document(keys.docId)
+                .addSnapshotListener { [weak self] snap, _ in
+                    guard let data = snap?.data() else { return }
+                    let raw = Self.restFields(fromSnapshot: data)
+                    Task { @MainActor [weak self] in
+                        guard let self,
+                              let theme = self.liveTheme, let profile = self.liveProfile,
+                              self.liveId == keys.docId,
+                              let p = Self.parse(fields: SummitSyncKey.openFields(raw, fieldNames: Self.fieldNames, keys: keys))
+                        else { return }
+                        self.applyRemote(p, theme: theme, profile: profile, completed: self.liveCompleted)
+                    }
+                }
+        }
+    }
+
+    /// SDK-snapshot (natív típusok) → REST-alakú mezőtérkép, hogy a
+    /// listener és a REST-út ugyanazt a visszafejtést és parse-t használja.
+    nonisolated private static func restFields(fromSnapshot data: [String: Any]) -> [String: Any] {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        iso.timeZone = TimeZone(secondsFromGMT: 0)
+        var out: [String: Any] = [:]
+        for (k, v) in data {
+            if let s = v as? String { out[k] = ["stringValue": s] }
+            else if let t = v as? Timestamp { out[k] = ["timestampValue": iso.string(from: t.dateValue())] }
+            else if let b = v as? Bool { out[k] = ["booleanValue": b] }
+            else if let i = v as? Int64 { out[k] = ["integerValue": String(i)] }
+            else if let i = v as? Int { out[k] = ["integerValue": String(i)] }
+        }
+        return out
     }
 
     /// Csak a listenert állítja le; a gyorsítótárazott refek maradnak
@@ -1285,18 +1338,25 @@ final class SummitSync: ObservableObject {
 
     /// Szerver-doc törlése + helyi szinkronállapot nullázása (a jelmondat
     /// a Keychainben marad — újbóli bekapcsolás ugyanoda szinkronizál).
+    /// A titkosított (v2) és — ha még fent van — a régi nyílt (v1) doc is törlődik.
     func deleteRemote(accessToken: String) async -> Bool {
-        guard let pass = Self.loadPassphrase(),
-              let id = Self.syncId(accessToken: accessToken, passphrase: pass),
-              let url = Self.docURL(id) else { return false }
-        var req = URLRequest(url: url)
-        req.httpMethod = "DELETE"
+        guard let keys = await v2Keys(accessToken: accessToken),
+              let url = Self.docURL(collection: Self.collectionV2, id: keys.docId) else { return false }
         do {
-            let (_, resp) = try await URLSession.shared.data(for: req)
-            let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            let (_, code) = await Self.send(url, method: "DELETE")
+            guard let code else { throw URLError(.notConnectedToInternet) }
             guard code == 200 || code == 404 else {
                 status = "törlés hiba"
                 return false
+            }
+            if let legacyId = Self.legacySyncId(accessToken: accessToken),
+               let legacyURL = Self.docURL(collection: Self.collectionLegacy, id: legacyId) {
+                let (_, legacyCode) = await Self.send(legacyURL, method: "DELETE")
+                // 403: a 2. fázis rules-a már a régi collectiont is tiltja.
+                guard legacyCode == 200 || legacyCode == 404 || legacyCode == 403 else {
+                    status = "törlés hiba"
+                    return false
+                }
             }
             lastApplied = ""
             fieldTimestamps = [:]

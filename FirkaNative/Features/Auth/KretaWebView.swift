@@ -2,7 +2,8 @@ import SwiftUI
 import WebKit
 
 struct KretaWebView: UIViewRepresentable {
-    var onCode: (String) -> Void
+    /// (authorization code, a hozzá tartozó PKCE code_verifier)
+    var onCode: (String, String) -> Void
     var onDemo: (() -> Void)?
     /// Hiba-visszajelzés a hívónak. A demo-ba lépés SOHA nem automatikus:
     /// csak a user kifejezett koppintására történik (App Store 2.2).
@@ -14,7 +15,7 @@ struct KretaWebView: UIViewRepresentable {
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
         wv.navigationDelegate = context.coordinator
-        wv.load(URLRequest(url: KretaAPI.authorizeURL))
+        wv.load(URLRequest(url: context.coordinator.authRequest.url))
         return wv
     }
     func updateUIView(_ uiView: WKWebView, context: Context) {}
@@ -22,19 +23,26 @@ struct KretaWebView: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(onCode: onCode, onDemo: onDemo, onError: onError) }
 
     final class Coordinator: NSObject, WKNavigationDelegate {
-        let onCode: (String) -> Void
+        let onCode: (String, String) -> Void
         let onDemo: (() -> Void)?
         let onError: ((String) -> Void)?
+        /// Ehhez a webview-hoz (belépési kísérlethez) tartozó friss PKCE/state.
+        let authRequest = KretaAPI.makeAuthorizationRequest()
         var didHandle = false
-        init(onCode: @escaping (String)->Void, onDemo: (() -> Void)?, onError: ((String) -> Void)? = nil) { self.onCode = onCode; self.onDemo = onDemo; self.onError = onError }
+        init(onCode: @escaping (String, String)->Void, onDemo: (() -> Void)?, onError: ((String) -> Void)? = nil) { self.onCode = onCode; self.onDemo = onDemo; self.onError = onError }
 
         func webView(_ webView: WKWebView, decidePolicyFor nav: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy)->Void) {
             if let url = nav.request.url, url.absoluteString.hasPrefix(KretaAPI.redirectURI),
                let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
                let code = comps.queryItems?.first(where: { $0.name == "code" })?.value, !code.isEmpty, !didHandle {
-                didHandle = true
-                onCode(code)
                 decisionHandler(.cancel)
+                // Csak a SAJÁT kérésünkre adott válasz váltható be.
+                guard comps.queryItems?.first(where: { $0.name == "state" })?.value == authRequest.state else {
+                    if let onError { DispatchQueue.main.async { onError("Érvénytelen belépési válasz — próbáld újra.") } }
+                    return
+                }
+                didHandle = true
+                onCode(code, authRequest.codeVerifier)
                 return
             }
             decisionHandler(.allow)

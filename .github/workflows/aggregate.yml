@@ -7,20 +7,39 @@ on:
     - cron: "7 * * * *" # óránként, :07-kor
   workflow_dispatch: {} # kézi indítás is lehetséges
 
+# A job csak olvassa a repót — a GITHUB_TOKEN se tudjon írni semmit.
+permissions:
+  contents: read
+
+# Két futás sosem fut egyszerre (lassú Nominatim + kézi indítás ne
+# írja egymás alá a public/map-et); az újabb megvárja a futót.
+concurrency:
+  group: aggregate
+  cancel-in-progress: false
+
 jobs:
   aggregate:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      # Az actionök commit-SHA-ra rögzítve: egy elmozdított/feltört tag
+      # sem futtathat idegen kódot a GCP-kulcs mellett.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
       - run: pip install google-auth requests
       # Tesztek a futtatás ELŐTT: hibás script ne írhasson a public/map-be.
       - run: python3 -m unittest discover -s Firebase -p "test_*.py"
+      # A kulcs env-ből megy fájlba (nem a shell-szövegbe interpolálva), csak
+      # a tulajdonos olvashatja, és a lépés végén — hibánál is — törlődik.
       - env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa-key.json
         run: |
-          echo '${{ secrets.GCP_SA_KEY }}' > "$GOOGLE_APPLICATION_CREDENTIALS"
+          umask 077
+          trap 'rm -f "$GOOGLE_APPLICATION_CREDENTIALS"' EXIT
+          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
           python3 Firebase/aggregate.py
-          rm -f "$GOOGLE_APPLICATION_CREDENTIALS"

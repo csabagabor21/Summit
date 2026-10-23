@@ -1,4 +1,6 @@
+import CryptoKit
 import Foundation
+import Security
 
 enum KretaAPI {
     static let clientId = "kreta-ellenorzo-student-mobile-ios"
@@ -112,10 +114,53 @@ enum KretaAPI {
     static func subjectAverages(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/Ertekelesek/Atlagok/TantargyiAtlagok") }
     static func subjectAveragesAlt(_ iss: String) -> URL? { URL(string: kreta(iss) + "/ellenorzo/V3/Sajat/TantargyiAtlagok") }
 
-    // OAuth authorize URL (same as Flutter)
-    static var authorizeURL: URL {
-        URL(string: "https://idp.e-kreta.hu/connect/authorize?prompt=login&nonce=wylCrqT4oN6PPgQn2yQB0euKei9nJeZ6_ffJ-VpSKZU&response_type=code&code_challenge_method=S256&scope=openid%20email%20offline_access%20kreta-ellenorzo-webapi.public%20kreta-eugyintezes-webapi.public%20kreta-fileservice-webapi.public%20kreta-mobile-global-webapi.public%20kreta-dkt-webapi.public%20kreta-ier-webapi.public&code_challenge=HByZRRnPGb-Ko_wTI7ibIba1HQ6lor0ws4bcgReuYSQ&redirect_uri=https://mobil.e-kreta.hu/ellenorzo-student/prod/oauthredirect&client_id=kreta-ellenorzo-student-mobile-ios&state=refilc_student_mobile")!
-    }
     static let redirectURI = "https://mobil.e-kreta.hu/ellenorzo-student/prod/oauthredirect"
-    static let codeVerifier = "DSpuqj_HhDX4wzQIbtn8lr8NLE5wEi1iVLMtMK0jY6c"
+    static let scope = "openid email offline_access kreta-ellenorzo-webapi.public kreta-eugyintezes-webapi.public kreta-fileservice-webapi.public kreta-mobile-global-webapi.public kreta-dkt-webapi.public kreta-ier-webapi.public"
+
+    /// Egy belépési kísérlet OAuth-anyaga. Minden belépéshez FRISS, véletlen
+    /// PKCE code_verifier, nonce és state készül: egy fix verifierrel a PKCE
+    /// semmit nem véd (aki elkapja a redirect `code`-ját, be is váltaná),
+    /// a state pedig a hamis/régi redirectet szűri ki.
+    struct AuthorizationRequest {
+        let url: URL
+        let codeVerifier: String
+        let state: String
+    }
+
+    static func makeAuthorizationRequest() -> AuthorizationRequest {
+        let verifier = randomURLSafe(bytes: 32)
+        let challenge = base64URL(Data(SHA256.hash(data: Data(verifier.utf8))))
+        let state = randomURLSafe(bytes: 16)
+        var comps = URLComponents(string: idpBase + "/connect/authorize")!
+        comps.queryItems = [
+            URLQueryItem(name: "prompt", value: "login"),
+            URLQueryItem(name: "nonce", value: randomURLSafe(bytes: 32)),
+            URLQueryItem(name: "response_type", value: "code"),
+            URLQueryItem(name: "code_challenge_method", value: "S256"),
+            URLQueryItem(name: "scope", value: scope),
+            URLQueryItem(name: "code_challenge", value: challenge),
+            URLQueryItem(name: "redirect_uri", value: redirectURI),
+            URLQueryItem(name: "client_id", value: clientId),
+            URLQueryItem(name: "state", value: state),
+        ]
+        return AuthorizationRequest(url: comps.url!, codeVerifier: verifier, state: state)
+    }
+
+    /// Kriptográfiai véletlen, base64url (padding nélkül, RFC 7636).
+    private static func randomURLSafe(bytes count: Int) -> String {
+        var bytes = [UInt8](repeating: 0, count: count)
+        guard SecRandomCopyBytes(kSecRandomDefault, count, &bytes) == errSecSuccess else {
+            // A rendszer-RNG hibája nem fordulhat elő; ha mégis, a CryptoKit
+            // kulcsgenerátora is kriptográfiai forrás.
+            return base64URL(SymmetricKey(size: .bits256).withUnsafeBytes { Data($0) }.prefix(count))
+        }
+        return base64URL(Data(bytes))
+    }
+
+    private static func base64URL(_ data: Data) -> String {
+        data.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
 }

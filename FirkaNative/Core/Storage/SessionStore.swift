@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import Security
 
 @MainActor
 final class SessionStore: ObservableObject {
@@ -11,7 +12,23 @@ final class SessionStore: ObservableObject {
     }
     var selectedUser: AppUser? { users.first(where: { $0.id == selectedId }) }
 
+    /// Régi, nyílt UserDefaults-kulcs (csak az átálláshoz és az aláíratlan
+    /// Mac-build tartalékaként).
     private let key = "firka.users.v1"
+    /// A KRÉTA access/refresh tokenek a Keychainben élnek, ezen az eszközön,
+    /// első feloldás után olvashatóan (a Live Activity háttérfrissítése
+    /// zárolt képernyőn is megújít) — nem kerülnek iCloud-mentésbe sem.
+    private static let keychainService = "hu.flint.summit.session"
+    private static let keychainAccount = "users.v1"
+    /// Megvan-e már ez a telepítés a Keychain-tárolóval. A Keychain túléli
+    /// az app törlését, a UserDefaults nem: e jelző nélküli indulás =
+    /// friss telepítés, ilyenkor a régi telepítés ottmaradt tokenjeit töröljük.
+    private static let installedKey = "session.keychain.installed.v1"
+    /// Az utoljára kiírt állapot — azonos tartalomnál nincs újabb Keychain-írás.
+    private var lastPersisted: Data?
+    /// Betöltés közben a didSet-ek nem írnak vissza (egy SessionStore()
+    /// példányosítás így nem jár Keychain-írással).
+    private var isLoading = false
 
     init() {
         load()
@@ -34,17 +51,49 @@ final class SessionStore: ObservableObject {
     }
 
     func load() {
-        if let data = UserDefaults.standard.data(forKey: key),
-           let decoded = try? JSONDecoder().decode(StoredUsers.self, from: data) {
-            users = decoded.users
-            selectedId = decoded.selectedId
+        let defaults = UserDefaults.standard
+        let legacy = defaults.data(forKey: key)
+        if !defaults.bool(forKey: Self.installedKey) {
+            // Friss telepítés (nincs régi UserDefaults-állapot sem): egy
+            // korábbi telepítésből ottmaradt Keychain-tokenek nem léptethetnek
+            // be automatikusan.
+            if legacy == nil {
+                KeychainHelper.delete(service: Self.keychainService, account: Self.keychainAccount)
+            }
+            defaults.set(true, forKey: Self.installedKey)
+        }
+        // A nyílt másolat, ha létezik, mindig a frissebb: átállás előtti
+        // állapot, aláíratlan Mac-tartalék, vagy egy régebbi build írta
+        // vissza (TestFlight-visszalépés) — a Keychainben akkor elavult
+        // (esetleg már rotált refresh) token ülne.
+        let data = legacy ?? KeychainHelper.load(service: Self.keychainService, account: Self.keychainAccount)
+        guard let data, let decoded = try? JSONDecoder().decode(StoredUsers.self, from: data) else { return }
+        isLoading = true
+        users = decoded.users
+        selectedId = decoded.selectedId
+        isLoading = false
+        if legacy != nil {
+            // Átállás: Keychainbe írás, siker esetén a régi nyílt másolat törlődik.
+            lastPersisted = nil
+            persist()
+        } else {
+            lastPersisted = try? JSONEncoder().encode(StoredUsers(users: users, selectedId: selectedId))
         }
     }
     func persist() {
+        guard !isLoading else { return }
         let stored = StoredUsers(users: users, selectedId: selectedId)
-        if let data = try? JSONEncoder().encode(stored) {
+        guard let data = try? JSONEncoder().encode(stored), data != lastPersisted else { return }
+        let status = KeychainHelper.save(data, service: Self.keychainService, account: Self.keychainAccount,
+                                         accessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
+        if status == errSecSuccess {
+            UserDefaults.standard.removeObject(forKey: key)
+        } else {
+            // Keychain-entitlement nélküli (aláíratlan Mac) build: a régi
+            // UserDefaults-út marad, különben ott be sem lehetne lépni.
             UserDefaults.standard.set(data, forKey: key)
         }
+        lastPersisted = data
     }
     /// Azonos fiók új belépése (pl. lejárt munkamenet után): ilyenkor a
     /// SummitApp selectedId-figyelője NEM kapcsolhatja ki a szinkront —

@@ -663,6 +663,7 @@ enum WatchSyncSender {
     static func pushTasks(homeworks _: [HomeworkItem], exams _: [ExamItem]) {}
     static func pushCheat(_: [CheatSheet]) {}
     static func pushSchoolEvents(events _: [SchoolEvent], visible _: Bool) {}
+    static func pushMetaKeyNow() {}
     @MainActor
     static func activeTasks(
         homeworks _: [HomeworkItem],

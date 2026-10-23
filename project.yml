@@ -123,9 +123,9 @@ targets:
       # különben a Mac (Catalyst) build is beágyazná és elbukna.
       - target: SummitWatch
         platformFilter: iOS
-      # Csak a Firestore-product (a tranzitív függőségeket az SPM hozza).
+      # Firestore + App Check (a tranzitív függőségeket az SPM hozza).
       - package: firebase-ios-sdk
-        products: [FirebaseFirestore]
+        products: [FirebaseFirestore, FirebaseAppCheck]
   SummitWidgets:
     type: app-extension
     platform: iOS

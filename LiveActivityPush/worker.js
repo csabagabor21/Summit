@@ -32,6 +32,23 @@
 //      A `clear()` ismétlése ugyanígy ingyenes.
 //   12. `/status` entrynként mutatja a `retryAt`-et (következő próba).
 //
+// 2026-10-23 — biztonsági kör (a repo nyilvános lett, a végpontok címe és
+// formátuma mindenki számára látszik):
+//   13. Firebase App Check: a `/plan` és a `/status` ellenőrzi az
+//      `X-Firebase-AppCheck` fejlécet (RS256, Google JWKS, iss/aud/exp).
+//      `APPCHECK_ENFORCE` nélkül csak naplóz (`appcheck=<állapot> path=…`),
+//      így a régi appverziók tovább működnek, és a logból látszik, mekkora
+//      arányban jön már érvényes token. `APPCHECK_ENFORCE=1` → 401 nélküle.
+//   14. `/selftest` csak `Authorization: Bearer <ADMIN_TOKEN>`-nel él (állandó
+//      idejű összehasonlítás); `ADMIN_TOKEN` nélkül a végpont nem létezik
+//      (404). Eddig bárki rángathatta vele az APNs-t a mi kulcsunkkal.
+//   15. POST /ai/generate — Gemini-proxy a közös, ingyenes AI-tartalékhoz.
+//      A Gemini-kulcs (`GEMINI_KEY` secret) SOHA nem megy ki a kliensre
+//      (eddig a publikus Firestore `public/ai_fallback` docban ült, bárki
+//      kiolvashatta). Mindig App Check-köteles, a modellt a worker szabja
+//      meg (`GEMINI_MODEL`), a törzset parse nélkül, streamként továbbítja
+//      (free-tier CPU-keret), opcionálisan IP-nkénti `AI_LIMITER`-rel.
+//
 // 2026-09-18 — a „minden feltöltés rendben, mégsem vált a kártya” kör után
 // (az élő worker APNs 403 InvalidProviderToken-t kapott minden pushra):
 //   6. GET /selftest[?sandbox=1] → a kulcs/Key ID/Team ID hármas ellenőrzése
@@ -54,8 +71,15 @@
 //  - Percenkénti cron végigmegy az esedékes terveken, és ami lejárt
 //    (fireAt <= most, még nem küldött), azt POST-olja az Apple APNs-nek.
 //
-// KV binding neve: PLANS. Secrets: APNS_KEY, APNS_KEY_ID, TEAM_ID.
-// Vars: BUNDLE_ID (hu.flint → topic hu.flint.push-type.liveactivity).
+//  - Az app POST /ai/generate hívással kér Gemini-választ (natív
+//    `generateContent` törzs, modell nélkül); a worker a saját kulcsával
+//    továbbítja, és a választ változatlanul visszaadja.
+//
+// KV binding neve: PLANS. Secrets: APNS_KEY, APNS_KEY_ID, TEAM_ID,
+// GEMINI_KEY, ADMIN_TOKEN. Vars: BUNDLE_ID (hu.flint → topic
+// hu.flint.push-type.liveactivity), FIREBASE_PROJECT_NUMBER (738331591118),
+// FIREBASE_APP_IDS (opcionális, vesszővel), APPCHECK_ENFORCE ("1" = éles),
+// GEMINI_MODEL (opcionális). Opcionális binding: AI_LIMITER (Rate Limiting).
 // Cron trigger: "* * * * *" (percenként).
 
 const APNS_PROD = "https://api.push.apple.com";
@@ -85,6 +109,184 @@ function b64url(bytes) {
   let s = "";
   for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
   return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/// base64url → bájtok. Érvénytelen bemenetre kivételt dob (a hívó kezeli).
+function b64urlDecode(s) {
+  if (typeof s !== "string" || !/^[A-Za-z0-9_-]*$/.test(s)) throw new Error("bad-b64url");
+  let b64 = s.replace(/-/g, "+").replace(/_/g, "/");
+  while (b64.length % 4 !== 0) b64 += "=";
+  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+}
+
+// ---------------------------------------------------------------
+// Firebase App Check
+// ---------------------------------------------------------------
+// A token egy RS256-tal aláírt JWT, a nyilvános kulcsok a Google JWKS-ében
+// vannak. A JWKS-t izolátumonként 6 órára gyorsítótárazzuk; ismeretlen
+// `kid` (kulcsrotáció) esetén legfeljebb 5 percenként kérjük le újra, hogy
+// hamis kid-ekkel ne lehessen a Google felé kéréseket generálni.
+
+const APPCHECK_JWKS_URL = "https://firebaseappcheck.googleapis.com/v1/jwks";
+const JWKS_TTL_MS = 6 * 60 * 60 * 1000;
+const JWKS_REFETCH_MIN_MS = 5 * 60 * 1000;
+const APPCHECK_MAX_TOKEN_CHARS = 4096;
+
+const defaultJwksFetcher = (url) => fetch(url);
+let jwksFetcher = defaultJwksFetcher;
+let jwksCache = { keys: null, at: 0, lastFetchAt: 0, imported: new Map() };
+
+/// Teszthez: a JWKS-lekérés cseréje (null = vissza az élő fetch-re).
+function setJwksFetcher(fn) {
+  jwksFetcher = typeof fn === "function" ? fn : defaultJwksFetcher;
+}
+
+function resetAppCheckCache() {
+  jwksCache = { keys: null, at: 0, lastFetchAt: 0, imported: new Map() };
+}
+
+/// A JWKS kulcslistája. `force` = ismeretlen kid miatti újrakérés (fojtva).
+/// Lekérési hibánál a régi (lejárt) lista is jobb a semminél.
+async function loadJwks(force) {
+  const now = Date.now();
+  const have = Array.isArray(jwksCache.keys);
+  if (have && !force && now - jwksCache.at < JWKS_TTL_MS) return jwksCache.keys;
+  // Fojtás: kulcslistával a kézben legfeljebb 5 percenként kérünk újra
+  // (ismeretlen kid / sikertelen frissítés), lista nélkül 30 mp-enként.
+  const minGap = have ? JWKS_REFETCH_MIN_MS : 30 * 1000;
+  if (jwksCache.lastFetchAt && now - jwksCache.lastFetchAt < minGap) {
+    if (have) return jwksCache.keys;
+    throw new Error("jwks-unavailable");
+  }
+  jwksCache.lastFetchAt = now;
+  try {
+    const res = await jwksFetcher(APPCHECK_JWKS_URL);
+    if (!res || !res.ok) throw new Error(`jwks HTTP ${res ? res.status : "?"}`);
+    const body = await res.json();
+    if (!body || !Array.isArray(body.keys)) throw new Error("jwks format");
+    jwksCache = { keys: body.keys, at: now, lastFetchAt: now, imported: new Map() };
+    return body.keys;
+  } catch (e) {
+    console.log(`App Check JWKS-hiba: ${e && e.message ? e.message : e}`);
+    if (jwksCache.keys) return jwksCache.keys;
+    throw new Error("jwks-unavailable");
+  }
+}
+
+async function importAppCheckKey(jwk) {
+  if (!jwk || jwk.kty !== "RSA" || typeof jwk.n !== "string" || typeof jwk.e !== "string") return null;
+  if (jwk.alg && jwk.alg !== "RS256") return null;
+  return crypto.subtle.importKey(
+    "jwk",
+    { kty: "RSA", n: jwk.n, e: jwk.e, alg: "RS256", ext: true },
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["verify"],
+  );
+}
+
+/// A kid-hez tartozó CryptoKey, vagy null, ha a (friss) JWKS-ben sincs.
+async function appCheckKey(kid) {
+  let keys = await loadJwks(false);
+  let jwk = keys.find((k) => k && k.kid === kid);
+  if (!jwk) {
+    keys = await loadJwks(true);
+    jwk = keys.find((k) => k && k.kid === kid);
+  }
+  if (!jwk) return null;
+  if (!jwksCache.imported.has(kid)) jwksCache.imported.set(kid, await importAppCheckKey(jwk));
+  return jwksCache.imported.get(kid);
+}
+
+/// `X-Firebase-AppCheck` ellenőrzése.
+/// Vissza: { status: "ok" | "missing" | "invalid" | "unconfigured", reason?, appId? }
+async function verifyAppCheck(request, env) {
+  const pn = cleanId(env.FIREBASE_PROJECT_NUMBER);
+  if (!pn) return { status: "unconfigured", reason: "no-project-number" };
+  const token = (request.headers.get("X-Firebase-AppCheck") || "").trim();
+  if (!token) return { status: "missing" };
+  const invalid = (reason) => ({ status: "invalid", reason });
+  if (token.length > APPCHECK_MAX_TOKEN_CHARS) return invalid("too-long");
+  const parts = token.split(".");
+  if (parts.length !== 3) return invalid("format");
+  let header, payload, sig;
+  try {
+    const dec = new TextDecoder();
+    header = JSON.parse(dec.decode(b64urlDecode(parts[0])));
+    payload = JSON.parse(dec.decode(b64urlDecode(parts[1])));
+    sig = b64urlDecode(parts[2]);
+  } catch {
+    return invalid("decode");
+  }
+  if (!header || typeof header !== "object" || !payload || typeof payload !== "object") return invalid("decode");
+  if (header.alg !== "RS256") return invalid("alg");
+  if (header.typ !== "JWT") return invalid("typ");
+  if (typeof header.kid !== "string" || !header.kid) return invalid("kid");
+  let key;
+  try {
+    key = await appCheckKey(header.kid);
+  } catch {
+    return invalid("jwks-unavailable");
+  }
+  if (!key) return invalid("unknown-kid");
+  let ok = false;
+  try {
+    ok = await crypto.subtle.verify(
+      { name: "RSASSA-PKCS1-v1_5" }, key, sig,
+      new TextEncoder().encode(`${parts[0]}.${parts[1]}`),
+    );
+  } catch {
+    ok = false;
+  }
+  if (!ok) return invalid("signature");
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.iss !== `https://firebaseappcheck.googleapis.com/${pn}`) return invalid("iss");
+  if (!Array.isArray(payload.aud) || !payload.aud.includes(`projects/${pn}`)) return invalid("aud");
+  if (typeof payload.exp !== "number" || payload.exp <= now) return invalid("expired");
+  if (typeof payload.iat !== "number" || payload.iat > now + 60) return invalid("iat");
+  const allowed = cleanId(env.FIREBASE_APP_IDS).split(",").map((s) => s.trim()).filter(Boolean);
+  if (allowed.length && !allowed.includes(payload.sub)) return invalid("app-id");
+  return { status: "ok", appId: typeof payload.sub === "string" ? payload.sub : "" };
+}
+
+/// /plan és /status kapuja. Monitor módban (APPCHECK_ENFORCE != "1") csak
+/// naplóz és átenged — a régi appverziók így nem halnak meg a deploytól.
+/// Vissza: null = mehet tovább, különben a kész 401-es válasz.
+async function guardAppCheck(request, env, path) {
+  const v = await verifyAppCheck(request, env);
+  const tag = v.reason ? `${v.status}:${v.reason}` : v.status;
+  if (env.APPCHECK_ENFORCE === "1") {
+    if (v.status === "ok") return null;
+    console.log(`appcheck=${tag} path=${path} rejected`);
+    return jsonRes({ ok: false, error: "app-check" }, { status: 401 });
+  }
+  console.log(`appcheck=${tag} path=${path}`);
+  return null;
+}
+
+/// Állandó idejű string-összehasonlítás: mindkét oldal SHA-256-ja kerül
+/// összevetésre, így se a tartalom, se a hossz nem szivárog időzítésen át.
+async function timingSafeEqualStr(a, b) {
+  const enc = new TextEncoder();
+  const [ha, hb] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(a)),
+    crypto.subtle.digest("SHA-256", enc.encode(b)),
+  ]);
+  const x = new Uint8Array(ha), y = new Uint8Array(hb);
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
+
+/// /selftest kapuja: ADMIN_TOKEN nélkül a végpont nem létezik.
+async function guardAdmin(request, env) {
+  const want = cleanId(env.ADMIN_TOKEN);
+  if (!want) return jsonRes({ ok: false, error: "not-found" }, { status: 404 });
+  const m = /^Bearer\s+(\S+)$/i.exec((request.headers.get("Authorization") || "").trim());
+  if (!m || !(await timingSafeEqualStr(m[1], want))) {
+    return jsonRes({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  return null;
 }
 
 function isDerSequence(sig) {
@@ -497,15 +699,106 @@ async function handleSelfTest(url, env) {
   });
 }
 
-export { ecdsaSigToRaw, handleCron, handlePlan, handleSelfTest, handleStatus };
+// ---------------------------------------------------------------
+// Gemini-proxy (közös, ingyenes AI-tartalék saját Meta-kulcs nélkül)
+// ---------------------------------------------------------------
+
+const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models/";
+const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
+const AI_MAX_BYTES = 20_000_000;
+
+/// POST /ai/generate — a törzs a Gemini natív `generateContent` alakja.
+/// A worker NEM parse-olja (free-tier CPU-keret, és a tananyag sem kerül
+/// így a logba), csak streamként továbbítja a saját kulcsával. A modellt
+/// kizárólag a `GEMINI_MODEL` var adja — a kliens nem választhat drágábbat.
+async function handleAiGenerate(request, env) {
+  const geminiKey = cleanId(env.GEMINI_KEY);
+  const model = cleanId(env.GEMINI_MODEL) || DEFAULT_GEMINI_MODEL;
+  if (!cleanId(env.FIREBASE_PROJECT_NUMBER) || !geminiKey || !/^[A-Za-z0-9._-]{1,100}$/.test(model)) {
+    console.log("AI-proxy: hiányzó/hibás FIREBASE_PROJECT_NUMBER, GEMINI_KEY vagy GEMINI_MODEL");
+    return jsonRes({ ok: false, error: "not-configured" }, { status: 503 });
+  }
+  const v = await verifyAppCheck(request, env);
+  if (v.status !== "ok") {
+    console.log(`appcheck=${v.reason ? `${v.status}:${v.reason}` : v.status} path=/ai/generate rejected`);
+    return jsonRes({ ok: false, error: "app-check" }, { status: 401 });
+  }
+  const lenHeader = (request.headers.get("content-length") || "").trim();
+  if (!/^\d+$/.test(lenHeader)) return jsonRes({ ok: false, error: "length-required" }, { status: 411 });
+  const len = Number(lenHeader);
+  if (len > AI_MAX_BYTES) return jsonRes({ ok: false, error: "too-large" }, { status: 413 });
+  if (len === 0 || !request.body) return jsonRes({ ok: false, error: "empty-body" }, { status: 400 });
+  if (env.AI_LIMITER && typeof env.AI_LIMITER.limit === "function") {
+    const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+    const { success } = await env.AI_LIMITER.limit({ key: ip });
+    if (!success) return jsonRes({ ok: false, error: "rate-limited" }, { status: 429 });
+  }
+  let up;
+  try {
+    up = await fetch(`${GEMINI_BASE}${model}:generateContent`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": geminiKey },
+      body: request.body,
+      duplex: "half",
+    });
+  } catch (e) {
+    console.log(`AI-proxy hálózati hiba: ${e && e.message ? e.message : e}`);
+    return jsonRes({ ok: false, error: "upstream", status: 0 }, { status: 502 });
+  }
+  const drop = async () => { try { await up.body?.cancel(); } catch { /* már lezárult */ } };
+  if (up.status === 200) {
+    return new Response(up.body, {
+      status: 200,
+      headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+    });
+  }
+  if (up.status === 400) {
+    return new Response(up.body, {
+      status: 400,
+      headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+    });
+  }
+  await drop();
+  if (up.status === 429) return jsonRes({ ok: false, error: "rate-limited" }, { status: 429 });
+  if (up.status === 401 || up.status === 403) {
+    console.log(`AI-proxy: a Gemini ${up.status}-mal elutasította a kulcsot (GEMINI_KEY?)`);
+    return jsonRes({ ok: false, error: "upstream-auth" }, { status: 502 });
+  }
+  console.log(`AI-proxy: Gemini HTTP ${up.status}`);
+  return jsonRes({ ok: false, error: "upstream", status: up.status }, { status: 502 });
+}
+
+const VERSION = "2026-10-23";
+
+async function route(request, env) {
+  const url = new URL(request.url);
+  if (url.pathname === "/plan" && request.method === "POST") {
+    const deny = await guardAppCheck(request, env, "/plan");
+    return deny || handlePlan(request, env);
+  }
+  if (url.pathname === "/status" && request.method === "GET") {
+    const deny = await guardAppCheck(request, env, "/status");
+    return deny || handleStatus(url, env);
+  }
+  if (url.pathname === "/selftest" && request.method === "GET") {
+    const deny = await guardAdmin(request, env);
+    return deny || handleSelfTest(url, env);
+  }
+  if (url.pathname === "/ai/generate") {
+    if (request.method !== "POST") return jsonRes({ ok: false, error: "method" }, { status: 405 });
+    return handleAiGenerate(request, env);
+  }
+  return jsonRes({ ok: true, service: "summit-liveactivity-push", version: VERSION });
+}
+
+export {
+  ecdsaSigToRaw, handleCron, handlePlan, handleSelfTest, handleStatus,
+  handleAiGenerate, verifyAppCheck, setJwksFetcher, resetAppCheckCache, route,
+};
 
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
-    if (request.method === "POST" && url.pathname === "/plan") return handlePlan(request, env);
-    if (request.method === "GET" && url.pathname === "/status") return handleStatus(url, env);
-    if (request.method === "GET" && url.pathname === "/selftest") return handleSelfTest(url, env);
-    return jsonRes({ ok: true, service: "summit-liveactivity-push", version: "2026-10-15" });
+    return route(request, env);
   },
   async scheduled(_event, env, _ctx) {
     if (!env.APNS_KEY || !env.APNS_KEY_ID || !env.TEAM_ID || !env.BUNDLE_ID) {

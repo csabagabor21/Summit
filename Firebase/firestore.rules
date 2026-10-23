@@ -14,7 +14,11 @@ rules_version = '2';
 //                  ha nincs név, a nyers institut-kód — a szerver CODEBOOK-
 //                  ból oldja fel; névből/kódból egyén nem beazonosít)
 //   - institute_code: string (opcionális, 1-64 char; szerver-oldali feloldáshoz)
-//   - install_id:  string (kötelező, 8-64 char, véletlen UUID)
+//   - install_id:  string (kötelező, véletlen UUID PONTOSAN UUID-alakban:
+//                  8-4-4-4-12 hex — az app `UUID().uuidString`-et küld.
+//                  Mivel a doc-ID-mintába is ez kerül, a szigorú alak
+//                  zárja ki, hogy egy regex-metakarakteres install_id
+//                  kitágítsa a `matches`-mintát.)
 //   - day:         string (kötelező, yyyy-MM-dd formátum)
 //   - app_version: string (opcionális, max 32 char)
 //   - platform:    string (opcionális, max 32 char)
@@ -27,9 +31,12 @@ rules_version = '2';
 // Csak az összesítő script írja/olvassa (service account),
 // kliensnek sem írni, sem olvasni nem szabad.
 //
-// Collection: public — összesített, név nélküli térkép-adat ({demo, schools,
-// updated}); bárki olvashatja, senki nem írhatja (írást service account
-// végez konzolból/scriptből).
+// Collection: public — CSAK a `map` doc: összesített, név nélküli térkép-adat
+// ({demo, schools, updated}); bárki olvashatja, senki nem írhatja (írást
+// service account végez a scriptből). Más doc itt nem olvasható — a korábbi
+// `ai_fallback` (közös Gemini-kulcs) megszűnt: a kulcs mostantól a
+// Cloudflare worker `GEMINI_KEY` secretje, az app App Check-tokennel a
+// worker `/ai/generate` végpontját hívja, kulcsot sosem lát.
 //
 // Collection: school_calendars — admin iskolai naptár-adatbázis.
 // Document ID: normalizált institut-kód, kisbetűsen (pl. "siszc-mathiasz").
@@ -45,7 +52,14 @@ rules_version = '2';
 // ha az eszközön már van esemény vagy mentett link, az admin-kérés némán
 // kihagy (SchoolCalendarDirectory).
 //
-// Collection: sync — Blaze-mentes beállítás-szinkron (Spark).
+// Collection: sync — LEGACY (v1), csak a még frissítetlen app-verziók miatt
+// él. 2. fázisban (App Check-kényszerítéssel együtt) TÖRLENDŐ: az új app a
+// `sync2`-t használja, és a v1 docot átmásolás után maga törli.
+// 2. fázis lépései: (1) az `isValidSyncDoc()` függvény és a `match /sync/{id}`
+// blokk törlése — onnantól a catch-all tilt; (2) ez a fejléc-szakasz törlése;
+// (3) a rules-tesztben a `sync (legacy v1)` írás-tesztet assertFails-re
+// fordítani; (4) deploy; (5) a maradék `sync` docok törlése konzolból.
+// Blaze-mentes beállítás-szinkron (Spark).
 // Document ID: SHA256-hex (64 kar.) az eszközön képzett kulcsból
 // ("summit-sync-v1" + JWT sub/email + user jelmondat). A jelmondat sehova
 // nem kerül fel, így az ID kitalálhatatlan: az ID ismerete a belépő
@@ -88,6 +102,24 @@ rules_version = '2';
 // OM, e-mail, token, jegy ebben a collectionben SOHA nem szerepelhet
 // (a séma más mezőt nem enged).
 //
+// Collection: sync2 — végponttól végpontig titkosított beállítás-szinkron.
+// Document ID: 64 hex kar. Az eszköz PBKDF2-vel (lassú kulcsképzés) a
+// KRÉTA `sub` + a user jelmondata párosból egy mesterkulcsot képez, ebből
+// HKDF-fel válik le a doc-ID és a titkosító kulcs. A szerver SOHA nem lát
+// nyílt értéket: minden adatmező AES-GCM rejtjelszöveg (base64 string),
+// így itt csak a típus és a méretplafon ellenőrizhető. Get igen, list nem.
+// Fields:
+//   - v: int (kötelező, == 2)
+//   - updatedAt: timestamp (kötelező, max 5 perccel jövőbeli)
+//   - theme, accentHex, sizeKey, skin, photo, rounding, exempted,
+//     completedHw, completedEx, notifyEnabled, liveActivity, schoolEvents,
+//     schoolEventsShow, schoolEventsURL, customTasks, cheatSheets,
+//     metaAIKey, examRollover, travelMode, wrappedStars, hasWatch:
+//     string (opcionális, rejtjelszöveg; plafon a v1-es nyílt plafon
+//     UTF-8 (×2) és base64 (×4/3) ráhagyással + nonce/tag — lásd
+//     `isValidSync2Doc`)
+//   - ts_<mező>: timestamp (opcionális, mezőnkénti verzióbélyeg)
+//
 // ===============================================================
 
 // ===============================================================
@@ -110,15 +142,18 @@ function isRecent(ts) {
     ts > request.time - duration.value(10, 'm');
 }
 
+function isUuid(s) {
+  return s is string
+    && s.matches('^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$');
+}
+
 function isValidHeartbeat() {
   return hasOnlyAllowedFields(['school_name', 'institute_code', 'install_id', 'day', 'app_version', 'platform', 'createdAt', 'expiresAt'])
     && validInstituteCodeField()
     && request.resource.data.school_name is string
     && request.resource.data.school_name.size() >= 2
     && request.resource.data.school_name.size() <= 120
-    && request.resource.data.install_id is string
-    && request.resource.data.install_id.size() >= 8
-    && request.resource.data.install_id.size() <= 64
+    && isUuid(request.resource.data.install_id)
     && request.resource.data.day is string
     && request.resource.data.day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
     && (!('app_version' in request.resource.data) || (request.resource.data.app_version is string && request.resource.data.app_version.size() <= 32))
@@ -219,16 +254,80 @@ function isValidSyncDoc() {
     && (!('ts_hasWatch' in request.resource.data) || request.resource.data.ts_hasWatch is timestamp);
 }
 
+// --- sync2 (E2E-titkosított) ---------------------------------------
+// Mezőnkénti rejtjelszöveg-plafon (karakter): a nyílt v1-plafon UTF-8-
+// ráhagyással (a magyar ékezetes betű 2 bájt, ezért ×2), base64-gyel (×4/3)
+// és 28 bájt nonce/tag-gel (a fotó eleve ASCII base64, ott ×4/3 elég);
+// kis mezőknél egységes 200. Minden mező plafonon együtt ~840 KB, belefér
+// a Firestore 1 MiB-os doc-korlátjába.
+// A plafon literálként megy a hívásban (nem map-lookup), mert a rules
+// kérésenként max 1000 kifejezést értékel ki — egy teljes doc így fér bele.
+function sync2Fields() {
+  return ['theme', 'accentHex', 'sizeKey', 'skin', 'photo', 'rounding',
+    'exempted', 'completedHw', 'completedEx', 'notifyEnabled', 'liveActivity',
+    'schoolEvents', 'schoolEventsShow', 'schoolEventsURL', 'customTasks',
+    'cheatSheets', 'metaAIKey', 'examRollover', 'travelMode', 'wrappedStars',
+    'hasWatch'];
+}
+
+function sync2TsFields() {
+  return ['ts_theme', 'ts_accentHex', 'ts_sizeKey', 'ts_skin', 'ts_photo',
+    'ts_rounding', 'ts_exempted', 'ts_completedHw', 'ts_completedEx',
+    'ts_notifyEnabled', 'ts_liveActivity', 'ts_schoolEvents',
+    'ts_schoolEventsShow', 'ts_schoolEventsURL', 'ts_customTasks',
+    'ts_cheatSheets', 'ts_metaAIKey', 'ts_examRollover', 'ts_travelMode',
+    'ts_wrappedStars', 'ts_hasWatch'];
+}
+
+// Egy opcionális rejtjel-mező: hiányzik, vagy plafon alatti string.
+function encOk(d, k, max) {
+  return !(k in d) || (d[k] is string && d[k].size() <= max);
+}
+
+// Egy opcionális bélyeg: hiányzik, vagy timestamp.
+function tsOk(d, k) {
+  return !(k in d) || d[k] is timestamp;
+}
+
+function isValidSync2Doc() {
+  let d = request.resource.data;
+  return d.keys().hasOnly(['v', 'updatedAt'].concat(sync2Fields()).concat(sync2TsFields()))
+    && d.v is int && d.v == 2
+    && d.updatedAt is timestamp
+    && d.updatedAt <= request.time + duration.value(5, 'm')
+    && encOk(d, 'theme', 200) && encOk(d, 'accentHex', 200) && encOk(d, 'sizeKey', 200)
+    && encOk(d, 'skin', 200) && encOk(d, 'photo', 160100) && encOk(d, 'rounding', 42800)
+    && encOk(d, 'exempted', 21400) && encOk(d, 'completedHw', 32100) && encOk(d, 'completedEx', 32100)
+    && encOk(d, 'notifyEnabled', 200) && encOk(d, 'liveActivity', 200)
+    && encOk(d, 'schoolEvents', 133400) && encOk(d, 'schoolEventsShow', 200)
+    && encOk(d, 'schoolEventsURL', 5400) && encOk(d, 'customTasks', 128100)
+    && encOk(d, 'cheatSheets', 266800) && encOk(d, 'metaAIKey', 1400)
+    && encOk(d, 'examRollover', 200) && encOk(d, 'travelMode', 200)
+    && encOk(d, 'wrappedStars', 10800) && encOk(d, 'hasWatch', 200)
+    && tsOk(d, 'ts_theme') && tsOk(d, 'ts_accentHex') && tsOk(d, 'ts_sizeKey')
+    && tsOk(d, 'ts_skin') && tsOk(d, 'ts_photo') && tsOk(d, 'ts_rounding')
+    && tsOk(d, 'ts_exempted') && tsOk(d, 'ts_completedHw')
+    && tsOk(d, 'ts_completedEx') && tsOk(d, 'ts_notifyEnabled')
+    && tsOk(d, 'ts_liveActivity') && tsOk(d, 'ts_schoolEvents')
+    && tsOk(d, 'ts_schoolEventsShow') && tsOk(d, 'ts_schoolEventsURL')
+    && tsOk(d, 'ts_customTasks') && tsOk(d, 'ts_cheatSheets')
+    && tsOk(d, 'ts_metaAIKey') && tsOk(d, 'ts_examRollover')
+    && tsOk(d, 'ts_travelMode') && tsOk(d, 'ts_wrappedStars')
+    && tsOk(d, 'ts_hasWatch');
+}
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
     match /heartbeats/{doc} {
       // Csak létrehozás, szigorú sémával; az ID-nek egyeznie kell a tartalommal:
       // napi doc vagy esemény-doc ({install}_{nap}_{esemény}_{epoch}).
-      // Az alap UUID+hex+kötőjel, így regex-biztos a matches-ben (full-match).
-      allow create: if (doc == request.resource.data.install_id + '_' + request.resource.data.day
-          || doc.matches(request.resource.data.install_id + '_' + request.resource.data.day + '_[a-z]+_[0-9]+'))
-        && isValidHeartbeat();
+      // A mintába kerülő install_id-t az isValidHeartbeat UUID-alakra
+      // kényszeríti (a day is szigorú yyyy-MM-dd), így nincs benne
+      // regex-metakarakter — a matches full-match, nem tágítható.
+      allow create: if isValidHeartbeat()
+        && (doc == request.resource.data.install_id + '_' + request.resource.data.day
+          || doc.matches(request.resource.data.install_id + '_' + request.resource.data.day + '_[a-z]{1,32}_[0-9]{9,11}'));
       allow read, update, delete: if false;
     }
 
@@ -237,7 +336,9 @@ service cloud.firestore {
     }
 
     match /public/{doc} {
-      allow read: if true;
+      // Csak a térkép publikus. Minden más doc (pl. a megszűnt
+      // ai_fallback) olvashatatlan, akkor is, ha valaha létrejönne.
+      allow read: if doc == 'map';
       allow write: if false;
     }
 
@@ -248,12 +349,24 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // LEGACY (v1) — 2. fázisban TÖRLENDŐ (lásd a fejléc sync-szakaszát).
     match /sync/{id} {
       // ID: 64 hex kar. (SHA256). Get: az ID ismerete a belépő.
       // Listázni (gyűjteni) senki nem tud — nincs enumerálás.
       allow get: if id.matches('^[0-9a-f]{64}$');
       allow list: if false;
       allow create, update: if id.matches('^[0-9a-f]{64}$') && isValidSyncDoc();
+      allow delete: if id.matches('^[0-9a-f]{64}$');
+    }
+
+    match /sync2/{id} {
+      // ID: 64 hex kar. (PBKDF2→HKDF az eszközön). Get: az ID ismerete a
+      // belépő; listázni (gyűjteni) senki nem tud. Az értékek rejtjelezettek:
+      // a jelmondat nélkül a tartalom akkor sem olvasható, ha a doc
+      // (pl. egy kiszivárgott service-account kulccsal) kikerül.
+      allow get: if id.matches('^[0-9a-f]{64}$');
+      allow list: if false;
+      allow create, update: if id.matches('^[0-9a-f]{64}$') && isValidSync2Doc();
       allow delete: if id.matches('^[0-9a-f]{64}$');
     }
 
