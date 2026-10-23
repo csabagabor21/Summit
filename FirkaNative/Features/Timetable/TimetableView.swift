@@ -262,29 +262,31 @@ struct TimetableView: View {
                             withAnimation(SummitMotion.page) { weekOffset -= 1 }
                             Task { await load() }
                         } label: {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 14, weight: .semibold))
+                            SkinIcon("chevron.left", size: 21)
+                                .skinFont(size: 14, weight: .semibold)
                                 .foregroundStyle(.secondary)
                                 .frame(width: 36, height: 32)
                                 .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .mcCompactOrPlainButton()
                         .disabled(weekOffset <= -8)
 
                         Spacer(minLength: 8)
 
                         VStack(spacing: 2) {
                             Text(weekTitle)
-                                .font(.subheadline.weight(.semibold))
+                                .skinFont(.subheadline, weight: .semibold)
                                 .foregroundStyle(.primary)
                                 .contentTransition(.numericText())
                             Text(currentWeekRangeText)
-                                .font(.caption2.weight(.medium).monospacedDigit())
+                                .skinFontDigits(.caption2, weight: .medium)
                                 .foregroundStyle(.secondary)
                         }
                         .animation(SummitMotion.page, value: weekOffset)
                         .onTapGesture {
                             guard weekOffset != 0 else { return }
+                            // Nem Button, ezért a kattanás kézzel (csak MC-ben szól).
+                            McSound.play(.click)
                             goToSmartToday()
                         }
 
@@ -296,13 +298,13 @@ struct TimetableView: View {
                             withAnimation(SummitMotion.page) { weekOffset += 1 }
                             Task { await load() }
                         } label: {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .semibold))
+                            SkinIcon("chevron.right", size: 21)
+                                .skinFont(size: 14, weight: .semibold)
                                 .foregroundStyle(.secondary)
                                 .frame(width: 36, height: 32)
                                 .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .mcCompactOrPlainButton()
                         .disabled(weekOffset >= 8)
 
                         // "Ma" gomb: nem csak hetet lapozva, hanem napot
@@ -310,7 +312,8 @@ struct TimetableView: View {
                         // userHasNavigated-et állít; a gomb azt nullázza).
                         if weekOffset != 0 || userHasNavigated {
                             Button("Ma") { goToSmartToday() }
-                            .font(.caption.weight(.semibold))
+                            .skinFont(.caption, weight: .semibold)
+                            .mcCompactButtonIfActive()
                             .tint(colors.accent)
                             .padding(.leading, 8)
                         }
@@ -323,12 +326,12 @@ struct TimetableView: View {
                 // Frissítési hiba: ne haljon meg némán az órarend sem.
                 if let err = loadError, !kreta.sessionExpired {
                     Section {
-                        Label(err, systemImage: "wifi.exclamationmark")
-                            .font(.subheadline.weight(.medium))
+                        SkinLabel(err, systemImage: "wifi.exclamationmark")
+                            .skinFont(.subheadline, weight: .medium)
                             .foregroundStyle(.orange)
                             .fixedSize(horizontal: false, vertical: true)
-                            .listRowBackground(Color.orange.opacity(scheme == .dark ? 0.12 : 0.08))
-                            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                            .listRowBackground(MinecraftTheme.skinRowBackground(Color.orange.opacity(scheme == .dark ? 0.12 : 0.08)))
+                            .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
                             .listRowSeparator(.hidden)
                     }
                 }
@@ -350,10 +353,10 @@ struct TimetableView: View {
                     Section {
                         ForEach(0..<5, id: \.self) { _ in
                             HStack(spacing: 14) {
-                                Circle().fill(Color.primary.opacity(0.08)).frame(width: 38, height: 38)
+                                MinecraftTheme.circle.fill(Color.primary.opacity(0.08)).frame(width: 38, height: 38)
                                 VStack(alignment: .leading, spacing: 6) {
-                                    RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.08)).frame(height: 14).frame(maxWidth: 140)
-                                    RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.06)).frame(height: 10).frame(maxWidth: 90)
+                                    MinecraftTheme.shape(cornerRadius: 6, continuous: false).fill(Color.primary.opacity(0.08)).frame(height: 14).frame(maxWidth: 140)
+                                    MinecraftTheme.shape(cornerRadius: 6, continuous: false).fill(Color.primary.opacity(0.06)).frame(height: 10).frame(maxWidth: 90)
                                 }
                                 Spacer()
                             }
@@ -377,7 +380,7 @@ struct TimetableView: View {
                     Section {
                         // Óra nélküli napon is látszik a dátum a nap neve alatt.
                         Text("\(dayLabel(for: selectedDay)) • \(selectedDayFullDate)")
-                            .font(.caption.weight(.semibold).monospacedDigit())
+                            .skinFontDigits(.caption, weight: .semibold)
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, alignment: .center)
                             .listRowBackground(Color.clear)
@@ -385,7 +388,7 @@ struct TimetableView: View {
                             .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 0, trailing: 16))
                     }
                     Section {
-                        ContentUnavailableView(emptyDayTitle, systemImage: emptyDayIcon, description: Text(emptyDayDetail))
+                        TimetableEmptyState(title: emptyDayTitle, icon: emptyDayIcon, detail: emptyDayDetail)
                             .frame(maxWidth: .infinity, minHeight: 220)
                             .padding(.vertical, 16)
                             .listRowBackground(Color.clear)
@@ -400,30 +403,30 @@ struct TimetableView: View {
                         HStack(alignment: .lastTextBaseline, spacing: 12) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(dayLabel(for: selectedDay).uppercased())
-                                    .font(.caption2.weight(.bold))
+                                    .skinFont(.caption2, weight: .bold)
                                     .foregroundStyle(.secondary)
                                     .tracking(1.1)
                                 Text(selectedDayFullDate)
-                                    .font(.caption.weight(.medium).monospacedDigit())
+                                    .skinFontDigits(.caption, weight: .medium)
                                     .foregroundStyle(.secondary)
                                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                                     Text("\(effectiveFiltered.count)")
                                         .mcDisplay(30)
                                         .monospacedDigit()
                                     Text(effectiveFiltered.count == 1 ? "óra" : "óra")
-                                        .font(.subheadline.weight(.semibold))
+                                        .skinFont(.subheadline, weight: .semibold)
                                         .foregroundStyle(.secondary)
                                 }
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 2) {
                                 Text("IDŐSÁV")
-                                    .font(.caption2.weight(.bold))
+                                    .skinFont(.caption2, weight: .bold)
                                     .foregroundStyle(.secondary)
                                     .tracking(1.0)
                                 if let first = effectiveFiltered.first, let last = effectiveFiltered.last {
                                     Text("\(first.start.formatted(date: .omitted, time: .shortened)) – \(last.end.formatted(date: .omitted, time: .shortened))")
-                                        .font(.caption.weight(.semibold).monospacedDigit())
+                                        .skinFontDigits(.caption, weight: .semibold)
                                         .foregroundStyle(.secondary)
                                 }
                             }
@@ -541,6 +544,8 @@ struct TimetableView: View {
                     colors: colors,
                     scheme: scheme
                 )
+                // Minecraftban a játék menü-háttere a lap mögött.
+                .skinSheetBackground()
             }
             // Live Activity sync EGYKEZES: csak a HomeView írja (ugyanaz az AppStorage kulcs!).
             // Két író (Home + Timetable eltérő nap locked lessons-szel) egymást ütötte:
@@ -742,24 +747,36 @@ struct TimetableView: View {
                 Button {
                     guard tag != selectedDay else { return }
                     SummitHaptics.selection()
+                    McSound.play(.click)
                     withAnimation(SummitMotion.page) { selectedDay = tag }
                 } label: {
                     VStack(spacing: 1) {
-                        Text(dayLabel(for: tag))
-                            .font(.caption.weight(.semibold))
-                            .lineLimit(1).minimumScaleFactor(0.85)
-                            .foregroundStyle(isSel ? .white : .primary)
+                        // Minecraftban rövidített napnév: a Monocraft szélesebb a
+                        // rendszerbetűnél, a teljes név kicsordulna a fülből.
+                        Text(MinecraftTheme.isActive ? String(dayLabel(for: tag).prefix(3)) : dayLabel(for: tag))
+                            .skinFont(.caption, weight: .semibold)
+                            .lineLimit(1).minimumScaleFactor(MinecraftTheme.isActive ? 0.6 : 0.85)
+                            .foregroundStyle(isSel ? .white : (MinecraftTheme.isActive ? Color(hex: 0xA0A0A0) : .primary))
                         Text(dayDate(for: tag).map { Self.dayDateFormatter.string(from: $0) } ?? "")
-                            .font(.caption2.weight(.medium).monospacedDigit())
-                            .lineLimit(1).minimumScaleFactor(0.85)
-                            .foregroundStyle(isSel ? .white.opacity(0.88) : .secondary)
+                            .skinFontDigits(.caption2, weight: .medium)
+                            .lineLimit(1).minimumScaleFactor(MinecraftTheme.isActive ? 0.5 : 0.85)
+                            .foregroundStyle(isSel ? .white.opacity(0.88) : (MinecraftTheme.isActive ? Color(hex: 0x7C7C7C) : .secondary))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 7)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(isSel ? colors.accent : Color.primary.opacity(scheme == .dark ? 0.08 : 0.06))
-                    )
+                    .background {
+                        if MinecraftTheme.isActive {
+                            // A játék fül-sora: sötét fül, a kijelölt fehér keretes.
+                            // A sprite-ok félig áttetszők: opak alap kell alájuk.
+                            ZStack {
+                                (isSel ? Color(hex: 0x6B6B70) : Color(hex: 0x1E1E22))
+                                McNineSlice(isSel ? "mc_widget_tab_sel" : "mc_widget_tab", top: 2, left: 2, bottom: 0, right: 2)
+                            }
+                        } else {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(isSel ? colors.accent : Color.primary.opacity(scheme == .dark ? 0.08 : 0.06))
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(dayLabel(for: tag)), \(dayDate(for: tag).map { Self.fullDayFormatter.string(from: $0) } ?? "")")
@@ -1055,22 +1072,22 @@ private struct SchoolEventCard: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "calendar.badge.clock")
-                .font(.system(size: 16, weight: .semibold))
+            SkinIcon("calendar.badge.clock", size: 32)
+                .skinFont(size: 16, weight: .semibold)
                 .foregroundStyle(colors.accent)
                 .padding(.top, 3)
             VStack(alignment: .leading, spacing: 3) {
                 Text("ISKOLAI ESEMÉNY")
-                    .font(.caption2.weight(.bold))
+                    .skinFont(.caption2, weight: .bold)
                     .tracking(0.6)
                     .foregroundStyle(.secondary)
                 Text(event.title)
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .skinFont(size: 17, weight: .semibold, design: .rounded)
                     .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
                 if !event.subtitle.isEmpty {
                     Text(event.subtitle)
-                        .font(.caption.weight(.medium).monospacedDigit())
+                        .skinFontDigits(.caption, weight: .medium)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
@@ -1137,6 +1154,16 @@ private struct TimetableRow: View {
         if hasAssignment { return scheme == .dark ? Color.white.opacity(0.22) : Color.black.opacity(0.07) }
         return colors.surface
     }
+    /// Minecraftban a sor állapot-színe a tömör panelre rétegezve
+    /// (a kártya sosem áttetsző); nil = sima felület.
+    private var rowTint: Color? {
+        if isExempted { return Color.green.opacity(0.28) }
+        if isCancelled { return Color.red.opacity(0.28) }
+        if isSubstituted { return Color.orange.opacity(0.28) }
+        if isCurrent { return Color.blue.opacity(0.28) }
+        if hasAssignment { return scheme == .dark ? Color.white.opacity(0.14) : Color.black.opacity(0.07) }
+        return nil
+    }
     private var numberColor: Color {
         if isExempted { return Color.green }
         if isCancelled { return Color.red }
@@ -1170,7 +1197,9 @@ private struct TimetableRow: View {
                     .background {
                         Group {
                             if MinecraftTheme.isActive {
-                                McBlockPanel(face: colors.surface, castsShadow: false)
+                                // Az állapot (most / elmarad / helyettesítés) a tömör
+                                // panelre rétegzett színnel látszik, nem üveg-tintként.
+                                McTintedPanel(base: colors.surface, tint: ringTint?.opacity(0.32), castsShadow: false)
                             } else if #available(iOS 26.0, *) {
                                 Circle()
                                     .fill(Color.clear)
@@ -1187,13 +1216,14 @@ private struct TimetableRow: View {
                             }
                         }
                     }
-                    .shadow(color: (ringTint ?? Color.clear).opacity(isTintedGlass ? (scheme == .dark ? 0.14 : 0.08) : 0), radius: 6, y: 2)
+                    .shadow(color: MinecraftTheme.isActive ? Color.clear : (ringTint ?? Color.clear).opacity(isTintedGlass ? (scheme == .dark ? 0.14 : 0.08) : 0), radius: MinecraftTheme.isActive ? 0 : 6, y: MinecraftTheme.isActive ? 0 : 2)
 
                 // Spine — vékony editorial vonal a következő körig
+                // (Minecraftban 1 játék-pixel vastag, kemény vonal).
                 if !isLast {
                     Rectangle()
-                        .fill(Color.primary.opacity(scheme == .dark ? 0.09 : 0.07))
-                        .frame(width: 1.2)
+                        .fill(MinecraftTheme.isActive ? Color(hex: 0x555555) : Color.primary.opacity(scheme == .dark ? 0.09 : 0.07))
+                        .frame(width: MinecraftTheme.isActive ? MinecraftTheme.px : 1.2)
                         .frame(height: 22)
                         .padding(.top, 6)
                         .padding(.bottom, 2)
@@ -1207,41 +1237,32 @@ private struct TimetableRow: View {
             // nem a részei — beágyazott Button nem tüzelne megbízhatóan,
             // és a VoiceOver egybeolvasztaná őket.
             VStack(alignment: .leading, spacing: 0) {
-                Button(action: { print("SUMMIT-ROW-TAP \(lesson.id)"); onSelect() }) {
+                Button(action: { print("SUMMIT-ROW-TAP \(lesson.id)"); McSound.play(.click); onSelect() }) {
                     HStack(alignment: .top, spacing: 10) {
                         VStack(alignment: .leading, spacing: 4) {
                         // Badge row — felmentett is zöld, elmarad piros, helyettesítés narancs
                         if let lbl = badgeLabel {
                             Text(lbl.uppercased())
-                                .font(.caption2.weight(.bold))
+                                .skinFont(.caption2, weight: .bold)
                                 .tracking(0.5)
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 7).padding(.vertical, 3.5)
-                                .background(Capsule().fill(badgeColor))
+                                .background(MinecraftTheme.capsule.fill(badgeColor))
                         }
 
                         Text(lesson.subject)
-                            .font(.system(size: 17, weight: .semibold, design: .rounded))
+                            .skinFont(size: 17, weight: .semibold, design: .rounded)
                             .foregroundStyle((isCancelled || isExempted) ? .secondary : .primary)
                             .strikethrough(isCancelled || isExempted, color: .secondary)
                             .lineLimit(1)
 
                         HStack(spacing: 6) {
                             // Room — kis kocka, ikon nélkül, csak a terem neve
-                            Text(lesson.room)
-                                .font(.caption2.weight(.bold).monospacedDigit())
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 7).padding(.vertical, 4)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                        .fill(Color.primary.opacity(scheme == .dark ? 0.08 : 0.06))
-                                        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
-                                )
-                                .lineLimit(1)
+                            TimetableRoomChip(room: lesson.room, scheme: scheme)
 
-                            Text("•").font(.caption2).foregroundStyle(.tertiary)
+                            Text("•").skinFont(.caption2).foregroundStyle(.tertiary)
                             Text(lesson.teacher)
-                                .font(.caption.weight(.medium))
+                                .skinFont(.caption, weight: .medium)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                         }
@@ -1251,10 +1272,10 @@ private struct TimetableRow: View {
                     // Time — editorial stacked
                     VStack(alignment: .trailing, spacing: 1) {
                         Text(lesson.start.formatted(date: .omitted, time: .shortened))
-                            .font(.system(size: 13, weight: .semibold, design: .rounded).monospacedDigit())
+                            .skinFontDigits(size: 13, weight: .semibold, design: .rounded)
                             .foregroundStyle(isCurrent ? Color.blue : .primary)
                         Text(lesson.end.formatted(date: .omitted, time: .shortened))
-                            .font(.caption2.weight(.medium).monospacedDigit())
+                            .skinFontDigits(.caption2, weight: .medium)
                             .foregroundStyle(.tertiary)
                     }
                     }
@@ -1265,22 +1286,27 @@ private struct TimetableRow: View {
                 // Feladat pill — a fejléc alatt, tap → Feladatok tab
                 if let hw = homework {
                     Button {
+                        McSound.play(.click)
                         NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ["flash": hw.id])
                     } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: "checklist")
-                                .font(.caption2.weight(.semibold))
+                            SkinIcon("checklist", size: 16)
+                                .skinFont(.caption2, weight: .semibold)
                             Text(hw.plainTitle.isEmpty ? "Házi feladat" : hw.plainTitle)
-                                .font(.caption.weight(.medium))
+                                .skinFont(.caption, weight: .medium)
                                 .lineLimit(1)
                         }
                         .foregroundStyle(scheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.72))
-                        .padding(.horizontal, 8).padding(.vertical, 5)
-                        .background(
-                            Capsule()
-                                .fill(scheme == .dark ? Color.white.opacity(0.14) : Color.black.opacity(0.06))
-                                .overlay(Capsule().strokeBorder(Color.primary.opacity(scheme == .dark ? 0.12 : 0.08), lineWidth: 1))
-                        )
+                        .padding(.horizontal, MinecraftTheme.isActive ? 10 : 8).padding(.vertical, MinecraftTheme.isActive ? 8 : 5)
+                        .background {
+                            if MinecraftTheme.isActive {
+                                McTintedPanel(base: colors.surface, tint: nil, castsShadow: false)
+                            } else {
+                                Capsule()
+                                    .fill(scheme == .dark ? Color.white.opacity(0.14) : Color.black.opacity(0.06))
+                                    .overlay(Capsule().strokeBorder(Color.primary.opacity(scheme == .dark ? 0.12 : 0.08), lineWidth: 1))
+                            }
+                        }
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Házi feladat – \(hw.subject)")
@@ -1289,22 +1315,27 @@ private struct TimetableRow: View {
                 // Dolgozat pill — tap → Feladatok/Dolgozatok tab
                 if let ex = exam {
                     Button {
+                        McSound.play(.click)
                         NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ["segment": "exams", "flash": ex.id])
                     } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: "doc.text.fill")
-                                .font(.caption2.weight(.semibold))
+                            SkinIcon("doc.text.fill", size: 16)
+                                .skinFont(.caption2, weight: .semibold)
                             Text(ex.plainDescription.isEmpty ? ex.mode : "\(ex.mode): \(ex.plainDescription)")
-                                .font(.caption.weight(.medium))
+                                .skinFont(.caption, weight: .medium)
                                 .lineLimit(1)
                         }
                         .foregroundStyle(scheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.72))
-                        .padding(.horizontal, 8).padding(.vertical, 5)
-                        .background(
-                            Capsule()
-                                .fill((examRolled ? Color.red : Color.orange).opacity(scheme == .dark ? 0.22 : 0.14))
-                                .overlay(Capsule().strokeBorder((examRolled ? Color.red : Color.orange).opacity(scheme == .dark ? 0.35 : 0.25), lineWidth: 1))
-                        )
+                        .padding(.horizontal, MinecraftTheme.isActive ? 10 : 8).padding(.vertical, MinecraftTheme.isActive ? 8 : 5)
+                        .background {
+                            if MinecraftTheme.isActive {
+                                McTintedPanel(base: colors.surface, tint: (examRolled ? Color.red : Color.orange).opacity(0.30), castsShadow: false)
+                            } else {
+                                Capsule()
+                                    .fill((examRolled ? Color.red : Color.orange).opacity(scheme == .dark ? 0.22 : 0.14))
+                                    .overlay(Capsule().strokeBorder((examRolled ? Color.red : Color.orange).opacity(scheme == .dark ? 0.35 : 0.25), lineWidth: 1))
+                            }
+                        }
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Dolgozat – \(ex.subject): \(ex.mode)")
@@ -1326,7 +1357,7 @@ private struct TimetableRow: View {
             .padding(14)
             .background {
                 if MinecraftTheme.isActive {
-                    McBlockPanel(face: rowBackground)
+                    McTintedPanel(base: colors.surface, tint: rowTint)
                 } else {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .fill(rowBackground)
@@ -1337,15 +1368,27 @@ private struct TimetableRow: View {
                         .shadow(color: colors.shadow.opacity(isCurrent ? 0.18 : scheme == .dark ? 0.20 : 0.06), radius: isCurrent ? 12 : 8, y: isCurrent ? 5 : 3)
                 }
             }
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(colors.accent.opacity(isFlashing ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlashing ? 2.2 : 0)
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(colors.accent.opacity(isFlashing ? (flashPulse ? 0.18 : 0.04) : 0))
-            )
-            .scaleEffect(isFlashing && flashPulse ? 1.02 : 1.0)
+            .overlay {
+                if MinecraftTheme.isActive {
+                    // Deeplink-villanás: sárga, kemény pixelkeret (a játék kijelölés-sárgája).
+                    McPixelShape(steps: 2)
+                        .strokeBorder(Color(hex: 0xFFFF55).opacity(isFlashing ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlashing ? MinecraftTheme.px : 0)
+                } else {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(colors.accent.opacity(isFlashing ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlashing ? 2.2 : 0)
+                }
+            }
+            .background {
+                if MinecraftTheme.isActive {
+                    McPixelShape(steps: 2)
+                        .fill(Color(hex: 0xFFFF55).opacity(isFlashing ? (flashPulse ? 0.18 : 0.04) : 0))
+                } else {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(colors.accent.opacity(isFlashing ? (flashPulse ? 0.18 : 0.04) : 0))
+                }
+            }
+            // Minecraftban nincs sima nagyítás (a pixelek nem skálázódnak törtre).
+            .scaleEffect(isFlashing && flashPulse && !MinecraftTheme.isActive ? 1.02 : 1.0)
             .animation(isFlashing ? .easeInOut(duration: 0.45) : .default, value: flashPulse)
             // bal csík nincs — kompakt
             .padding(.leading, 0)
@@ -1371,9 +1414,9 @@ private struct TimetableLiquidProgress: View {
     let colors: AppColors
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            ProgressView(value: progress).tint(tint)
+            SkinProgress(value: progress, tint: tint)
                 .animation(SummitMotion.progress, value: progress)
-            Text(remainingText).font(.caption2.weight(.medium)).foregroundStyle(.secondary).monospacedDigit()
+            Text(remainingText).skinFont(.caption2, weight: .medium).foregroundStyle(.secondary).monospacedDigit()
                 .contentTransition(.numericText())
         }
     }
@@ -1455,19 +1498,24 @@ private struct LessonDetailSheet: View {
                 // HERO — gradiens ikon + tárgy + nap/idő + státusz
                 Section {
                     VStack(spacing: 12) {
-                        Image(systemName: LessonSubjectIcon.symbol(for: lesson.subject))
-                            .font(.system(size: 44, weight: .semibold))
+                        SkinIcon(LessonSubjectIcon.symbol(for: lesson.subject), size: 64)
+                            .skinFont(size: 44, weight: .semibold)
                             .foregroundStyle(.white)
                             .frame(width: 104, height: 104)
                             .background {
-                                Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [heroBase, heroBase.opacity(0.55)],
-                                            startPoint: .topLeading, endPoint: .bottomTrailing
+                                if MinecraftTheme.isActive {
+                                    // Inventory-rekesz, az óra állapotának színével átitatva.
+                                    McTintedPanel(base: Color(hex: 0x8B8B8B), tint: heroBase.opacity(0.40), slot: true, castsShadow: false)
+                                } else {
+                                    Circle()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [heroBase, heroBase.opacity(0.55)],
+                                                startPoint: .topLeading, endPoint: .bottomTrailing
+                                            )
                                         )
-                                    )
-                                    .shadow(color: heroBase.opacity(0.35), radius: 18, y: 8)
+                                        .shadow(color: heroBase.opacity(0.35), radius: 18, y: 8)
+                                }
                             }
                         Text(lesson.subject)
                             .mcDisplay(26)
@@ -1475,18 +1523,18 @@ private struct LessonDetailSheet: View {
                             .strikethrough(isCancelled || isExempted, color: .secondary)
                             .multilineTextAlignment(.center)
                         Text(dayLine)
-                            .font(.subheadline.weight(.semibold))
+                            .skinFont(.subheadline, weight: .semibold)
                             .foregroundStyle(.secondary)
                         Text(timeLine)
-                            .font(.subheadline.weight(.medium).monospacedDigit())
+                            .skinFontDigits(.subheadline, weight: .medium)
                             .foregroundStyle(.secondary)
                         if let badge = statusBadge {
                             Text(badge.text.uppercased())
-                                .font(.caption2.weight(.bold))
+                                .skinFont(.caption2, weight: .bold)
                                 .tracking(0.5)
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 10).padding(.vertical, 5)
-                                .background(Capsule().fill(badge.color))
+                                .background(MinecraftTheme.capsule.fill(badge.color))
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -1496,81 +1544,81 @@ private struct LessonDetailSheet: View {
                 }
 
                 // ÓRA ADATAI
-                Section("Óra adatai") {
+                Section {
                     detailRow(icon: "person.fill", title: "Tanár", value: lesson.teacher.isEmpty ? "—" : lesson.teacher)
+                        .mcListRow(fill: colors.surface)
                     if isSubstituted, let orig = lesson.originalTeacher, !orig.isEmpty {
                         detailRow(icon: "person.fill.badge.plus", title: "Eredeti tanár", value: orig)
+                            .mcListRow(fill: colors.surface)
                     }
                     detailRow(icon: "door.left.hand.open", title: "Terem", value: lesson.room.isEmpty ? "—" : lesson.room)
+                        .mcListRow(fill: colors.surface)
                     detailRow(icon: "clock.fill", title: "Időpont", value: timeLine)
-                }
+                        .mcListRow(fill: colors.surface)
+                } header: { sectionTitle("Óra adatai") }
 
                 // HÁZI
-                Section("Házi feladat") {
+                Section {
                     if let hw = homework {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(HomeworkHTML.formatted(hw.title))
-                                .font(.callout)
+                                .skinFont(.callout)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             if !hw.teacher.isEmpty {
-                                Label(hw.teacher, systemImage: "person.fill")
-                                    .font(.caption).foregroundStyle(.secondary)
+                                SkinLabel(hw.teacher, systemImage: "person.fill")
+                                    .skinFont(.caption).foregroundStyle(.secondary)
                             }
                             Button { openTasks(flash: hw.id) } label: {
-                                Label("Megnyitás a Feladatokban", systemImage: "checklist")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(colors.accent)
-                                    .padding(.horizontal, 12).padding(.vertical, 8)
-                                    .background(Capsule().strokeBorder(colors.accent.opacity(0.35), lineWidth: 1))
+                                TimetableOpenLabel(title: "Megnyitás a Feladatokban", icon: "checklist", colors: colors)
                             }
-                            .buttonStyle(.plain)
+                            .mcButtonOrPlain()
                             .padding(.top, 2)
                         }
                         .padding(.vertical, 4)
+                        .mcListRow(fill: colors.surface)
                     } else {
-                        Label("Ehhez az órához nincs házi", systemImage: "checklist")
-                            .font(.callout).foregroundStyle(.secondary)
+                        SkinLabel("Ehhez az órához nincs házi", systemImage: "checklist")
+                            .skinFont(.callout).foregroundStyle(.secondary)
+                            .mcListRow(fill: colors.surface)
                     }
-                }
+                } header: { sectionTitle("Házi feladat") }
 
                 // DOLGOZAT
-                Section("Dolgozat") {
+                Section {
                     if let ex = exam {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 6) {
-                                Text(ex.mode).font(.callout.weight(.semibold))
+                                Text(ex.mode).skinFont(.callout, weight: .semibold)
                                 if examRolled {
-                                    Text("Pótló").font(.caption2.weight(.bold)).foregroundStyle(.red)
+                                    Text("Pótló").skinFont(.caption2, weight: .bold).foregroundStyle(.red)
                                         .padding(.horizontal, 8).padding(.vertical, 4)
-                                        .background(Capsule().fill(Color.red.opacity(0.12)))
+                                        .background(MinecraftTheme.capsule.fill(Color.red.opacity(0.12)))
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             if !ex.plainDescription.isEmpty {
                                 Text(ex.plainDescription)
-                                    .font(.callout).foregroundStyle(.secondary)
+                                    .skinFont(.callout).foregroundStyle(.secondary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             if !ex.teacher.isEmpty {
-                                Label(ex.teacher, systemImage: "person.fill")
-                                    .font(.caption).foregroundStyle(.secondary)
+                                SkinLabel(ex.teacher, systemImage: "person.fill")
+                                    .skinFont(.caption).foregroundStyle(.secondary)
                             }
                             Button { openTasks(segment: "exams", flash: ex.id) } label: {
-                                Label("Megnyitás a Dolgozatokban", systemImage: "doc.text.fill")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(colors.accent)
-                                    .padding(.horizontal, 12).padding(.vertical, 8)
-                                    .background(Capsule().strokeBorder(colors.accent.opacity(0.35), lineWidth: 1))
+                                TimetableOpenLabel(title: "Megnyitás a Dolgozatokban", icon: "doc.text.fill", colors: colors)
                             }
-                            .buttonStyle(.plain)
+                            .mcButtonOrPlain()
                             .padding(.top, 2)
                         }
                         .padding(.vertical, 4)
+                        .mcListRow(fill: colors.surface)
                     } else {
-                        Label("Ehhez az órához nincs dolgozat", systemImage: "doc.text")
-                            .font(.callout).foregroundStyle(.secondary)
+                        SkinLabel("Ehhez az órához nincs dolgozat", systemImage: "doc.text")
+                            .skinFont(.callout).foregroundStyle(.secondary)
+                            .mcListRow(fill: colors.surface)
                     }
-                }
+                } header: { sectionTitle("Dolgozat") }
             }
             .listStyle(.insetGrouped)
             .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
@@ -1583,7 +1631,9 @@ private struct LessonDetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Kész") { dismiss() }
+                        .skinToolbarItem()
                 }
+                .skinToolbarBackground()
             }
             .accessibilityIdentifier("lesson-detail")
             .onAppear { print("SUMMIT-DETAIL-APPEARED \(lesson.id)") }
@@ -1591,18 +1641,28 @@ private struct LessonDetailSheet: View {
         .tint(colors.accent)
     }
 
+    /// Szekció-fejléc: Summitban a gyári `Section("…")` felirat, Minecraftban pixelbetű.
+    @ViewBuilder
+    private func sectionTitle(_ text: String) -> some View {
+        if MinecraftTheme.isActive {
+            Text(text).mcSectionHeader()
+        } else {
+            Text(text)
+        }
+    }
+
     private func detailRow(icon: String, title: String, value: String) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
+            SkinIcon(icon, size: 32)
+                .skinFont(size: 14, weight: .semibold)
                 .foregroundStyle(colors.accent)
-                .frame(width: 24)
+                .frame(width: MinecraftTheme.isActive ? 32 : 24)
             Text(title)
-                .font(.callout)
+                .skinFont(.callout)
                 .foregroundStyle(.secondary)
             Spacer(minLength: 8)
             Text(value)
-                .font(.callout.weight(.semibold))
+                .skinFont(.callout, weight: .semibold)
                 .multilineTextAlignment(.trailing)
         }
         .padding(.vertical, 2)
@@ -1617,6 +1677,151 @@ private struct LessonDetailSheet: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
             NotificationCenter.default.post(
                 name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ui)
+        }
+    }
+}
+
+
+// MARK: - Minecraft-segédek (az órarendi nézetekhez)
+
+/// Tömör panel az állapot-színnel átitatva: az alap (felület) opak marad,
+/// a szín rá van rétegezve — a McBlockPanel áttetsző `face`-e különben
+/// átengedné a mögötte lévő égboltot a tintelt kártyán.
+private struct McTintedPanel: View {
+    var base: Color
+    var tint: Color?
+    /// Inventory-rekesz (fordított bevel) a sima panel helyett.
+    var slot = false
+    var castsShadow = true
+
+    var body: some View {
+        ZStack {
+            panel(face: base, casts: castsShadow)
+            if let tint {
+                panel(face: tint, casts: false)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func panel(face: Color, casts: Bool) -> some View {
+        if slot {
+            McBlockPanel(face: face, outline: Color(hex: 0x373737),
+                         highlight: .black.opacity(0.28), shade: .white.opacity(0.55), castsShadow: casts)
+        } else {
+            McBlockPanel(face: face, castsShadow: casts)
+        }
+    }
+}
+
+/// Terem-címke: Summitban a halvány lekerekített kocka, Minecraftban
+/// inventory-rekesz fehér, árnyékolt Monocraft felirattal.
+private struct TimetableRoomChip: View {
+    let room: String
+    let scheme: ColorScheme
+
+    var body: some View {
+        if MinecraftTheme.isActive {
+            Text(room)
+                .skinFontDigits(.caption2, weight: .bold)
+                .foregroundStyle(.white)
+                .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: MinecraftTheme.px / 1.5, y: MinecraftTheme.px / 1.5)
+                .padding(.horizontal, 10).padding(.vertical, 7)
+                .background(McInventorySlot())
+                .lineLimit(1)
+        } else {
+            Text(room)
+                .font(.caption2.weight(.bold).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 7).padding(.vertical, 4)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.primary.opacity(scheme == .dark ? 0.08 : 0.06))
+                        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
+                )
+                .lineLimit(1)
+        }
+    }
+}
+
+/// „Megnyitás a …ban" gomb felirata: Summitban az accent-körvonalas
+/// kapszula, Minecraftban a sima felirat (a gombot a McButtonStyle rajzolja).
+private struct TimetableOpenLabel: View {
+    let title: String
+    let icon: String
+    let colors: AppColors
+
+    var body: some View {
+        if MinecraftTheme.isActive {
+            SkinLabel(title, systemImage: icon)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        } else {
+            Label(title, systemImage: icon)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(colors.accent)
+                .padding(.horizontal, 12).padding(.vertical, 8)
+                .background(Capsule().strokeBorder(colors.accent.opacity(0.35), lineWidth: 1))
+        }
+    }
+}
+
+/// Üres nap: Summitban a gyári `ContentUnavailableView`, Minecraftban
+/// item-ikon + Monocraft cím és leírás (a rendszer-nézet SF-ikont és
+/// rendszerbetűt rajzolna).
+private struct TimetableEmptyState: View {
+    let title: String
+    let icon: String
+    let detail: String
+
+    var body: some View {
+        if MinecraftTheme.isActive {
+            VStack(spacing: 12) {
+                SkinIcon(icon, size: 64)
+                Text(title)
+                    .font(MinecraftTheme.font(.title3))
+                    .multilineTextAlignment(.center)
+                Text(detail)
+                    .font(MinecraftTheme.font(.subheadline))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .accessibilityElement(children: .combine)
+        } else {
+            ContentUnavailableView(title, systemImage: icon, description: Text(detail))
+        }
+    }
+}
+
+private extension View {
+    /// Heti lapozó gombjai: Summitban `.plain`, Minecraftban kompakt kő-gomb.
+    @ViewBuilder
+    func mcCompactOrPlainButton() -> some View {
+        if MinecraftTheme.isActive {
+            self.buttonStyle(McButtonStyle(compact: true))
+        } else {
+            self.buttonStyle(.plain)
+        }
+    }
+
+    /// Csak Minecraftban kő-gomb stílus (Summitban a gombnak nincs explicit stílusa).
+    @ViewBuilder
+    func mcCompactButtonIfActive() -> some View {
+        if MinecraftTheme.isActive {
+            self.buttonStyle(McButtonStyle(compact: true))
+        } else {
+            self
+        }
+    }
+
+    /// Szöveges akciógomb: Summitban `.plain` (a felirat maga rajzolja a
+    /// kapszulát), Minecraftban teljes kő-gomb.
+    @ViewBuilder
+    func mcButtonOrPlain() -> some View {
+        if MinecraftTheme.isActive {
+            self.buttonStyle(McButtonStyle())
+        } else {
+            self.buttonStyle(.plain)
         }
     }
 }
