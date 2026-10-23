@@ -29,9 +29,27 @@ final class SessionStore: ObservableObject {
     /// Betöltés közben a didSet-ek nem írnak vissza (egy SessionStore()
     /// példányosítás így nem jár Keychain-írással).
     private var isLoading = false
+    /// Folyamatszintű írás-számláló: minden sikeres persist lépteti. A fő
+    /// példány ebből tudja, hogy egy másik példány (háttér-ébresztés tokent
+    /// rotált) írt-e azóta — csak akkor kell a Keychainből újratölteni.
+    private static var persistRevision = 0
+    private var loadedRevision = 0
+    /// A kiválasztott user ID-ja folyamatszinten gyorstárazva (a Live
+    /// Activity percenkénti syncje eddig ehhez minden alkalommal új
+    /// SessionStore-t — Keychain-olvasást + dekódolást — épített).
+    private static var cachedSelectedUserId: String??
+
+    /// A kiválasztott user ID-ja Keychain-olvasás nélkül (az első hívás tölt).
+    static func selectedUserId() -> String? {
+        if let cached = cachedSelectedUserId { return cached }
+        let id = SessionStore().selectedUser?.id
+        cachedSelectedUserId = .some(id)
+        return id
+    }
 
     init() {
         load()
+        loadedRevision = Self.persistRevision
         // Screenshot/demo helper: if running in simulator with FIRKA_DEMO=1, inject demo user
         if users.isEmpty, ProcessInfo.processInfo.arguments.contains("-FIRKA_DEMO") || UserDefaults.standard.bool(forKey: "FIRKA_DEMO") {
             let d = AppUser.demo
@@ -72,6 +90,7 @@ final class SessionStore: ObservableObject {
         users = decoded.users
         selectedId = decoded.selectedId
         isLoading = false
+        Self.cachedSelectedUserId = .some(selectedUser?.id)
         if legacy != nil {
             // Átállás: Keychainbe írás, siker esetén a régi nyílt másolat törlődik.
             lastPersisted = nil
@@ -86,6 +105,9 @@ final class SessionStore: ObservableObject {
         guard let data = try? JSONEncoder().encode(stored), data != lastPersisted else { return }
         let status = KeychainHelper.save(data, service: Self.keychainService, account: Self.keychainAccount,
                                          accessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
+        Self.persistRevision += 1
+        loadedRevision = Self.persistRevision
+        Self.cachedSelectedUserId = .some(selectedUser?.id)
         if status == errSecSuccess {
             UserDefaults.standard.removeObject(forKey: key)
         } else {
@@ -95,6 +117,13 @@ final class SessionStore: ObservableObject {
         }
         lastPersisted = data
     }
+    /// Előtérbe hozáskor: újratöltés, ha egy másik példány azóta írt.
+    func reloadIfChangedElsewhere() {
+        guard loadedRevision != Self.persistRevision else { return }
+        load()
+        loadedRevision = Self.persistRevision
+    }
+
     /// Azonos fiók új belépése (pl. lejárt munkamenet után): ilyenkor a
     /// SummitApp selectedId-figyelője NEM kapcsolhatja ki a szinkront —
     /// csak a valódi fiókváltás (eltérő accountKey) vagy a kijelentkezés.

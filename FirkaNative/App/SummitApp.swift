@@ -75,7 +75,13 @@ struct SummitApp: App {
     /// - Parameter event: nil = napi (előtér), különben azonnali esemény
     ///   ("login" belépéskor, "consent" bekapcsoláskor).
     private func sendHeartbeat(event: String? = nil) async {
-        await session.refreshSchoolName(kreta: kreta)
+        // Előbb a hozzájárulás és a napi ritkítás: kikapcsolt statisztikánál
+        // vagy ma már elküldött napi jelzésnél az iskolanév-pótlás (akár két
+        // hálózati kör: KRÉTA-adatlap + userinfo) sem fut — eddig minden
+        // előtérbe hozáskor lefutott, a beleegyezés ellenőrzése előtt.
+        guard analytics.isEnabled else { return }
+        if event == nil, analytics.heartbeatSentToday { return }
+        _ = await session.refreshSchoolName(kreta: kreta)
         // Kézi felülírás nyer (Beállítások → Fiók), különben az adatlap neve.
         // A kódot is küldjük: ha a név használhatatlan, a szerver a kódból
         // oldja fel az iskolát (CODEBOOK).
@@ -128,10 +134,10 @@ struct SummitApp: App {
                     // takarítás: régi hardcoded flag már nem használt
                     UserDefaults.standard.removeObject(forKey: "timetable.useHardcoded")
                     // Frissítő (már belépett user) indításkor: ha nincs semmi
-                    // beállítva, az admin iskolai naptár legyen a default.
-                    if session.selectedUser != nil {
-                        resolveSchoolCalendar()
-                    }
+                    // beállítva, az admin iskolai naptár legyen a default —
+                    // napi max egyszer (eddig minden indításkor Firestore-kör
+                    // + App Check, ha nem volt esemény).
+                    resolveSchoolCalendarForUpdater()
                     // Apple Watch: megnyitásra menjen át az órarend + a
                     // jegyek az órára — nem kell hozzá tabokra menni.
                     Task { await WatchAutoPush.refreshIfNeeded(session: session, kreta: kreta, completed: completed) }
@@ -209,7 +215,10 @@ struct SummitApp: App {
                         // és perzisztálta az újakat — a memóriában lévő régi
                         // refresh tokennel próbálkozva az IDP eldobná a kérést,
                         // és egy élő munkamenetre kapnánk hamis "lejárt" popupot.
-                        session.load()
+                        // Csak ha egy másik SessionStore-példány (háttér-
+                        // ébresztés) azóta tényleg írt — különben fölösleges
+                        // Keychain-olvasás + dekódolás minden előtérbe hozáskor.
+                        session.reloadIfChangedElsewhere()
                         let oldRT = kreta.refreshToken
                         kreta.bind(session.selectedUser)
                         if kreta.refreshToken != oldRT {
