@@ -123,8 +123,7 @@ static func skinRowBackground(_ color: Color) -> some View {
     /// nem találja meg megbízhatóan).
     static func mcPixelImage(_ name: String, size: CGFloat) -> some View {
         Group {
-            if let path = Bundle.main.path(forResource: name, ofType: "png"),
-               let ui = UIImage(contentsOfFile: path) {
+            if let ui = MinecraftTheme.sprite(name) {
                 Image(uiImage: ui)
                     .resizable()
                     .interpolation(.none)

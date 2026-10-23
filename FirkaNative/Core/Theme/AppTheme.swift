@@ -120,7 +120,16 @@ extension View {
     /// Beviteli mező látható dobozzal: a csupasz TextField nem jelzi,
     /// hogy oda szöveget kell írni — ez ad neki hátteret + keretet.
     /// Világos és sötét módban is olvasható, kontrasztot nem tör meg.
+    @ViewBuilder
     func summitInput() -> some View {
+        if MinecraftTheme.isActive {
+            self.modifier(McTextFieldFrame())
+        } else {
+            summitInputBox()
+        }
+    }
+
+    private func summitInputBox() -> some View {
         self
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
