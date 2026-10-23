@@ -289,7 +289,7 @@ struct SettingsView: View {
                                 .rotationEffect(.degrees(calendarExpanded ? 180 : 0))
                         }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.skinPlain)
                     .accessibilityValue(calendarExpanded ? "kinyitva" : "zárva")
                 }
                 if calendarExpanded {
@@ -371,7 +371,7 @@ struct SettingsView: View {
                                 .rotationEffect(.degrees(accountExpanded ? 180 : 0))
                         }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.skinPlain)
                     .accessibilityValue(accountExpanded ? "kinyitva" : "zárva")
                 }
                 if accountExpanded {

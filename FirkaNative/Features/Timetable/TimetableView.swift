@@ -1029,7 +1029,7 @@ struct TimetableView: View {
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.skinPlain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label)
         .accessibilityAddTraits(isSel ? [.isButton, .isSelected] : .isButton)

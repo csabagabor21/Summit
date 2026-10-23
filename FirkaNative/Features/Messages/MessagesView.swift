@@ -166,7 +166,7 @@ struct MessagesView: View {
                     SkinIcon(expanded ? "chevron.up" : "chevron.down")
                         .skinFont(.caption, weight: .semibold).foregroundStyle(.tertiary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.skinPlain)
             }
             .contentShape(Rectangle())
             .onTapGesture { toggleNote(n.id, expanded: expanded) }

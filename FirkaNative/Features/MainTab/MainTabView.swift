@@ -122,7 +122,7 @@ struct MainTabView: View {
         }
         .onChange(of: selected) { _, tab in
             // Széles elrendezés (rendszer-tabsáv): itt nincs hotbar-callback.
-            if theme.isMinecraft, !useCustomHotbar { McSound.play(.click) }
+            if theme.isMinecraft, !useCustomHotbar { McSound.play(.tab) }
             // Minden tabváltást hirdetünk — a másik eszköz dockjában
             // ettől jön fel a Summit ikon az aktuális hellyel.
             HandoffCenter.shared.setTab(tab)
@@ -249,8 +249,9 @@ struct MainTabView: View {
             selected: selected
         ) { tab in
             SummitHaptics.selection()
-            // A hotbar-slot kattan, mint a játékban (csak MC-skinben szól).
-            McSound.play(.click)
+            // A hotbar-slot kattan, mint a játékban (csak MC-skinben szól) —
+            // a tabsáv a legerősebb kattanás, a sima gomboké halkabb.
+            McSound.play(.tab)
             if tab == selected {
                 mcRootTokens[tab, default: 0] += 1
             } else {

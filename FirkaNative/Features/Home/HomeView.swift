@@ -79,7 +79,7 @@ struct HomeView: View {
                                     .skinFont(.caption, weight: .semibold).foregroundStyle(.tertiary)
                             }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.skinPlain)
                         .listRowBackground(MinecraftTheme.skinRowBackground(colors.surface))
                         .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)))
                         .listRowSeparator(.hidden)
@@ -404,9 +404,9 @@ struct HomeView: View {
                                     }
                                 }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.skinPlain)
                         NavigationLink { SettingsView().mcBackButton() } label: { ProfileImageView(name: NicknameStore.displayName(for: user), userId: ProfileImageStore.key(userId: user.id, accessToken: user.accessToken), size: 30) }
-                            .buttonStyle(.plain) // különben a rendszer glass-pilleket tesz a kör mögé
+                            .buttonStyle(.skinPlain) // különben a rendszer glass-pilleket tesz a kör mögé
                     }
                 }
                 .skinToolbarBackground()

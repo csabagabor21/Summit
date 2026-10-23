@@ -512,7 +512,7 @@ struct NotesView: View {
                     .font(.system(size: 22))
                     .foregroundStyle(done ? Color.green : .secondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.skinPlain)
             .padding(.top, 2)
             VStack(alignment: .leading, spacing: 6) {
                 // Csak a fejléc és az előnézet nyit-csuk — a kinyitott
@@ -565,7 +565,7 @@ struct NotesView: View {
                     .foregroundStyle(.tertiary)
                     .padding(.top, 6)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.skinPlain)
         }
         .listRowBackground(MinecraftTheme.skinRowBackground(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface))
         .listRowInsets(MinecraftTheme.rowInsets(nil))
@@ -600,7 +600,7 @@ struct NotesView: View {
                     .font(.system(size: 22))
                     .foregroundStyle(ready ? Color.green : .secondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.skinPlain)
             .padding(.top, 2)
             VStack(alignment: .leading, spacing: 6) {
                 HStack { Text(exam.subject).skinFont(.subheadline, weight: .semibold); if CustomTasksStore.isCustomId(exam.id) { Text("Saját").skinFont(.caption2, weight: .bold).foregroundStyle(colors.accent).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: colors.accent.opacity(0.12)) }; Spacer(); if rolled { Text("Pótló").skinFont(.caption2, weight: .bold).foregroundStyle(.red).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: Color.red.opacity(0.12)) }; if let n = exam.lessonIndex { Text("\(n). óra").skinFont(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: Color.orange.opacity(0.14)) } }
@@ -660,7 +660,7 @@ struct NotesView: View {
                     .foregroundStyle(.tertiary)
                     .padding(.top, 6)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.skinPlain)
         }
         // Pótló dolgozat piros háttere (mint a kipipált zöld, csak piros) —
         // a kész (zöld) állapot nyer, ha mindkettő igaz.
@@ -864,7 +864,7 @@ struct LessonPickerSheet: View {
                                             .foregroundStyle(.tertiary)
                                     }
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(.skinPlain)
                             }
                         }
                     }

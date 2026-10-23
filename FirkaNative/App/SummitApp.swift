@@ -111,6 +111,8 @@ struct SummitApp: App {
                 .sensoryFeedback(.alignment, trigger: HapticRelay.shared.selectionTick)
                 .sensoryFeedback(.levelChange, trigger: HapticRelay.shared.commitTick)
                 .tint(theme.isMinecraft ? MinecraftTheme.grass : theme.accent)
+                // Minecraftban minden stílus nélküli gomb halkan kattan.
+                .buttonStyle(McClickButtonStyle())
                 .preferredColorScheme(theme.mode.scheme)
                 .onAppear {
                     // Macen (iPad-app Macen) ne tudjon pici ablakba zsugorodni

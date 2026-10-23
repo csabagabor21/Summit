@@ -396,6 +396,7 @@ struct SkinNavLink<Destination: View, Label: View>: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .mcLinkClick()
         } else {
             NavigationLink { destination() } label: { label() }
         }

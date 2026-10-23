@@ -127,7 +127,7 @@ struct GradesView: View {
                                                     Spacer()
                                                     SkinIcon("chevron.right", size: 14).skinFont(.caption2, weight: .semibold).foregroundStyle(.tertiary)
                                                 }.padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 14))
-                                            }.buttonStyle(.plain)
+                                            }.buttonStyle(.skinPlain)
                                         } else {
                                             Button {
                                                 SummitHaptics.selection()
@@ -140,7 +140,7 @@ struct GradesView: View {
                                                     Spacer()
                                                     SkinIcon("chevron.right", size: 14).skinFont(.caption2, weight: .semibold).foregroundStyle(.tertiary)
                                                 }.padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 14))
-                                            }.buttonStyle(.plain)
+                                            }.buttonStyle(.skinPlain)
                                         }
                                     }
                                 }.padding(.horizontal, 16).padding(.vertical, 8)
@@ -308,6 +308,7 @@ struct GradesView: View {
                     SkinIcon("chevron.right", size: 14).foregroundStyle(.tertiary)
                 }
             }
+            .mcLinkClick()
         } else {
             NavigationLink(value: subject) { content() }
         }

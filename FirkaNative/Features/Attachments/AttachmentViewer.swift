@@ -96,7 +96,7 @@ struct AttachmentRow: View {
                         .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
                 )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.skinPlain)
         }
     }
 }
