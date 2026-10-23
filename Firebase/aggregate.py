@@ -417,11 +417,33 @@ def resolve_pin(name, pin_by_name, alias, geocode=None):
     return make_pin(lon, lat, city, "gazetteer")
 
 
+MAX_NAME_LEN = 120
+UNSAFE_NAME_CHARS = set('<>"\'`{}\\')
+UNSAFE_NAME_PARTS = ("://", "www.", "http")
+
+
+def is_safe_name(t):
+    """Kliens-oldalról jött iskolanév kerülhet-e a nyilvános térképre és a
+    Nominatim-lekérdezésbe. A `school_name` bárki által írható (heartbeat),
+    ezért a jelölő-, idéző- és vezérlőkarakteres, link-szerű vagy túl hosszú
+    nevet eldobjuk: így a weboldalon nem lehet belőle HTML/JS-befecskendezés
+    vagy reklámlink, és a geokódolót sem etetjük szeméttel."""
+    if len(t) > MAX_NAME_LEN:
+        return False
+    if any(c in UNSAFE_NAME_CHARS or ord(c) < 32 or ord(c) == 127
+           or 0x80 <= ord(c) < 0xA0 for c in t):
+        return False
+    low = t.lower()
+    return not any(p in low for p in UNSAFE_NAME_PARTS)
+
+
 def usable_name(name):
-    """Küldhető-e térképre a név, vagy kód/demo/üres (az app szűrőjével
-    összhangban)."""
+    """Küldhető-e térképre a név, vagy kód/demo/üres/veszélyes (az app
+    szűrőjével összhangban, plusz `is_safe_name`)."""
     t = (name or "").strip()
     if len(t) < 2:
+        return None
+    if not is_safe_name(t):
         return None
     low = t.lower()
     if low in ("demo", "unknown", "demo iskola", "diák"):

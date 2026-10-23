@@ -3,9 +3,12 @@
 ## Ami már él (Spark-csomagon, kész)
 
 - Firestore adatbázis: `(default)`, `eur3`, `FIRESTORE_NATIVE` — létrehozva.
-- Rules deployolva: [`firestore.rules`](firestore.rules)
-  (heartbeats: csak létrehozás szigorú sémával; public/*: nyilvános olvasás;
-  minden más: tiltva). Élőben tesztelve: jó írás 200, rossz 403, lista 403.
+- Rules: [`firestore.rules`](firestore.rules)
+  (heartbeats: csak létrehozás szigorú sémával, UUID-alakú install_id-vel;
+  `public/map`: nyilvános olvasás, a `public` többi doca nem olvasható;
+  `sync2`: titkosított beállítás-szinkron; `sync`: legacy, 2. fázisban
+  törlendő; minden más: tiltva). Emulátoros tesztek:
+  [`rules-tests/`](rules-tests/README.md) — deploy előtt futtatandók.
 - Web app (`Summit web`) létrehozva — az API-kulcs publikus, a rules véd.
 - `public/map` demo dok feltöltve — a weboldal térképe **ezt most élőben olvassa**.
 - Az app közvetlenül ír a Firestore-ba (nincs köztes backend) —
@@ -26,22 +29,13 @@ Kézi futtatás helyben (gcloud-belépéssel):
 python3 Firebase/aggregate.py
 ```
 
-## Amihez Blaze kell (opcionális: számlázás bekapcsolása a konzolban)
+## Megőrzés (TTL) Blaze nélkül
 
-Blaze nélkül a Cloud Functions / Scheduler / TTL API tiltott
-(`billingEnabled: false`). A használatunk bőven az ingyenes keretben van
-(napi pár száz írás + 1 összesítés), de a kártyát egyszer hozzá kell adni:
-Firebase Console → summit-14b74 → Upgrade (vagy Cloud Console → Billing).
-
-Ha megvan, innen folytatjuk:
-
-```bash
-cd Firebase
-npm --prefix functions install
-firebase deploy --only functions --project summit-14b74   # submitHeartbeat + aggregateMap
-```
-
-majd TTL:
+Cloud Functions nincs (Sparkon nem deployolható; a régi `functions/`
+mappát az `aggregate.py` váltotta ki, ezért törölve). A 365 napnál régebbi
+heartbeat-rekordokat az `aggregate.py` törli óránként. Ha egyszer Blaze-re
+vált a projekt, a natív TTL is bekapcsolható — minden rekord eleve
+`expiresAt`-tel (createdAt + 365 nap) íródik:
 
 ```bash
 gcloud firestore fields ttls update expiresAt \
@@ -49,10 +43,30 @@ gcloud firestore fields ttls update expiresAt \
   --project=summit-14b74 --database='(default)'
 ```
 
-Addig: minden rekord `expiresAt`-tel (createdAt + 365 nap) íródik, tehát a
-TTL-policy utólag is érvényesül a meglévő rekordokra. Az `aggregateMap`
-első lefutása után a `public/map` `demo: false`-ra vált, és a térkép
-felirata magától átáll élőre.
+## Közös Gemini-tartalék — már NEM a Firestore-ban
+
+A korábbi `public/ai_fallback` doc (`geminiKey`, `geminiModel`) bárki által
+olvasható volt, vagyis a közös Gemini-kulcs gyakorlatilag publikus volt.
+Mostantól:
+
+- A kulcs a Cloudflare worker `GEMINI_KEY` secretje (modell: `GEMINI_MODEL`
+  var), lásd [`LiveActivityPush/README.md`](../LiveActivityPush/README.md).
+- Az app a worker `POST /ai/generate` végpontját hívja, Firebase App
+  Check-tokennel (`X-Firebase-AppCheck`); token nélkül a worker 401-et ad.
+  A kulcs és a modellnév sosem jut el a klienshez.
+- Teendő egyszer: a régi kulcs **visszavonása** a Google AI Studióban, a
+  `public/ai_fallback` doc **törlése** a konzolból, új kulcs a workerbe.
+  (A rules már akkor sem engedné olvasni, ha a doc megmaradna.)
+
+## Szabálytesztek és deploy
+
+```bash
+cd Firebase/rules-tests && npm install && cd ..
+firebase emulators:exec --only firestore --project demo-summit "npm --prefix rules-tests test"
+```
+
+Az emulátorhoz Java 21 kell. A tesztek a `demo-summit` projekten futnak,
+az éles adatbázishoz nem nyúlnak.
 
 ## Iskolanevek → térkép (automatikus, rád nem vár semmi)
 
