@@ -155,7 +155,22 @@ struct HomeView: View {
                                 }
                             }.mcListRow(fill: colors.surface)
                         }
-                        McNavLink { GradesView() } label: { Text("Összes jegy") }.mcListRow(fill: colors.surface)
+                        // A Jegyek tabra vált, nem push-ol egy második
+                        // GradesView-t: annak saját NavigationStackje a Főoldal
+                        // stackjébe ágyazva a tárgyról visszalépve a Főoldalig
+                        // dobott vissza.
+                        Button {
+                            NotificationCenter.default.post(name: Notification.Name("summit.switchToGrades"), object: nil)
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text("Összes jegy").foregroundStyle(.primary)
+                                Spacer()
+                                SkinIcon("chevron.right", size: 14).skinFont(.footnote, weight: .semibold).foregroundStyle(.tertiary)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.skinPlain)
+                        .mcListRow(fill: colors.surface)
                     }
                 } header: { Text("Legújabb jegyek").mcSectionHeader() }
 

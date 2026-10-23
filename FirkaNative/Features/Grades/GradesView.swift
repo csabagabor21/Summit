@@ -275,7 +275,7 @@ struct GradesView: View {
             }
             .task { await load() }
             .navigationDestination(for: String.self) { subject in
-                SubjectDetailView(subject: subject, grades: gradesFor(subject)).mcBackButton()
+                SubjectDetailView(subject: subject, grades: gradesFor(subject)).mcBackButton().mcPushClick()
             }
             .onChange(of: grades) { _, _ in
                 if selectedTab == .felevi && feleviGrades.isEmpty { selectedTab = .evkozi }
@@ -308,7 +308,6 @@ struct GradesView: View {
                     SkinIcon("chevron.right", size: 14).foregroundStyle(.tertiary)
                 }
             }
-            .mcLinkClick()
         } else {
             NavigationLink(value: subject) { content() }
         }
