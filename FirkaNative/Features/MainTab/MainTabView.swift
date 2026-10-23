@@ -65,9 +65,11 @@ struct MainTabView: View {
                     .overlay(alignment: .bottom) {
                         mcHotbar.padding(.bottom, 6)
                     }
-                // Az ég a fűsáv mögé is lenyúlik: a növények az égre rajzolódnak,
-                // nem a tab-tartalom alatti üres (fehér) sávra.
-                .background { MinecraftBackdrop(ground: false) }
+                // Nincs külön ég a tab-tartalom mögött: a tab-oldalak opakok, így
+                // az itteni égbolt sosem látszott (szimulátoron ellenőrizve) —
+                // csak futott (felhő-animációk, percenkénti újrarajzolás). A fű
+                // és a virágok mögött a lista saját ege látszik, az a teljes
+                // képernyőt kitölti (summitListChrome → ignoresSafeArea).
             } else {
                 tabContent
             }
