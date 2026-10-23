@@ -968,7 +968,7 @@ struct SettingsView: View {
             summitSync.status = "min. 8 karakteres jelmondat kell"
             return
         }
-        guard SummitSync.syncId(accessToken: at, passphrase: summitSyncPassphrase) != nil else {
+        guard SummitSync.canSync(accessToken: at, passphrase: summitSyncPassphrase) else {
             summitSync.status = "nem olvasható a fiókazonosító"
             return
         }

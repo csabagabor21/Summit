@@ -43,7 +43,9 @@ final class KretaClient: ObservableObject {
     private var isRefreshing = false
     private var refreshWaiters: [CheckedContinuation<Bool, Never>] = []
 
-    func exchangeCode(_ code: String) async throws -> TokenResponse {
+    /// - Parameter codeVerifier: az adott belépéshez készült PKCE-verifier
+    ///   (`KretaAPI.makeAuthorizationRequest`).
+    func exchangeCode(_ code: String, codeVerifier: String) async throws -> TokenResponse {
         var req = URLRequest(url: KretaAPI.login)
         req.httpMethod = "POST"
         req.setValue("application/x-www-form-urlencoded; charset=UTF-8", forHTTPHeaderField: "content-type")
@@ -51,7 +53,7 @@ final class KretaClient: ObservableObject {
         req.setValue(userAgent, forHTTPHeaderField: "user-agent")
         let body: [String: String] = [
             "code": code,
-            "code_verifier": KretaAPI.codeVerifier,
+            "code_verifier": codeVerifier,
             "redirect_uri": KretaAPI.redirectURI,
             "client_id": KretaAPI.clientId,
             "grant_type": "authorization_code"

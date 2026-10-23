@@ -30,6 +30,9 @@ struct SummitApp: App {
         // Realtime szinkron: csak ha a GoogleService-Info.plist a
         // bundle-ben van; nélküle néma, a REST-út marad.
         SummitSync.configureIfNeeded()
+        // A régi appverziók által eltárolt közös Gemini-kulcs törlése
+        // (a kulcs azóta csak a workerben él, lásd GeminiFallback).
+        GeminiFallback.purgeLegacyCache()
     }
 
     /// Admin iskolai naptár: belépéskor / iskolakód-váltáskor automatikus

@@ -47,7 +47,8 @@ enum SchoolCalendarDirectory {
         return t
     }
 
-    /// Admin-bejegyzés lekérése (publikus doc, auth nélkül — a rules engedi).
+    /// Admin-bejegyzés lekérése (publikus doc, a rules engedi; App Check
+    /// tokennel, mert a Firestore enforce után anélkül elutasít).
     /// `nil` = nincs bejegyzés vagy hálózati hiba (a hívó ilyenkor a kézi
     /// útra esik vissza — nincs hibaüzenet, ez a normál eset).
     static func fetchEntry(instituteCode: String) async -> Entry? {
@@ -55,8 +56,10 @@ enum SchoolCalendarDirectory {
               let url = URL(string: "https://firestore.googleapis.com/v1/projects/\(projectId)/databases/(default)/documents/school_calendars/\(key)?key=\(apiKey)") else {
             return nil
         }
+        var req = URLRequest(url: url)
+        await SummitAppCheck.attach(to: &req)
         do {
-            let (data, resp) = try await URLSession.shared.data(from: url)
+            let (data, resp) = try await URLSession.shared.data(for: req)
             guard (resp as? HTTPURLResponse)?.statusCode == 200,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let fields = json["fields"] as? [String: Any],

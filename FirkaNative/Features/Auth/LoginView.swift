@@ -102,7 +102,7 @@ struct LoginView: View {
         .sheet(isPresented: $showWeb) {
             NavigationStack {
                 VStack(spacing: 0) {
-                    KretaWebView(onCode: { code in showWeb=false; Task { await vm.handleCode(code, kreta: kreta, session: session) } }, onDemo: { showWeb=false; vm.loginDemo(session: session) }, onError: { msg in webError = msg })
+                    KretaWebView(onCode: { code, verifier in showWeb=false; Task { await vm.handleCode(code, codeVerifier: verifier, kreta: kreta, session: session) } }, onDemo: { showWeb=false; vm.loginDemo(session: session) }, onError: { msg in webError = msg })
                         .ignoresSafeArea()
                     if let err = webError {
                         VStack(spacing: 8) {

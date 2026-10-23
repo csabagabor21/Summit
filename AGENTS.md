@@ -85,8 +85,9 @@ nélkül, csak az, amit a user észrevesz.
 
 ## Beállítás-szinkron (kötelező minden új user-állítható feature-re)
 Ha új, a user által állítható állapotot vezetsz be (kapcsoló, csúszka, pipa,
-választás — BÁRMIT), azt KÖTELEZŐ bekötni a `SummitSync`-szinkronba (`sync`
-Firestore-collection, Blaze-mentes). Kivétel csak az alábbi listán szerepelhet;
+választás — BÁRMIT), azt KÖTELEZŐ bekötni a `SummitSync`-szinkronba (`sync2`
+Firestore-collection, végponttól végpontig titkosított, Blaze-mentes; a régi
+nyílt `sync` csak az átálláshoz él, új mező oda NEM kerül). Kivétel csak az alábbi listán szerepelhet;
 minden más szinkronizálandó:
 - Szinkronizálandó minta: téma, kiemelőszín, szövegméret, profilkép,
   tanári kerekítés, felmentések, házi/dolgozat pipák, értesítési kapcsolók,
@@ -100,8 +101,30 @@ minden más szinkronizálandó:
 - Hogyan: a store írása postoljon `NotificationCenter`-dirty-t (minta:
   `GradingLogic.changedNotification`) VAGY a szerkesztő nézet hívja a
   `summitSync.markDirty(<mező>)`-t — a `SummitSync` 2 mp-es összevonással, csak a megjelölt mezőket tölti fel.
-  Új mező = új kulcs a `Payload`-ban + `pushNow`/`parse`/`parseSnapshot` +
-  `applyRemote` + séma a `Firebase/firestore.rules`-ben (`isValidSyncDoc`,
-  minden stringre méretkorlát, listázás tiltva).
-- Személyes adat (név, OM, e-mail, token, jegy) a `sync` docba SEMMILYEN
-  formában nem kerülhet — a kulcs kizárólag eszközön képzett SHA256-lenyomat.
+  Új mező = új eset a `SummitSyncField`-ben + kulcs a `Payload`-ban +
+  `pushNow`/`parse` + `applyRemote` + a titkosított méretkorlát a
+  `SummitSyncKey.maxCipherChars`-ban ÉS a `Firebase/firestore.rules`-ben
+  (`sync2Fields`, `sync2TsFields`, `encOk(...)` az `isValidSync2Doc`-ban —
+  a kettőnek egyeznie kell), plusz rules-teszt a `Firebase/rules-tests`-ben.
+- A `sync2` docban minden mezőérték AES-GCM-mel titkosított (a kulcs a
+  jelmondatból PBKDF2-vel, csak az eszközön képződik); nyíltan csak a
+  doc-ID, a `v`, az `updatedAt` és a `ts_*` bélyegek mennek fel.
+  Titkosítatlan mezőt a `sync2`-be írni TILOS.
+- Személyes adat (név, OM, e-mail, token, jegy) a sync docba SEMMILYEN
+  formában nem kerülhet.
+
+## Backend-biztonság (minden AI-asszisztensre vonatkozik)
+A repo nyilvános: minden kulcs, végpont és séma, ami itt van, mindenki
+számára látszik. Ezért:
+- Titok (API-kulcs, jelszó, `.p8`, service-account) SOHA nem kerülhet se
+  a repóba, se az appba, se nyilvánosan olvasható Firestore-docba. A közös
+  Gemini-kulcs csak a Cloudflare-workerben él (`GEMINI_KEY` secret), az app
+  a `/ai/generate` proxyn át éri el.
+- Minden új Summit-backend hívás (Firestore REST, worker) kapjon App Check
+  tokent: `await SummitAppCheck.attach(to: &request)`. A Firestore-SDK ezt
+  magától teszi.
+- Belépési adat és felhasználói kulcs Keychainbe megy
+  (`KeychainHelper`, `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`),
+  nem UserDefaultsba.
+- A KRÉTA-belépés PKCE-anyaga (verifier, nonce, state) belépésenként friss
+  (`KretaAPI.makeAuthorizationRequest`) — fix érték nem kerülhet vissza.

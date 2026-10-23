@@ -7,11 +7,11 @@ final class AuthViewModel: ObservableObject {
     @Published var error: String?
     @Published var code: String?
 
-    func handleCode(_ code: String, kreta: KretaClient, session: SessionStore) async {
+    func handleCode(_ code: String, codeVerifier: String, kreta: KretaClient, session: SessionStore) async {
         isLoading = true
         error = nil
         do {
-            let token = try await kreta.exchangeCode(code)
+            let token = try await kreta.exchangeCode(code, codeVerifier: codeVerifier)
             // Institut-fejtés próbálgatással (refilc-minta: az iskolalista halott,
             // a tokenben lévő rövid kód meg nem host): minden jelöltet
             // végigpróbálunk access token + id_token + userinfo forrásokból,

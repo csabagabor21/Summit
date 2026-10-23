@@ -9,9 +9,10 @@ import UIKit
 // (ő az egyetlen igazságforrás — a worker csak időzítve kézbesíti APNs-en).
 // Részletek: LiveActivityPush/README.md
 //
-// Biztonság (v1, tudatos egyszerűsítés): a végponton nincs auth — a userId
-// nem titok, a kár legfeljebb egy hamis órarend-push valaki zárképernyőjére.
-// Ha az app kinövi, ide HMAC-aláírás vagy Firebase Auth kerül.
+// Biztonság: minden worker-hívás Firebase App Check tokent visz
+// (`X-Firebase-AppCheck`, lásd SummitAppCheck) — a worker csak a valódi,
+// módosítatlan app kéréseit fogadja el, amint `APPCHECK_ENFORCE=1`.
+// Addig (monitor mód) a token nélküli régi appverziók is működnek.
 
 @MainActor
 final class SummitPushSync {
@@ -180,6 +181,7 @@ final class SummitPushSync {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "content-type")
         req.httpBody = body
+        await SummitAppCheck.attach(to: &req)
         do {
             let (_, resp) = try await URLSession.shared.data(for: req)
             if let http = resp as? HTTPURLResponse, 200..<300 ~= http.statusCode {
@@ -224,8 +226,10 @@ final class SummitPushSync {
         ]
         if preview { comps.queryItems?.append(URLQueryItem(name: "tag", value: "preview")) }
         guard let url = comps.url else { return "rossz URL" }
+        var req = URLRequest(url: url)
+        await SummitAppCheck.attach(to: &req)
         do {
-            let (data, resp) = try await URLSession.shared.data(from: url)
+            let (data, resp) = try await URLSession.shared.data(for: req)
             guard let http = resp as? HTTPURLResponse else { return "nincs HTTP válasz" }
             guard 200..<300 ~= http.statusCode else { return "HTTP \(http.statusCode)" }
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { return "nem JSON válasz" }
@@ -278,6 +282,7 @@ final class SummitPushSync {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "content-type")
         req.httpBody = body
+        await SummitAppCheck.attach(to: &req)
         if let (_, resp) = try? await URLSession.shared.data(for: req),
            let http = resp as? HTTPURLResponse, 200..<300 ~= http.statusCode {
             SummitLiveActivityManager.shared.pushLogEvent(preview ? "preview-terv törölve" : "napi terv törölve a workerből")

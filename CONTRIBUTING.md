@@ -27,6 +27,17 @@ requests, translations, and ideas alike.
    Hungarian for now — English setup docs welcome as a PR!).
 3. Open `Summit.xcodeproj` and build for an iOS 26 Simulator
    (`Summit` scheme, Debug).
+4. Debug builds use the Firebase App Check **debug provider**. On first run
+   it logs a debug token to the Xcode console. Register it in your Firebase
+   project (App Check → Apps → Manage debug tokens), otherwise Firestore and
+   the worker reject the simulator's requests once enforcement is on.
+5. Tests that need no simulator:
+   ```bash
+   sh scripts/synckey_selftest.sh          # sync key derivation + encryption
+   node --test LiveActivityPush/           # push / AI worker
+   python3 -m unittest discover -s Firebase -p "test_*.py"   # map aggregator
+   ```
+   Firestore rules tests: see `Firebase/rules-tests/README.md`.
 
 ## What NOT to put in a PR
 
