@@ -194,7 +194,7 @@ final class KretaClient: ObservableObject {
         diag("\(name): \(m)")
     }
 
-    func get<T: Decodable>(_ url: URL) async throws -> T {
+    func get<T: Decodable & Sendable>(_ url: URL) async throws -> T {
         _ = await ensureValidToken()
         var (data, http) = try await performGetData(url)
         if http.statusCode == 401 {
@@ -211,11 +211,22 @@ final class KretaClient: ObservableObject {
             throw KretaError.http(http.statusCode, String(data: data, encoding: .utf8))
         }
         do {
-            return try JSONDecoder().decode(T.self, from: data)
+            // Dekódolás a főszálon kívül: a jegy-/hiányzás-lista több száz
+            // elemes is lehet, a dátum-parszolással együtt érezhető munka.
+            let payload = data
+            return try await Task.detached(priority: .userInitiated) {
+                try JSONDecoder().decode(T.self, from: payload)
+            }.value
         } catch {
             diag("\(shortURL(url)): decode-hiba (\(data.count) byte)")
             throw error
         }
+    }
+
+    /// Tiszta (UI-független) feldolgozás a főszálon kívül: a KRÉTA-payloadok
+    /// dekódolása, csatolmány-kinyerése és rendezése nem foghatja a UI-t.
+    nonisolated static func offMain<T: Sendable>(_ work: @escaping @Sendable () -> T) async -> T {
+        await Task.detached(priority: .userInitiated, operation: work).value
     }
 
     func getRaw(_ url: URL) async throws -> Data {
@@ -268,33 +279,41 @@ final class KretaClient: ObservableObject {
     // MARK: - Diagnosztika (Beállítások → Diagnosztika)
     /// Időbélyegzett hálózati napló: endpoint + HTTP-státusz + darabszám.
     /// Ha "semmi nem jön be", ez mutatja meg, hogy 401/404/üres-200/dns-hiba.
-    @Published var diagLog: [String] = []
+    /// A sorok a külön `KretaDiagLog`-ban élnek (csak a Diagnosztika figyeli)
+    /// — innen csak olvasásra, újrarajzolás-kiváltás nélkül.
+    var diagLog: [String] { KretaDiagLog.shared.lines }
     /// Órarend-kulcsnapló launch-onként egyszer (a heti darabolás miatt
     /// egy refresh sok órarend-hívást indít — nem spammelhet mindegyik).
     private var loggedTimetableKeys = false
+    /// Házi-lista kulcsnapló launch-onként egyszer (minden lehúzás azonos
+    /// szerkezetet adna, a sor csak a csatolmány-kulcsok helyét mutatja).
+    private var loggedHomeworkKeys = false
+    /// Házi-részlet kulcsnapló launch-onként egyszer (részletenként futott).
+    private var loggedHomeworkDetailKeys = false
     func diag(_ s: String) {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm:ss"
-        diagLog.append("[\(f.string(from: Date()))] \(s)")
-        if diagLog.count > 80 { diagLog.removeFirst(diagLog.count - 80) }
+        KretaDiagLog.shared.append(s)
     }
 
     /// PII-mentes JSON-kulcsnapló: csak a kulcsnevek + a csatolmány-gyanús
     /// kulcsok típus-összefoglalója (értékek, fájlnevek nélkül). Megmutatja,
     /// hol laknak a csatolmányok: lista-elemben, részletben, milyen kulcson.
-    func diagJsonKeys(_ data: Data, label: String) {
+    /// A JSON-bontás a főszálon kívül fut, csak a kész sor kerül a naplóba.
+    func diagJsonKeys(_ data: Data, label: String) async {
+        let line = await Self.offMain { Self.jsonKeysLine(data, label: label) }
+        diag(line)
+    }
+
+    nonisolated static func jsonKeysLine(_ data: Data, label: String) -> String {
         if let d = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             let keys = d.keys.sorted().joined(separator: ",")
             let atts = KretaAttachmentParser.attachmentValueSummary(in: d)
             var line = "\(label) kulcsok: \(keys)"
             if !atts.isEmpty { line += " | " + atts.joined(separator: " ") }
             if line.count > 350 { line = String(line.prefix(350)) + "…" }
-            diag(line)
-            return
+            return line
         }
         guard let arr = try? JSONSerialization.jsonObject(with: data) as? [Any] else {
-            diag("\(label): nem JSON (\(data.count) byte)")
-            return
+            return "\(label): nem JSON (\(data.count) byte)"
         }
         var keys = Set<String>()
         var attHits = 0
@@ -311,7 +330,7 @@ final class KretaClient: ObservableObject {
         var line = "\(label) kulcsok (\(arr.count) elem): \(keys.sorted().joined(separator: ","))"
         if attHits > 0 { line += " [csatolmánykulcs \(attHits) elemben: \(attSamples.joined(separator: " "))]" }
         if line.count > 350 { line = String(line.prefix(350)) + "…" }
-        diag(line)
+        return line
     }
     private func shortURL(_ url: URL) -> String {
         (url.host ?? "?") + url.path
@@ -391,7 +410,7 @@ final class KretaClient: ObservableObject {
             guard let url = KretaAPI.grades(iss) else { self.diag("jegyek: rossz URL"); return self.staleValue(key: key) ?? [] }
             do {
                 let dtos: [KretaGradeDTO] = try await self.get(url)
-                let r = dtos.map { $0.toItem() }.sorted { $0.date > $1.date }
+                let r = await Self.offMain { dtos.map { $0.toItem() }.sorted { $0.date > $1.date } }
                 self.storeValue(r, key: key)
                 self.diag("jegyek: \(r.count) db"); return r
             } catch { self.diagErr("jegyek", error); return self.staleValue(key: key) ?? [] }
@@ -422,16 +441,19 @@ final class KretaClient: ObservableObject {
             let data: Data = try await getRaw(url)
             if !loggedTimetableKeys {
                 loggedTimetableKeys = true
-                diagJsonKeys(data, label: "órarend-minta")
+                await diagJsonKeys(data, label: "órarend-minta")
             }
-            let atts = KretaAttachmentParser.attachmentsByUid(from: data)
-            let r = KretaLessonDTO.lenientItems(from: data).map { item in
-                item.withAttachments(atts[item.id] ?? [])
-            }.sorted { $0.start < $1.start }
-            // Minden sikeres valós órarend a közös tárgy-cache-be is beolvad:
-            // a Felmentés/Kerekítés lista és a Jegyek tab jegy nélküli tárgyai
-            // így akkor is megvannak, ha az átlag-végpontok halottak.
-            Self.mergeCachedSubjects(r.map(\.subject))
+            let r: [LessonItem] = await Self.offMain {
+                let atts = KretaAttachmentParser.attachmentsByUid(from: data)
+                let items = KretaLessonDTO.lenientItems(from: data).map { item in
+                    item.withAttachments(atts[item.id] ?? [])
+                }.sorted { $0.start < $1.start }
+                // Minden sikeres valós órarend a közös tárgy-cache-be is beolvad:
+                // a Felmentés/Kerekítés lista és a Jegyek tab jegy nélküli tárgyai
+                // így akkor is megvannak, ha az átlag-végpontok halottak.
+                Self.mergeCachedSubjects(items.map(\.subject))
+                return items
+            }
             let attCount = r.reduce(0) { $0 + $1.attachments.count }
             storeValue(r, key: key)
             diag("órarend: \(r.count) db" + (attCount > 0 ? " (\(attCount) csatolmány)" : "")); return r
@@ -453,7 +475,7 @@ final class KretaClient: ObservableObject {
         guard let url = KretaAPI.calendarDays(iss, from: from, to: to) else { diag("naptárnapok: rossz URL"); return staleValue(key: key) ?? [] }
         do {
             let data: Data = try await getRaw(url)
-            let r = KretaCalendarDayDTO.items(from: data).sorted { $0.date < $1.date }
+            let r = await Self.offMain { KretaCalendarDayDTO.items(from: data).sorted { $0.date < $1.date } }
             storeValue(r, key: key)
             diag("naptárnapok: \(r.count) db"); return r
         } catch { diagErr("naptárnapok", error); return staleValue(key: key) ?? [] }
@@ -479,18 +501,25 @@ final class KretaClient: ObservableObject {
             let from = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
             guard let listURL = KretaAPI.homework(iss, from: from) else { return [] }
             let listData: Data = try await getRaw(listURL)
-            diagJsonKeys(listData, label: "házi-lista")
-            let dtos = KretaHomeworkDTO.lenientDTOs(from: listData)
-            // A lista-elemek maguk is hordozhatnak csatolmányt — Uid alapján.
-            let listAtts = KretaAttachmentParser.attachmentsByUid(from: listData)
+            if !loggedHomeworkKeys {
+                loggedHomeworkKeys = true
+                await diagJsonKeys(listData, label: "házi-lista")
+            }
             // A tartalmas lista-elemeket azonnal elfogadjuk; a csupasz
             // hivatkozásokhoz (csak Uid) lekérjük a HaziFeladatok/{uid} részletet.
-            var items = dtos.filter { $0.hasContent }.map { item in
-                let it = item.toItem()
-                return it.withAttachments(listAtts[it.id] ?? [])
+            // A lista-elemek maguk is hordozhatnak csatolmányt — Uid alapján.
+            let parsed: (items: [HomeworkItem], missing: [String]) = await Self.offMain {
+                let dtos = KretaHomeworkDTO.lenientDTOs(from: listData)
+                let listAtts = KretaAttachmentParser.attachmentsByUid(from: listData)
+                let items = dtos.filter { $0.hasContent }.map { item in
+                    let it = item.toItem()
+                    return it.withAttachments(listAtts[it.id] ?? [])
+                }
+                let have = Set(items.map { $0.id })
+                return (items, KretaHomeworkDTO.uids(from: listData).filter { !have.contains($0) })
             }
-            let have = Set(items.map { $0.id })
-            let missing = KretaHomeworkDTO.uids(from: listData).filter { !have.contains($0) }
+            var items = parsed.items
+            let missing = parsed.missing
             if (!missing.isEmpty) {
                 let detailed: [HomeworkItem] = await withTaskGroup(of: HomeworkItem?.self) { group in
                     for uid in missing {
@@ -498,17 +527,10 @@ final class KretaClient: ObservableObject {
                             guard let detailURL = KretaAPI.homeworkDetail(iss, id: uid) else { return nil }
                             do {
                                 let d: Data = try await self.getRaw(detailURL)
+                                await self.logHomeworkDetailKeysOnce(d)
                                 // A részlet tömb is lehet (nem csak dict) — mindkettőt fogadjuk,
                                 // különben a házi némán eltűnik a listáról.
-                                let dto: KretaHomeworkDTO?
-                                if let single = try? JSONDecoder().decode(KretaHomeworkDTO.self, from: d) {
-                                    dto = single
-                                } else {
-                                    dto = KretaHomeworkDTO.lenientDTOs(from: d).first
-                                }
-                                await self.diagJsonKeys(d, label: "házi-részlet")
-                                guard let dto else { return nil }
-                                return dto.toItem().withAttachments(KretaAttachmentParser.attachments(from: d))
+                                return await Self.offMain { Self.homeworkDetailItem(from: d) }
                             } catch { return nil }
                         }
                     }
@@ -529,6 +551,25 @@ final class KretaClient: ObservableObject {
         } catch { diagErr("házi", error); return staleValue(key: key) ?? [] }
     }
 
+    /// Házi-részlet payload → tétel (dict vagy egyelemű tömb), csatolmányokkal.
+    nonisolated static func homeworkDetailItem(from d: Data) -> HomeworkItem? {
+        let dto: KretaHomeworkDTO?
+        if let single = try? JSONDecoder().decode(KretaHomeworkDTO.self, from: d) {
+            dto = single
+        } else {
+            dto = KretaHomeworkDTO.lenientDTOs(from: d).first
+        }
+        guard let dto else { return nil }
+        return dto.toItem().withAttachments(KretaAttachmentParser.attachments(from: d))
+    }
+
+    /// A részlet-kulcsnapló launch-onként egyszer (a szerkezet mindegyiknél azonos).
+    private func logHomeworkDetailKeysOnce(_ d: Data) async {
+        guard !loggedHomeworkDetailKeys else { return }
+        loggedHomeworkDetailKeys = true
+        await diagJsonKeys(d, label: "házi-részlet")
+    }
+
     /// Házi-részletek pótlása a Feladatok tabnak: a lista NEM hozza a fájlokat
     /// (csak `IsCsatolasEngedelyezes`-flaget), és az órák `Csatolmanyok`-ja is
     /// lehet végig üres — ilyenkor a `HaziFeladatok/{uid}` részlet adja a
@@ -546,8 +587,8 @@ final class KretaClient: ObservableObject {
                     }
                     guard let url = KretaAPI.homeworkDetail(iss, id: hw.id),
                           let d: Data = try? await self.getRaw(url) else { return (hw.id, []) }
-                    await self.diagJsonKeys(d, label: "házi-részlet")
-                    let atts = KretaAttachmentParser.attachments(from: d)
+                    await self.logHomeworkDetailKeysOnce(d)
+                    let atts = await Self.offMain { KretaAttachmentParser.attachments(from: d) }
                     if !atts.isEmpty { await self.storeValue(atts, key: detailKey) }
                     return (hw.id, atts)
                 }
@@ -574,7 +615,7 @@ final class KretaClient: ObservableObject {
             guard let url = KretaAPI.absences(iss) else { self.diag("hiányzás: rossz URL"); return self.staleValue(key: key) ?? [] }
             do {
                 let dtos: [KretaAbsenceDTO] = try await self.get(url)
-                let r = dtos.map { $0.toItem() }.sorted { $0.date > $1.date }
+                let r = await Self.offMain { dtos.map { $0.toItem() }.sorted { $0.date > $1.date } }
                 self.storeValue(r, key: key)
                 self.diag("hiányzás: \(r.count) db"); return r
             } catch { self.diagErr("hiányzás", error); return self.staleValue(key: key) ?? [] }
@@ -597,10 +638,12 @@ final class KretaClient: ObservableObject {
         do {
             // Lenient: egy hibás elem nem nullázhatja a teljes dolgozatlistát
             let data: Data = try await getRaw(url)
-            let atts = KretaAttachmentParser.attachmentsByUid(from: data)
-            let r = KretaExamDTO.lenientItems(from: data).map { item in
-                item.withAttachments(atts[item.id] ?? [])
-            }.sorted { $0.date < $1.date }
+            let r: [ExamItem] = await Self.offMain {
+                let atts = KretaAttachmentParser.attachmentsByUid(from: data)
+                return KretaExamDTO.lenientItems(from: data).map { item in
+                    item.withAttachments(atts[item.id] ?? [])
+                }.sorted { $0.date < $1.date }
+            }
             storeValue(r, key: key)
             diag("dolgozat: \(r.count) db"); return r
         } catch { diagErr("dolgozat", error); return staleValue(key: key) ?? [] }
@@ -648,7 +691,7 @@ final class KretaClient: ObservableObject {
             guard let url = KretaAPI.messages(box) else { self.diag("üzenet/\(box.rawValue): rossz URL"); return self.staleValue(key: key).map(self.applyingLocalRead) ?? [] }
             do {
                 let data: Data = try await self.getRaw(url)
-                let items = KretaMessageDTO.lenientItems(from: data).sorted { $0.date > $1.date }
+                let items = await Self.offMain { KretaMessageDTO.lenientItems(from: data).sorted { $0.date > $1.date } }
                 // Nyers (jelöletlen) lista megy a tárolóba — a visszaolvasáskor
                 // vetítjük rá az aktuális olvasott-jelöléseket.
                 self.storeValue(items, key: key)
@@ -674,7 +717,7 @@ final class KretaClient: ObservableObject {
             guard let url = KretaAPI.notes(iss) else { self.diag("feljegyzés: rossz URL"); return self.staleValue(key: key) ?? [] }
             do {
                 let data: Data = try await self.getRaw(url)
-                let r = KretaNoteDTO.lenientItems(from: data).sorted { $0.date > $1.date }
+                let r = await Self.offMain { KretaNoteDTO.lenientItems(from: data).sorted { $0.date > $1.date } }
                 self.storeValue(r, key: key)
                 self.diag("feljegyzés: \(r.count) db"); return r
             } catch { self.diagErr("feljegyzés", error); return self.staleValue(key: key) ?? [] }
@@ -748,8 +791,9 @@ final class KretaClient: ObservableObject {
     /// Közös tárgy-cache a Jegyek tab, a Felmentés és a Kerekítés listáihoz.
     /// Csak valós backendről töltjük (demo sosem szennyezi); a hívók a
     /// hálózati listával egyesítve mutatják. Üres/„Ismeretlen” nem kerül be.
-    static let cachedSubjectsKey = "firka.cachedSubjects.v1"
-    static func mergeCachedSubjects(_ names: [String]) {
+    nonisolated static let cachedSubjectsKey = "firka.cachedSubjects.v1"
+    /// Szálfüggetlen (a háttér-dekódolásból is hívódik; a UserDefaults szálbiztos).
+    nonisolated static func mergeCachedSubjects(_ names: [String]) {
         let clean = names.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty && $0 != "Ismeretlen" }
         guard !clean.isEmpty else { return }
         var set = Set(UserDefaults.standard.stringArray(forKey: cachedSubjectsKey) ?? [])
@@ -816,6 +860,30 @@ final class KretaClient: ObservableObject {
         let r = names.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != "Ismeretlen" }.sorted()
         if !r.isEmpty { storeValue(r, key: key) }
         return r
+    }
+}
+
+/// Diagnosztika-napló külön objektumban: csak a Diagnosztika-nézet figyeli.
+/// Korábban a KretaClient @Published tömbje volt — a klienst 14 nézet tartja
+/// environment-objektumként, így minden diag()-sor (hidegindításkor 20-60)
+/// a fő tab-nézetek teljes újrarajzolását váltotta ki.
+@MainActor
+final class KretaDiagLog: ObservableObject {
+    static let shared = KretaDiagLog()
+    @Published private(set) var lines: [String] = []
+    private static let maxLines = 80
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "HH:mm:ss"
+        return f
+    }()
+
+    func append(_ s: String) {
+        var next = lines
+        next.append("[\(Self.timeFormatter.string(from: Date()))] \(s)")
+        if next.count > Self.maxLines { next.removeFirst(next.count - Self.maxLines) }
+        lines = next
     }
 }
 

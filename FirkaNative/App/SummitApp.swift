@@ -12,12 +12,14 @@ struct SummitApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
-        // Minecraft-skin pixelbetűje (Monocraft, OFL) — bundle-ből
-        // regisztrálva, plist-módosítás nélkül.
-        MinecraftFontLoader.registerOnce()
+        // Minecraft-skin pixelbetűje (Monocraft, OFL) — bundle-ből, plist-
+        // módosítás nélkül, CSAK ha a mentett skin Minecraft (Summit skinben
+        // a regisztráció fölösleges indítási munka; skinváltáskor az első
+        // pixelbetű-kérés regisztrál, lásd MinecraftFontLoader.font).
+        let savedMinecraft = UserDefaults.standard.string(forKey: "ui.skin") == VisualSkin.minecraft.rawValue
+        if savedMinecraft { MinecraftFontLoader.registerOnce() }
         // Nav/tab-sávok pixelbetűje, ha a mentett skin Minecraft.
-        MinecraftTheme.applyChromeAppearance(
-            minecraft: UserDefaults.standard.string(forKey: "ui.skin") == VisualSkin.minecraft.rawValue)
+        MinecraftTheme.applyChromeAppearance(minecraft: savedMinecraft)
         // Régi per-típus értesítéskapcsolók összevonása a főkapcsolóba
         // (egyszeri, idempotens — csak akkor nyúl, ha régi kulcs él).
         NotificationManager.migratePerTypeKeys()

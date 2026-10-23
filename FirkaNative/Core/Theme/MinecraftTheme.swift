@@ -7,16 +7,24 @@ import CoreText
 enum MinecraftFontLoader {
     static let familyName = "Monocraft"
     private static var done = false
+    /// Sikerült-e a regisztráció (a betű ténylegesen elérhető-e).
+    private static var available = false
+    /// Lusta regisztráció: Summit skinben sosem fut le (indításkor csak a
+    /// mentett Minecraft-skin kéri), skinváltáskor az első pixelbetű-kérés
+    /// intézi. Többször hívható.
     static func registerOnce() {
         guard !done else { return }
         done = true
         guard let url = Bundle.main.url(forResource: "Monocraft", withExtension: "ttf") else { return }
         CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+        available = UIFont(name: familyName, size: 12) != nil
     }
     /// Pixelbetű, ha regisztrálva van — különben rendszer-monospace
-    /// (pl. preview, widget, vagy hiányzó erőforrás esetén).
+    /// (pl. preview, widget, vagy hiányzó erőforrás esetén). Az elérhetőség
+    /// egyszer dől el — a régi kód minden hívásnál UIFont-ot példányosított.
     static func font(size: CGFloat) -> Font {
-        if UIFont(name: familyName, size: size) != nil {
+        registerOnce()
+        if available {
             return .custom(familyName, size: size)
         }
         return .system(size: size, weight: .heavy, design: .monospaced)
@@ -169,6 +177,8 @@ static func skinRowBackground(_ color: Color) -> some View {
         let nav = UINavigationBar.appearance()
         let tabItem = UITabBarItem.appearance()
         if minecraft {
+            // Futás közbeni skinváltáskor a betű még nem feltétlen él.
+            MinecraftFontLoader.registerOnce()
             let big = UIFont(name: MinecraftFontLoader.familyName, size: 32)
             let small = UIFont(name: MinecraftFontLoader.familyName, size: 16)
             let tiny = UIFont(name: MinecraftFontLoader.familyName, size: 10)
