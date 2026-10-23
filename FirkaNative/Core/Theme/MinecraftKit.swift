@@ -201,6 +201,14 @@ extension MinecraftTheme {
         case "diamond.fill": return .sprite("mc_item_diamond")
         case "cube.fill": return .sprite("mc_grass_side")
         case "hourglass": return .sprite("mc_item_barrier")
+        case "iphone", "iphone.gen2": return .sprite("mc_item_repeater")
+        case "app.badge.fill": return .sprite("mc_item_name_tag")
+        case "person.slash.fill", "key.slash.fill", "location.slash.fill": return .sprite("mc_item_barrier")
+        case "envelope.open", "doc.richtext.fill": return .sprite("mc_item_paper")
+        case "tablecells.fill": return .sprite("mc_block_crafting_table")
+        case "rectangle.on.rectangle.fill": return .sprite("mc_item_item_frame")
+        case "archivebox.fill": return .sprite("mc_block_barrel")
+        case "film.fill": return .sprite("mc_item_music_disc_13")
         default: return nil
         }
     }

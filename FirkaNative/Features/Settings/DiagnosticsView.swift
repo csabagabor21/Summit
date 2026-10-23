@@ -8,6 +8,9 @@ struct DiagnosticsView: View {
     @EnvironmentObject var kreta: KretaClient
     @EnvironmentObject var analytics: AnalyticsStore
     @EnvironmentObject var completed: CompletedStore
+    @EnvironmentObject var theme: ThemeStore
+    @Environment(\.colorScheme) var scheme
+    var colors: AppColors { theme.colors(for: scheme) }
     @ObservedObject private var liveManager = SummitLiveActivityManager.shared
     /// A worker /status válasza a mai tervre (megnyitáskor és gombra frissül).
     @State private var workerStatus: String = "–"
@@ -23,15 +26,17 @@ struct DiagnosticsView: View {
                 diagRow("Iskola (küldött)", analytics.lastSchool)
                 diagRow("Eredmény", analytics.lastResult)
             } header: {
-                Text("Statisztika (térkép)")
+                Text("Statisztika (térkép)").mcFont(.caption)
             } footer: {
-                Text("Előtérben naponta max 1, belépéskor és bekapcsoláskor azonnal — külön dokumentumban. A térkép install_id alapján számol, a dupla nem dupláz. Sikertelenségkor a következő trigger újrapróbálja.")
+                Text("Előtérben naponta max 1, belépéskor és bekapcsoláskor azonnal — külön dokumentumban. A térkép install_id alapján számol, a dupla nem dupláz. Sikertelenségkor a következő trigger újrapróbálja.").mcFont(.caption)
             }
+            .mcListRowComfy(fill: colors.surface)
             Section("Állapot") {
                 diagRow("Iskola", session.selectedUser?.instituteCode ?? "–")
                 diagRow("Token", tokenDiag)
                 diagRow("Munkamenet", kreta.sessionExpired ? "HALOTT (újra belépés kell)" : "él")
             }
+            .mcListRowComfy(fill: colors.surface)
             Section {
                 diagRow("Worker", SummitPushSync.isConfigured ? (URL(string: SummitPushSync.baseURL)?.host ?? SummitPushSync.baseURL) : "nincs beállítva")
                 diagRow("Push token", pushTokenDiag)
@@ -39,18 +44,21 @@ struct DiagnosticsView: View {
                 diagRow("Kimaradás oka", skipDiag)
                 diagRow("Terv-kulcs", planKeyDiag)
             } header: {
-                Text("Push (Cloudflare)")
+                Text("Push (Cloudflare)").mcFont(.caption)
             } footer: {
-                Text("A napi terv és a határ-entryk feltöltése a workerbe — ha a token vagy a feltöltés hiányzik, a szerver nem tud átkapcsolni.")
+                Text("A napi terv és a határ-entryk feltöltése a workerbe — ha a token vagy a feltöltés hiányzik, a szerver nem tud átkapcsolni.").mcFont(.caption)
             }
+            .mcListRowComfy(fill: colors.surface)
             Section {
-                Text(workerStatus).font(.caption2.monospaced()).foregroundStyle(.secondary)
+                Text(workerStatus).skinFont(.caption2, design: .monospaced).foregroundStyle(.secondary)
                 Button("Worker állapot frissítése") { Task { await loadWorkerStatus() } }
+                .mcInlineButton()
             } header: {
-                Text("Worker (mai terv)")
+                Text("Worker (mai terv)").mcFont(.caption)
             } footer: {
-                Text("A worker /status válasza: melyik határra ment ki push, hány próbával, mit felelt az APNs. „Nincs terv” = a feltöltés maradt ki; APNs 400/410 = rossz token vagy sandbox–prod keveredés; 403 = kulcs/Team ID.")
+                Text("A worker /status válasza: melyik határra ment ki push, hány próbával, mit felelt az APNs. „Nincs terv” = a feltöltés maradt ki; APNs 400/410 = rossz token vagy sandbox–prod keveredés; 403 = kulcs/Team ID.").mcFont(.caption)
             }
+            .mcListRowComfy(fill: colors.surface)
             Section {
                 diagRow("Támogatott", watchReport.supportedText)
                 diagRow("Session", watchReport.activationText)
@@ -69,14 +77,16 @@ struct DiagnosticsView: View {
                         watchReport = WatchSyncSender.report()
                     }
                 }
+                .mcInlineButton()
             } header: {
-                Text("Apple Watch szinkron")
+                Text("Apple Watch szinkron").mcFont(.caption)
             } footer: {
-                Text(watchReport.hintText.isEmpty ? "Tab-lehúzáskor (Főoldal, Órarend, Jegyek, Feladatok) az app automatikusan tol az órára." : watchReport.hintText)
+                Text(watchReport.hintText.isEmpty ? "Tab-lehúzáskor (Főoldal, Órarend, Jegyek, Feladatok) az app automatikusan tol az órára." : watchReport.hintText).mcFont(.caption)
             }
             .onReceive(NotificationCenter.default.publisher(for: WatchSyncSender.reportChanged)) { _ in
                 watchReport = WatchSyncSender.report()
             }
+            .mcListRowComfy(fill: colors.surface)
             Section {
                 diagRow("Rendszer", liveManager.isSystemEnabled ? "engedélyezett" : "TILTVA (Beállítások → Summit)")
                 diagRow("App-kapcsoló", liveManager.isAppEnabled ? "be" : "KI")
@@ -84,54 +94,64 @@ struct DiagnosticsView: View {
                 diagRow("Utolsó művelet", liveManager.lastAction)
                 if let err = liveManager.lastError { diagRow("Hiba", err) }
                 if liveManager.recentEvents.isEmpty {
-                    Text("Még nincs esemény.").font(.caption).foregroundStyle(.tertiary)
+                    Text("Még nincs esemény.").skinFont(.caption).foregroundStyle(.tertiary)
                 } else {
                     ForEach(Array(liveManager.recentEvents.enumerated()), id: \.offset) { _, line in
-                        Text(line).font(.caption2.monospaced()).foregroundStyle(.secondary)
+                        Text(line).skinFont(.caption2, design: .monospaced).foregroundStyle(.secondary)
                     }
                 }
             } header: {
-                Text("Live Activity események")
+                Text("Live Activity események").mcFont(.caption)
             }
+            .mcListRowComfy(fill: colors.surface)
             Section {
                 if liveManager.pushLog.isEmpty {
                     Text("Még nincs push-forgalom — tanítási időben nyisd meg a Főoldalt.")
-                        .font(.caption).foregroundStyle(.tertiary)
+                        .skinFont(.caption).foregroundStyle(.tertiary)
                 } else {
                     ForEach(Array(liveManager.pushLog.enumerated()), id: \.offset) { _, line in
-                        Text(line).font(.caption2.monospaced()).foregroundStyle(.secondary)
+                        Text(line).skinFont(.caption2, design: .monospaced).foregroundStyle(.secondary)
                     }
                 }
             }
+            .mcListRowComfy(fill: colors.surface)
             Section {
                 Button("Napló másolása") {
                     UIPasteboard.general.string = diagExport
                 }
+                .mcInlineButton()
             } header: {
-                Text("Napló")
+                Text("Napló").mcFont(.caption)
             } footer: {
-                Text("Ha üres minden: a Főoldal lehúzása után ez mutatja, 401/404/üres-200/DNS-hiba áll-e mögötte.")
+                Text("Ha üres minden: a Főoldal lehúzása után ez mutatja, 401/404/üres-200/DNS-hiba áll-e mögötte.").mcFont(.caption)
             }
+            .mcListRowComfy(fill: colors.surface)
             Section {
                 Button("Finom tick (selection)") { SummitHaptics.selection() }
+                .mcInlineButton()
                 Button("Sikeres (success)") { SummitHaptics.success() }
+                .mcInlineButton()
                 Button("Hibás (error)") { SummitHaptics.error() }
+                .mcInlineButton()
             } header: {
-                Text("Haptika-teszt")
+                Text("Haptika-teszt").mcFont(.caption)
             } footer: {
-                Text("Ha itt sem érzel semmit: iPhone Beállítások → Hangok és haptika → Rendszerhaptika legyen BE. Ha az BE van és ez rezeg, de máshol néma az app, szólj — akkor kódbug.")
+                Text("Ha itt sem érzel semmit: iPhone Beállítások → Hangok és haptika → Rendszerhaptika legyen BE. Ha az BE van és ez rezeg, de máshol néma az app, szólj — akkor kódbug.").mcFont(.caption)
             }
+            .mcListRowComfy(fill: colors.surface)
             Section {
                 if kreta.diagLog.isEmpty {
                     Text("Még nincs napló — húzd le a Főoldalt a frissítéshez.")
-                        .font(.caption).foregroundStyle(.tertiary)
+                        .skinFont(.caption).foregroundStyle(.tertiary)
                 } else {
                     ForEach(Array(kreta.diagLog.enumerated()), id: \.offset) { _, line in
-                        Text(line).font(.caption2.monospaced()).foregroundStyle(.secondary)
+                        Text(line).skinFont(.caption2, design: .monospaced).foregroundStyle(.secondary)
                     }
                 }
             }
+            .mcListRowComfy(fill: colors.surface)
         }
+        .mcListChrome()
         .navigationTitle("Diagnosztika")
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadWorkerStatus() }
@@ -164,9 +184,9 @@ struct DiagnosticsView: View {
 
     private func diagRow(_ k: String, _ v: String) -> some View {
         HStack(alignment: .top) {
-            Text(k).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            Text(k).skinFont(.caption, weight: .semibold).foregroundStyle(.secondary)
             Spacer(minLength: 8)
-            Text(v).font(.caption.monospaced()).foregroundStyle(.primary).multilineTextAlignment(.trailing)
+            Text(v).skinFont(.caption, design: .monospaced).foregroundStyle(.primary).multilineTextAlignment(.trailing)
         }
     }
     /// A kimaradás-oka csak sikeres feltöltéskor törlődik — közben viszont

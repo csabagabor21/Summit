@@ -18,33 +18,64 @@ struct LoginView: View {
     private var isPad: Bool { hSize == .regular }
     var colors: AppColors { theme.colors(for: scheme) }
 
+    /// Cím: Summitban nagy lágy-árnyékos felirat, Minecraftban a főmenü
+    /// logó-szerű, kemény (3 pixeles) árnyékú pixelbetűs címe.
+    @ViewBuilder
+    private var titleText: some View {
+        if theme.isMinecraft {
+            Text("Summit")
+                .font(MinecraftTheme.headerFont(size: 64))
+                .foregroundStyle(Color(hex: 0xE0E0E0))
+                .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: 2 * MinecraftTheme.px, y: 2 * MinecraftTheme.px)
+                .minimumScaleFactor(0.5)
+                .lineLimit(1)
+        } else {
+            Text("Summit")
+                .mcDisplay(64)
+                .tracking(-1.5)
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.4), radius: 8, y: 2)
+        }
+    }
+
+    @ViewBuilder
+    private func errorText(_ e: String) -> some View {
+        if theme.isMinecraft {
+            Text(e).skinFont(.footnote).foregroundStyle(Color(hex: 0xFF5555)).multilineTextAlignment(.center).padding(.bottom, 12)
+                .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: MinecraftTheme.px / 1.5, y: MinecraftTheme.px / 1.5)
+        } else {
+            Text(e).skinFont(.footnote).foregroundStyle(.white).multilineTextAlignment(.center).padding(.bottom, 12).shadow(color: .black.opacity(0.5), radius: 4)
+        }
+    }
+
     var body: some View {
         ZStack {
             // Gleccser háttérkép (asset katalógus) — sötét átmenettel az olvashatóságért.
             // Alig észrevehető, lassú közelítés (ken-burns): életet ad a belépésnek,
             // de nem mozog "önmagáért". Reduce Motion mellett áll.
-            Image("Glacier")
-                .resizable()
-                .scaledToFill()
-                .scaleEffect(bgZoom ? 1.07 : 1.0)
+            // Minecraft-skin: a játék főmenüje — föld-csempe háttér, kő-gombok.
+            if theme.isMinecraft {
+                McMenuBackground()
+            } else {
+                Image("Glacier")
+                    .resizable()
+                    .scaledToFill()
+                    .scaleEffect(bgZoom ? 1.07 : 1.0)
+                    .ignoresSafeArea()
+                LinearGradient(
+                    colors: [.black.opacity(0.55), .black.opacity(0.2), .black.opacity(0.7)],
+                    startPoint: .top, endPoint: .bottom
+                )
                 .ignoresSafeArea()
-            LinearGradient(
-                colors: [.black.opacity(0.55), .black.opacity(0.2), .black.opacity(0.7)],
-                startPoint: .top, endPoint: .bottom
-            )
-            .ignoresSafeArea()
+            }
 
             VStack {
                 Spacer()
-                Text("Summit")
-                    .mcDisplay(64)
-                    .tracking(-1.5)
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.4), radius: 8, y: 2)
+                titleText
                     .summitEntrance(delay: 0.05)
                 Spacer()
-                if vm.isLoading { ProgressView().tint(.white).padding(.bottom, 12) }
-                if let e = vm.error { Text(e).font(.footnote).foregroundStyle(.white).multilineTextAlignment(.center).padding(.bottom, 12).shadow(color: .black.opacity(0.5), radius: 4) }
+                if vm.isLoading { SkinProgress(color: .white).tint(.white).padding(.bottom, 12) }
+                if let e = vm.error { errorText(e) }
             }
             .padding(.horizontal, 32)
             // Sikertelen belépés = hibás kimenet: a VStack végig él, így a
@@ -59,27 +90,24 @@ struct LoginView: View {
                     if MinecraftTheme.isActive {
                         Text("Bejelentkezés E.KRÉTÁVAL")
                             .frame(maxWidth: .infinity)
-                            .minecraftButton()
                     } else {
                         Text("Bejelentkezés E.KRÉTÁVAL")
-                            .font(.headline.weight(.semibold))
+                            .skinFont(.headline, weight: .semibold)
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .functionalGlass(cornerRadius: 14)
                     }
                 }
-                .buttonStyle(.plain)
+                .mcButtonOrPlain(compact: false)
                 Button { reviewerError = nil; showReviewer = true } label: {
                     if MinecraftTheme.isActive {
                         Text("Bejelentkezés felhasználónévvel és jelszóval")
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
+                            .multilineTextAlignment(.center)
                             .frame(maxWidth: .infinity)
-                            .minecraftButton()
                     } else {
                         Text("Bejelentkezés felhasználónévvel és jelszóval")
-                            .font(.headline.weight(.semibold))
+                            .skinFont(.headline, weight: .semibold)
                             .foregroundStyle(.white)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
@@ -88,7 +116,7 @@ struct LoginView: View {
                             .functionalGlass(cornerRadius: 14, tint: colors.accent.opacity(0.45))
                     }
                 }
-                .buttonStyle(.plain)
+                .mcButtonOrPlain(compact: false)
             }
             .frame(maxWidth: isPad ? 320 : .infinity)
             .padding(.horizontal, 32)
@@ -107,34 +135,34 @@ struct LoginView: View {
                     if let err = webError {
                         VStack(spacing: 8) {
                             Text("A KRÉTA-oldal nem tölthető be itt (\(err)). Ez külföldről előfordulhat.")
-                                .font(.footnote).multilineTextAlignment(.center).foregroundStyle(.secondary)
+                                .skinFont(.footnote).multilineTextAlignment(.center).foregroundStyle(.secondary)
                             Button("Folytatás demo módban") { showWeb=false; webError=nil; vm.loginDemo(session: session) }
-                                .buttonStyle(.borderedProminent)
+                                .skinBorderedButton(prominent: true)
                         }
                         .padding()
-                        .background(.thinMaterial)
+                        .modifier(WebErrorSurface())
                     }
                 }
                 .navigationTitle("e-KRÉTA").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Mégse"){ webError=nil; showWeb=false } }; ToolbarItem(placement: .primaryAction){ Button("Demo"){ showWeb=false; webError=nil; vm.loginDemo(session:session)} } }
-            }.presentationDetents([.large]).presentationDragIndicator(.visible)
+                .toolbar { SkinToolbarItem(placement: .cancellationAction) { Button("Mégse"){ webError=nil; showWeb=false } }; SkinToolbarItem(placement: .primaryAction){ Button("Demo"){ showWeb=false; webError=nil; vm.loginDemo(session:session)} } }
+            }.presentationDetents([.large]).presentationDragIndicator(.visible).skinSheetBackground()
         }
         .sheet(isPresented: $showReviewer) {
             NavigationStack {
                 VStack(spacing: 16) {
                     Text("Add meg a felhasználóneved és a jelszavad.")
-                        .font(.subheadline).foregroundStyle(.secondary)
+                        .skinFont(.subheadline).foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
-                    TextField("Felhasználónév", text: $reviewerUser)
+                    TextField("Felhasználónév", text: $reviewerUser, prompt: skinPrompt("Felhasználónév"))
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .textContentType(.username)
                         .summitInput()
-                    SecureField("Jelszó", text: $reviewerPass)
+                    SecureField("Jelszó", text: $reviewerPass, prompt: skinPrompt("Jelszó"))
                         .textContentType(.password)
                         .summitInput()
                     if let err = reviewerError {
-                        Text(err).font(.footnote).foregroundStyle(.red)
+                        Text(err).skinFont(.footnote).foregroundStyle(.red)
                     }
                     Button {
                         if vm.loginReviewer(username: reviewerUser, password: reviewerPass, session: session) {
@@ -145,11 +173,11 @@ struct LoginView: View {
                         }
                     } label: {
                         Text("Bejelentkezés")
-                            .font(.headline.weight(.semibold))
+                            .skinFont(.headline, weight: .semibold)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .skinBorderedButton(prominent: true)
                     .disabled(reviewerUser.isEmpty || reviewerPass.isEmpty)
                     Spacer()
                 }
@@ -157,8 +185,20 @@ struct LoginView: View {
                 // Hibás jelszó = hibás kimenet: a sheet-tartalom végig él.
                 .summitErrorHaptic(trigger: reviewerError ?? "")
                 .navigationTitle("Bejelentkezés").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Mégse") { reviewerPass = ""; showReviewer = false } } }
-            }.presentationDetents([.medium]).presentationDragIndicator(.visible)
+                .toolbar { SkinToolbarItem(placement: .cancellationAction) { Button("Mégse") { reviewerPass = ""; showReviewer = false } } }
+            }.presentationDetents([.medium]).presentationDragIndicator(.visible).skinSheetBackground()
+        }
+    }
+}
+
+/// A web-bejelentkezés hibasávjának háttere: Summitban a vékony anyag,
+/// Minecraftban a játék dialógus-panelje.
+private struct WebErrorSurface: ViewModifier {
+    func body(content: Content) -> some View {
+        if MinecraftTheme.isActive {
+            content.background { McBlockPanel(face: MinecraftTheme.panelFace, castsShadow: false) }
+        } else {
+            content.background(.thinMaterial)
         }
     }
 }

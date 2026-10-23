@@ -31,10 +31,11 @@ struct DeveloperView: View {
                 island(header: "Fejlesztői mód") {
                     row {
                         Toggle(isOn: $devEnabled) {
-                            Label("Fejlesztői mód", systemImage: "hammer.fill")
-                                .font(.subheadline.weight(.medium))
+                            SkinLabel("Fejlesztői mód", systemImage: "hammer.fill")
+                                .skinFont(.subheadline, weight: .medium)
                         }
                         .tint(colors.accent)
+                        .skinToggleStyle()
                     }
                 } footer: {
                     "Kikapcsolva a Fejlesztő menü és minden tesztelőeszköz eltűnik."
@@ -43,28 +44,30 @@ struct DeveloperView: View {
                 island(header: "Idő-eltolás") {
                     row {
                         Toggle(isOn: $isPreviewActive) {
-                            Label("Idő előnézet", systemImage: "slider.horizontal.3")
-                                .font(.subheadline.weight(.medium))
+                            SkinLabel("Idő előnézet", systemImage: "slider.horizontal.3")
+                                .skinFont(.subheadline, weight: .medium)
                         }
                         .tint(colors.accent)
+                        .skinToggleStyle()
                     }
                     if isPreviewActive {
                         settingsDivider
                         row {
                             VStack(spacing: 8) {
-                                Slider(value: $previewMinutes, in: 420...960, step: 5)
+                                SkinSlider(value: $previewMinutes, range: 420...960, step: 5)
                                     .tint(colors.accent)
                                 HStack {
-                                    Text("07:00").font(.caption2).foregroundStyle(.tertiary)
+                                    Text("07:00").skinFont(.caption2).foregroundStyle(.tertiary)
                                     Spacer()
-                                    Text(previewTimeText).font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(colors.accent)
+                                    Text(previewTimeText).skinFont(.caption, weight: .semibold).monospacedDigit().foregroundStyle(colors.accent)
                                     Spacer()
-                                    Text("16:00").font(.caption2).foregroundStyle(.tertiary)
+                                    Text("16:00").skinFont(.caption2).foregroundStyle(.tertiary)
                                 }
                                 Button("Vissza élő időre") { withAnimation { isPreviewActive = false } }
-                                    .font(.caption.weight(.semibold)).tint(colors.accent)
-                                Label("A csúszka a Főoldalt, az Órarendet és a Live Activity-t is mozgatja", systemImage: "livephoto")
-                                    .font(.caption2).foregroundStyle(.tertiary)
+                                    .skinFont(.caption, weight: .semibold).tint(colors.accent)
+                                    .mcInlineButton()
+                                SkinLabel("A csúszka a Főoldalt, az Órarendet és a Live Activity-t is mozgatja", systemImage: "livephoto")
+                                    .skinFont(.caption2).foregroundStyle(.tertiary)
                             }
                             .padding(.vertical, 4)
                         }
@@ -73,19 +76,20 @@ struct DeveloperView: View {
                     row {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Label("Ugrás az óra végére", systemImage: "forward.fill")
-                                    .font(.subheadline.weight(.medium))
+                                SkinLabel("Ugrás az óra végére", systemImage: "forward.fill")
+                                    .skinFont(.subheadline, weight: .medium)
                                 Spacer()
-                                Stepper("\(jumpMinutes) perc", value: $jumpMinutes, in: 1...15)
-                                    .font(.caption).foregroundStyle(.secondary)
+                                SkinStepper(title: "\(jumpMinutes) perc", value: $jumpMinutes, range: 1...15)
+                                    .skinFont(.caption).foregroundStyle(.secondary)
                             }
                             Button("Előrepörgetés most") { Task { await jumpToLessonEnd() } }
-                                .font(.caption.weight(.semibold)).tint(colors.accent)
+                                .skinFont(.caption, weight: .semibold).tint(colors.accent)
+                                .mcInlineButton()
                             if let jumpInfo {
-                                Text(jumpInfo).font(.caption2).foregroundStyle(.tertiary)
+                                Text(jumpInfo).skinFont(.caption2).foregroundStyle(.tertiary)
                             }
                             Text("A csúszkát az aktuális óra vége elé állítja — az óraátmenetet az app nyitva tartva várd meg (percenkénti sync kapcsolja át).")
-                                .font(.caption2).foregroundStyle(.tertiary)
+                                .skinFont(.caption2).foregroundStyle(.tertiary)
                         }
                         .padding(.vertical, 4)
                     }
@@ -96,14 +100,15 @@ struct DeveloperView: View {
                 island(header: "Értesítések") {
                     row {
                         HStack {
-                            Text("Rendszerengedély").font(.subheadline)
+                            Text("Rendszerengedély").skinFont(.subheadline)
                             Spacer()
-                            Text(notifStatus).font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                            Text(notifStatus).skinFont(.caption, weight: .medium).foregroundStyle(.secondary)
                             Button("Kérés") { Task {
                                 await NotificationManager.shared.requestPermission()
                                 notifStatus = NotificationManager.shared.permissionStatus
                             } }
-                            .font(.caption.weight(.semibold)).tint(colors.accent)
+                            .skinFont(.caption, weight: .semibold).tint(colors.accent)
+                            .mcInlineButton()
                         }
                     }
                     settingsDivider
@@ -113,6 +118,7 @@ struct DeveloperView: View {
                             notifStatus = NotificationManager.shared.permissionStatus
                         } }
                         .tint(colors.accent)
+                        .mcInlineButton()
                     }
                     settingsDivider
                     row {
@@ -121,6 +127,7 @@ struct DeveloperView: View {
                             // A fullscreen ünneplő kártya magától felpattan — ez a tesztje.
                         } }
                         .tint(colors.accent)
+                        .mcInlineButton()
                     }
                     settingsDivider
                     row {
@@ -130,24 +137,25 @@ struct DeveloperView: View {
                             showSimAlert = true
                         }
                         .tint(.red)
+                        .mcInlineButton()
                     }
                 }
 
                 island(header: "Live Activity") {
                     row {
                         HStack(spacing: 6) {
-                            Circle().fill(liveManager.isSystemEnabled ? Color.green : Color.red).frame(width: 7, height: 7)
+                            SkinDot(color: liveManager.isSystemEnabled ? Color.green : Color.red, size: 7)
                             Text(liveManager.isSystemEnabled ? "Rendszer OK" : "Rendszer tiltva")
-                                .font(.caption2.weight(.medium))
+                                .skinFont(.caption2, weight: .medium)
                                 .foregroundStyle(liveManager.isSystemEnabled ? Color.secondary : Color.red)
                             Spacer()
                             Text("\(liveManager.activeCount) aktív • \(liveManager.lastAction)")
-                                .font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+                                .skinFont(.caption2).foregroundStyle(.tertiary).lineLimit(1)
                         }
                     }
                     if let err = liveManager.lastError {
                         settingsDivider
-                        row { Text(err).font(.caption2).foregroundStyle(.orange).lineLimit(2) }
+                        row { Text(err).skinFont(.caption2).foregroundStyle(.orange).lineLimit(2) }
                     }
                     settingsDivider
                     row {
@@ -155,12 +163,14 @@ struct DeveloperView: View {
                             Button("Teszt indítása most") {
                                 Task { await liveManager.startDemoTestNow(userId: session.selectedUser?.id ?? "", accentHex: theme.accentHex) }
                             }
-                            .font(.caption.weight(.semibold)).tint(colors.accent)
+                            .skinFont(.caption, weight: .semibold).tint(colors.accent)
+                            .mcInlineButton()
                             #if !targetEnvironment(macCatalyst)
                             Button("Leállítás") {
                                 Task { await liveManager.endAll(dismissalPolicy: .immediate) }
                             }
-                            .font(.caption.weight(.semibold)).tint(.red)
+                            .skinFont(.caption, weight: .semibold).tint(.red)
+                            .mcInlineButton()
                             #endif
                         }
                     }
@@ -170,12 +180,13 @@ struct DeveloperView: View {
                             Button("Push-újraindítás (beragadt activity cseréje)") {
                                 Task { await restartPushNow() }
                             }
-                            .font(.caption.weight(.semibold)).tint(colors.accent)
+                            .skinFont(.caption, weight: .semibold).tint(colors.accent)
+                            .mcInlineButton()
                             if let pushRestartInfo {
-                                Text(pushRestartInfo).font(.caption2).foregroundStyle(.secondary)
+                                Text(pushRestartInfo).skinFont(.caption2).foregroundStyle(.secondary)
                             } else {
                                 Text("Régi buildtől örökölt, push nélküli activityt cserél újra — tokenre vár, majd feltölt. Ha nincs mentett mai terv (este), előbb a Demo teszt kell.")
-                                    .font(.caption2).foregroundStyle(.tertiary)
+                                    .skinFont(.caption2).foregroundStyle(.tertiary)
                             }
                         }
                         .padding(.vertical, 2)
@@ -186,12 +197,13 @@ struct DeveloperView: View {
                             Button("Push-terv feltöltése most (Cloudflare)") {
                                 Task { await uploadPushPlanNow() }
                             }
-                            .font(.caption.weight(.semibold)).tint(colors.accent)
+                            .skinFont(.caption, weight: .semibold).tint(colors.accent)
+                            .mcInlineButton()
                             if let pushUploadInfo {
-                                Text(pushUploadInfo).font(.caption2).foregroundStyle(.secondary)
+                                Text(pushUploadInfo).skinFont(.caption2).foregroundStyle(.secondary)
                             } else {
                                 Text("A mentett mai terv (vagy friss órarend) ad hoc feltöltése a workerbe — az eredmény a Diagnosztikában is látszik.")
-                                    .font(.caption2).foregroundStyle(.tertiary)
+                                    .skinFont(.caption2).foregroundStyle(.tertiary)
                             }
                         }
                         .padding(.vertical, 2)
@@ -200,25 +212,25 @@ struct DeveloperView: View {
                     row {
                         // Widget extension telepítve? Enélkül a pill felmegy, de az expanded fekete.
                         if isWidgetExtensionInstalled {
-                            Label("Widget extension telepítve", systemImage: "checkmark.circle.fill")
-                                .font(.caption2).foregroundStyle(.secondary)
+                            SkinLabel("Widget extension telepítve", systemImage: "checkmark.circle.fill")
+                                .skinFont(.caption2).foregroundStyle(.secondary)
                         } else {
-                            Label("Widget extension HIÁNYZIK — töröld az appot és telepítsd újra Xcode-ból, ez okozza a fekete Islandet", systemImage: "exclamationmark.triangle.fill")
-                                .font(.caption2).foregroundStyle(.red)
+                            SkinLabel("Widget extension HIÁNYZIK — töröld az appot és telepítsd újra Xcode-ból, ez okozza a fekete Islandet", systemImage: "exclamationmark.triangle.fill")
+                                .skinFont(.caption2).foregroundStyle(.red)
                         }
                     }
                     settingsDivider
                     row {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Eseménynapló")
-                                .font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+                                .skinFont(.caption2, weight: .bold).foregroundStyle(.secondary)
                             if liveManager.recentEvents.isEmpty {
                                 Text("Még nincs esemény — nyisd meg a Főoldalt tanítási időben.")
-                                    .font(.caption2).foregroundStyle(.tertiary)
+                                    .skinFont(.caption2).foregroundStyle(.tertiary)
                             } else {
                                 ForEach(Array(liveManager.recentEvents.suffix(8).enumerated()), id: \.offset) { _, line in
                                     Text(line)
-                                        .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                                        .skinFont(.caption2).monospacedDigit().foregroundStyle(.secondary)
                                         .lineLimit(2)
                                 }
                             }
@@ -235,12 +247,19 @@ struct DeveloperView: View {
             .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
         }
-        .background { SummitBackdrop(imageName: "DevPeak") }
+        .background {
+            if theme.isMinecraft {
+                MinecraftBackdrop(mountain: true)
+            } else {
+                SummitBackdrop(imageName: "DevPeak")
+            }
+        }
         .scrollContentBackground(.hidden)
         .navigationTitle("Fejlesztő")
         .navigationBarTitleDisplayMode(.inline)
         .alert("Fejlesztői eszközök", isPresented: $showSimAlert) {
             Button("OK", role: .cancel) {}
+            .mcInlineButton()
         } message: {
             Text(simMessage ?? "")
         }
@@ -419,7 +438,7 @@ struct DeveloperView: View {
             }
             .summitGlassRow(cornerRadius: 20)
             if let footer = footer() {
-                Text(footer).font(.caption2).foregroundStyle(.secondary)
+                Text(footer).skinFont(.caption2).foregroundStyle(.secondary)
                     .padding(.horizontal, 4)
             }
         }
@@ -432,7 +451,12 @@ struct DeveloperView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    @ViewBuilder
     private var settingsDivider: some View {
-        Divider().padding(.leading, 16)
+        if theme.isMinecraft {
+            Rectangle().fill(Color.black.opacity(0.22)).frame(height: MinecraftTheme.px)
+        } else {
+            Divider().padding(.leading, 16)
+        }
     }
 }

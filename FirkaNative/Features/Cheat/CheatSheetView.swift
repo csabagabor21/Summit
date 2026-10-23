@@ -31,22 +31,23 @@ struct CheatSheetView: View {
                 List {
                     if let ex = exams.first(where: { $0.id == s.examId }) {
                         Section {
-                            Label("\(ex.subject) • \(ex.mode)", systemImage: "doc.text")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(colors.accent)
+                            SkinLabel("\(ex.subject) • \(ex.mode)", systemImage: "doc.text")
+                                .skinFont(.subheadline, weight: .semibold)
+                                .skinAccent(colors.accent)
                             if !ex.plainDescription.isEmpty {
                                 Text(ex.plainDescription)
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .skinFont(.caption).foregroundStyle(.secondary)
                             }
                         }
+                        .mcListRowComfy(fill: colors.surface)
                     }
                     Section {
                         ForEach(s.materials) { m in
-                            NavigationLink {
+                            SkinNavLink {
                                 MaterialTextView(material: m)
                             } label: {
-                                Label("\(m.name) • \(m.isImage ? "kép" : "\(m.text.count) kar.\(m.isPDF ? " + teljes pdf" : "")")", systemImage: m.isImage ? "photo.fill" : "doc.fill")
-                                    .font(.subheadline)
+                                SkinLabel("\(m.name) • \(m.isImage ? "kép" : "\(m.text.count) kar.\(m.isPDF ? " + teljes pdf" : "")")", systemImage: m.isImage ? "photo.fill" : "doc.fill")
+                                    .skinFont(.subheadline)
                                     .lineLimit(1)
                             }
                         }
@@ -58,59 +59,64 @@ struct CheatSheetView: View {
                             gone.forEach { CheatStore.removePayload(id: $0) }
                         }
                         Button { importing = true } label: {
-                            Label("Anyag feltöltése", systemImage: "square.and.arrow.down")
-                                .foregroundStyle(colors.accent)
+                            SkinLabel("Anyag feltöltése", systemImage: "square.and.arrow.down")
+                                .skinAccent(colors.accent)
                         }
+                        .mcInlineButton()
                         if let err = importError {
-                            Text(err).font(.caption).foregroundStyle(.red)
+                            Text(err).skinFont(.caption).foregroundStyle(.red)
                         }
                     } header: {
                         Text("Feltöltött anyagok • \(s.materials.count) db")
                     }
+                    .mcListRowComfy(fill: colors.surface)
                     Section {
                         Button {
                             Task { await generate() }
                         } label: {
                             HStack {
-                                if generating { ProgressView().scaleEffect(0.8) }
-                                Label(generating ? "Készül…" : "Jegyzet készítése AI-jal",
+                                if generating { SkinProgress().scaleEffect(0.8) }
+                                SkinLabel(generating ? "Készül…" : "Jegyzet készítése AI-jal",
                                       systemImage: "sparkles")
-                                    .foregroundStyle(colors.accent)
+                                    .skinAccent(colors.accent)
                             }
                         }
+                        .mcInlineButton()
                         .disabled(generating || s.materials.isEmpty)
                         if !MetaAIKeyStore.hasKey {
                             Text("Saját kulcs nélkül a közös, ingyenes Gemini készíti (gyenge!) — saját Meta AI-kulccsal jobb. Kulcs a Watch-tab tetején adható meg.")
-                                .font(.caption).foregroundStyle(.secondary)
+                                .skinFont(.caption).foregroundStyle(.secondary)
                         } else if s.materials.isEmpty {
                             Text("Előbb tölts fel legalább egy anyagot.")
-                                .font(.caption).foregroundStyle(.secondary)
+                                .skinFont(.caption).foregroundStyle(.secondary)
                         }
                         if let err = genError {
-                            Text(err).font(.caption).foregroundStyle(.red)
+                            Text(err).skinFont(.caption).foregroundStyle(.red)
                         }
                         Button { showingAddTopic = true } label: {
-                            Label("Téma kézi felvétele", systemImage: "plus")
-                                .foregroundStyle(colors.accent)
+                            SkinLabel("Téma kézi felvétele", systemImage: "plus")
+                                .skinAccent(colors.accent)
                         }
+                        .mcInlineButton()
                     } header: {
                         Text("Témák • \(s.topics.count) db")
                     }
+                    .mcListRowComfy(fill: colors.surface)
                     if !s.topics.isEmpty {
                         Section {
                             ForEach(s.topics) { t in
                                 Button { editingTopic = t } label: {
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(t.title)
-                                            .font(.subheadline.weight(.semibold))
+                                            .skinFont(.subheadline, weight: .semibold)
                                             .foregroundStyle(.primary)
                                             .frame(maxWidth: .infinity, alignment: .leading)
                                         if t.body.isEmpty {
                                             Text("(üres — koppints a szerkesztéshez)")
-                                                .font(.caption).foregroundStyle(.tertiary)
+                                                .skinFont(.caption).foregroundStyle(.tertiary)
                                         } else {
                                             Text(t.body)
-                                                .font(.callout).foregroundStyle(.secondary)
+                                                .skinFont(.callout).foregroundStyle(.secondary)
                                                 .lineLimit(4)
                                                 .frame(maxWidth: .infinity, alignment: .leading)
                                         }
@@ -124,8 +130,10 @@ struct CheatSheetView: View {
                                 persist(c)
                             }
                         }
+                        .mcListRowComfy(fill: colors.surface)
                     }
                 }
+                .mcListChrome()
                 .navigationTitle(s.title)
                 .navigationBarTitleDisplayMode(.large)
                 .fileImporter(isPresented: $importing,
@@ -157,7 +165,7 @@ struct CheatSheetView: View {
                     }
                 }
             } else {
-                ContentUnavailableView("A lapot törölték", systemImage: "trash")
+                SkinEmptyState(title: "A lapot törölték", systemImage: "trash")
             }
         }
         .onAppear { sheet = CheatStore.load().first { $0.id == sheetID } }
@@ -273,23 +281,28 @@ private struct TopicEditView: View {
     @State var noteBody: String
     let onSave: (String, String) -> Void
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var theme: ThemeStore
+    @Environment(\.colorScheme) var scheme
+    var colors: AppColors { theme.colors(for: scheme) }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Cím") { TextField("Téma címe", text: $title) }
+                Section("Cím") { TextField("Téma címe", text: $title, prompt: skinPrompt("Téma címe")).mcInput() }
+                    .mcListRowComfy(fill: colors.surface)
                 Section("Jegyzet") {
-                    TextEditor(text: $noteBody)
-                        .frame(minHeight: 220)
+                    topicEditor
                 }
+                .mcListRowComfy(fill: colors.surface)
             }
+            .skinFormChrome()
             .navigationTitle("Téma szerkesztése")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                SkinToolbarItem(placement: .cancellationAction) {
                     Button("Mégse") { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
+                SkinToolbarItem(placement: .confirmationAction) {
                     Button("Kész") {
                         onSave(title.trimmingCharacters(in: .whitespacesAndNewlines), noteBody)
                         dismiss()
@@ -301,9 +314,26 @@ private struct TopicEditView: View {
     }
 }
 
+extension TopicEditView {
+    /// Jegyzet-szerkesztő: Minecraftban a játék szövegmező-kerete.
+    @ViewBuilder
+    fileprivate var topicEditor: some View {
+        if MinecraftTheme.isActive {
+            TextEditor(text: $noteBody)
+                .scrollContentBackground(.hidden)
+                .frame(minHeight: 220)
+                .summitInput()
+        } else {
+            TextEditor(text: $noteBody)
+                .frame(minHeight: 220)
+        }
+    }
+}
+
 // MARK: - Feltöltött anyag olvasója (szöveg vagy kép)
 private struct MaterialTextView: View {
     let material: CheatMaterial
+    @EnvironmentObject var theme: ThemeStore
 
     var body: some View {
         ScrollView {
@@ -316,12 +346,23 @@ private struct MaterialTextView: View {
                     .padding()
             } else {
                 Text(material.text)
-                    .font(.callout)
+                    .skinFont(.callout)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
+                    .mcMaterialPanel()
             }
         }
+        .background { if theme.isMinecraft { MinecraftBackdrop(ground: false) } }
         .navigationTitle(material.name)
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private extension View {
+    /// Minecraftban az olvasott szöveg pixel-panelen ül (a háttér égbolt);
+    /// Summitban semmi.
+    @ViewBuilder
+    func mcMaterialPanel() -> some View {
+        if MinecraftTheme.isActive { self.minecraftCard().padding(.horizontal, 16) } else { self }
     }
 }

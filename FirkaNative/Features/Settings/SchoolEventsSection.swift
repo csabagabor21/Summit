@@ -39,16 +39,17 @@ struct SchoolEventsSection: View {
                     summitSync.markDirty(.schoolEventsShow)
                 }
             )) {
-                Label("Mutatás az órarendben", systemImage: "calendar.badge.clock")
-                    .font(.subheadline.weight(.medium))
+                SkinLabel("Mutatás az órarendben", systemImage: "calendar.badge.clock")
+                    .skinFont(.subheadline, weight: .medium)
             }
+            .skinToggleStyle()
 
             if events.isEmpty {
                 Text("Még nincs tannaptár — linkből, szövegből vagy .ics fájlból.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .skinFont(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                Text(summaryText).font(.caption).foregroundStyle(.secondary)
+                Text(summaryText).skinFont(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -57,25 +58,26 @@ struct SchoolEventsSection: View {
             // beállítás alább bármikor felülírhatja (az is szinkronizálódik).
             if let admin = adminEntry {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Iskolai alapértelmezés").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Text("Iskolai alapértelmezés").skinFont(.caption, weight: .semibold).foregroundStyle(.secondary)
                     HStack {
                         Text(admin.name ?? "Központi naptár")
-                            .font(.subheadline.weight(.medium))
+                            .skinFont(.subheadline, weight: .medium)
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer()
                         Button(adminBusy || downloading ? "…" : (savedLink == admin.calendarURL ? "Frissítés" : "Betöltés")) {
                             Task { await downloadAdmin() }
                         }
-                        .font(.caption.weight(.bold))
+                        .skinFont(.caption, weight: .bold)
                         .disabled(adminBusy || downloading)
+                        .mcInlineButton()
                     }
                     if savedLink == admin.calendarURL {
                         Text("Ezt használod.")
-                            .font(.caption2).foregroundStyle(.secondary)
+                            .skinFont(.caption2).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     } else if !events.isEmpty {
                         Text("Saját beállításod van — az marad.")
-                            .font(.caption2).foregroundStyle(.secondary)
+                            .skinFont(.caption2).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -84,10 +86,10 @@ struct SchoolEventsSection: View {
             // 1) Link: a suli naptárjának webcíme (suli honlap, Google Naptár
             // nyilvános ICS-linkje) — letölteni nem kell, az app lehúzza.
             VStack(alignment: .leading, spacing: 6) {
-                Text("Linkből").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Text("Linkből").skinFont(.caption, weight: .semibold).foregroundStyle(.secondary)
                 HStack {
-                    TextField("Naptár-link beillesztése", text: $linkText)
-                        .font(.subheadline)
+                    TextField("Naptár-link beillesztése", text: $linkText, prompt: skinPrompt("Naptár-link beillesztése"))
+                        .skinFont(.subheadline)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .summitInput()
@@ -95,41 +97,41 @@ struct SchoolEventsSection: View {
                     Button(downloading ? "…" : "Letöltés") {
                         Task { await download(linkText) }
                     }
-                    .font(.caption.weight(.bold))
+                    .skinFont(.caption, weight: .bold)
                     .disabled(downloading || linkText.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .mcInlineButton()
                 }
                 if savedLink != nil {
                     Button("Frissítés a mentett linkről") {
                         Task { await download(savedLink ?? "") }
                     }
-                    .font(.caption.weight(.bold))
+                    .skinFont(.caption, weight: .bold)
                     .disabled(downloading)
+                    .mcInlineButton()
                 }
             }
 
             // 2) Szöveg: kimásolt lista beillesztése (Safari, Mail, KRÉTA-üzenet).
             VStack(alignment: .leading, spacing: 6) {
-                Text("Szövegből").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Text("Szövegből").skinFont(.caption, weight: .semibold).foregroundStyle(.secondary)
                 if showPaste {
-                    TextEditor(text: $pastedText)
-                        .font(.subheadline)
-                        .frame(minHeight: 110, maxHeight: 200)
-                        .padding(6)
-                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
-                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.22)))
+                    pasteEditor
                     Text("Soronként: dátum + cím. Nyers ICS is mehet.")
-                        .font(.caption2).foregroundStyle(.tertiary)
+                        .skinFont(.caption2).foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 16) {
                         Button("Feldolgozás") { importText() }
-                            .font(.caption.weight(.bold))
+                            .skinFont(.caption, weight: .bold)
                             .disabled(pastedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .mcInlineButton()
                         Button("Bezárás") { showPaste = false }
-                            .font(.caption.weight(.bold))
+                            .skinFont(.caption, weight: .bold)
+                            .mcInlineButton()
                     }
                 } else {
                     Button("Szöveg beillesztése") { showPaste = true }
-                        .font(.caption.weight(.bold))
+                        .skinFont(.caption, weight: .bold)
+                        .mcInlineButton()
                 }
             }
 
@@ -138,8 +140,9 @@ struct SchoolEventsSection: View {
                 Button(importing ? "Importálás…" : (events.isEmpty ? "Fájlból (.ics)" : "Új fájl (.ics)")) {
                     importing = true
                 }
-                .font(.caption.weight(.bold))
+                .skinFont(.caption, weight: .bold)
                 .disabled(importing)
+                .mcInlineButton()
                 if !events.isEmpty {
                     Button("Törlés", role: .destructive) {
                         // A törlés is terjed: a store-értesítés dirty-zi a
@@ -149,13 +152,14 @@ struct SchoolEventsSection: View {
                         refresh()
                         message = "Törölve — a törlés is szinkronizálódik."
                     }
-                    .font(.caption.weight(.bold))
+                    .skinFont(.caption, weight: .bold)
                     .disabled(importing)
+                    .mcInlineButton()
                 }
             }
 
             if !message.isEmpty {
-                Text(message).font(.caption2).foregroundStyle(.secondary)
+                Text(message).skinFont(.caption2).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -175,6 +179,25 @@ struct SchoolEventsSection: View {
         .onAppear {
             refresh()
             checkAdmin()
+        }
+    }
+
+    /// Beillesztő mező: Summitban a gyári doboz, Minecraftban a játék
+    /// szövegmező-kerete (a TextEditor saját háttere elrejtve).
+    @ViewBuilder
+    private var pasteEditor: some View {
+        if MinecraftTheme.isActive {
+            TextEditor(text: $pastedText)
+                .scrollContentBackground(.hidden)
+                .frame(minHeight: 110, maxHeight: 200)
+                .summitInput()
+        } else {
+            TextEditor(text: $pastedText)
+                .skinFont(.subheadline)
+                .frame(minHeight: 110, maxHeight: 200)
+                .padding(6)
+                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.22)))
         }
     }
 
