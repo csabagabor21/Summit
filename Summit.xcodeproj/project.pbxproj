@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		97F404A6B7BF7501425ECE19 /* LessonChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E50491AAB1ACCD3D835FAF5 /* LessonChanges.swift */; };
 		1D1AC22AEA4C403806823A6C /* KretaRefreshStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11A1A6E5A2655C33A513A6A6 /* KretaRefreshStatus.swift */; };
 		2FCDC44DD1A0F3BBE1E008B6 /* KretaCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D138C18CDD0547E2CE473A6 /* KretaCache.swift */; };
 		0048146EEDBAF2200F28A063 /* SummitApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E156CB119C0AA44F6ECF68 /* SummitApp.swift */; };
@@ -218,6 +219,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		9E50491AAB1ACCD3D835FAF5 /* LessonChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LessonChanges.swift; sourceTree = "<group>"; };
 		11A1A6E5A2655C33A513A6A6 /* KretaRefreshStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaRefreshStatus.swift; sourceTree = "<group>"; };
 		8D138C18CDD0547E2CE473A6 /* KretaCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaCache.swift; sourceTree = "<group>"; };
 		015E5B567EB1A1C82FE048AD /* WatchAvailability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAvailability.swift; sourceTree = "<group>"; };
@@ -711,6 +713,7 @@
 		EB8606EEC55060B92D11CA44 /* Storage */ = {
 			isa = PBXGroup;
 			children = (
+				9E50491AAB1ACCD3D835FAF5 /* LessonChanges.swift */,
 				8D138C18CDD0547E2CE473A6 /* KretaCache.swift */,
 				403733D1E79BF3F0BDF3A215 /* AnalyticsStore.swift */,
 				092823FDC89EDC54BE31739D /* CompletedStore.swift */,
@@ -1043,6 +1046,7 @@
 				4A3A1F774121CB67FC9D79B8 /* KeychainHelper.swift in Sources */,
 				2FCDC44DD1A0F3BBE1E008B6 /* KretaCache.swift in Sources */,
 				1D1AC22AEA4C403806823A6C /* KretaRefreshStatus.swift in Sources */,
+				97F404A6B7BF7501425ECE19 /* LessonChanges.swift in Sources */,
 				E18B6A9B4FA1105E20981AF6 /* KretaAPI.swift in Sources */,
 				100F442921ECCB438D9A6172 /* SummitAppCheck.swift in Sources */,
 				5F20AD0975C509783B0C6515 /* KretaClient.swift in Sources */,

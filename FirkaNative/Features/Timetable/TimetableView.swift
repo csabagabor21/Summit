@@ -41,6 +41,13 @@ struct TimetableView: View {
     @State private var schoolEvents: [SchoolEvent]
     /// Hiányzások a dolgozat-pótláshoz (a közös gyorstárból).
     @State private var cachedAbsences: [AbsenceItem]?
+    /// A kijelzett hét még nem látott óra-változásai (óra-ID → változás).
+    @State private var changeMarkers: [String: LessonChange] = [:]
+    /// Ebben a megtekintésben már látottnak jelölt változások: a jelölés a
+    /// képernyőn marad, amíg a user el nem hagyja az Órarendet (nem tűnik el
+    /// a szeme előtt), a következő belépéskor már nincs.
+    @State private var acknowledgedChanges: [String: LessonChange] = [:]
+    @Environment(\.scenePhase) private var scenePhase
     /// Dolgozat-pótlás kapcsoló/elvetés — újraszámolja a kijelzett dátumokat.
     @State private var rolloverTick = 0
     @AppStorage("schoolevents.show.v1") private var schoolEventsVisible = true
@@ -127,6 +134,24 @@ struct TimetableView: View {
         if exams != snap.exams { exams = snap.exams }
         if calendarDays != snap.calendarDays { calendarDays = snap.calendarDays }
         if cachedAbsences != snap.absences { cachedAbsences = snap.absences }
+        let store = KretaStore.shared
+        var markers: [String: LessonChange] = [:]
+        for l in snap.lessons { if let c = store.lessonChange(for: l.id) { markers[l.id] = c } }
+        if changeMarkers != markers { changeMarkers = markers }
+    }
+
+    /// Kijelzendő változás-jelölés egy órához (látatlan vagy ebben a
+    /// megtekintésben látott).
+    private func changeMarker(for lesson: LessonItem) -> LessonChange? {
+        changeMarkers[lesson.id] ?? acknowledgedChanges[lesson.id]
+    }
+
+    /// A sor megjelent az előtérben lévő Órarendben: a változást a user látta.
+    private func acknowledgeChange(for lesson: LessonItem) {
+        guard scenePhase == .active, let c = changeMarkers[lesson.id] else { return }
+        acknowledgedChanges[lesson.id] = c
+        changeMarkers.removeValue(forKey: lesson.id)
+        KretaStore.shared.markLessonChangesSeen([lesson.id])
     }
 
     /// A figyelt gyorstár-típusok: a kijelzett hét + a mostani és a jövő hét
@@ -503,6 +528,8 @@ struct TimetableView: View {
                 }
                 await load()
             }
+            // Az Órarend elhagyásakor a már látott változások jelölése lekerül.
+            .onDisappear { acknowledgedChanges = [:] }
             .onAppear {
                 scrollProxy = proxy
                 // Másik eszközről szinkronizált tannaptár is itt érkezik meg.
@@ -534,6 +561,7 @@ struct TimetableView: View {
             .fullScreenCover(item: $selectedLesson) { lesson in
                 LessonDetailSheet(
                     lesson: lesson,
+                    change: changeMarker(for: lesson),
                     homework: homework(for: lesson),
                     exam: exam(for: lesson),
                     examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false,
@@ -651,10 +679,12 @@ struct TimetableView: View {
                         isFlashing: isFlash,
                         flashPulse: flashPulse,
                         examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false,
+                        change: changeMarker(for: lesson),
                         onSelect: { selectedLesson = lesson }
                     )
                     .id(lesson.id)
                     .padding(.vertical, 5)
+                    .onAppear { acknowledgeChange(for: lesson) }
                 }
             } else {
                 // Élő — 15s-enként frissülő TimelineView, hogy a menő progress magától is mozogjon
@@ -678,10 +708,12 @@ struct TimetableView: View {
                             isFlashing: isFlash,
                             flashPulse: flashPulse,
                             examRolled: exam(for: lesson).map { rolledExamIDs.contains($0.id) } ?? false,
+                            change: changeMarker(for: lesson),
                             onSelect: { selectedLesson = lesson }
                         )
                         .id(lesson.id)
                         .padding(.vertical, 5)
+                        .onAppear { acknowledgeChange(for: lesson) }
                     }
                 }
             }
@@ -1393,6 +1425,8 @@ private struct TimetableRow: View {
     var flashPulse: Bool = false
     /// Hiányzás miatt átütemezett (pótló) dolgozat — piros a pill háttere.
     var examRolled: Bool = false
+    /// Háttér-frissítésből felismert, még nem látott változás (kék jelölés).
+    var change: LessonChange? = nil
     /// Sorkoppintás → részletező (a pillek testvér-gombok, nem részei).
     var onSelect: () -> Void = {}
 
@@ -1506,14 +1540,28 @@ private struct TimetableRow: View {
                 Button(action: { print("SUMMIT-ROW-TAP \(lesson.id)"); McSound.play(.click); onSelect() }) {
                     HStack(alignment: .top, spacing: 10) {
                         VStack(alignment: .leading, spacing: 4) {
-                        // Badge row — felmentett is zöld, elmarad piros, helyettesítés narancs
-                        if let lbl = badgeLabel {
-                            Text(lbl.uppercased())
-                                .skinFont(.caption2, weight: .bold)
-                                .tracking(0.5)
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 7).padding(.vertical, 3.5)
-                                .background(MinecraftTheme.capsule.fill(badgeColor))
+                        // Badge row — felmentett is zöld, elmarad piros, helyettesítés narancs;
+                        // mellette a friss változás kék jelölése („Új", „Teremcsere"…).
+                        if badgeLabel != nil || change != nil {
+                            HStack(spacing: 5) {
+                                if let lbl = badgeLabel {
+                                    Text(lbl.uppercased())
+                                        .skinFont(.caption2, weight: .bold)
+                                        .tracking(0.5)
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 7).padding(.vertical, 3.5)
+                                        .background(MinecraftTheme.capsule.fill(badgeColor))
+                                }
+                                if let change {
+                                    Text(change.markerTitle.uppercased())
+                                        .skinFont(.caption2, weight: .bold)
+                                        .tracking(0.5)
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 7).padding(.vertical, 3.5)
+                                        .background(MinecraftTheme.capsule.fill(Color.blue))
+                                        .accessibilityLabel("Változás: \(change.markerTitle)")
+                                }
+                            }
                         }
 
                         Text(lesson.subject)
@@ -1548,7 +1596,7 @@ private struct TimetableRow: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("lesson-row-\(lesson.id)")
-                .accessibilityLabel("\(lesson.subject), \(lesson.index). óra")
+                .accessibilityLabel("\(lesson.subject), \(lesson.index). óra" + (change.map { ", változás: \($0.markerTitle)" } ?? ""))
                 // Feladat pill — a fejléc alatt, tap → Feladatok tab
                 if let hw = homework {
                     Button {
@@ -1719,6 +1767,8 @@ private enum LessonSubjectIcon {
 // a hozzá tartozó házi és dolgozat, "Megnyitás" gombokkal.
 private struct LessonDetailSheet: View {
     let lesson: LessonItem
+    /// Friss (még nem / épp most látott) óra-változás — a „Változás" sorhoz.
+    var change: LessonChange? = nil
     let homework: HomeworkItem?
     let exam: ExamItem?
     let examRolled: Bool
@@ -1819,6 +1869,11 @@ private struct LessonDetailSheet: View {
                     }
                     detailRow(icon: "door.left.hand.open", title: "Terem", value: lesson.room.isEmpty ? "—" : lesson.room)
                         .mcListRow(fill: colors.surface)
+                    if let change {
+                        detailRow(icon: "arrow.triangle.2.circlepath", title: "Változás",
+                                  value: change.kind == .added ? change.markerTitle : change.detail)
+                            .mcListRow(fill: colors.surface)
+                    }
                     detailRow(icon: "clock.fill", title: "Időpont", value: timeLine)
                         .mcListRow(fill: colors.surface)
                 } header: { sectionTitle("Óra adatai") }

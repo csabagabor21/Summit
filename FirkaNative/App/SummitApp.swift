@@ -360,6 +360,24 @@ final class HandoffCenter {
             name: SummitHandoff.selectTab, object: nil, userInfo: ["tab": tab])
     }
 
+    /// Órarend megnyitása egy adott óra napján (pl. óra-változás értesítés
+    /// koppintásából): ugyanaz az út, mint a Handoff-folytatásé — élő nézet
+    /// direkt értesítéssel, még meg nem született nézet pending-gel.
+    static func openTimetable(at start: Date, lessonID: String?) {
+        let cal = Calendar.current
+        let current = KretaWeek.monday(for: Date())
+        let days = cal.dateComponents([.day], from: current, to: cal.startOfDay(for: start)).day ?? 0
+        let week = max(-8, min(8, Int(floor(Double(days) / 7.0))))
+        var wd = cal.component(.weekday, from: start)
+        if wd < 2 || wd > 6 { wd = 6 }
+        let pending = (week: week, day: wd, lesson: lessonID, at: Date())
+        shared.pendingTimetable = pending
+        NotificationCenter.default.post(
+            name: SummitHandoff.restoreTimetable, object: nil,
+            userInfo: ["week": pending.week, "day": pending.day, "lesson": pending.lesson as Any])
+        NotificationCenter.default.post(name: SummitHandoff.selectTab, object: nil, userInfo: ["tab": 2])
+    }
+
     /// Pending-ürítés 15 mp-es érvényességgel (öreg folytatás ne írja felül
     /// a frisset — pl. később kézzel nyitott Feladatok szegmensét).
     func takeTimetable() -> (week: Int, day: Int, lesson: String?)? {

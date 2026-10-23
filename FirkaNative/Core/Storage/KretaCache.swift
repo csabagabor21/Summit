@@ -148,6 +148,7 @@ struct KretaCacheSnapshot: Sendable {
     var calendarWeeks: [Date: KretaCached<[SchoolDayInfo]>] = [:]
     var calendarSpan: KretaCached<KretaCalendarSpan>?
     var homeworkDetails: KretaCached<[String: KretaHomeworkDetailEntry]>?
+    var lessonChanges: KretaCached<[String: LessonChange]>?
 }
 
 /// Házi-részlet csatolmány-eredménye (az üres is: negatív gyorstár — a
@@ -225,6 +226,7 @@ final class KretaDiskCache: @unchecked Sendable {
     }
     static let calendarSpanFile = "calendar-span.json"
     static let homeworkDetailsFile = "homework-details.json"
+    static let lessonChangesFile = "lesson-changes.json"
 
     // MARK: Írás
 
@@ -288,6 +290,7 @@ final class KretaDiskCache: @unchecked Sendable {
         snap.subjects = read([String].self, file: Self.fileName(for: .subjects))
         snap.calendarSpan = read(KretaCalendarSpan.self, file: Self.calendarSpanFile)
         snap.homeworkDetails = read([String: KretaHomeworkDetailEntry].self, file: Self.homeworkDetailsFile)
+        snap.lessonChanges = read([String: LessonChange].self, file: Self.lessonChangesFile)
         let current = KretaWeek.monday(for: now)
         let oldest = KretaWeek.adding(weeks: -Self.keepPastWeeks, to: current)
         let newest = KretaWeek.adding(weeks: Self.keepFutureWeeks, to: current)
@@ -366,9 +369,14 @@ final class KretaStore {
     private(set) var refreshing: Set<KretaDataKind> = []
     /// Legutóbbi frissítési kísérlete sikertelen volt („Mentve: …").
     private(set) var failed: Set<KretaDataKind> = []
+    /// Még nem látott óra-változások (óra-ID → változás): a sor jelölést kap,
+    /// amíg a user meg nem nézte (markLessonChangesSeen).
+    private(set) var lessonChanges: [String: LessonChange] = [:]
 
     @ObservationIgnored private var calendarSpan: KretaCached<KretaCalendarSpan>?
     @ObservationIgnored private var homeworkDetails: [String: KretaHomeworkDetailEntry] = [:]
+    /// Az aktív fiók user-ID-ja (az óra-változás értesítés látott-készletéhez).
+    @ObservationIgnored private var activeUserId: String?
     @ObservationIgnored private var disk: KretaDiskCache?
     /// Egyszerre futó frissítések számlálója típusonként (két hívó is
     /// frissítheti ugyanazt — a jelző csak az utolsó végén alszik ki).
@@ -467,6 +475,7 @@ final class KretaStore {
         }
         let hash = Self.accountHash(for: user)
         let local = user.isLocalBackend
+        activeUserId = user.id
         if !knownAccounts.isEmpty {
             KretaDiskCache.prune(keeping: Set((knownAccounts + [user]).filter { !$0.isLocalBackend }.map(Self.accountHash(for:))))
         }
@@ -527,7 +536,7 @@ final class KretaStore {
     private func clearMemory() {
         grades = nil; homework = nil; exams = nil; absences = nil; messages = nil; subjects = nil
         weeks = [:]; calendarWeeks = [:]
-        calendarSpan = nil; homeworkDetails = [:]
+        calendarSpan = nil; homeworkDetails = [:]; lessonChanges = [:]
         refreshing = []; failed = []; refreshDepth = [:]
     }
 
@@ -553,6 +562,12 @@ final class KretaStore {
         calendarSpan = newer(calendarSpan, snap.calendarSpan)
         if let hd = snap.homeworkDetails?.value {
             homeworkDetails.merge(hd) { current, _ in current }
+        }
+        if let lc = snap.lessonChanges?.value {
+            let today = Calendar.current.startOfDay(for: Date())
+            var merged = lessonChanges
+            for (k, v) in lc where v.start >= today && merged[k] == nil { merged[k] = v }
+            lessonChanges = merged
         }
     }
 
@@ -693,7 +708,9 @@ final class KretaStore {
             subjects = KretaCached(value: v, savedAt: date); persist(v, kind: kind, at: date)
         case .timetable(let m):
             guard let v = value as? [LessonItem] else { return assertionFailure("típushiba: \(kind)") }
+            let previous = weeks[m]?.value
             weeks[m] = KretaCached(value: v, savedAt: date); persist(v, kind: kind, at: date)
+            if let previous, !isLocalBackend { detectLessonChanges(old: previous, new: v, week: m) }
         case .calendar(let m):
             guard let v = value as? [SchoolDayInfo] else { return assertionFailure("típushiba: \(kind)") }
             calendarWeeks[m] = KretaCached(value: v, savedAt: date); persist(v, kind: kind, at: date)
@@ -723,6 +740,51 @@ final class KretaStore {
             homeworkDetails = Dictionary(uniqueKeysWithValues: keep.map { ($0.key, $0.value) })
         }
         disk?.write(homeworkDetails, savedAt: now, file: KretaDiskCache.homeworkDetailsFile)
+    }
+
+    // MARK: Óra-változások
+
+    /// Egy órához tartozó, még nem látott változás.
+    func lessonChange(for lessonId: String) -> LessonChange? { lessonChanges[lessonId] }
+
+    /// A felhasználó látta a változást (a sor megjelent az Órarendben).
+    func markLessonChangesSeen(_ ids: [String]) {
+        let hits = ids.filter { lessonChanges[$0] != nil }
+        guard !hits.isEmpty else { return }
+        var next = lessonChanges
+        for id in hits { next.removeValue(forKey: id) }
+        lessonChanges = next
+        persistLessonChanges()
+    }
+
+    /// Heti lehúzás után: a mentett és a friss hét összevetése, a változások
+    /// felvétele a látatlanok közé, és értesítés a közeliekről.
+    private func detectLessonChanges(old: [LessonItem], new: [LessonItem], week monday: Date) {
+        let now = Date()
+        let today = Calendar.current.startOfDay(for: now)
+        // Korábban üres hét (még nem publikált órarend, szünet) feltöltődése
+        // nem „változás" — az első valódi órarend sosem jelez.
+        let oldInWindow = old.filter { $0.start >= today }
+        guard !oldInWindow.isEmpty else { return }
+        let found = LessonChangeDetector.diff(old: old, new: new, now: now)
+        guard !found.isEmpty else { return }
+        // Teljes órarend-csere (új félév): tömeges „változás" helyett csak napló.
+        if found.count > 12 {
+            KretaDiagLog.shared.append("órarend \(KretaWeek.key(for: monday)): \(found.count) eltérés — órarend-csere, jelölés nélkül")
+            return
+        }
+        var next = lessonChanges.filter { $0.value.start >= today }
+        for c in found { next[c.lessonId] = c }
+        lessonChanges = next
+        persistLessonChanges()
+        KretaDiagLog.shared.append("órarend \(KretaWeek.key(for: monday)): \(found.count) változás")
+        if let uid = activeUserId {
+            NotificationManager.shared.checkLessonChanges(found.filter { LessonChangeDetector.isNotifiable($0, now: now) }, userId: uid)
+        }
+    }
+
+    private func persistLessonChanges() {
+        disk?.write(lessonChanges, savedAt: Date(), file: KretaDiskCache.lessonChangesFile)
     }
 
     // MARK: Frissítés-állapot
