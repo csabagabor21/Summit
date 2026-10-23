@@ -161,8 +161,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     private func fresh(kind: String, userId: String, ids: [String]) -> [String] {
         let key = seenKey(kind, userId: userId)
         guard UserDefaults.standard.object(forKey: key) != nil else {
-            // Első találkozás: baseline mag, újdonság nélkül.
-            UserDefaults.standard.set(ids, forKey: key)
+            // Első találkozás: baseline mag, újdonság nélkül. Üres listával
+            // NEM vetünk magot (az még-nem-ismert / sikertelen lehúzás is
+            // lehet) — különben a következő teli listánál minden "új" lenne.
+            if !ids.isEmpty { UserDefaults.standard.set(ids, forKey: key) }
             return []
         }
         var seen = loadSeen(kind, userId: userId)
