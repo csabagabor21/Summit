@@ -876,15 +876,30 @@ struct McNavLink<Destination: View, Label: View>: View {
                 label().frame(maxWidth: .infinity, alignment: .leading)
                 McGlyph(kind: .chevronRight, size: 16).foregroundStyle(.secondary)
             }
-            .overlay { NavigationLink { destination().mcBackButton() } label: { EmptyView() }.opacity(0) }
-            .mcLinkClick()
+            .overlay { NavigationLink { destination().mcBackButton().mcPushClick() } label: { EmptyView() }.opacity(0) }
         } else {
             NavigationLink(destination: destination, label: label)
         }
     }
 }
 
-/// Érték-alapú párja (`NavigationLink(value:)`).
+/// Push-olt nézet első megjelenésekor egy halk klikk. Visszatéréskor (egy
+/// mélyebb nézetről visszalépve) nem szól újra: az állapot a push idejére él.
+/// Summit-skinben a `McSound` néma.
+struct McPushClickModifier: ViewModifier {
+    @State private var played = false
+
+    func body(content: Content) -> some View {
+        content.onAppear {
+            guard !played else { return }
+            played = true
+            McSound.play(.click)
+        }
+    }
+}
+
+/// Érték-alapú párja (`NavigationLink(value:)`). A klikket a hívó
+/// `navigationDestination`-je adja (`mcPushClick()`).
 struct McNavValueLink<Value: Hashable, Label: View>: View {
     var value: Value
     @ViewBuilder var label: () -> Label
@@ -896,7 +911,6 @@ struct McNavValueLink<Value: Hashable, Label: View>: View {
                 McGlyph(kind: .chevronRight, size: 16).foregroundStyle(.secondary)
             }
             .overlay { NavigationLink(value: value) { EmptyView() }.opacity(0) }
-            .mcLinkClick()
         } else {
             NavigationLink(value: value, label: label)
         }
@@ -904,11 +918,13 @@ struct McNavValueLink<Value: Hashable, Label: View>: View {
 }
 
 extension View {
-    /// Rejtett `NavigationLink`-es listasor kattanása: a lista a linket nem
-    /// gombstílussal rajzolja, így a gyökér-stílus nem ér el hozzá — a
-    /// koppintás mellé (nem helyette) szól a halk klikk. Görgetéskor nem.
-    func mcLinkClick() -> some View {
-        simultaneousGesture(TapGesture().onEnded { McSound.play(.click) })
+    /// Rejtett `NavigationLink`-es listasor kattanása. A lista a linket nem
+    /// gombstílussal rajzolja, így a gyökér-stílus nem ér el hozzá — ezért a
+    /// klikk a megnyitott CÉLnézetre kerül, nem a sorra: a sorra tett
+    /// (akár egyidejű) TapGesture iOS 18+ alatt elnyeli a lista
+    /// sor-kiválasztását, és a link meg sem nyílik.
+    func mcPushClick() -> some View {
+        modifier(McPushClickModifier())
     }
 
     /// Alap szövegstílus egy egész felületre (lista, lap): Minecraftban a
