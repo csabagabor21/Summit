@@ -41,7 +41,7 @@ struct TimetableView: View {
     /// Dolgozat-pótlás kapcsoló/elvetés — újraszámolja a kijelzett dátumokat.
     @State private var rolloverTick = 0
     @AppStorage("schoolevents.show.v1") private var schoolEventsVisible = true
-    /// A hét-sáv kijelölő-korongja (matchedGeometryEffect) és a mérete
+    /// A hét-sáv kijelölő-korongja (glassEffectID / MC-ben matchedGeometryEffect) és a mérete
     /// (a Dynamic Type-pal együtt nő, hogy a szám sosem lóg ki a körből).
     @Namespace private var weekDiscNS
     @ScaledMetric(relativeTo: .title3) private var discSize: CGFloat = 36
@@ -250,14 +250,6 @@ struct TimetableView: View {
         NavigationStack {
             ScrollViewReader { proxy in
             List {
-                // MARK: Hét-kártya — hónap-cím + hétlapozó + a 5 nap (Apple Naptár hét-sávja)
-                Section {
-                    weekCard
-                    .onChange(of: selectedDay) { _, _ in userHasNavigated = true }
-                    .summitRowSurface(colors: colors)
-                    .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
-                }
-
                 // Frissítési hiba: ne haljon meg némán az órarend sem.
                 if let err = loadError, !kreta.sessionExpired {
                     Section {
@@ -357,6 +349,12 @@ struct TimetableView: View {
             }
             .listStyle(.insetGrouped)
             .listSectionSpacing(.compact)
+            // A hét-sáv lebegő üvegvezérlő a lista FÖLÖTT (safeAreaBar: az
+            // órakártyák alatta görögnek el, a scroll-edge effekt a sávhoz
+            // igazodik, nyugalmi helyzetben az első óra nem csúszik alá).
+            .safeAreaBar(edge: .top, spacing: 0) { weekBar }
+            .scrollEdgeEffectStyle(.soft, for: .top)
+            .onChange(of: selectedDay) { _, _ in userHasNavigated = true }
             .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
             .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
@@ -687,6 +685,68 @@ struct TimetableView: View {
         Task { await load() }
     }
 
+    // MARK: Hét-sáv — lebegő Liquid Glass kártya a lista fölött
+    /// Az üveg a lista fölötti UI-réteg (a tartalom alatta görög el). Három
+    /// réteg, alulról: (1) a kártya üvege `.background`-ban (nem a tartalom
+    /// szülő-glass modifierje — a külső margó az üvegen KÍVÜL van),
+    /// (2) a kijelölő korong üvege a sáv mögött (`weekDiscLayer`), (3) a
+    /// szövegek. A szöveg SOHA nem kerül GlassEffectContainerbe: a konténer
+    /// a tartalmat is az üveg-passzba rántaná, és elmosná. Minecraft
+    /// skinben nincs üveg: blokk-kártya és tömör korong.
+    private var weekBar: some View {
+        Group {
+            if MinecraftTheme.isActive {
+                weekCard
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 8)
+                    // Háttérként: a blokk-kártya kemény árnyéka ne a szövegekre kerüljön.
+                    .background { Color.clear.minecraftCard(cornerRadius: 6) }
+            } else {
+                weekCard
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 8)
+                    .background {
+                        Color.clear.glassEffect(.regular, in: .rect(cornerRadius: Self.weekBarRadius))
+                    }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
+    }
+    /// A kártya sarka: a kijelző sarkához igazodó (~concentric a 16 pt-os
+    /// behúzással), nem kapszula — a kártya magas.
+    private static let weekBarRadius: CGFloat = 30
+
+    /// A kijelölő üveg-korong rétege: a sáv oszlopait tükrözi (ugyanaz a
+    /// függőleges ritmus), csak a kijelölt napnál van benne egy
+    /// accent-tintes üveg-kör. Egyetlen GlassEffectContainer + azonos
+    /// glassEffectID: koppintásra a korong a napok közt morfol. Csak üveg
+    /// van benne (a szövegek fölötte, külön rétegben ülnek).
+    private var weekDiscLayer: some View {
+        GlassEffectContainer(spacing: 4) {
+            HStack(spacing: 0) {
+                ForEach(dayTags, id: \.self) { tag in
+                    VStack(spacing: 3) {
+                        // Láthatatlan hétköznap-betű: ugyanaz a magasság, mint a valódi oszlopban.
+                        Text("X").font(.caption2.weight(.semibold)).hidden()
+                        ZStack {
+                            if tag == selectedDay {
+                                Color.clear
+                                    .glassEffect(.regular.tint(colors.accent).interactive(), in: .circle)
+                                    .glassEffectID("weekDisc", in: weekDiscNS)
+                            }
+                        }
+                        .frame(width: discSize, height: discSize)
+                        Color.clear.frame(width: 5, height: 5)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
     // MARK: Hét-kártya — hónap-cím + lapozó + a 5 nap (Apple Naptár hét-sávja)
     private var weekCard: some View {
         VStack(spacing: 6) {
@@ -751,7 +811,6 @@ struct TimetableView: View {
             .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             weekStrip
         }
-        .padding(.vertical, 4)
     }
 
     /// 5 egyenlő oszlop (H–P): hétköznap-betű, nap-szám körben, dolgozat-pötty.
@@ -779,6 +838,8 @@ struct TimetableView: View {
                 }
             }
         }
+        // Az üveg-korong a szövegek ALATT (lásd weekBar).
+        .background { if !MinecraftTheme.isActive { weekDiscLayer } }
         .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         .contentShape(Rectangle())
         // Swipe a sávon: hetet lapoz (a napi tartalom swipe-ja napot).
@@ -788,10 +849,12 @@ struct TimetableView: View {
     private func weekStripDay(tag: Int, date: Date, isToday: Bool, isEmpty: Bool, examRolled: Bool?) -> some View {
         let isSel = tag == selectedDay
         let weekday = Calendar.current.component(.weekday, from: date)
-        // Mint az iOS Naptár: ma+kijelölt = accent korong, kijelölt = fekete/fehér
-        // korong, ma = accent szám, tanítás nélküli nap = halvány szám.
+        // Üveg-korong (accent tint) → a kijelölt szám mindig fehér; ma = accent
+        // szám, tanítás nélküli nap = halvány szám. Minecraftban tömör korong
+        // (ma = accent, egyébként fekete/fehér).
+        let mc = MinecraftTheme.isActive
         let number: AnyShapeStyle = isSel
-            ? AnyShapeStyle(isToday ? Color.white : Color(.systemBackground))
+            ? AnyShapeStyle(mc && !isToday ? Color(.systemBackground) : Color.white)
             : isToday ? AnyShapeStyle(colors.accent)
             : isEmpty ? AnyShapeStyle(.tertiary)
             : AnyShapeStyle(.primary)
@@ -810,9 +873,11 @@ struct TimetableView: View {
                     .lineLimit(1)
                 ZStack {
                     if isSel {
-                        Circle()
-                            .fill(isToday ? colors.accent : Color.primary)
-                            .matchedGeometryEffect(id: "weekDisc", in: weekDiscNS)
+                        if mc {
+                            Circle()
+                                .fill(isToday ? colors.accent : Color.primary)
+                                .matchedGeometryEffect(id: "weekDisc", in: weekDiscNS)
+                        }
                     }
                     Text("\(Calendar.current.component(.day, from: date))")
                         .font(.title3.weight(.semibold).monospacedDigit())
