@@ -195,13 +195,29 @@ extension MinecraftTheme {
              "chart.bar.fill", "chart.xyaxis.line": return .sprite("mc_item_spyglass")
         case "camera.fill", "photo.fill", "photo": return .sprite("mc_item_painting")
         case "airplane": return .sprite("mc_item_elytra")
-        case "sun.max.fill", "sun.max": return .sprite("mc_env_sun")
-        case "moon.zzz.fill", "moon.fill", "moon": return .sprite("mc_env_moon")
+        case "sun.max.fill", "sun.max": return .sprite("mc_item_torch")
+        case "moon.zzz.fill", "moon.fill", "moon": return .sprite("mc_item_clock")
         case "stethoscope", "cross.case.fill", "heart.fill": return .sprite("mc_hud_heart")
         case "mountain.2.fill": return .sprite("mc_block_snow")
         case "diamond.fill": return .sprite("mc_item_diamond")
         case "cube.fill": return .sprite("mc_grass_side")
         case "hourglass": return .sprite("mc_item_barrier")
+        // Órarend: tantárgy-ikonok és részletező-sorok
+        case "function": return .sprite("mc_item_redstone")
+        case "building.columns.fill": return .sprite("mc_block_cobblestone")
+        case "globe": return .sprite("mc_item_ender_pearl")
+        case "atom": return .sprite("mc_item_experience_bottle")
+        case "leaf.fill": return .sprite("mc_block_oak_sapling")
+        case "map.fill": return .sprite("mc_item_map")
+        case "laptopcomputer": return .sprite("mc_block_command_block")
+        case "figure.run": return .sprite("mc_item_iron_boots")
+        case "music.note": return .sprite("mc_block_note_block")
+        case "paintbrush.fill": return .sprite("mc_item_painting")
+        case "lightbulb.fill": return .sprite("mc_item_glow_ink_sac")
+        case "book.closed.fill", "book.closed": return .sprite("mc_item_book")
+        case "person.fill.badge.plus": return .sprite("mc_item_name_tag")
+        case "door.left.hand.open": return .sprite("mc_item_oak_door")
+        case "briefcase.fill", "briefcase": return .sprite("mc_block_crafting_table")
         default: return nil
         }
     }
@@ -222,7 +238,9 @@ struct SkinIcon: View {
 
     var body: some View {
         if MinecraftTheme.isActive, let art = MinecraftTheme.iconArt(for: systemName) {
-            let s = size ?? scaled
+            // 8 pt-os rácsra kerekítve (min. 16): a 16 px-es textúra így
+            // közel egész szorzóval nő, nem kenődnek el a pixelek.
+            let s = max(16, ((size ?? scaled) / 8).rounded() * 8)
             switch art {
             case .sprite(let name): McSprite(name: name, size: s)
             case .glyph(let kind): McGlyph(kind: kind, size: s * 0.8).frame(width: s, height: s)
@@ -651,8 +669,11 @@ struct SkinSegmentedPicker<Value: Hashable>: View {
                             .foregroundStyle(isOn ? Color.white : Color(hex: 0xA0A0A0))
                             .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: MinecraftTheme.px / 1.5, y: MinecraftTheme.px / 1.5)
                             .frame(maxWidth: .infinity, minHeight: 40)
+                            // A tab-sprite-ok félig áttetszők (sötét játék-háttérre
+                            // valók): opak alap kell alájuk, a kijelölt világosabb.
                             .background(McNineSlice(isOn ? "mc_widget_tab_sel" : "mc_widget_tab",
                                                     top: 2, left: 2, bottom: 0, right: 2))
+                            .background(isOn ? Color(hex: 0x6B6B70) : Color(hex: 0x1E1E22))
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -729,5 +750,184 @@ struct McAdvancementToast: View {
         .padding(.vertical, 8 * MinecraftTheme.px)
         .background(McNineSlice("mc_toast_advancement", top: 2, left: 2, bottom: 0, right: 2))
         .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - Üres állapot / űrlap-szekció
+
+/// `ContentUnavailableView(_, systemImage:, description:)` skin-érzékeny
+/// cseréje: Minecraftban item-textúra + Monocraft szöveg (a rendszer-
+/// nézet SF-ikont és rendszerbetűt rajzolna). Summitban a gyári nézet.
+struct SkinEmptyState: View {
+    var title: String
+    var systemImage: String
+    var description: String
+    var body: some View {
+        if MinecraftTheme.isActive {
+            VStack(spacing: 8) {
+                SkinIcon(systemImage, size: 40)
+                Text(title)
+                    .font(MinecraftTheme.font(.headline))
+                    .multilineTextAlignment(.center)
+                Text(description)
+                    .font(MinecraftTheme.font(.footnote))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .accessibilityElement(children: .combine)
+        } else {
+            ContentUnavailableView(title, systemImage: systemImage, description: Text(description))
+        }
+    }
+}
+
+/// `Section("Cím") { … }` skin-érzékeny párja űrlapokhoz: Minecraftban
+/// pixelbetűs fejléc és blokk-sor háttér (`fill`), Summitban a gyári
+/// szöveges fejlécű szekció.
+struct SkinFormSection<Content: View>: View {
+    var title: String
+    var fill: Color
+    @ViewBuilder var content: () -> Content
+    var body: some View {
+        if MinecraftTheme.isActive {
+            Section {
+                content().mcListRow(fill: fill)
+            } header: {
+                Text(title).mcSectionHeader()
+            }
+        } else {
+            Section(title) { content() }
+        }
+    }
+}
+
+extension View {
+    /// Űrlap/lista saját háttere Minecraftban rejtve (a sheet menü-háttere
+    /// látszik át); Summitban nem változtat semmin.
+    @ViewBuilder
+    func skinFormBackground() -> some View {
+        if MinecraftTheme.isActive {
+            self.scrollContentBackground(.hidden)
+        } else {
+            self
+        }
+    }
+}
+
+// MARK: - Betű (méret-alapú, egyenközű számjegyekkel)
+
+extension View {
+    /// `.font(.system(size:weight:design:).monospacedDigit())` skin-érzékeny
+    /// cseréje: Minecraftban Monocraft (az eleve egyenközű).
+    @ViewBuilder
+    func skinFontDigits(size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> some View {
+        if MinecraftTheme.isActive {
+            self.font(MinecraftFontLoader.font(size: (size * 0.92).rounded()))
+        } else {
+            self.font(.system(size: size, weight: weight, design: design).monospacedDigit())
+        }
+    }
+}
+
+// MARK: - Navigációs sor, alapbetű, kis gomb
+
+/// `NavigationLink` listasorban: Summitban pontosan a gyári link (rendszer-
+/// chevronnal), Minecraftban rejtett link + saját pixel-chevron — a
+/// rendszer-szimbólum helyett. A teljes sor koppintható marad.
+struct McNavLink<Destination: View, Label: View>: View {
+    @ViewBuilder var destination: () -> Destination
+    @ViewBuilder var label: () -> Label
+
+    var body: some View {
+        if MinecraftTheme.isActive {
+            HStack(spacing: 8) {
+                label().frame(maxWidth: .infinity, alignment: .leading)
+                McGlyph(kind: .chevronRight, size: 16).foregroundStyle(.secondary)
+            }
+            .overlay { NavigationLink(destination: destination) { EmptyView() }.opacity(0) }
+        } else {
+            NavigationLink(destination: destination, label: label)
+        }
+    }
+}
+
+/// Érték-alapú párja (`NavigationLink(value:)`).
+struct McNavValueLink<Value: Hashable, Label: View>: View {
+    var value: Value
+    @ViewBuilder var label: () -> Label
+
+    var body: some View {
+        if MinecraftTheme.isActive {
+            HStack(spacing: 8) {
+                label().frame(maxWidth: .infinity, alignment: .leading)
+                McGlyph(kind: .chevronRight, size: 16).foregroundStyle(.secondary)
+            }
+            .overlay { NavigationLink(value: value) { EmptyView() }.opacity(0) }
+        } else {
+            NavigationLink(value: value, label: label)
+        }
+    }
+}
+
+extension View {
+    /// Alap szövegstílus egy egész felületre (lista, lap): Minecraftban a
+    /// stílus nélküli szövegek is Monocraft betűt kapnak; Summitban semmi.
+    @ViewBuilder
+    func mcDefaultFont(_ style: Font.TextStyle = .body) -> some View {
+        if MinecraftTheme.isActive {
+            self.font(MinecraftTheme.font(style))
+        } else {
+            self
+        }
+    }
+
+    /// Soron belüli szöveges gomb: Summitban `.plain`, Minecraftban kis kő-gomb.
+    @ViewBuilder
+    func skinInlineButton() -> some View {
+        if MinecraftTheme.isActive {
+            self.buttonStyle(McButtonStyle(compact: true))
+        } else {
+            self.buttonStyle(.plain)
+        }
+    }
+}
+
+extension MinecraftTheme {
+    private static let tabImageCache = NSCache<NSString, UIImage>()
+
+    /// A tab item-textúrája a rendszer-tabsávhoz: előre, nearest-neighbor
+    /// módon felnagyítva (a tabsáv a nyers 16 px-es képet elkenné), eredeti
+    /// színekkel (nem template).
+    static func tabBarImage(for tab: Int) -> UIImage? {
+        let name = tabItemIcon(for: tab).1
+        if let hit = tabImageCache.object(forKey: name as NSString) { return hit }
+        guard let base = sprite(name) else { return nil }
+        let side: CGFloat = 32
+        let drawn = UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { ctx in
+            ctx.cgContext.interpolationQuality = .none
+            base.draw(in: CGRect(x: 0, y: 0, width: side, height: side))
+        }.withRenderingMode(.alwaysOriginal)
+        tabImageCache.setObject(drawn, forKey: name as NSString)
+        return drawn
+    }
+}
+
+/// Slot-keret egy kép köré: 1 px sötét külső él, a Java-kiadás
+/// inventory-rekeszének fordított bevelével (sötét fent-balra, világos
+/// lent-jobbra). Csak keret, a tartalmat nem takarja.
+struct McSlotFrame: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let u = MinecraftTheme.px / 1.5
+            func edge(_ r: CGRect, _ c: Color) { ctx.fill(Path(r), with: .color(c)) }
+            let w = size.width, h = size.height
+            edge(CGRect(x: 0, y: 0, width: w, height: u), Color(hex: 0x373737))
+            edge(CGRect(x: 0, y: 0, width: u, height: h), Color(hex: 0x373737))
+            edge(CGRect(x: 0, y: h - u, width: w, height: u), Color(hex: 0xFFFFFF))
+            edge(CGRect(x: w - u, y: 0, width: u, height: h), Color(hex: 0xFFFFFF))
+        }
+        .allowsHitTesting(false)
     }
 }

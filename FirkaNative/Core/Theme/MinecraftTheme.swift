@@ -169,22 +169,56 @@ static func skinRowBackground(_ color: Color) -> some View {
         let nav = UINavigationBar.appearance()
         let tabItem = UITabBarItem.appearance()
         if minecraft {
-            if let big = UIFont(name: MinecraftFontLoader.familyName, size: 32) {
-                nav.largeTitleTextAttributes = [.font: big]
-            }
-            if let small = UIFont(name: MinecraftFontLoader.familyName, size: 16),
-               let tiny = UIFont(name: MinecraftFontLoader.familyName, size: 10) {
+            let big = UIFont(name: MinecraftFontLoader.familyName, size: 32)
+            let small = UIFont(name: MinecraftFontLoader.familyName, size: 16)
+            let tiny = UIFont(name: MinecraftFontLoader.familyName, size: 10)
+            if let big { nav.largeTitleTextAttributes = [.font: big] }
+            if let small, let tiny {
                 nav.titleTextAttributes = [.font: small]
                 tabItem.setTitleTextAttributes([.font: tiny], for: .normal)
                 tabItem.setTitleTextAttributes([.font: tiny], for: .selected)
             }
+            // Nav-sáv: görgetve a játék paneljének kő-szürkéje (a rendszer
+            // iOS 26-on a háttérképet nem rajzolja, a címszínt pedig a
+            // SwiftUI adja — ezért olvasható, világos/sötét sávszín kell),
+            // keményen elválasztva; a tetején átlátszó.
+            let title: [NSAttributedString.Key: Any] = {
+                var a: [NSAttributedString.Key: Any] = [:]
+                if let small { a[.font] = small }
+                return a
+            }()
+            let large: [NSAttributedString.Key: Any] = big.map { [.font: $0] } ?? [:]
+            let scrolled = UINavigationBarAppearance()
+            scrolled.configureWithOpaqueBackground()
+            scrolled.backgroundColor = UIColor { $0.userInterfaceStyle == .dark
+                ? UIColor(red: 0x2E / 255, green: 0x2E / 255, blue: 0x33 / 255, alpha: 1)
+                : UIColor(red: 0xC6 / 255, green: 0xC6 / 255, blue: 0xC6 / 255, alpha: 1) }
+            scrolled.shadowColor = UIColor(red: 0x37 / 255, green: 0x37 / 255, blue: 0x37 / 255, alpha: 1)
+            scrolled.titleTextAttributes = title
+            scrolled.largeTitleTextAttributes = large
+            let top = UINavigationBarAppearance()
+            top.configureWithTransparentBackground()
+            top.titleTextAttributes = title
+            top.largeTitleTextAttributes = large
+            nav.standardAppearance = scrolled
+            nav.compactAppearance = scrolled
+            nav.scrollEdgeAppearance = top
         } else {
             nav.largeTitleTextAttributes = [:]
             nav.titleTextAttributes = [:]
             tabItem.setTitleTextAttributes([:], for: .normal)
             tabItem.setTitleTextAttributes([:], for: .selected)
+            // Visszaállás a rendszer-alapra (csak ha volt Minecraft-appearance).
+            if chromeOverridden {
+                nav.standardAppearance = UINavigationBarAppearance()
+                nav.compactAppearance = UINavigationBarAppearance()
+                nav.scrollEdgeAppearance = nil
+            }
         }
+        chromeOverridden = minecraft
     }
+
+    private static var chromeOverridden = false
 }
 
 // MARK: - Blokkos felület-modifierek
@@ -315,11 +349,13 @@ struct MinecraftBackdrop: View {
                     mcMoon().position(x: w * moonX(hour: hour), y: 150 + shift)
                 } else {
                     let (sx, sy, tint) = sunPose(hour: hour, w: w)
-                    RoundedRectangle(cornerRadius: 4)
+                    // Kemény négyzet-nap, világosabb maggal (mint a játék napja);
+                    // nincs lekerekítés, nincs derengés.
+                    Rectangle()
                         .fill(tint)
-                        .frame(width: 64, height: 64)
+                        .frame(width: 96, height: 96)
+                        .overlay(Rectangle().fill(Color.white.opacity(0.55)).frame(width: 48, height: 48))
                         .position(x: sx, y: sy + shift)
-                        .shadow(color: tint.opacity(0.5), radius: 24)
                 }
                 // Rendes minecraft-felhők: lapos fehér blokk-lapok, lassan sodródnak.
                 mcCloudLane(width: w, top: 110, night: night, duration: 140)
@@ -410,17 +446,16 @@ struct MinecraftBackdrop: View {
         return 0.10 + 0.80 * min(1, max(0, t))
     }
 
-    /// Pixel-hold: fakó kocka sötétebb kráter-kockákkal + halvány fénnyel.
+    /// Pixel-hold: fakó kocka sötétebb kráter-kockákkal.
     private func mcMoon() -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 4)
+            Rectangle()
                 .fill(Color(hex: 0xE8EDF5))
-                .frame(width: 56, height: 56)
-            RoundedRectangle(cornerRadius: 2).fill(Color(hex: 0xB9C2D4)).frame(width: 14, height: 14).offset(x: -10, y: -8)
-            RoundedRectangle(cornerRadius: 2).fill(Color(hex: 0xB9C2D4)).frame(width: 10, height: 10).offset(x: 12, y: 6)
-            RoundedRectangle(cornerRadius: 2).fill(Color(hex: 0xC7CFE0)).frame(width: 8, height: 8).offset(x: 2, y: -14)
+                .frame(width: 57, height: 57)
+            Rectangle().fill(Color(hex: 0xB9C2D4)).frame(width: 15, height: 15).offset(x: -9, y: -9)
+            Rectangle().fill(Color(hex: 0xB9C2D4)).frame(width: 9, height: 9).offset(x: 12, y: 6)
+            Rectangle().fill(Color(hex: 0xC7CFE0)).frame(width: 9, height: 9).offset(x: 3, y: -15)
         }
-        .shadow(color: Color.white.opacity(0.4), radius: 20)
     }
 
     // MARK: - Felhők
@@ -821,6 +856,19 @@ struct McBlockPanel: View {
 /// szekció lekerekített sarkára vágja — a panel ezért annyira be van
 /// húzva, hogy a vágás sosem érje el a lépcsős sarkot.
 extension MinecraftTheme {
+    /// Áttetsző állapot-szín (pl. narancs 8%) opak panel-archoz: a panel
+    /// alap-színére keverve — a játék paneljein nem látszik át az ég.
+    static func opaqueFace(_ color: Color) -> Color {
+        let ui = UIColor(color)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        guard ui.getRed(&r, green: &g, blue: &b, alpha: &a), a < 0.99 else { return color }
+        let dark = UITraitCollection.current.userInterfaceStyle == .dark
+        let base = UIColor(dark ? Color(hex: 0x2B2B30) : Color(hex: 0xF7F0DC))
+        var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
+        base.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
+        return Color(red: Double(br + (r - br) * a), green: Double(bg + (g - bg) * a), blue: Double(bb + (b - bb) * a))
+    }
+
     /// Sor-margó skin-érzékenyen: Minecraftban a `McRowPanel` behúzásával
     /// (+ a körvonal és a bevel két pixelével) bővítve, hogy a szöveg ne
     /// a kereten üljön. Summitban az eredeti érték (nil = rendszer-alap).
@@ -842,7 +890,7 @@ struct McRowPanel: View {
     static let horizontalInset: CGFloat = 9
     static let verticalInset: CGFloat = 6
     var body: some View {
-        McBlockPanel(face: face)
+        McBlockPanel(face: MinecraftTheme.opaqueFace(face))
             .padding(.horizontal, Self.horizontalInset)
             .padding(.top, Self.verticalInset)
             .padding(.bottom, Self.verticalInset + McSoil.unit)

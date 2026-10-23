@@ -95,7 +95,10 @@ extension View {
 
     @ViewBuilder
     func glassEffectIfAvailable(in circle: Circle = Circle(), tint: Color? = nil) -> some View {
-        if #available(iOS 26.0, *) {
+        // Minecraftban nincs üveg: a hívó saját pixel-háttere marad.
+        if MinecraftTheme.isActive {
+            self
+        } else if #available(iOS 26.0, *) {
             if let t = tint { self.glassEffect(.regular.tint(t).interactive(), in: circle) }
             else { self.glassEffect(.regular.interactive(), in: circle) }
         } else {
@@ -105,7 +108,9 @@ extension View {
 
     @ViewBuilder
     func glassEffectIfAvailable(in rect: RoundedRectangle, tint: Color? = nil) -> some View {
-        if #available(iOS 26.0, *) {
+        if MinecraftTheme.isActive {
+            self
+        } else if #available(iOS 26.0, *) {
             if let t = tint { self.glassEffect(.regular.tint(t).interactive(), in: rect) }
             else { self.glassEffect(.regular.interactive(), in: rect) }
         } else {
@@ -187,7 +192,9 @@ extension View {
     /// nincs felülírás — a rendszer rajzolja az átlátszó Liquid Glass bart.
     @ViewBuilder
     func summitToolbarBackground() -> some View {
-        if MacSupport.isNativeMac {
+        // Minecraft: a nav-sáv a játék menü-fejléce (földcsempe), a tetején
+        // átlátszó — a kényszerített rendszer-sáv helyett az appearance dönt.
+        if MinecraftTheme.isActive || MacSupport.isNativeMac {
             self
         } else {
             self.toolbarBackground(.visible, for: .navigationBar)
@@ -212,7 +219,9 @@ extension View {
     /// natív Mac-ablakban átlátszó — a mögöttes tartalom áttűnik.
     @ViewBuilder
     func summitSheetBackground() -> some View {
-        if MacSupport.isNativeMac {
+        if MinecraftTheme.isActive {
+            self.background { McMenuBackground() }
+        } else if MacSupport.isNativeMac {
             self.background(Color.clear)
         } else {
             self.background(Color(.systemBackground).ignoresSafeArea())
