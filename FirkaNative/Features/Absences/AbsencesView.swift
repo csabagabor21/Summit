@@ -182,13 +182,17 @@ struct AbsencesView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .padding(16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .fill(scheme == .dark ? Color.white.opacity(0.06) : Color.white)
-                            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.primary.opacity(scheme == .dark ? 0.08 : 0.06), lineWidth: 1))
-                            // Light módban nincs külső shadow — a fehér kártya szürke háttéren shadow-ja szarul nézett ki
-                            .shadow(color: scheme == .dark ? colors.shadow.opacity(0.30) : .clear, radius: 14, y: 6)
-                    )
+                    .background {
+                        if MinecraftTheme.isActive {
+                            McBlockPanel(face: colors.surface)
+                        } else {
+                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                .fill(scheme == .dark ? Color.white.opacity(0.06) : Color.white)
+                                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.primary.opacity(scheme == .dark ? 0.08 : 0.06), lineWidth: 1))
+                                // Light módban nincs külső shadow — fehér kártya szürke háttéren rosszul mutat
+                                .shadow(color: scheme == .dark ? colors.shadow.opacity(0.30) : .clear, radius: 14, y: 6)
+                        }
+                    }
                     // Light módban glass nélkül — a glass saját árnyéka dobozba clipelődik a List-sorban
                     .functionalGlassWhen(scheme == .dark, cornerRadius: 20)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -453,12 +457,17 @@ private struct DelayRingWidget: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 210, alignment: .top)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(scheme == .dark ? Color.white.opacity(0.06) : Color.white)
-                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.primary.opacity(scheme == .dark ? 0.08 : 0.06), lineWidth: 1))
-                .shadow(color: scheme == .dark ? colors.shadow.opacity(0.30) : .clear, radius: 14, y: 6)
-        )
+        .background {
+            if MinecraftTheme.isActive {
+                McBlockPanel(face: colors.surface)
+            } else {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(scheme == .dark ? Color.white.opacity(0.06) : Color.white)
+                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.primary.opacity(scheme == .dark ? 0.08 : 0.06), lineWidth: 1))
+                    // Light módban nincs külső shadow — fehér kártya szürke háttéren rosszul mutat
+                    .shadow(color: scheme == .dark ? colors.shadow.opacity(0.30) : .clear, radius: 14, y: 6)
+            }
+        }
         .functionalGlass(cornerRadius: 20)
     }
 }
@@ -533,12 +542,16 @@ private struct HeroStatsCard: View {
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(scheme == .dark ? Color.white.opacity(0.06) : Color.white)
-                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.primary.opacity(scheme == .dark ? 0.08 : 0.06), lineWidth: 1))
-                .shadow(color: colors.shadow.opacity(scheme == .dark ? 0.30 : 0.07), radius: 14, y: 6)
-        )
+        .background {
+            if MinecraftTheme.isActive {
+                McBlockPanel(face: colors.surface)
+            } else {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(scheme == .dark ? Color.white.opacity(0.06) : Color.white)
+                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.primary.opacity(scheme == .dark ? 0.08 : 0.06), lineWidth: 1))
+                    .shadow(color: colors.shadow.opacity(scheme == .dark ? 0.30 : 0.07), radius: 14, y: 6)
+            }
+        }
         .functionalGlass(cornerRadius: 20)
     }
 }
@@ -591,7 +604,9 @@ private struct AbsenceRow: View {
             }
             Spacer()
         }
-        .listRowBackground(rowBackground)
+        .listRowBackground(MinecraftTheme.skinRowBackground(rowBackground))
+        .listRowInsets(MinecraftTheme.rowInsets(nil))
+        .listRowSeparator(MinecraftTheme.isActive ? .hidden : .automatic)
         .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] + 16 }
         .contentShape(Rectangle())
     }

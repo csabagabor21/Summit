@@ -157,7 +157,7 @@ struct HomeView: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 Label("Közelgő dolgozatok", systemImage: "pencil.and.list.clipboard").mcSectionHeader()
                                 if vm.exams.isEmpty {
-                                    Text("Nincs dolgozat").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(RoundedRectangle(cornerRadius: 12).fill(colors.surface)).mcHairlineBorder()
+                                    Text("Nincs dolgozat").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 12))
                                 } else {
                                     ForEach(Array(examsSorted), id: \.id) { e in
                                         PadExamRow(exam: e, done: completed.isExamDone(e.id), colors: colors, scheme: scheme, rolled: vm.rolledExamIDs.contains(e.id)) {
@@ -172,7 +172,7 @@ struct HomeView: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 Label("Közelgő feladatok", systemImage: "checklist").mcSectionHeader()
                                 if vm.homeworks.isEmpty {
-                                    Text("Nincs feladat").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(RoundedRectangle(cornerRadius: 12).fill(colors.surface)).mcHairlineBorder()
+                                    Text("Nincs feladat").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 12))
                                 } else {
                                     ForEach(Array(hwSorted), id: \.id) { h in
                                         PadHomeworkRow(homework: h, done: completed.isHomeworkDone(h.id), colors: colors, scheme: scheme) {
@@ -193,7 +193,7 @@ struct HomeView: View {
                 Section {
                     let sorted = vm.exams.sorted { $0.date < $1.date }
                     if sorted.isEmpty {
-                        Text("Nincs közelgő dolgozat").foregroundStyle(.secondary)
+                        Text("Nincs közelgő dolgozat").foregroundStyle(.secondary).mcListRow(fill: colors.surface)
                     } else {
                         ForEach(sorted.prefix(3)) { e in
                             // Csak határidő-napi óra jelölhető — fallback nélkül,
@@ -233,7 +233,7 @@ struct HomeView: View {
                     // csak az élő, kipipálatlan házik (a kész a Kész szegmensben van).
                     let sorted = vm.homeworks.filter { !completed.isHomeworkDone($0.id) }.sorted { $0.deadline < $1.deadline }
                     if sorted.isEmpty {
-                        Text("Nincs feladat").foregroundStyle(.secondary)
+                        Text("Nincs feladat").foregroundStyle(.secondary).mcListRow(fill: colors.surface)
                     } else {
                         ForEach(sorted.prefix(3)) { h in
                             // Csak határidő-napi óra jelölhető — fallback nélkül,
@@ -463,9 +463,7 @@ private struct PadExamRow: View {
         .padding(10).background(cardBackground)
     }
     private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 12)
-            .fill(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : rolled ? Color.red.opacity(scheme == .dark ? 0.16 : 0.10) : colors.surface)
-            .mcHairlineBorder()
+        McCardBackground(fill: done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : rolled ? Color.red.opacity(scheme == .dark ? 0.16 : 0.10) : colors.surface, cornerRadius: 12)
     }
 }
 
@@ -502,9 +500,7 @@ private struct PadHomeworkRow: View {
         .padding(10).background(cardBackground)
     }
     private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 12)
-            .fill(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface)
-            .mcHairlineBorder()
+        McCardBackground(fill: done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface, cornerRadius: 12)
     }
 }
 
@@ -555,7 +551,7 @@ private struct HomeAssignmentRow: View {
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
-        .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+        .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
         .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] + 16 }
         // Pótló dolgozat piros háttere (mint a kipipált zöld, csak piros).
         // Minecraftban blokk-kerettel.
@@ -592,13 +588,19 @@ private struct HomeLiveCard: View {
                     // TimelineView makes progress live every 15s without Timer
                     // Header kívül — TimelineView csak a row tartalmát frissíti, nem a Section-t.
                     TimelineView(.periodic(from: .now, by: 15)) { context in
-                        let calc = LiveCalc(lessons: lessons, now: context.date)
-                        innerContent(calc: calc)
-                            .listRowBackground(MinecraftTheme.skinRowBackground(bg(for: calc)))
+                        innerContent(calc: LiveCalc(lessons: lessons, now: context.date))
                     }
+                    // A sor-háttér a TimelineView-n KÍVÜL kell legyen, különben
+                    // a List nem veszi át (gyári fehér kapszula maradna);
+                    // saját idővonallal frissül, hogy a színe kövesse az órát.
+                    .listRowBackground(
+                        TimelineView(.periodic(from: .now, by: 15)) { context in
+                            MinecraftTheme.skinRowBackground(bg(for: LiveCalc(lessons: lessons, now: context.date)))
+                        }
+                    )
                 }
             }
-            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+            .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)))
             .listRowSeparator(.hidden)
         } header: {
             Text("MOST").mcSectionHeader()

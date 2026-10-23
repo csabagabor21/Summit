@@ -317,7 +317,7 @@ struct TimetableView: View {
                     }
                     .padding(.vertical, 2)
                     .summitRowSurface(colors: colors)
-                    .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+                    .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12)))
                 }
 
                 // Frissítési hiba: ne haljon meg némán az órarend sem.
@@ -360,7 +360,7 @@ struct TimetableView: View {
                             .padding(.vertical, 10)
                             .redacted(reason: .placeholder)
                             .summitRowSurface(colors: colors)
-                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                            .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
                         }
                     }
                 } else if filtered.isEmpty {
@@ -1078,15 +1078,19 @@ private struct SchoolEventCard: View {
             Spacer(minLength: 8)
         }
         .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(colors.accent.opacity(scheme == .dark ? 0.14 : 0.08))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(colors.accent.opacity(scheme == .dark ? 0.30 : 0.22), lineWidth: 1)
-                )
-                .shadow(color: colors.shadow.opacity(scheme == .dark ? 0.20 : 0.06), radius: 8, y: 3)
-        )
+        .background {
+            if MinecraftTheme.isActive {
+                McBlockPanel(face: colors.surfaceElevated)
+            } else {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(colors.accent.opacity(scheme == .dark ? 0.14 : 0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(colors.accent.opacity(scheme == .dark ? 0.30 : 0.22), lineWidth: 1)
+                    )
+                    .shadow(color: colors.shadow.opacity(scheme == .dark ? 0.20 : 0.06), radius: 8, y: 3)
+            }
+        }
     }
 }
 
@@ -1166,10 +1170,7 @@ private struct TimetableRow: View {
                     .background {
                         Group {
                             if MinecraftTheme.isActive {
-                                RoundedRectangle(cornerRadius: 9)
-                                    .fill(colors.surface)
-                                    .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(MinecraftTheme.dirtDark, lineWidth: 2))
-                                    .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Color.white.opacity(0.3), lineWidth: 1).padding(2))
+                                McBlockPanel(face: colors.surface, castsShadow: false)
                             } else if #available(iOS 26.0, *) {
                                 Circle()
                                     .fill(Color.clear)
@@ -1323,15 +1324,19 @@ private struct TimetableRow: View {
                 }
             }
             .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(rowBackground)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .strokeBorder(Color.primary.opacity(scheme == .dark ? 0.08 : 0.06), lineWidth: 1)
-                    )
-                    .shadow(color: colors.shadow.opacity(isCurrent ? 0.18 : scheme == .dark ? 0.20 : 0.06), radius: isCurrent ? 12 : 8, y: isCurrent ? 5 : 3)
-            )
+            .background {
+                if MinecraftTheme.isActive {
+                    McBlockPanel(face: rowBackground)
+                } else {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(rowBackground)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .strokeBorder(Color.primary.opacity(scheme == .dark ? 0.08 : 0.06), lineWidth: 1)
+                        )
+                        .shadow(color: colors.shadow.opacity(isCurrent ? 0.18 : scheme == .dark ? 0.20 : 0.06), radius: isCurrent ? 12 : 8, y: isCurrent ? 5 : 3)
+                }
+            }
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .strokeBorder(colors.accent.opacity(isFlashing ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlashing ? 2.2 : 0)

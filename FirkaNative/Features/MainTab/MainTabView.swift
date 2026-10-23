@@ -60,8 +60,11 @@ struct MainTabView: View {
                     McGrassBlockFooter(height: 148)
                 }
                 .overlay(alignment: .bottom) {
-                    mcHotbar.padding(.bottom, 46)
+                    mcHotbar.padding(.bottom, 6)
                 }
+                // Az ég a fűsáv mögé is lenyúlik: a növények az égre rajzolódnak,
+                // nem a tab-tartalom alatti üres (fehér) sávra.
+                .background { MinecraftBackdrop(ground: false) }
             } else {
                 tabContent
             }
@@ -213,43 +216,16 @@ struct MainTabView: View {
          (4, "mc_item_barrier", "Hiányzások")]
     }
 
-    /// Saját minecraft-hotbar: sötét áttetsző sáv, a kijelölt slot
-    /// fűzöld, fehér kerettel — mint a játékban.
+    /// Saját minecraft-hotbar (lásd `McHotbar`): a kijelölt slot neve a
+    /// sáv fölött, a játékbeli szöveg-árnyékkal.
     private var mcHotbar: some View {
-        HStack(spacing: 6) {
-            ForEach(mcTabs, id: \.0) { tab, icon, title in
-                Button {
-                    SummitHaptics.selection()
-                    selected = tab
-                } label: {
-                    VStack(spacing: 2) {
-                        MinecraftTheme.mcPixelImage(icon, size: 30)
-                        Text(title)
-                            .font(MinecraftFontLoader.font(size: 8))
-                    }
-                    .foregroundStyle(selected == tab ? .white : .white.opacity(0.55))
-                    .frame(width: 56, height: 52)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(selected == tab
-                                  ? MinecraftTheme.grass.opacity(0.9)
-                                  : Color.black.opacity(0.45))
-                            .overlay(RoundedRectangle(cornerRadius: 8)
-                                .strokeBorder(selected == tab ? .white : .white.opacity(0.3),
-                                              lineWidth: selected == tab ? 3 : 1.5))
-                    )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text(title))
-            }
+        McHotbar(
+            slots: mcTabs.map { McHotbar.Slot(tab: $0.0, sprite: $0.1, title: $0.2) },
+            selected: selected
+        ) { tab in
+            SummitHaptics.selection()
+            selected = tab
         }
-        .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color.black.opacity(0.45))
-                .overlay(RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(.white.opacity(0.25), lineWidth: 2))
-        )
     }
 
     private func tabTitle(_ tab: Int) -> String {
@@ -292,5 +268,143 @@ private extension View {
         } else {
             self
         }
+    }
+}
+
+/// Minecraft Java/Bedrock hotbar, pixelrácsra rajzolva: 1 játék-pixel =
+/// `px` pt, minden él egész számú játék-pixelre esik, nincs lekerekítés.
+/// A slotok 20×20 px-esek (1 px sötét keret, 1 px letört él, 16×16 px
+/// belső tér az itemnek), a kijelölést a vanilla `hotbar_selection`
+/// mintájú, slotonként 2 px-szel túlnyúló fehér keret jelzi. A kijelölt
+/// item neve a sáv fölött áll fehér Minecraft-betűvel, 1 px-es
+/// (#3F3F3F) szövegárnyékkal.
+private struct McHotbar: View {
+    struct Slot: Identifiable {
+        let tab: Int
+        let sprite: String
+        let title: String
+        var id: Int { tab }
+    }
+
+    let slots: [Slot]
+    let selected: Int
+    let onSelect: (Int) -> Void
+
+    /// Egy játék-pixel pontban (3 pt → 6/9 fizikai pixel, mindig egész).
+    private let px: CGFloat = 3
+    private let slotPx = 20
+    private var barWidthPx: Int { slotPx * slots.count + 2 }
+    private let barHeightPx = 22
+
+    private var selectedIndex: Int? { slots.firstIndex { $0.tab == selected } }
+    private var selectedTitle: String { slots.first { $0.tab == selected }?.title ?? "" }
+
+    var body: some View {
+        VStack(spacing: 2 * px) {
+            itemName
+            ZStack(alignment: .topLeading) {
+                barArt
+                ForEach(Array(slots.enumerated()), id: \.element.id) { index, slot in
+                    MinecraftTheme.mcPixelImage(slot.sprite, size: 16 * px)
+                        .offset(x: CGFloat(1 + index * slotPx + 2) * px,
+                                y: 3 * px)
+                        .allowsHitTesting(false)
+                }
+                selectionFrame
+                ForEach(Array(slots.enumerated()), id: \.element.id) { index, slot in
+                    Button { onSelect(slot.tab) } label: {
+                        Color.clear
+                            .frame(width: CGFloat(slotPx) * px, height: CGFloat(barHeightPx) * px)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text(slot.title))
+                    .accessibilityAddTraits(slot.tab == selected ? .isSelected : [])
+                    .offset(x: CGFloat(1 + index * slotPx) * px - px)
+                }
+            }
+            .frame(width: CGFloat(barWidthPx) * px, height: CGFloat(barHeightPx) * px,
+                   alignment: .topLeading)
+        }
+    }
+
+    /// A kijelölt item neve: fehér szöveg + sötétszürke árnyék 1 px-szel
+    /// jobbra-le, váltáskor áttűnéssel (mint a játékban).
+    private var itemName: some View {
+        let font = MinecraftFontLoader.font(size: 8 * px)
+        return ZStack(alignment: .topLeading) {
+            Text(selectedTitle)
+                .font(font)
+                .foregroundStyle(Color(red: 0.247, green: 0.247, blue: 0.247))
+                .offset(x: px, y: px)
+            Text(selectedTitle)
+                .font(font)
+                .foregroundStyle(.white)
+        }
+        .fixedSize()
+        .padding(.trailing, px)
+        .padding(.bottom, px)
+        .id(selected)
+        .transition(.opacity.animation(.easeOut(duration: 0.18)))
+        .accessibilityHidden(true)
+        .frame(height: 12 * px)
+    }
+
+    /// Sáv + slotok. Koordináták játék-pixelben.
+    private var barArt: some View {
+        Canvas { ctx, _ in
+            func rect(_ x: Int, _ y: Int, _ w: Int, _ h: Int, _ c: Color) {
+                ctx.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px,
+                                     width: CGFloat(w) * px, height: CGFloat(h) * px)), with: .color(c))
+            }
+            // Sötét, áttetsző alap + 1 px külső keret.
+            rect(0, 0, barWidthPx, barHeightPx, Color(white: 0.06, opacity: 0.88))
+            rect(1, 1, barWidthPx - 2, barHeightPx - 2, Color(white: 0.16, opacity: 0.80))
+            for i in 0..<slots.count {
+                let x = 1 + i * slotPx
+                // Slot-keret (sötét) és 18×18-as test.
+                rect(x, 1, slotPx, 20, Color(white: 0.04, opacity: 0.95))
+                rect(x + 1, 2, 18, 18, Color(white: 0.42, opacity: 0.62))
+                // Letört élek: bal/felső sötét, jobb/alsó világos.
+                rect(x + 1, 2, 18, 1, Color(white: 0.215, opacity: 0.95))
+                rect(x + 1, 2, 1, 18, Color(white: 0.215, opacity: 0.95))
+                rect(x + 1, 19, 18, 1, Color(white: 1.0, opacity: 0.55))
+                rect(x + 18, 2, 1, 18, Color(white: 1.0, opacity: 0.55))
+                // A két sarok (egyetlen pixel) a klasszikus slot szerint.
+                rect(x + 1, 19, 1, 1, Color(white: 0.42, opacity: 0.62))
+                rect(x + 18, 2, 1, 1, Color(white: 0.42, opacity: 0.62))
+            }
+        }
+        .frame(width: CGFloat(barWidthPx) * px, height: CGFloat(barHeightPx) * px)
+        .allowsHitTesting(false)
+    }
+
+    /// Kijelölő keret: 24×24 px, 1 px fekete külső él, 2 px fehér gyűrű,
+    /// 1 px világosszürke belső él; a slotot minden oldalon 2 px-szel
+    /// túllépi (a belső 16×16 itemtér szabad marad).
+    private var selectionFrame: some View {
+        Canvas { ctx, _ in
+            guard let i = selectedIndex else { return }
+            // A vászon 2 px-szel nagyobb a sávnál minden oldalon, hogy a
+            // túlnyúló keret ne vágódjon le.
+            let ox = 1 + i * slotPx
+            let oy = 1
+            func ring(_ inset: Int, _ c: Color) {
+                let side = 24 - inset * 2
+                let outer = CGRect(x: CGFloat(ox + inset) * px, y: CGFloat(oy + inset) * px,
+                                   width: CGFloat(side) * px, height: CGFloat(side) * px)
+                let inner = outer.insetBy(dx: px, dy: px)
+                var p = Path(outer)
+                p.addRect(inner)
+                ctx.fill(p, with: .color(c), style: FillStyle(eoFill: true))
+            }
+            ring(0, Color(white: 0.0, opacity: 0.9))
+            ring(1, .white)
+            ring(2, .white)
+            ring(3, Color(white: 0.55))
+        }
+        .frame(width: CGFloat(barWidthPx + 4) * px, height: CGFloat(barHeightPx + 4) * px)
+        .offset(x: -2 * px, y: -2 * px)
+        .allowsHitTesting(false)
     }
 }

@@ -493,7 +493,8 @@ struct NotesView: View {
             }
             .buttonStyle(.plain)
         }
-        .listRowBackground(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface)
+        .listRowBackground(MinecraftTheme.skinRowBackground(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface))
+        .listRowInsets(MinecraftTheme.rowInsets(nil))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(colors.accent.opacity(isFlash ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlash ? 2.2 : 0)
@@ -597,7 +598,8 @@ struct NotesView: View {
         }
         // Pótló dolgozat piros háttere (mint a kipipált zöld, csak piros) —
         // a kész (zöld) állapot nyer, ha mindkettő igaz.
-        .listRowBackground(ready ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : rolled ? Color.red.opacity(scheme == .dark ? 0.16 : 0.10) : colors.surface)
+        .listRowBackground(MinecraftTheme.skinRowBackground(ready ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : rolled ? Color.red.opacity(scheme == .dark ? 0.16 : 0.10) : colors.surface))
+        .listRowInsets(MinecraftTheme.rowInsets(nil))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(colors.accent.opacity(isFlash ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlash ? 2.2 : 0)

@@ -106,7 +106,7 @@ struct GradesView: View {
                                                     VStack(alignment: .leading, spacing: 3) { Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1); Text(String(format: "%.2f • %d jegy", raw, items.count)).font(.caption2).foregroundStyle(.secondary).lineLimit(1) }
                                                     Spacer()
                                                     Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
-                                                }.padding(12).background(RoundedRectangle(cornerRadius: 14).fill(colors.surface).overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)))
+                                                }.padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 14))
                                             }.buttonStyle(.plain)
                                         } else {
                                             Button {
@@ -119,7 +119,7 @@ struct GradesView: View {
                                                     VStack(alignment: .leading, spacing: 3) { Text(subject).font(.subheadline.weight(.semibold)).lineLimit(1); Text("Nincs jegy").font(.caption2).foregroundStyle(.tertiary).lineLimit(1) }
                                                     Spacer()
                                                     Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
-                                                }.padding(12).background(RoundedRectangle(cornerRadius: 14).fill(colors.surface).overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)))
+                                                }.padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 14))
                                             }.buttonStyle(.plain)
                                         }
                                     }
@@ -141,14 +141,19 @@ struct GradesView: View {
                                         }.padding(.vertical, 2)
                                     }
                                     .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                    .mcListRow(fill: colors.surface)
                                 } else {
                                     // Nincs még jegy — KRÉTA tudja a tantárgyat, üresen mutatjuk
                                     NavigationLink(value: subject) {
                                         HStack(spacing: 12) {
                                             ZStack {
-                                                Circle().fill(Color.clear)
-                                                    .overlay(Circle().strokeBorder(Color.primary.opacity(scheme == .dark ? 0.14 : 0.10), lineWidth: 1.2))
-                                                    .frame(width: 44, height: 44)
+                                                if MinecraftTheme.isActive {
+                                                    McInventorySlot().frame(width: 44, height: 44)
+                                                } else {
+                                                    Circle().fill(Color.clear)
+                                                        .overlay(Circle().strokeBorder(Color.primary.opacity(scheme == .dark ? 0.14 : 0.10), lineWidth: 1.2))
+                                                        .frame(width: 44, height: 44)
+                                                }
                                                 Text("—").mcDisplay(18).foregroundStyle(.tertiary)
                                             }.frame(width: 44, height: 44)
                                             VStack(alignment: .leading, spacing: 3) {
@@ -159,6 +164,7 @@ struct GradesView: View {
                                         }.padding(.vertical, 2)
                                     }
                                     .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                    .mcListRow(fill: colors.surface)
                                 }
                             }
                             }
@@ -202,6 +208,7 @@ struct GradesView: View {
                                 }
                                 .padding(.vertical, 2)
                                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                .mcListRow(fill: colors.surface)
                             }
                             Section {
                                 Text("\(feleviGrades.count) jegy • \(groupedFelevi.count) tárgy").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center)
@@ -237,6 +244,7 @@ struct GradesView: View {
                                 }
                                 .padding(.vertical, 2)
                                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                .mcListRow(fill: colors.surface)
                             }
                         }
                     }

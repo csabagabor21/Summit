@@ -17,18 +17,12 @@ struct GradeCircle: View {
                 .monospacedDigit()
                 .frame(width: size, height: size)
                 .background(
-                    RoundedRectangle(cornerRadius: 7)
-                        .fill(MinecraftTheme.gradeColor(for: value))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 7)
-                                .strokeBorder(MinecraftTheme.dirtDark, lineWidth: size > 32 ? 3 : 2)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 7)
-                                .strokeBorder(Color.white.opacity(0.4), lineWidth: 1)
-                                .padding(2)
-                        )
-                        .shadow(color: .black.opacity(0.4), radius: 0, x: 0, y: 3)
+                    // Pixel-blokk: lépcsős sarok, bevel, kemény árnyék — ugyanaz
+                    // a rács, mint a kártyáké, így a kocka sosem lekerekített.
+                    McBlockPanel(face: MinecraftTheme.gradeColor(for: value),
+                                 outline: Color(hex: 0x1E1A16),
+                                 highlight: .white.opacity(0.38),
+                                 shade: .black.opacity(0.28))
                 )
         } else {
         // Az üveg a szám háttere — testvér-ZStackben az üveg-passz takarná a számot.

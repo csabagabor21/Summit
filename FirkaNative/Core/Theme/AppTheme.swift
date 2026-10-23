@@ -75,7 +75,10 @@ extension View {
     // Keep only for primary floating CTA if needed — otherwise use .buttonStyle(.glass) native
     @ViewBuilder
     func functionalGlass(cornerRadius: CGFloat = 20, tint: Color? = nil) -> some View {
-        if #available(iOS 26.0, *) {
+        // Minecraft-skinben a kártya pixel-blokk, nem üveg.
+        if MinecraftTheme.isActive {
+            self
+        } else if #available(iOS 26.0, *) {
             if let t = tint { self.glassEffect(.regular.tint(t).interactive(), in: .rect(cornerRadius: cornerRadius)) }
             else { self.glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius)) }
         } else {
@@ -188,11 +191,7 @@ extension View {
     @ViewBuilder
     func summitRowSurface(colors: AppColors) -> some View {
         if MinecraftTheme.isActive {
-            self.listRowBackground(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(colors.surface)
-                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(MinecraftTheme.dirtDark, lineWidth: 2))
-            )
+            self.listRowBackground(McRowPanel(face: colors.surface))
         } else if MacSupport.isNativeMac {
             self.listRowBackground(Color.clear)
         } else {
