@@ -346,15 +346,15 @@ struct MinecraftBackdrop: View {
                 // Nap nappal (reggel keleten alacsonyan → délben magasan →
                 // este nyugaton alacsonyan), éjjel pixel-hold kráterekkel.
                 if night {
-                    mcMoon().position(x: w * moonX(hour: hour), y: 150 + shift)
+                    mcMoon().scaleEffect(48 / 56).position(x: w * moonX(hour: hour), y: 150 + shift)
                 } else {
                     let (sx, sy, tint) = sunPose(hour: hour, w: w)
                     // Kemény négyzet-nap, világosabb maggal (mint a játék napja);
                     // nincs lekerekítés, nincs derengés.
                     Rectangle()
                         .fill(tint)
-                        .frame(width: 96, height: 96)
-                        .overlay(Rectangle().fill(Color.white.opacity(0.55)).frame(width: 48, height: 48))
+                        .frame(width: 48, height: 48)
+                        .overlay(Rectangle().fill(Color.white.opacity(0.55)).frame(width: 24, height: 24))
                         .position(x: sx, y: sy + shift)
                 }
                 // Rendes minecraft-felhők: lapos fehér blokk-lapok, lassan sodródnak.
@@ -432,8 +432,10 @@ struct MinecraftBackdrop: View {
     /// magasan (meleg fehér-arany), 18h-kor nyugaton (narancs).
     private func sunPose(hour: Double, w: CGFloat) -> (CGFloat, CGFloat, Color) {
         let t = min(1, max(0, (hour - 6) / 12))
-        let x = w * (0.10 + 0.80 * t)
-        let y = 330 - sin(t * .pi) * 230
+        // A jobb oldali sávban vándorol, a nagy cím mellett: balra a
+        // címet takarná, feljebb a toolbar-gombokat, lejjebb a tartalmat.
+        let x = w * (0.66 + 0.18 * t)
+        let y = 160 - sin(t * .pi) * 20
         let edge = min(t, 1 - t) * 2
         let tint: Color = edge < 0.35
             ? Color(hex: 0xFFB347)
@@ -443,7 +445,7 @@ struct MinecraftBackdrop: View {
 
     private func moonX(hour: Double) -> CGFloat {
         let t = hour >= 18 ? (hour - 18) / 12 : (hour + 6) / 12
-        return 0.10 + 0.80 * min(1, max(0, t))
+        return 0.66 + 0.18 * min(1, max(0, t))
     }
 
     /// Pixel-hold: fakó kocka sötétebb kráter-kockákkal.
