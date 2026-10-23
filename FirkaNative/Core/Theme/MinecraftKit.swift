@@ -817,7 +817,7 @@ struct McNavLink<Destination: View, Label: View>: View {
                 label().frame(maxWidth: .infinity, alignment: .leading)
                 McGlyph(kind: .chevronRight, size: 16).foregroundStyle(.secondary)
             }
-            .overlay { NavigationLink(destination: destination) { EmptyView() }.opacity(0) }
+            .overlay { NavigationLink { destination().mcBackButton() } label: { EmptyView() }.opacity(0) }
         } else {
             NavigationLink(destination: destination, label: label)
         }
@@ -900,5 +900,72 @@ struct McSlotFrame: View {
             edge(CGRect(x: w - u, y: 0, width: u, height: h), Color(hex: 0xFFFFFF))
         }
         .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Égre írt szöveg
+
+extension View {
+    /// Közvetlenül az égboltra írt másodlagos szöveg (szekció-fejléc,
+    /// lábjegyzet, dátum-sor): Summitban `.secondary`, Minecraftban a játék
+    /// szövege — fehér, kemény #3F3F3F árnyékkal —, mert a szürke a nappali
+    /// égen olvashatatlan. Egy típusú lánc (az ág az értékekben van).
+    func skinSecondaryOnSky() -> some View {
+        let mc = MinecraftTheme.isActive
+        return self
+            .foregroundStyle(mc ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
+            .shadow(color: mc ? Color(hex: 0x3F3F3F) : .clear, radius: 0,
+                    x: mc ? MinecraftTheme.px / 1.5 : 0, y: mc ? MinecraftTheme.px / 1.5 : 0)
+    }
+}
+
+// MARK: - Vissza-gomb
+
+/// Minecraftban a rendszer Liquid Glass vissza-köre helyett kő-gomb pixel-
+/// nyíllal; Summitban a gyári vissza-gomb érintetlen. A visszahúzás
+/// gesztus megmarad (lásd `McSwipeBackEnabler`).
+struct McBackButtonModifier: ViewModifier {
+    @Environment(\.dismiss) private var dismiss
+
+    func body(content: Content) -> some View {
+        content
+            .navigationBarBackButtonHidden(MinecraftTheme.isActive)
+            .toolbar {
+                if MinecraftTheme.isActive {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            McSound.play(.click)
+                            dismiss()
+                        } label: {
+                            McGlyph(kind: .chevronLeft, size: 16)
+                                .frame(width: 24, height: 24)
+                        }
+                        .buttonStyle(McButtonStyle(compact: true))
+                        .accessibilityLabel("Vissza")
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                }
+            }
+    }
+}
+
+extension View {
+    /// Push-olt nézetre: Minecraftban kő vissza-gomb (lásd `McBackButtonModifier`).
+    func mcBackButton() -> some View {
+        modifier(McBackButtonModifier())
+    }
+}
+
+/// A rejtett rendszer-vissza-gombbal a UIKit kikapcsolná a széléről húzós
+/// visszalépést; ez visszakapcsolja minden navigációs vermen, ha van hova
+/// visszalépni. Summitban is ártalmatlan (ott a gesztus amúgy is él).
+extension UINavigationController: @retroactive UIGestureRecognizerDelegate {
+    override open func viewDidLoad() {
+        super.viewDidLoad()
+        interactivePopGestureRecognizer?.delegate = self
+    }
+
+    public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        gestureRecognizer == interactivePopGestureRecognizer ? viewControllers.count > 1 : true
     }
 }

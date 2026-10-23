@@ -389,7 +389,7 @@ struct SkinNavLink<Destination: View, Label: View>: View {
     var body: some View {
         if MinecraftTheme.isActive {
             ZStack {
-                NavigationLink { destination() } label: { EmptyView() }.opacity(0)
+                NavigationLink { destination().mcBackButton() } label: { EmptyView() }.opacity(0)
                 HStack(spacing: 8) {
                     label()
                     McGlyph(kind: .chevronRight, size: 16)

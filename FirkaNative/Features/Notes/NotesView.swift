@@ -357,7 +357,7 @@ struct NotesView: View {
             let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "MMM d., EEEE"
             title = f.string(from: day).capitalized
         }
-        return Text("\(title) • \(count) db")
+        return Text("\(title) • \(count) db").skinSecondaryOnSky()
     }
     private var currentIsEmpty: Bool {
         if filter == 1 { return filteredExams.isEmpty }

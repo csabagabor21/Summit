@@ -33,7 +33,7 @@ struct HomeView: View {
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("\(vm.greeting), \(firstName)!").mcTitle()
-                        Text(Date.now.formatted(date: .complete, time: .omitted).capitalized).skinFont(.subheadline).foregroundStyle(.secondary)
+                        Text(Date.now.formatted(date: .complete, time: .omitted).capitalized).skinFont(.subheadline).skinSecondaryOnSky()
                     }
                     .summitEntrance()
                     .listRowBackground(Color.clear)
@@ -165,7 +165,7 @@ struct HomeView: View {
                                             withAnimation(SummitMotion.snappy) { completed.toggleExam(e.id) }
                                         }
                                     }
-                                    NavigationLink("Összes dolgozat (\(vm.exams.count))") { NotesView(initialFilter: 1) }.skinFont(.caption, weight: .semibold).tint(colors.accent)
+                                    NavigationLink("Összes dolgozat (\(vm.exams.count))") { NotesView(initialFilter: 1).mcBackButton() }.skinFont(.caption, weight: .semibold).tint(colors.accent)
                                 }
                             }.frame(maxWidth: .infinity, alignment: .topLeading)
                             // Jobb: feladatok
@@ -180,7 +180,7 @@ struct HomeView: View {
                                             withAnimation(SummitMotion.snappy) { completed.toggleHomework(h.id) }
                                         }
                                     }
-                                    NavigationLink("Összes feladat (\(hwVisible.count))") { NotesView() }.skinFont(.caption, weight: .semibold).tint(colors.accent)
+                                    NavigationLink("Összes feladat (\(hwVisible.count))") { NotesView().mcBackButton() }.skinFont(.caption, weight: .semibold).tint(colors.accent)
                                 }
                             }.frame(maxWidth: .infinity, alignment: .topLeading)
                         }.padding(.vertical, 4)
@@ -352,7 +352,7 @@ struct HomeView: View {
                     HStack(spacing: MinecraftTheme.isActive ? 12 : 18) {
                         // Értesítések (KRÉTA-postaláda) — a 6. tab helyett itt,
                         // hogy ne legyen rendszer-More tab a TabBaron.
-                        NavigationLink { MessagesView() } label: {
+                        NavigationLink { MessagesView().mcBackButton() } label: {
                             SkinIcon("bell.fill", size: 24)
                                 .skinFont(.body)
                                 .foregroundStyle(colors.accent)
@@ -370,7 +370,7 @@ struct HomeView: View {
                                 }
                         }
                         .buttonStyle(.plain)
-                        NavigationLink { SettingsView() } label: { ProfileImageView(name: NicknameStore.displayName(for: user), userId: ProfileImageStore.key(userId: user.id, accessToken: user.accessToken), size: 30) }
+                        NavigationLink { SettingsView().mcBackButton() } label: { ProfileImageView(name: NicknameStore.displayName(for: user), userId: ProfileImageStore.key(userId: user.id, accessToken: user.accessToken), size: 30) }
                             .buttonStyle(.plain) // különben a rendszer glass-pilleket tesz a kör mögé
                     }
                 }

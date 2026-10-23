@@ -23,7 +23,7 @@ struct MainTabView: View {
     @EnvironmentObject var kreta: KretaClient
     @Environment(\.colorScheme) var scheme
     @Environment(\.horizontalSizeClass) private var hSize
-    @State private var selected: Int = ProcessInfo.processInfo.arguments.contains("-FIRKA_ABSENCES") ? 4 : 0
+    @State private var selected: Int = ProcessInfo.processInfo.arguments.contains("-FIRKA_ABSENCES") ? 4 : (ProcessInfo.processInfo.arguments.contains("-FIRKA_TIMETABLE") ? 2 : 0)
     @ObservedObject private var notif = NotificationManager.shared
     @ObservedObject private var watchAvailability = WatchAvailability.shared
     @EnvironmentObject var completed: CompletedStore
@@ -166,19 +166,19 @@ struct MainTabView: View {
     private var nativeSidebar: some View {
         TabView(selection: $selected) {
             Tab(value: 0) {
-                HomeView().mcTabChrome(hidden: useCustomHotbar)
+                HomeView().mcTabChrome(hidden: useCustomHotbar).id(mcRootTokens[0, default: 0])
             } label: { tabLabel(0) }
             Tab(value: 1) {
-                GradesView().mcTabChrome(hidden: useCustomHotbar)
+                GradesView().mcTabChrome(hidden: useCustomHotbar).id(mcRootTokens[1, default: 0])
             } label: { tabLabel(1) }
             Tab(value: 2) {
-                TimetableView().mcTabChrome(hidden: useCustomHotbar)
+                TimetableView().mcTabChrome(hidden: useCustomHotbar).id(mcRootTokens[2, default: 0])
             } label: { tabLabel(2) }
             Tab(value: 5) {
-                NotesView().mcTabChrome(hidden: useCustomHotbar)
+                NotesView().mcTabChrome(hidden: useCustomHotbar).id(mcRootTokens[5, default: 0])
             } label: { tabLabel(5) }
             Tab(value: 4) {
-                AbsencesView().mcTabChrome(hidden: useCustomHotbar)
+                AbsencesView().mcTabChrome(hidden: useCustomHotbar).id(mcRootTokens[4, default: 0])
             } label: { tabLabel(4) }
             // Watch-tab CSAK széles elrendezésen (iPad / Mac sidebar) —
             // iPhone-on nincs (ott a Feladatok bal felső toolbar-gombja
@@ -225,6 +225,10 @@ struct MainTabView: View {
     /// Minecraft keskeny kijelzőn: a rendszer-tabsáv rejtve — helyette
     /// saját hotbar jön a fűblokkra. Máshol a natív sáv marad.
     private var useCustomHotbar: Bool { theme.isMinecraft && !isWide }
+    /// Hotbar-újrakoppintás: az aktív slotra koppintva a tab navigációs
+    /// verme a gyökérre ugrik (mint a rendszer-tabsávon) — az új azonosító
+    /// újraépíti a tab NavigationStackjét.
+    @State private var mcRootTokens: [Int: Int] = [:]
     /// A fűblokk-talaj magassága a home-jelző fölött.
     static let mcFooterHeight: CGFloat = 148
 
@@ -244,8 +248,12 @@ struct MainTabView: View {
         ) { tab in
             SummitHaptics.selection()
             // A hotbar-slot kattan, mint a játékban (csak MC-skinben szól).
-            if tab != selected { McSound.play(.click) }
-            selected = tab
+            McSound.play(.click)
+            if tab == selected {
+                mcRootTokens[tab, default: 0] += 1
+            } else {
+                selected = tab
+            }
         }
     }
 

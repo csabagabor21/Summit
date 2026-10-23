@@ -266,7 +266,7 @@ struct GradesView: View {
             }
             .task { await load() }
             .navigationDestination(for: String.self) { subject in
-                SubjectDetailView(subject: subject, grades: gradesFor(subject))
+                SubjectDetailView(subject: subject, grades: gradesFor(subject)).mcBackButton()
             }
             .onChange(of: grades) { _, _ in
                 if selectedTab == .felevi && feleviGrades.isEmpty { selectedTab = .evkozi }

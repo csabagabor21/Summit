@@ -259,9 +259,8 @@ extension View {
         return self
             .font(mc ? MinecraftTheme.headerFont(size: 12) : .caption.weight(.semibold))
             .tracking(mc ? 0.5 : 0)
-            .foregroundStyle(.secondary)
             .textCase(mc ? nil : .uppercase)
-            .shadow(color: mc ? .black.opacity(0.4) : .clear, radius: 0, x: 1, y: 1)
+            .skinSecondaryOnSky()
     }
 
     /// Cím-szöveg (üdvözlés): Summitban gyári title2, Minecraftban

@@ -183,7 +183,7 @@ struct SettingsView: View {
             summitIsland(header: "Havi összefoglalók") {
                 summitRow {
                     NavigationLink {
-                        MonthlyArchiveView()
+                        MonthlyArchiveView().mcBackButton()
                     } label: {
                         HStack {
                             SkinLabel("Havi összefoglalók", systemImage: "sparkles").skinFont(.subheadline, weight: .medium)
@@ -234,7 +234,7 @@ struct SettingsView: View {
 
             summitIsland(header: "Tanári kerekítés", footer: "Tantárgyanként külön állítható.", tour: .rounding, tourActive: tourIs(.rounding)) {
                 summitRow {
-                    NavigationLink { TeacherRoundingView() } label: {
+                    NavigationLink { TeacherRoundingView().mcBackButton() } label: {
                         HStack {
                             SkinLabel("Tanári kerekítés", systemImage: "slider.horizontal.below.rounded")
                                 .skinFont(.subheadline, weight: .medium)
@@ -514,7 +514,7 @@ struct SettingsView: View {
         Group {
             summitIsland(header: "Diagnosztika", tour: .diagnostics, tourActive: tourIs(.diagnostics)) {
                 summitRow {
-                    NavigationLink { DiagnosticsView() } label: {
+                    NavigationLink { DiagnosticsView().mcBackButton() } label: {
                         HStack {
                             SkinLabel("Diagnosztika", systemImage: "stethoscope")
                                 .skinFont(.subheadline, weight: .medium)
@@ -532,7 +532,7 @@ struct SettingsView: View {
             if devEnabled {
                 summitIsland(header: "Fejlesztő") {
                     summitRow {
-                        NavigationLink { DeveloperView() } label: {
+                        NavigationLink { DeveloperView().mcBackButton() } label: {
                             HStack {
                                 SkinLabel("Fejlesztő", systemImage: "hammer.fill")
                                     .skinFont(.subheadline, weight: .medium)
@@ -744,7 +744,7 @@ struct SettingsView: View {
             if let header {
                 Group {
                     if theme.isMinecraft {
-                        Text(header).minecraftHeader(size: 12).foregroundStyle(.secondary)
+                        Text(header).minecraftHeader(size: 12).skinSecondaryOnSky()
                     } else {
                         Text(header).mcSectionHeader()
                     }
@@ -759,7 +759,7 @@ struct SettingsView: View {
             // lábléc körbebekerítése lógott a levegőben, furán nézett ki.
             .tourHighlight(active: tourActive, accent: colors.accent)
             if let footer {
-                Text(footer).skinFont(.caption2).foregroundStyle(.secondary)
+                Text(footer).skinFont(.caption2).skinSecondaryOnSky()
                     .padding(.horizontal, 4)
             }
         }
