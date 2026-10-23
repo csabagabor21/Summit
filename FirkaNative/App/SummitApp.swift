@@ -12,6 +12,11 @@ struct SummitApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // A legutóbbi fiók lemezes KRÉTA-gyorstára háttérszálon kezd töltődni
+        // (a dekódolás nem a főszálon fut), amíg az init a többi indítási
+        // munkát végzi — a végén átvesszük, így az első képkocka már a
+        // mentett órarendet / jegyeket rajzolja (lásd KretaStore).
+        KretaStore.shared.beginLaunchBootstrap()
         // Minecraft-skin pixelbetűje (Monocraft, OFL) — bundle-ből, plist-
         // módosítás nélkül, CSAK ha a mentett skin Minecraft (Summit skinben
         // a regisztráció fölösleges indítási munka; skinváltáskor az első
@@ -35,6 +40,9 @@ struct SummitApp: App {
         // A régi appverziók által eltárolt közös Gemini-kulcs törlése
         // (a kulcs azóta csak a workerben él, lásd GeminiFallback).
         GeminiFallback.purgeLegacyCache()
+        // Gyorstár-átvétel még a nézetek születése előtt (legfeljebb ~0,8 mp
+        // várakozás lassú lemeznél; utána aszinkron fejeződik be).
+        KretaStore.shared.completeLaunchBootstrap()
     }
 
     /// Admin iskolai naptár: belépéskor / iskolakód-váltáskor automatikus
@@ -106,10 +114,11 @@ struct SummitApp: App {
                     MacSupport.applyWindowTransparency()
                     // Előtéri banner-delegált az értesítésekhez
                     NotificationManager.shared.configure()
-                    kreta.accessToken = session.selectedUser?.accessToken
-                    kreta.refreshToken = session.selectedUser?.refreshToken
-                    kreta.instituteCode = session.selectedUser?.instituteCode
-                    kreta.accessTokenExpire = session.selectedUser?.accessTokenExpire
+                    // Tokenek + gyorstár-fiók; a közös adatforrás a kiválasztott
+                    // fiókra áll (az indításkori előtöltés ellenőrzése: más fiók
+                    // esetén a memória ürül és a helyes fiók tölt be).
+                    kreta.bind(session.selectedUser)
+                    KretaStore.shared.activate(session.selectedUser, knownAccounts: session.users)
                     // Token refresh perzisztálás (+ kliens-oldali lejárat szinkron,
                     // hogy a proaktív megújítás ne egy elavult dátummal számoljon)
                     kreta.onTokensRefreshed = { newAccess, newRefresh, expiresIn in
@@ -141,10 +150,11 @@ struct SummitApp: App {
                     // Válasz-gyorstár ürítése: a másik fiók adata nem
                     // szivároghat át, és a friss belépés se kapjon avultat.
                     kreta.invalidateCache()
-                    kreta.accessToken = session.selectedUser?.accessToken
-                    kreta.refreshToken = session.selectedUser?.refreshToken
-                    kreta.instituteCode = session.selectedUser?.instituteCode
-                    kreta.accessTokenExpire = session.selectedUser?.accessTokenExpire
+                    kreta.bind(session.selectedUser)
+                    // Fiókváltás: a közös gyorstár azonnal ürül, és a másik
+                    // fiók saját (lemezes) könyvtárából tölt — A adata B-nek
+                    // sosem látszik.
+                    KretaStore.shared.activate(session.selectedUser, knownAccounts: session.users)
                     kreta.sessionExpired = false
                     kreta.showExpiredAlert = false
                     // Belépésváltáskor is: ha ugyanaz az iskola, az
@@ -163,6 +173,10 @@ struct SummitApp: App {
                 }
                 .onChange(of: session.selectedUser?.instituteCode) { _, new in
                     kreta.instituteCode = new
+                    // Kézi iskolakód-javítás: a fiókkulcs (és vele a gyorstár-
+                    // könyvtár) az intézménytől függ — újrakötés.
+                    kreta.cacheAccount = session.selectedUser.map(KretaStore.accountHash(for:))
+                    KretaStore.shared.activate(session.selectedUser, knownAccounts: session.users)
                     Task { await sendHeartbeat(event: "login") }
                     // Kézi iskolakód-javítás (Beállítások → Fiók) után is:
                     // ha ehhez a kódhoz van admin-naptár és nincs kézi
@@ -197,10 +211,7 @@ struct SummitApp: App {
                         // és egy élő munkamenetre kapnánk hamis "lejárt" popupot.
                         session.load()
                         let oldRT = kreta.refreshToken
-                        kreta.accessToken = session.selectedUser?.accessToken
-                        kreta.refreshToken = session.selectedUser?.refreshToken
-                        kreta.instituteCode = session.selectedUser?.instituteCode
-                        kreta.accessTokenExpire = session.selectedUser?.accessTokenExpire
+                        kreta.bind(session.selectedUser)
                         if kreta.refreshToken != oldRT {
                             // Alattunk cserélődtek a tokenek — a korábbi
                             // "lejárt" ítélet elavult, töröljük.

@@ -1,7 +1,10 @@
 import Foundation
 
 // MARK: - UI items (used by FeedView)
-struct GradeItem: Identifiable, Hashable {
+// Codable: a fiókonkénti lemez-gyorstár (KretaCache) a kész tételeket
+// menti, így indításkor nincs KRÉTA-payload-újraparszolás — a mezők
+// változásakor a KretaCache.schema-t léptetni kell.
+struct GradeItem: Identifiable, Hashable, Codable {
     let id: String
     let subject: String
     let value: Int
@@ -38,7 +41,7 @@ enum GradePercent {
         return nil
     }
 }
-struct LessonItem: Identifiable, Hashable {
+struct LessonItem: Identifiable, Hashable, Codable {
     let id: String
     let subject: String
     let room: String
@@ -65,7 +68,7 @@ struct LessonItem: Identifiable, Hashable {
         return nil
     }
 }
-struct HomeworkItem: Identifiable, Hashable {
+struct HomeworkItem: Identifiable, Hashable, Codable {
     let id: String
     let subject: String
     let title: String
@@ -83,7 +86,7 @@ struct HomeworkItem: Identifiable, Hashable {
 }
 
 /// KRÉTA-csatolmány (házi, dolgozat, üzenet): megjeleníthető/letölthető fájl.
-struct AttachmentItem: Identifiable, Hashable {
+struct AttachmentItem: Identifiable, Hashable, Codable {
     let id: String
     let name: String
     let size: Int?
@@ -648,7 +651,7 @@ enum HomeworkPlain {
             .joined(separator: "\n")
     }
 }
-struct AbsenceItem: Identifiable, Hashable {
+struct AbsenceItem: Identifiable, Hashable, Codable {
     let id: String
     let subject: String
     let date: Date
@@ -659,7 +662,7 @@ struct AbsenceItem: Identifiable, Hashable {
     let isJustified: Bool
     let delay: Int?
 }
-struct MessageItem: Identifiable, Hashable {
+struct MessageItem: Identifiable, Hashable, Codable {
     let id: String
     let sender: String
     let subject: String
@@ -677,7 +680,7 @@ struct MessageItem: Identifiable, Hashable {
         var c = self; c.isRead = true; return c
     }
 }
-struct ExamItem: Identifiable, Hashable {
+struct ExamItem: Identifiable, Hashable, Codable {
     let id: String
     let subject: String
     let date: Date
@@ -1138,7 +1141,7 @@ enum KretaMessageDetail {
 /// Elektronikus feljegyzés (KRÉTA-wide broadcast: az iskola küldi mindenkinek).
 /// Forrás: intézeti Ellenőrző API `Sajat/Feljegyzesek` — NEM az e-Ügyintézés
 /// postaládája, ezért külön modell és külön fetch-járata van.
-struct NoteItem: Identifiable, Hashable {
+struct NoteItem: Identifiable, Hashable, Codable {
     let id: String
     let title: String
     let body: String
@@ -1215,7 +1218,7 @@ struct KretaNoteDTO: Decodable {
 /// ki az órarend üres napjaira pl. „Tanítás nélküli munkanap (Nem órarendi
 /// nap) (Hétfő)"-t. Toleráns parszolás: a KRÉTA-verziók kulcsai szóródnak,
 /// a NapTipusa objektum helyett néhol sima string jön.
-struct SchoolDayInfo: Identifiable, Hashable {
+struct SchoolDayInfo: Identifiable, Hashable, Codable {
     var id: String { "\(date.timeIntervalSince1970)" }
     let date: Date
     /// A hét napjának neve a szervertől („Hétfő") — ha nincs, helyben képezzük.

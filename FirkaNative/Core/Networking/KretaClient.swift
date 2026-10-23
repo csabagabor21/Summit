@@ -352,21 +352,38 @@ final class KretaClient: ObservableObject {
     }
 
     // MARK: - Válasz-gyorstár (tabváltáskor ne töltődjön újra a hálózat)
-    /// Memóriabeli, TTL-alapú válasz-gyorstár + single-flight: a tabok
-    /// `.task`-ja minden megjelenéskor újra lefut — e nélkül minden
-    /// tabváltás teljes KRÉTA-lehúzást indítana (a Feladatok tab pl.
-    /// 5 párhuzamos hívás + akár 15 hét órarend mellé).
-    /// - Friss (TTL-en belüli) találat: hálózat nélkül, azonnal vissza —
-    ///   a tabváltás ilyenkor nem nyúl a KRÉTÁ-hoz, a régi adat marad.
-    /// - Lejárt/hiányzó (`force` is): hálózat a háttérben, sikerre a
-    ///   tároló felülíródik, a nézet a megérkező adattal dinamikusan frissül.
-    /// - Sikertelen válasz sosem íródik a tárolóba; hibára a lejárt
-    ///   tárolt érték jön vissza (ha van), különben üres lista.
-    /// Fiókváltáskor/kijelentkezéskor ürül (invalidateCache).
+    /// Két réteg + single-flight:
+    /// - Fiókhoz kötött kliensnél (`cacheAccount`) a `KretaStore` a gyorstár:
+    ///   lemezre mentett, újraindítást túlélő adat típusonkénti frissesség-
+    ///   szabállyal (KretaRefreshPolicy). Friss találatnál hálózat nélkül
+    ///   tér vissza; lejártnál hálózat, a siker a store-ba íródik (a nézetek
+    ///   a store-ból rajzolnak, így dinamikusan frissülnek).
+    /// - Fiókhoz nem kötött kliensnél (és a store-on kívüli típusoknál) a
+    ///   régi memóriabeli, 300 mp-es TTL-tároló.
+    /// - Sikertelen válasz sosem íródik be; hibára a legutóbbi mentett érték
+    ///   jön vissza (ha van), különben üres lista.
+    /// Fiókváltáskor/kijelentkezéskor a memória ürül (invalidateCache), a
+    /// store fiókonként külön könyvtárból tölt.
     static let cacheTTL: TimeInterval = 300
     private struct CacheEntry { let value: Any; let at: Date }
     private var responseCache: [String: CacheEntry] = [:]
     private var inFlight: [String: Task<Any, Never>] = [:]
+
+    /// A közös gyorstár-fiók, amelyhez a kliens kötve van (`KretaStore.accountHash`).
+    /// Nil: nincs perzisztens gyorstár (csak a memóriabeli TTL).
+    var cacheAccount: String?
+    private var store: KretaStore { KretaStore.shared }
+
+    /// Tokenek + intézmény + gyorstár-fiók beállítása egy userhez (a fő app,
+    /// a háttér-ébresztés és az óra-ébresztés is ezen át köt — eddig a négy
+    /// sor több helyen ismétlődött, és a gyorstár-fiók könnyen kimaradt volna).
+    func bind(_ user: AppUser?) {
+        accessToken = user?.accessToken
+        refreshToken = user?.refreshToken
+        instituteCode = user?.instituteCode
+        accessTokenExpire = user?.accessTokenExpire
+        cacheAccount = user.map(KretaStore.accountHash(for:))
+    }
 
     /// Fiókváltáskor/kijelentkezéskor: a másik user adata nem szivároghat át.
     func invalidateCache() {
@@ -380,6 +397,33 @@ final class KretaClient: ObservableObject {
     }
     private func staleValue<T>(key: String) -> T? { responseCache[key]?.value as? T }
     private func storeValue(_ value: Any, key: String) { responseCache[key] = CacheEntry(value: value, at: Date()) }
+
+    /// Friss érték a store-ból (fiókhoz kötve) vagy a memória-TTL-ből.
+    private func freshCached<T>(_ kind: KretaDataKind, key: String) -> T? {
+        if cacheAccount != nil, store.isActive(account: cacheAccount) {
+            return store.freshValue(kind, account: cacheAccount)
+        }
+        return cachedValue(key: key)
+    }
+    /// Hiba-tartalék: a legutóbbi mentett érték, kortól függetlenül.
+    private func lastKnown<T>(_ kind: KretaDataKind, key: String) -> T? {
+        if store.isActive(account: cacheAccount), let v: T = store.value(kind) { return v }
+        return staleValue(key: key)
+    }
+    /// Sikeres lehúzás: memória + (fiókhoz kötve) store + lemez.
+    private func remember<T>(_ value: T, kind: KretaDataKind, key: String) {
+        storeValue(value, key: key)
+        store.ingest(value, kind: kind, account: cacheAccount)
+    }
+    /// Hálózati kör „Frissítés…"-jelzéssel: a store a futás idejére
+    /// frissülőnek jelöli a típust, a végén sikerrel/hibával zárja.
+    private func tracked<T>(_ kind: KretaDataKind, _ work: () async -> (T, Bool)) async -> T {
+        let account = cacheAccount
+        store.beginRefresh(kind, account: account)
+        let (value, ok) = await work()
+        store.endRefresh(kind, success: ok, account: account)
+        return value
+    }
 
     /// Nap-pontos kulcsrész dátumtartományokhoz (órarend, naptári napok).
     private static func dayKey(_ d: Date) -> String {
@@ -402,37 +446,69 @@ final class KretaClient: ObservableObject {
     func fetchGrades(iss: String, force: Bool = false) async -> [GradeItem] {
         if isDemoBackend(iss: iss) {
             let r = DemoData.gradesExpanded().sorted { $0.date > $1.date }
+            store.ingest(r, kind: .grades, account: cacheAccount)
             diag("jegyek: \(r.count) db (demo)"); return r
         }
         let key = "grades:\(iss)"
-        if !force, let hit: [GradeItem] = cachedValue(key: key) { return hit }
+        if !force, let hit: [GradeItem] = freshCached(.grades, key: key) { return hit }
         return await singleFlight(key: key) {
-            guard let url = KretaAPI.grades(iss) else { self.diag("jegyek: rossz URL"); return self.staleValue(key: key) ?? [] }
-            do {
-                let dtos: [KretaGradeDTO] = try await self.get(url)
-                let r = await Self.offMain { dtos.map { $0.toItem() }.sorted { $0.date > $1.date } }
-                self.storeValue(r, key: key)
-                self.diag("jegyek: \(r.count) db"); return r
-            } catch { self.diagErr("jegyek", error); return self.staleValue(key: key) ?? [] }
-        }
-    }
-    func fetchTimetable(iss: String, from: Date, to: Date, force: Bool = false) async -> [LessonItem] {
-        if isDemoBackend(iss: iss) {
-            // A 6 órás demo-sablon csempézve a kért tartományra — a heti
-            // lapozás is ezen át megy, külön demo-ág nélkül a nézetekben.
-            let r = DemoData.lessons(from: from, to: to)
-            diag("órarend: \(r.count) db (demo)"); return r
-        }
-        let key = "tt:\(iss):\(Self.dayKey(from)):\(Self.dayKey(to))"
-        if !force, let hit: [LessonItem] = cachedValue(key: key) { return hit }
-        return await singleFlight(key: key) {
-            await self.fetchTimetableNetwork(iss: iss, from: from, to: to, key: key)
+            await self.tracked(.grades) {
+                guard let url = KretaAPI.grades(iss) else {
+                    self.diag("jegyek: rossz URL"); return (self.lastKnown(.grades, key: key) ?? [], false)
+                }
+                do {
+                    let dtos: [KretaGradeDTO] = try await self.get(url)
+                    let r = await Self.offMain { dtos.map { $0.toItem() }.sorted { $0.date > $1.date } }
+                    self.remember(r, kind: .grades, key: key)
+                    self.diag("jegyek: \(r.count) db"); return (r, true)
+                } catch { self.diagErr("jegyek", error); return (self.lastKnown(.grades, key: key) ?? [], false) }
+            }
         }
     }
 
-    /// A fetchTimetable hálózati magja (a gyorstár/single-flight burkon belül).
-    private func fetchTimetableNetwork(iss: String, from: Date, to: Date, key: String) async -> [LessonItem] {
-        guard let url = KretaAPI.timetable(iss, start: from, end: to) else { diag("órarend: rossz URL"); return staleValue(key: key) ?? [] }
+    /// Órarend tetszőleges tartományra — ISO-hetekre bontva. Minden hét
+    /// egy kanonikus kérés (hétfő → következő hétfő), így a Főoldal (ma),
+    /// az Órarend (hét), a Feladatok (−35 nap…), a Watch (2 hét) és a
+    /// widget ugyanazt a heti gyorstár-bejegyzést használja, nem külön
+    /// kulcsot. Az eredmény a kért [from, to) tartományra szűrve, rendezve.
+    func fetchTimetable(iss: String, from: Date, to: Date, force: Bool = false) async -> [LessonItem] {
+        let mondays = KretaWeek.mondays(covering: from, to: to)
+        let parts: [[LessonItem]] = await withTaskGroup(of: [LessonItem].self) { group in
+            for m in mondays {
+                group.addTask { await self.fetchTimetableWeek(iss: iss, monday: m, force: force) }
+            }
+            var out: [[LessonItem]] = []
+            for await part in group { out.append(part) }
+            return out
+        }
+        return parts.joined().filter { $0.start >= from && $0.start < to }.sorted { $0.start < $1.start }
+    }
+
+    /// Egy ISO-hét órái (hétfő 00:00 → következő hétfő 00:00).
+    func fetchTimetableWeek(iss: String, monday: Date, force: Bool = false) async -> [LessonItem] {
+        let end = KretaWeek.end(of: monday)
+        let kind = KretaDataKind.timetable(monday)
+        if isDemoBackend(iss: iss) {
+            // A 6 órás demo-sablon csempézve a kért hétre — a heti lapozás
+            // is ezen át megy, külön demo-ág nélkül a nézetekben.
+            let r = DemoData.lessons(from: monday, to: end)
+            store.ingest(r, kind: kind, account: cacheAccount)
+            return r
+        }
+        let key = "tt:\(iss):\(Self.dayKey(monday))"
+        if !force, let hit: [LessonItem] = freshCached(kind, key: key) { return hit }
+        return await singleFlight(key: key) {
+            await self.tracked(kind) {
+                await self.fetchTimetableNetwork(iss: iss, from: monday, to: end, kind: kind, key: key)
+            }
+        }
+    }
+
+    /// A heti órarend hálózati magja (a gyorstár/single-flight burkon belül).
+    private func fetchTimetableNetwork(iss: String, from: Date, to: Date, kind: KretaDataKind, key: String) async -> ([LessonItem], Bool) {
+        guard let url = KretaAPI.timetable(iss, start: from, end: to) else {
+            diag("órarend: rossz URL"); return (lastKnown(kind, key: key) ?? [], false)
+        }
         do {
             // Firka-minta: az órarendi elem hordozza a csatolmányokat
             // (`Csatolmanyok: [{Uid, Nev}]`) — Uid alapján fűzzük az órákhoz,
@@ -445,9 +521,13 @@ final class KretaClient: ObservableObject {
             }
             let r: [LessonItem] = await Self.offMain {
                 let atts = KretaAttachmentParser.attachmentsByUid(from: data)
-                let items = KretaLessonDTO.lenientItems(from: data).map { item in
-                    item.withAttachments(atts[item.id] ?? [])
-                }.sorted { $0.start < $1.start }
+                // A hét határán túli elemek (a KRÉTA datumIg-kezelése a
+                // peremnapot hol beleveszi, hol nem) a szomszéd hét kulcsához
+                // tartoznak — itt csak a hét saját órái maradnak.
+                let items = KretaLessonDTO.lenientItems(from: data)
+                    .filter { $0.start >= from && $0.start < to }
+                    .map { item in item.withAttachments(atts[item.id] ?? []) }
+                    .sorted { $0.start < $1.start }
                 // Minden sikeres valós órarend a közös tárgy-cache-be is beolvad:
                 // a Felmentés/Kerekítés lista és a Jegyek tab jegy nélküli tárgyai
                 // így akkor is megvannak, ha az átlag-végpontok halottak.
@@ -455,51 +535,104 @@ final class KretaClient: ObservableObject {
                 return items
             }
             let attCount = r.reduce(0) { $0 + $1.attachments.count }
-            storeValue(r, key: key)
-            diag("órarend: \(r.count) db" + (attCount > 0 ? " (\(attCount) csatolmány)" : "")); return r
-        } catch { diagErr("órarend", error); return staleValue(key: key) ?? [] }
+            remember(r, kind: kind, key: key)
+            diag("órarend \(KretaWeek.key(for: from)): \(r.count) db" + (attCount > 0 ? " (\(attCount) csatolmány)" : "")); return (r, true)
+        } catch { diagErr("órarend", error); return (lastKnown(kind, key: key) ?? [], false) }
     }
+
     /// Naptári napok (tanév rendje) az órarend üres napjainak feliratához
     /// („Tanítás nélküli munkanap (Nem órarendi nap) (Hétfő)").
-    /// Hibára üres lista — a nézet ilyenkor a régi általános szövegre esik.
+    /// Rövid (legfeljebb 3 hetes) tartomány ISO-hetekre bontva, heti
+    /// gyorstárral; hosszú tartomány (vakáció-számláló) egy kéréssel,
+    /// napi frissességgel. Hibára a mentett / üres lista — a nézet ilyenkor
+    /// a régi általános szövegre esik.
     func fetchCalendarDays(iss: String, from: Date, to: Date, force: Bool = false) async -> [SchoolDayInfo] {
         if isDemoBackend(iss: iss) { return [] }
+        let mondays = KretaWeek.mondays(covering: from, to: to)
+        if mondays.count <= 3 {
+            let parts: [[SchoolDayInfo]] = await withTaskGroup(of: [SchoolDayInfo].self) { group in
+                for m in mondays {
+                    group.addTask { await self.fetchCalendarWeek(iss: iss, monday: m, force: force) }
+                }
+                var out: [[SchoolDayInfo]] = []
+                for await part in group { out.append(part) }
+                return out
+            }
+            let start = Calendar.current.startOfDay(for: from)
+            return parts.joined().filter { $0.date >= start && $0.date < to }.sorted { $0.date < $1.date }
+        }
+        if !force, let hit = store.calendarSpanDays(from: from, to: to, freshOnly: true, account: cacheAccount) { return hit }
         let key = "cal:\(iss):\(Self.dayKey(from)):\(Self.dayKey(to))"
         if !force, let hit: [SchoolDayInfo] = cachedValue(key: key) { return hit }
         return await singleFlight(key: key) {
-            await self.fetchCalendarDaysNetwork(iss: iss, from: from, to: to, key: key)
+            guard let url = KretaAPI.calendarDays(iss, from: from, to: to) else {
+                self.diag("naptárnapok: rossz URL")
+                return self.store.calendarSpanDays(from: from, to: to, freshOnly: false, account: self.cacheAccount) ?? self.staleValue(key: key) ?? []
+            }
+            do {
+                let data: Data = try await self.getRaw(url)
+                let r = await Self.offMain { KretaCalendarDayDTO.items(from: data).sorted { $0.date < $1.date } }
+                self.storeValue(r, key: key)
+                self.store.ingestCalendarSpan(from: from, to: to, days: r, account: self.cacheAccount)
+                self.diag("naptárnapok: \(r.count) db"); return r
+            } catch {
+                self.diagErr("naptárnapok", error)
+                return self.store.calendarSpanDays(from: from, to: to, freshOnly: false, account: self.cacheAccount) ?? self.staleValue(key: key) ?? []
+            }
         }
     }
 
-    private func fetchCalendarDaysNetwork(iss: String, from: Date, to: Date, key: String) async -> [SchoolDayInfo] {
-        guard let url = KretaAPI.calendarDays(iss, from: from, to: to) else { diag("naptárnapok: rossz URL"); return staleValue(key: key) ?? [] }
-        do {
-            let data: Data = try await getRaw(url)
-            let r = await Self.offMain { KretaCalendarDayDTO.items(from: data).sorted { $0.date < $1.date } }
-            storeValue(r, key: key)
-            diag("naptárnapok: \(r.count) db"); return r
-        } catch { diagErr("naptárnapok", error); return staleValue(key: key) ?? [] }
+    /// Egy ISO-hét naptári napjai.
+    private func fetchCalendarWeek(iss: String, monday: Date, force: Bool) async -> [SchoolDayInfo] {
+        let kind = KretaDataKind.calendar(monday)
+        let key = "calw:\(iss):\(Self.dayKey(monday))"
+        if !force, let hit: [SchoolDayInfo] = freshCached(kind, key: key) { return hit }
+        return await singleFlight(key: key) {
+            await self.tracked(kind) {
+                let end = KretaWeek.end(of: monday)
+                guard let url = KretaAPI.calendarDays(iss, from: monday, to: end) else {
+                    self.diag("naptárnapok: rossz URL"); return (self.lastKnown(kind, key: key) ?? [], false)
+                }
+                do {
+                    let data: Data = try await self.getRaw(url)
+                    let r = await Self.offMain {
+                        KretaCalendarDayDTO.items(from: data)
+                            .filter { $0.date >= monday && $0.date < end }
+                            .sorted { $0.date < $1.date }
+                    }
+                    self.remember(r, kind: kind, key: key)
+                    return (r, true)
+                } catch { self.diagErr("naptárnapok", error); return (self.lastKnown(kind, key: key) ?? [], false) }
+            }
+        }
     }
+
     func fetchHomework(iss: String, force: Bool = false) async -> [HomeworkItem] {
         if isDemoBackend(iss: iss) {
             let r = DemoData.homeworks()
+            store.ingest(r, kind: .homework, account: cacheAccount)
             diag("házi: \(r.count) db (demo)"); return r
         }
         let key = "hw:\(iss)"
-        if !force, let hit: [HomeworkItem] = cachedValue(key: key) { return hit }
+        if !force, let hit: [HomeworkItem] = freshCached(.homework, key: key) { return hit }
         return await singleFlight(key: key) {
-            await self.fetchHomeworkNetwork(iss: iss, key: key)
+            await self.tracked(.homework) {
+                await self.fetchHomeworkNetwork(iss: iss, key: key, force: force)
+            }
         }
     }
 
-    private func fetchHomeworkNetwork(iss: String, key: String) async -> [HomeworkItem] {
+    /// A részlet-lekérések egyidejű felső határa (a KRÉTA-t nem árasztjuk el).
+    private static let detailConcurrency = 4
+
+    private func fetchHomeworkNetwork(iss: String, key: String, force: Bool) async -> ([HomeworkItem], Bool) {
         do {
             // refilc mintára, két lépcsőben:
             // 1) lista ?datumTol-lal (utolsó 30 nap) — elemei csak hivatkozások
             // 2) minden házi tartalma külön: HaziFeladatok/{uid}
             // Nincs típus szerinti szűrés: minden visszakapott elem megjelenik.
             let from = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
-            guard let listURL = KretaAPI.homework(iss, from: from) else { return [] }
+            guard let listURL = KretaAPI.homework(iss, from: from) else { return (lastKnown(.homework, key: key) ?? [], false) }
             let listData: Data = try await getRaw(listURL)
             if !loggedHomeworkKeys {
                 loggedHomeworkKeys = true
@@ -520,24 +653,17 @@ final class KretaClient: ObservableObject {
             }
             var items = parsed.items
             let missing = parsed.missing
-            if (!missing.isEmpty) {
-                let detailed: [HomeworkItem] = await withTaskGroup(of: HomeworkItem?.self) { group in
-                    for uid in missing {
-                        group.addTask { [self] in
-                            guard let detailURL = KretaAPI.homeworkDetail(iss, id: uid) else { return nil }
-                            do {
-                                let d: Data = try await self.getRaw(detailURL)
-                                await self.logHomeworkDetailKeysOnce(d)
-                                // A részlet tömb is lehet (nem csak dict) — mindkettőt fogadjuk,
-                                // különben a házi némán eltűnik a listáról.
-                                return await Self.offMain { Self.homeworkDetailItem(from: d) }
-                            } catch { return nil }
-                        }
-                    }
-                    var out: [HomeworkItem] = []
-                    for await item in group { if let item { out.append(item) } }
-                    return out
-                }
+            if !missing.isEmpty {
+                // A már ismert (korábban részletből kapott) házik a mentett
+                // listából jönnek — csak az újakhoz kell részlet-kérés. Lehúzásra
+                // (force) mind újra lejön (a tanár utólagos szerkesztése, a
+                // KRÉTA-beli „megoldva" jelölés így is átér).
+                let knownList: [HomeworkItem] = force ? [] : (lastKnown(.homework, key: key) ?? [])
+                let known = Dictionary(knownList.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+                let reused = missing.compactMap { known[$0] }
+                let toFetch = missing.filter { known[$0] == nil }
+                items.append(contentsOf: reused)
+                let detailed = await fetchHomeworkDetailItems(iss: iss, uids: toFetch)
                 items.append(contentsOf: detailed)
             }
             // Készítetlen előre: a Főoldal csak az első 3-at mutatja, a kész/régi
@@ -546,9 +672,38 @@ final class KretaClient: ObservableObject {
                 if $0.isDone != $1.isDone { return !$0.isDone }
                 return $0.deadline < $1.deadline
             }
-            storeValue(r, key: key)
-            diag("házi: \(r.count) db"); return r
-        } catch { diagErr("házi", error); return staleValue(key: key) ?? [] }
+            remember(r, kind: .homework, key: key)
+            diag("házi: \(r.count) db"); return (r, true)
+        } catch { diagErr("házi", error); return (lastKnown(.homework, key: key) ?? [], false) }
+    }
+
+    /// Csupasz házi-hivatkozások részletei, legfeljebb `detailConcurrency`
+    /// párhuzamos kéréssel.
+    private func fetchHomeworkDetailItems(iss: String, uids: [String]) async -> [HomeworkItem] {
+        guard !uids.isEmpty else { return [] }
+        return await withTaskGroup(of: HomeworkItem?.self) { group in
+            var out: [HomeworkItem] = []
+            var pending = uids[...]
+            func addNext() {
+                guard let uid = pending.popFirst() else { return }
+                group.addTask { [self] in
+                    guard let detailURL = KretaAPI.homeworkDetail(iss, id: uid) else { return nil }
+                    do {
+                        let d: Data = try await self.getRaw(detailURL)
+                        await self.logHomeworkDetailKeysOnce(d)
+                        // A részlet tömb is lehet (nem csak dict) — mindkettőt fogadjuk,
+                        // különben a házi némán eltűnik a listáról.
+                        return await Self.offMain { Self.homeworkDetailItem(from: d) }
+                    } catch { return nil }
+                }
+            }
+            for _ in 0..<Self.detailConcurrency { addNext() }
+            for await item in group {
+                if let item { out.append(item) }
+                addNext()
+            }
+            return out
+        }
     }
 
     /// Házi-részlet payload → tétel (dict vagy egyelemű tömb), csatolmányokkal.
@@ -574,31 +729,55 @@ final class KretaClient: ObservableObject {
     /// (csak `IsCsatolasEngedelyezes`-flaget), és az órák `Csatolmanyok`-ja is
     /// lehet végig üres — ilyenkor a `HaziFeladatok/{uid}` részlet adja a
     /// csatolmányokat. Csak a fájl nélküli házikhoz kérdez (kíméli a KRÉTÁ-t).
+    /// A válasz — az ÜRES is — a store-ba kerül (negatív gyorstár): a fájl
+    /// nélküli házihoz egy napig nem kérdezünk újra, a fájlos végleges.
+    /// Legfeljebb `detailConcurrency` kérés fut egyszerre.
     func fetchHomeworkDetails(_ items: [HomeworkItem], iss: String) async -> [HomeworkItem] {
         if isDemoBackend(iss: iss) { return items }
         let needy = items.filter { $0.attachments.isEmpty }
         guard !needy.isEmpty else { return items }
-        let found: [String: [AttachmentItem]] = await withTaskGroup(of: (String, [AttachmentItem]).self) { group in
-            for hw in needy {
-                group.addTask { [self] in
-                    let detailKey = "hwdetail:\(iss):\(hw.id)"
-                    if let hit: [AttachmentItem] = await self.cachedValue(key: detailKey), !hit.isEmpty {
-                        return (hw.id, hit)
-                    }
-                    guard let url = KretaAPI.homeworkDetail(iss, id: hw.id),
-                          let d: Data = try? await self.getRaw(url) else { return (hw.id, []) }
-                    await self.logHomeworkDetailKeysOnce(d)
-                    let atts = await Self.offMain { KretaAttachmentParser.attachments(from: d) }
-                    if !atts.isEmpty { await self.storeValue(atts, key: detailKey) }
-                    return (hw.id, atts)
-                }
+        var found: [String: [AttachmentItem]] = [:]
+        var toAsk: [HomeworkItem] = []
+        for hw in needy {
+            let detailKey = "hwdetail:\(iss):\(hw.id)"
+            if let hit = store.homeworkDetail(hw.id, account: cacheAccount) {
+                found[hw.id] = hit
+            } else if let hit: [AttachmentItem] = cachedValue(key: detailKey) {
+                found[hw.id] = hit
+            } else {
+                toAsk.append(hw)
             }
-            var out: [String: [AttachmentItem]] = [:]
-            for await (id, atts) in group { out[id] = atts }
-            return out
+        }
+        if !toAsk.isEmpty {
+            let fetched: [String: [AttachmentItem]] = await withTaskGroup(of: (String, [AttachmentItem]?).self) { group in
+                var out: [String: [AttachmentItem]] = [:]
+                var pending = toAsk[...]
+                func addNext() {
+                    guard let hw = pending.popFirst() else { return }
+                    group.addTask { [self] in
+                        guard let url = KretaAPI.homeworkDetail(iss, id: hw.id),
+                              let d: Data = try? await self.getRaw(url) else { return (hw.id, nil) }
+                        await self.logHomeworkDetailKeysOnce(d)
+                        let atts = await Self.offMain { KretaAttachmentParser.attachments(from: d) }
+                        return (hw.id, atts)
+                    }
+                }
+                for _ in 0..<Self.detailConcurrency { addNext() }
+                for await (id, atts) in group {
+                    // Hálózati hiba (nil) nem kerül a negatív gyorstárba.
+                    if let atts { out[id] = atts }
+                    addNext()
+                }
+                return out
+            }
+            for (id, atts) in fetched {
+                storeValue(atts, key: "hwdetail:\(iss):\(id)")
+                found[id] = atts
+            }
+            store.ingestHomeworkDetails(fetched, account: cacheAccount)
         }
         let hits = found.values.filter { !$0.isEmpty }.count
-        if hits > 0 { diag("házi-részlet: \(hits) házihoz van fájl") }
+        if hits > 0, !toAsk.isEmpty { diag("házi-részlet: \(hits) házihoz van fájl (\(toAsk.count) lekérve)") }
         return items.map { hw in
             guard let atts = found[hw.id], !atts.isEmpty else { return hw }
             return hw.withAttachments(atts)
@@ -607,34 +786,42 @@ final class KretaClient: ObservableObject {
     func fetchAbsences(iss: String, force: Bool = false) async -> [AbsenceItem] {
         if isDemoBackend(iss: iss) {
             let r = DemoData.absences()
+            store.ingest(r, kind: .absences, account: cacheAccount)
             diag("hiányzás: \(r.count) db (demo)"); return r
         }
         let key = "abs:\(iss)"
-        if !force, let hit: [AbsenceItem] = cachedValue(key: key) { return hit }
+        if !force, let hit: [AbsenceItem] = freshCached(.absences, key: key) { return hit }
         return await singleFlight(key: key) {
-            guard let url = KretaAPI.absences(iss) else { self.diag("hiányzás: rossz URL"); return self.staleValue(key: key) ?? [] }
-            do {
-                let dtos: [KretaAbsenceDTO] = try await self.get(url)
-                let r = await Self.offMain { dtos.map { $0.toItem() }.sorted { $0.date > $1.date } }
-                self.storeValue(r, key: key)
-                self.diag("hiányzás: \(r.count) db"); return r
-            } catch { self.diagErr("hiányzás", error); return self.staleValue(key: key) ?? [] }
+            await self.tracked(.absences) {
+                guard let url = KretaAPI.absences(iss) else {
+                    self.diag("hiányzás: rossz URL"); return (self.lastKnown(.absences, key: key) ?? [], false)
+                }
+                do {
+                    let dtos: [KretaAbsenceDTO] = try await self.get(url)
+                    let r = await Self.offMain { dtos.map { $0.toItem() }.sorted { $0.date > $1.date } }
+                    self.remember(r, kind: .absences, key: key)
+                    self.diag("hiányzás: \(r.count) db"); return (r, true)
+                } catch { self.diagErr("hiányzás", error); return (self.lastKnown(.absences, key: key) ?? [], false) }
+            }
         }
     }
     func fetchExams(iss: String, force: Bool = false) async -> [ExamItem] {
         if isDemoBackend(iss: iss) {
             let r = DemoData.exams().sorted { $0.date < $1.date }
+            store.ingest(r, kind: .exams, account: cacheAccount)
             diag("dolgozat: \(r.count) db (demo)"); return r
         }
         let key = "ex:\(iss)"
-        if !force, let hit: [ExamItem] = cachedValue(key: key) { return hit }
+        if !force, let hit: [ExamItem] = freshCached(.exams, key: key) { return hit }
         return await singleFlight(key: key) {
-            await self.fetchExamsNetwork(iss: iss, key: key)
+            await self.tracked(.exams) {
+                await self.fetchExamsNetwork(iss: iss, key: key)
+            }
         }
     }
 
-    private func fetchExamsNetwork(iss: String, key: String) async -> [ExamItem] {
-        guard let url = KretaAPI.exams(iss) else { return staleValue(key: key) ?? [] }
+    private func fetchExamsNetwork(iss: String, key: String) async -> ([ExamItem], Bool) {
+        guard let url = KretaAPI.exams(iss) else { return (lastKnown(.exams, key: key) ?? [], false) }
         do {
             // Lenient: egy hibás elem nem nullázhatja a teljes dolgozatlistát
             let data: Data = try await getRaw(url)
@@ -644,9 +831,9 @@ final class KretaClient: ObservableObject {
                     item.withAttachments(atts[item.id] ?? [])
                 }.sorted { $0.date < $1.date }
             }
-            storeValue(r, key: key)
-            diag("dolgozat: \(r.count) db"); return r
-        } catch { diagErr("dolgozat", error); return staleValue(key: key) ?? [] }
+            remember(r, kind: .exams, key: key)
+            diag("dolgozat: \(r.count) db"); return (r, true)
+        } catch { diagErr("dolgozat", error); return (lastKnown(.exams, key: key) ?? [], false) }
     }
     /// Postaláda-doboz (e-Ügyintézés): beérkezett / elküldött / törölt.
     /// A doboznevek az ekreta-docs-v3 szerint (`beerkezett`, `elkuldott`,
@@ -677,27 +864,44 @@ final class KretaClient: ObservableObject {
         if isDemoBackend(iss: instituteCode ?? "") {
             // Demo: csak a beérkezettben van tartalom, az elküldött/törölt üres.
             if box == .incoming {
-                let r = applyingLocalRead(DemoData.messages())
+                let raw = DemoData.messages()
+                store.ingest(raw, kind: .messages, account: cacheAccount)
+                let r = applyingLocalRead(raw)
                 diag("üzenet/\(box.rawValue): \(r.count) db (demo)"); return r
             }
             diag("üzenet/\(box.rawValue): 0 db (demo)"); return []
         }
         let key = "msg:\(box.rawValue):\(instituteCode ?? "?")"
-        if !force, let hit: [MessageItem] = cachedValue(key: key) {
+        // Csak a beérkezett doboz kerül a közös (lemezes) gyorstárba — a
+        // főoldali csengő-jelvény ezt mutatja indításkor is.
+        let persisted = box == .incoming
+        if !force {
+            let hit: [MessageItem]? = persisted ? freshCached(.messages, key: key) : cachedValue(key: key)
             // Olvasott-jelölések időközben változhattak — a tárolt listára is rávetítjük.
-            return applyingLocalRead(hit)
+            if let hit { return applyingLocalRead(hit) }
         }
-        return await singleFlight(key: key) {
-            guard let url = KretaAPI.messages(box) else { self.diag("üzenet/\(box.rawValue): rossz URL"); return self.staleValue(key: key).map(self.applyingLocalRead) ?? [] }
+        func fallback() -> [MessageItem] {
+            let last: [MessageItem]? = persisted ? lastKnown(.messages, key: key) : staleValue(key: key)
+            return last.map(applyingLocalRead) ?? []
+        }
+        let work: () async -> ([MessageItem], Bool) = {
+            guard let url = KretaAPI.messages(box) else { self.diag("üzenet/\(box.rawValue): rossz URL"); return (fallback(), false) }
             do {
                 let data: Data = try await self.getRaw(url)
                 let items = await Self.offMain { KretaMessageDTO.lenientItems(from: data).sorted { $0.date > $1.date } }
                 // Nyers (jelöletlen) lista megy a tárolóba — a visszaolvasáskor
                 // vetítjük rá az aktuális olvasott-jelöléseket.
-                self.storeValue(items, key: key)
+                if persisted {
+                    self.remember(items, kind: .messages, key: key)
+                } else {
+                    self.storeValue(items, key: key)
+                }
                 let r = self.applyingLocalRead(items)
-                self.diag("üzenet/\(box.rawValue): \(r.count) db"); return r
-            } catch { self.diagErr("üzenet/\(box.rawValue)", error); return self.staleValue(key: key).map(self.applyingLocalRead) ?? [] }
+                self.diag("üzenet/\(box.rawValue): \(r.count) db"); return (r, true)
+            } catch { self.diagErr("üzenet/\(box.rawValue)", error); return (fallback(), false) }
+        }
+        return await singleFlight(key: key) {
+            persisted ? await self.tracked(.messages, work) : await work().0
         }
     }
 
@@ -814,7 +1018,7 @@ final class KretaClient: ObservableObject {
             return demo.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != "Ismeretlen" }.sorted()
         }
         let key = "subjects:\(iss)"
-        if !force, let hit: [String] = cachedValue(key: key) { return hit }
+        if !force, let hit: [String] = freshCached(.subjects, key: key) { return hit }
         return await singleFlight(key: key) {
             await self.fetchAllSubjectNamesNetwork(iss: iss, key: key)
         }
@@ -838,28 +1042,20 @@ final class KretaClient: ObservableObject {
         //    a Felmentés képernyőnek sem volt mit felsorolnia. A heti kérés
         //    ugyanaz, ami az Órarend tabon is működik.
         if names.isEmpty || names.count < 5 {
-            let cal = Calendar.current
-            let weekStart = cal.dateInterval(of: .weekOfYear, for: Date())?.start ?? cal.startOfDay(for: Date())
-            // 3 hét vissza + aktuális + 1 hét előre, párhuzamosan — tanév
+            // 3 hét vissza + aktuális + 1 hét előre (a közös heti gyorstárból,
+            // így a már látott hetek nem mennek újra hálózatra) — tanév
             // eleji (0 jegy) helyzetben is összegyűlik minden felvett tárgy.
-            let weekly: [[LessonItem]] = await withTaskGroup(of: [LessonItem].self) { group in
-                for w in [-3, -2, -1, 0, 1] {
-                    guard let from = cal.date(byAdding: .weekOfYear, value: w, to: weekStart),
-                          let to = cal.date(byAdding: .day, value: 7, to: from) else { continue }
-                    group.addTask { [self] in await self.fetchTimetable(iss: iss, from: from, to: to) }
-                }
-                var out: [[LessonItem]] = []
-                for await part in group { out.append(part) }
-                return out
-            }
-            for l in weekly.joined() { names.insert(l.subject) }
+            let current = KretaWeek.monday(for: Date())
+            let from = KretaWeek.adding(weeks: -3, to: current)
+            let to = KretaWeek.adding(weeks: 2, to: current)
+            for l in await fetchTimetable(iss: iss, from: from, to: to) { names.insert(l.subject) }
         }
         // Szándékosan NINCS cached-union: a cache demo-módból szennyezett lehet,
         // a hívó (GradesView) külön fűzi hozzá megjelenítéshez, mentéshez viszont
         // csak ez a hálózati lista megy.
         let r = names.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != "Ismeretlen" }.sorted()
-        if !r.isEmpty { storeValue(r, key: key) }
-        return r
+        if !r.isEmpty { remember(r, kind: .subjects, key: key) }
+        return r.isEmpty ? (lastKnown(.subjects, key: key) ?? []) : r
     }
 }
 

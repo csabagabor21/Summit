@@ -551,9 +551,8 @@ enum WatchAutoPush {
             return
         }
         let kreta = KretaClient()
-        kreta.accessToken = user.accessToken
-        kreta.refreshToken = user.refreshToken
-        kreta.instituteCode = user.instituteCode
+        kreta.bind(user)
+        await KretaStore.shared.activateAndWait(user)
         kreta.onTokensRefreshed = { newAccess, newRefresh, expiresIn in
             session.updateTokens(accessToken: newAccess, refreshToken: newRefresh, expiresIn: expiresIn)
         }

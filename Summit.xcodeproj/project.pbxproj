@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2FCDC44DD1A0F3BBE1E008B6 /* KretaCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D138C18CDD0547E2CE473A6 /* KretaCache.swift */; };
 		0048146EEDBAF2200F28A063 /* SummitApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E156CB119C0AA44F6ECF68 /* SummitApp.swift */; };
 		00510505FE37B8B54818307E /* WatchPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = F46888F9B5AABCFE8AF91CF4 /* WatchPayload.swift */; };
 		F10000000000000000000002 /* WatchWebSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000001 /* WatchWebSearch.swift */; };
@@ -216,6 +217,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		8D138C18CDD0547E2CE473A6 /* KretaCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaCache.swift; sourceTree = "<group>"; };
 		015E5B567EB1A1C82FE048AD /* WatchAvailability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAvailability.swift; sourceTree = "<group>"; };
 		01B840F52C3466DB1B0AF667 /* AbsencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbsencesView.swift; sourceTree = "<group>"; };
 		038E0AFC6C033CBCCCA58205 /* TimetableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableView.swift; sourceTree = "<group>"; };
@@ -706,6 +708,7 @@
 		EB8606EEC55060B92D11CA44 /* Storage */ = {
 			isa = PBXGroup;
 			children = (
+				8D138C18CDD0547E2CE473A6 /* KretaCache.swift */,
 				403733D1E79BF3F0BDF3A215 /* AnalyticsStore.swift */,
 				092823FDC89EDC54BE31739D /* CompletedStore.swift */,
 				7D3E0B0FDF4604B9398AA272 /* CustomTasksStore.swift */,
@@ -1035,6 +1038,7 @@
 				3DD981EF753741F402A6F479 /* HomeView.swift in Sources */,
 				333705F710AABC832AC38E7C /* HomeViewModel.swift in Sources */,
 				4A3A1F774121CB67FC9D79B8 /* KeychainHelper.swift in Sources */,
+				2FCDC44DD1A0F3BBE1E008B6 /* KretaCache.swift in Sources */,
 				E18B6A9B4FA1105E20981AF6 /* KretaAPI.swift in Sources */,
 				100F442921ECCB438D9A6172 /* SummitAppCheck.swift in Sources */,
 				5F20AD0975C509783B0C6515 /* KretaClient.swift in Sources */,

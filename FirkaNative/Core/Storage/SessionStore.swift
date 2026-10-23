@@ -114,6 +114,8 @@ final class SessionStore: ObservableObject {
         persist()
     }
     func logout() {
+        // A kijelentkező fiók KRÉTA-gyorstára (jegyek, órarend…) törlődik.
+        if let user = selectedUser { KretaStore.shared.forget(user) }
         if let id = selectedId { users.removeAll { $0.id == id } }
         selectedId = users.first?.id
         persist()
