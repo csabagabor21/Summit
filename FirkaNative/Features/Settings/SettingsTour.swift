@@ -51,7 +51,14 @@ private struct TourHighlightModifier: ViewModifier {
         content
             .overlay {
                 if active {
-                    if MinecraftTheme.isActive {
+                    if CyberpunkTheme.isActive {
+                        // HUD-célkereszt: levágott sarkú 1,5 px-es sárga keret,
+                        // a két ép sarkon rövid konzol-jelekkel; pulzálás nélkül.
+                        CPChamferShape(cut: 14, corners: .diagonal)
+                            .strokeBorder(CyberpunkTheme.yellow, lineWidth: 1.5)
+                            .overlay(CPTourBrackets())
+                            .allowsHitTesting(false)
+                    } else if MinecraftTheme.isActive {
                         // Pixel-keret (a játék kijelölés-sárgája), puha ragyogás nélkül.
                         McPixelShape(steps: 2)
                             .strokeBorder(Color(hex: 0xFFFF55), lineWidth: MinecraftTheme.px)
@@ -91,8 +98,7 @@ struct SettingsTourCard: View {
             let s = SettingsTour.steps[i]
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("Beállítások túra • \(i + 1)/\(SettingsTour.steps.count)")
-                        .skinFont(.caption2, weight: .bold).foregroundStyle(.secondary)
+                    tourCounter(i)
                     Spacer()
                     Button("Kihagyás") { step = nil; onFinish() }
                         .skinFont(.caption, weight: .semibold)
@@ -110,11 +116,11 @@ struct SettingsTourCard: View {
                     if i < SettingsTour.steps.count - 1 {
                         Button("Tovább") { step = i + 1 }
                             .skinFont(.subheadline, weight: .bold)
-                            .mcInlineButton()
+                            .mcInlineButton(prominent: CyberpunkTheme.isActive)
                     } else {
                         Button("Kész") { step = nil; onFinish() }
                             .skinFont(.subheadline, weight: .bold)
-                            .mcInlineButton()
+                            .mcInlineButton(prominent: CyberpunkTheme.isActive)
                     }
                 }
                 .tint(accent)
@@ -126,6 +132,20 @@ struct SettingsTourCard: View {
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
+
+    /// Lépésszámláló: Cyberpunkban sárga HUD-kód (`TÚRA // 03/09`),
+    /// egyébként a meglévő szürke felirat.
+    @ViewBuilder
+    private func tourCounter(_ i: Int) -> some View {
+        if CyberpunkTheme.isActive {
+            CPLabel(String(format: "Túra // %02d/%02d", i + 1, SettingsTour.steps.count),
+                    color: CyberpunkTheme.yellow, bracketed: false, size: 10)
+                .accessibilityLabel("Beállítások túra, \(i + 1). lépés a \(SettingsTour.steps.count)-ból")
+        } else {
+            Text("Beállítások túra • \(i + 1)/\(SettingsTour.steps.count)")
+                .skinFont(.caption2, weight: .bold).foregroundStyle(.secondary)
+        }
+    }
 }
 
 /// A túra-kártya felülete: Summitban az átlátszó anyag + akcentkeret,
@@ -134,7 +154,15 @@ private struct TourCardSurface: ViewModifier {
     var accent: Color
 
     func body(content: Content) -> some View {
-        if MinecraftTheme.isActive {
+        if CyberpunkTheme.isActive {
+            // Emelt HUD-panel sárga akcenttel + bal oldali sárga jelzősáv.
+            content
+                .background { CPPanelBackground(accent: CyberpunkTheme.yellow, fill: CyberpunkTheme.panelRaised) }
+                .overlay(alignment: .leading) {
+                    Rectangle().fill(CyberpunkTheme.yellow).frame(width: 3).padding(.vertical, 16)
+                        .accessibilityHidden(true)
+                }
+        } else if MinecraftTheme.isActive {
             content
                 .padding(MinecraftTheme.px)
                 .background { McBlockPanel(face: MinecraftTheme.panelFace) }
@@ -144,5 +172,21 @@ private struct TourCardSurface: ViewModifier {
                 .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(accent.opacity(0.4)))
                 .shadow(radius: 12)
         }
+    }
+}
+
+/// A túra-kiemelés konzol-jelei a keret két ép (jobb felső, bal alsó)
+/// sarkán — statikus, olcsó Path.
+private struct CPTourBrackets: View {
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width, h = geo.size.height, l: CGFloat = 14
+            Path { p in
+                p.move(to: CGPoint(x: w - l, y: -3)); p.addLine(to: CGPoint(x: w + 3, y: -3)); p.addLine(to: CGPoint(x: w + 3, y: l))
+                p.move(to: CGPoint(x: -3, y: h - l)); p.addLine(to: CGPoint(x: -3, y: h + 3)); p.addLine(to: CGPoint(x: l, y: h + 3))
+            }
+            .stroke(CyberpunkTheme.yellow, lineWidth: 2)
+        }
+        .accessibilityHidden(true)
     }
 }

@@ -28,8 +28,8 @@ struct TeacherRoundingView: View {
                                 Text(subj).skinFont(.subheadline, weight: .semibold).lineLimit(1)
                                 Spacer()
                                 Text(String(format: "%.2f", thr))
-                                    .skinFont(.caption, weight: .medium).monospacedDigit()
-                                    .foregroundStyle(.secondary)
+                                    .font(Self.thresholdFont).monospacedDigit()
+                                    .foregroundStyle(theme.isCyberpunk ? AnyShapeStyle(CyberpunkTheme.yellow) : AnyShapeStyle(.secondary))
                             }
                         }
                     }
@@ -43,7 +43,7 @@ struct TeacherRoundingView: View {
                     thresholds = GradingLogic.loadThresholds()
                 }
                 .tint(.red)
-                .mcInlineButton()
+                .roundingResetAllButton()
             } footer: {
                 Text("Minden tantárgy kerekítését visszaállítja az alapértelmezett 0,50-re.").skinFont(.caption2).foregroundStyle(.secondary)
             }
@@ -61,6 +61,14 @@ struct TeacherRoundingView: View {
         }
         .onAppear { thresholds = GradingLogic.loadThresholds() }
         .onChange(of: session.selectedId) { _, _ in Task { await loadSubjects(force: true) } }
+    }
+
+    /// Tárgysor küszöb-értéke: Summitban/Minecraftban a korábbi
+    /// `skinFont(.caption, weight: .medium)`, Cyberpunkban egyenközű kód.
+    private static var thresholdFont: Font {
+        MinecraftTheme.isActive ? MinecraftTheme.font(.caption)
+            : CyberpunkTheme.isActive ? CyberpunkTheme.mono(size: 12, relativeTo: .caption)
+            : Font.system(.caption, weight: .medium)
     }
 
     private func loadSubjects(force: Bool = false) async {
@@ -92,5 +100,18 @@ struct TeacherRoundingView: View {
         }
         isLoading = false
         if !filtered.isEmpty, !isDemo { UserDefaults.standard.set(filtered, forKey: "firka.cachedSubjects.v1") }
+    }
+}
+
+private extension View {
+    /// „Összes visszaállítása": Cyberpunkban vörös (destruktív) CP-gomb,
+    /// egyébként a meglévő `mcInlineButton`.
+    @ViewBuilder
+    func roundingResetAllButton() -> some View {
+        if CyberpunkTheme.isActive {
+            self.buttonStyle(CPButtonStyle(kind: .destructive, compact: true))
+        } else {
+            self.mcInlineButton()
+        }
     }
 }

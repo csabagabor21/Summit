@@ -15,6 +15,9 @@ struct AnalyticsConsentView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     VStack(alignment: .leading, spacing: 8) {
+                        if theme.isCyberpunk {
+                            CPLabel("Adatvédelem // hozzájárulás", color: CyberpunkTheme.cyan, size: 10)
+                        }
                         Text("Használati statisztika")
                             .mcDisplay(32)
                             .tracking(-0.5)
@@ -38,7 +41,9 @@ struct AnalyticsConsentView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 24)
             }
-            .background { if theme.isMinecraft { McMenuBackground() } }
+            .background {
+                if theme.isCyberpunk { CPBackdrop() } else if theme.isMinecraft { McMenuBackground() }
+            }
             .summitSheetBackground()
             .navigationBarTitleDisplayMode(.inline)
             .summitToolbarBackground()
@@ -48,7 +53,7 @@ struct AnalyticsConsentView: View {
                         Text("Bekapcsolom")
                             .skinFont(.headline, weight: .semibold)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 15)
+                            .padding(.vertical, theme.isCyberpunk ? 2 : 15)
                     }
                     .skinBorderedButton(prominent: true)
                     .tint(.blue)
@@ -56,7 +61,7 @@ struct AnalyticsConsentView: View {
                         Text("Kikapcsolva folytatom")
                             .skinFont(.headline, weight: .semibold)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 15)
+                            .padding(.vertical, theme.isCyberpunk ? 2 : 15)
                     }
                     .skinBorderedButton()
                     .tint(.primary)
@@ -68,17 +73,22 @@ struct AnalyticsConsentView: View {
             }
         }
         .summitSheetBackground()
-        // Minecraft: a menü-háttér sötét, ezért a képernyő sötét sémában fut
-        // (fehér szöveg); Summitban a kapott séma marad.
-        .environment(\.colorScheme, theme.isMinecraft ? .dark : scheme)
+        // Minecraft / Cyberpunk: a háttér sötét, ezért a képernyő sötét
+        // sémában fut (világos szöveg); Summitban a kapott séma marad.
+        .environment(\.colorScheme, (theme.isMinecraft || theme.isCyberpunk) ? .dark : scheme)
         .interactiveDismissDisabled(true)
     }
 
     /// Alsó gombsáv háttere: Summitban a rendszer-háttér, Minecraftban a
-    /// játék menü-lábléce (föld-csempe + lábléc-elválasztó).
+    /// játék menü-lábléce (föld-csempe + lábléc-elválasztó), Cyberpunkban
+    /// majdnem fekete sáv vékony sárga HUD-vonallal a tetején.
     @ViewBuilder
     private var consentBarBackground: some View {
-        if theme.isMinecraft {
+        if theme.isCyberpunk {
+            CyberpunkTheme.bgDeep
+                .ignoresSafeArea(edges: .bottom)
+                .overlay(alignment: .top) { CPDivider(color: CyberpunkTheme.yellow) }
+        } else if theme.isMinecraft {
             McMenuBackground().overlay(alignment: .top) { McSeparator(footer: true) }
         } else {
             Color(.systemBackground)
@@ -87,41 +97,35 @@ struct AnalyticsConsentView: View {
 
     private var collectsCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("EZT GYŰJTI, HA BEKAPCSOLOD")
-                .skinFont(.caption, weight: .bold)
-                .foregroundStyle(.secondary)
-            row("chart.bar.fill", "Iskolád neve", "A KRÉTA-beli intézmény neve — számlálásra elég, beazonosításra nem.")
-            row("iphone", "Véletlen telepítés-azonosító", "A telefonon generált UUID — nem eszköz-ID, törléssel megújul.")
-            row("app.badge.fill", "App-verzió és rendszer", "Pl. 1.0 (10), iOS 26 — hogy lássuk,min kell javítani.")
+            cardHeader("EZT GYŰJTI, HA BEKAPCSOLOD", code: "DATA.TX", accent: CyberpunkTheme.cyan)
+            row("chart.bar.fill", "Iskolád neve", "A KRÉTA-beli intézmény neve — számlálásra elég, beazonosításra nem.", cpTint: CyberpunkTheme.cyan)
+            row("iphone", "Véletlen telepítés-azonosító", "A telefonon generált UUID — nem eszköz-ID, törléssel megújul.", cpTint: CyberpunkTheme.cyan)
+            row("app.badge.fill", "App-verzió és rendszer", "Pl. 1.0 (10), iOS 26 — hogy lássuk,min kell javítani.", cpTint: CyberpunkTheme.cyan)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .skinCard(fill: Color.primary.opacity(0.04))
+        .consentCard(fill: Color.primary.opacity(0.04), cpAccent: CyberpunkTheme.cyan)
     }
 
     private var notCollectsCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("EZT SOSEM GYŰJTI")
-                .skinFont(.caption, weight: .bold)
-                .foregroundStyle(.secondary)
-            row("person.slash.fill", "Neved, jegyeid, órarended", "A KRÉTA-adataid a telefonodon maradnak.")
-            row("key.slash.fill", "Jelszavad, tokened", "Belépési adatot sosem töltünk fel sehova.")
-            row("location.slash.fill", "Helyzeted, eszköz-ID-d", "Nincs GPS, nincs fingerprint, nincs IP-naplózás.")
+            cardHeader("EZT SOSEM GYŰJTI", code: "BLOCKED", accent: CyberpunkTheme.green)
+            row("person.slash.fill", "Neved, jegyeid, órarended", "A KRÉTA-adataid a telefonodon maradnak.", cpTint: CyberpunkTheme.green)
+            row("key.slash.fill", "Jelszavad, tokened", "Belépési adatot sosem töltünk fel sehova.", cpTint: CyberpunkTheme.green)
+            row("location.slash.fill", "Helyzeted, eszköz-ID-d", "Nincs GPS, nincs fingerprint, nincs IP-naplózás.", cpTint: CyberpunkTheme.green)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .skinCard(fill: Color.green.opacity(0.08))
+        .consentCard(fill: Color.green.opacity(0.08), cpAccent: CyberpunkTheme.green)
     }
 
     private var whyCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("MIRE HASZNÁLJUK AZ ADATOKAT?")
-                .skinFont(.caption, weight: .bold)
-                .foregroundStyle(.secondary)
+            cardHeader("MIRE HASZNÁLJUK AZ ADATOKAT?", code: "PURPOSE", accent: CyberpunkTheme.yellow)
             HStack(alignment: .top, spacing: 12) {
                 SkinIcon("mountain.2.fill")
                     .skinFont(.body, weight: .semibold)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(theme.isCyberpunk ? CyberpunkTheme.yellow : .blue)
                     .frame(width: 24)
                 Text("Kíváncsiak vagyunk, mennyien vagytok a hegy tetején.")
                     .skinFont(.subheadline, weight: .semibold)
@@ -132,19 +136,54 @@ struct AnalyticsConsentView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .skinCard(fill: Color.blue.opacity(0.08))
+        .consentCard(fill: Color.blue.opacity(0.08), cpAccent: CyberpunkTheme.yellow)
     }
 
-    private func row(_ icon: String, _ title: String, _ sub: String) -> some View {
+    /// Kártya-fejléc: Summitban/Minecraftban a szürke nagybetűs felirat,
+    /// Cyberpunkban akcentszínű cím + jobbra igazított egyenközű kód.
+    @ViewBuilder
+    private func cardHeader(_ title: String, code: String, accent: Color) -> some View {
+        if theme.isCyberpunk {
+            HStack(spacing: 8) {
+                Text(title)
+                    .skinFont(.caption, weight: .bold)
+                    .tracking(1.2)
+                    .foregroundStyle(accent)
+                Spacer(minLength: 6)
+                CPLabel(code, color: CyberpunkTheme.dim, bracketed: false, size: 9)
+                    .accessibilityHidden(true)
+            }
+        } else {
+            Text(title)
+                .skinFont(.caption, weight: .bold)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func row(_ icon: String, _ title: String, _ sub: String, cpTint: Color = CyberpunkTheme.cyan) -> some View {
         HStack(alignment: .top, spacing: 12) {
             SkinIcon(icon)
                 .skinFont(.body, weight: .semibold)
-                .foregroundStyle(.blue)
+                .foregroundStyle(theme.isCyberpunk ? cpTint : .blue)
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).skinFont(.subheadline, weight: .semibold)
                 Text(sub).skinFont(.footnote).foregroundStyle(.secondary)
             }
+        }
+    }
+}
+
+private extension View {
+    /// Hozzájárulás-kártya felülete: Cyberpunkban kártyánként más akcentű
+    /// (cián = gyűjtött, zöld = soha, sárga = cél) HUD-panel; egyébként a
+    /// meglévő `skinCard`.
+    @ViewBuilder
+    func consentCard(fill: Color, cpAccent: Color) -> some View {
+        if CyberpunkTheme.isActive {
+            self.background { CPPanelBackground(accent: cpAccent) }
+        } else {
+            self.skinCard(fill: fill)
         }
     }
 }

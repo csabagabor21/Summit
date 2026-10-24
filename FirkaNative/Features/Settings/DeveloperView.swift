@@ -248,7 +248,9 @@ struct DeveloperView: View {
             .frame(maxWidth: .infinity)
         }
         .background {
-            if theme.isMinecraft {
+            if theme.isCyberpunk {
+                CPBackdrop()
+            } else if theme.isMinecraft {
                 MinecraftBackdrop(mountain: true)
             } else {
                 SummitBackdrop(imageName: "DevPeak")
@@ -453,7 +455,9 @@ struct DeveloperView: View {
 
     @ViewBuilder
     private var settingsDivider: some View {
-        if theme.isMinecraft {
+        if theme.isCyberpunk {
+            Rectangle().fill(CyberpunkTheme.line).frame(height: 1).padding(.leading, 16)
+        } else if theme.isMinecraft {
             Rectangle().fill(Color.black.opacity(0.22)).frame(height: MinecraftTheme.px)
         } else {
             Divider().padding(.leading, 16)

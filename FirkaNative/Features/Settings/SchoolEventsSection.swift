@@ -58,7 +58,7 @@ struct SchoolEventsSection: View {
             // beállítás alább bármikor felülírhatja (az is szinkronizálódik).
             if let admin = adminEntry {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Iskolai alapértelmezés").skinFont(.caption, weight: .semibold).foregroundStyle(.secondary)
+                    subHeader("Iskolai alapértelmezés")
                     HStack {
                         Text(admin.name ?? "Központi naptár")
                             .skinFont(.subheadline, weight: .medium)
@@ -86,7 +86,7 @@ struct SchoolEventsSection: View {
             // 1) Link: a suli naptárjának webcíme (suli honlap, Google Naptár
             // nyilvános ICS-linkje) — letölteni nem kell, az app lehúzza.
             VStack(alignment: .leading, spacing: 6) {
-                Text("Linkből").skinFont(.caption, weight: .semibold).foregroundStyle(.secondary)
+                subHeader("Linkből")
                 HStack {
                     TextField("Naptár-link beillesztése", text: $linkText, prompt: skinPrompt("Naptár-link beillesztése"))
                         .skinFont(.subheadline)
@@ -113,7 +113,7 @@ struct SchoolEventsSection: View {
 
             // 2) Szöveg: kimásolt lista beillesztése (Safari, Mail, KRÉTA-üzenet).
             VStack(alignment: .leading, spacing: 6) {
-                Text("Szövegből").skinFont(.caption, weight: .semibold).foregroundStyle(.secondary)
+                subHeader("Szövegből")
                 if showPaste {
                     pasteEditor
                     Text("Soronként: dátum + cím. Nyers ICS is mehet.")
@@ -182,11 +182,23 @@ struct SchoolEventsSection: View {
         }
     }
 
+    /// Forrás-alcím (Linkből / Szövegből / Iskolai alapértelmezés):
+    /// Cyberpunkban cián egyenközű HUD-kód, egyébként a szürke felirat.
+    @ViewBuilder
+    private func subHeader(_ title: String) -> some View {
+        if CyberpunkTheme.isActive {
+            CPLabel(title, color: CyberpunkTheme.cyan, bracketed: false, size: 11)
+        } else {
+            Text(title).skinFont(.caption, weight: .semibold).foregroundStyle(.secondary)
+        }
+    }
+
     /// Beillesztő mező: Summitban a gyári doboz, Minecraftban a játék
-    /// szövegmező-kerete (a TextEditor saját háttere elrejtve).
+    /// szövegmező-kerete, Cyberpunkban a HUD-mező (cián keret, mély háttér) —
+    /// a TextEditor saját háttere mindkettőben elrejtve.
     @ViewBuilder
     private var pasteEditor: some View {
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             TextEditor(text: $pastedText)
                 .scrollContentBackground(.hidden)
                 .frame(minHeight: 110, maxHeight: 200)

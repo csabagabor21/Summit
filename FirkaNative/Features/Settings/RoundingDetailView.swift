@@ -15,15 +15,15 @@ struct RoundingDetailView: View {
                     HStack {
                         Text(subject).skinFont(.headline)
                         Spacer()
-                        Text(String(format: "%.2f", threshold)).skinFont(.title3, weight: .bold).monospacedDigit().foregroundStyle(colors.accent)
+                        Text(String(format: "%.2f", threshold)).font(RoundingSkinFont.readout).monospacedDigit().foregroundStyle(colors.accent)
                     }
                     SkinSlider(value: $threshold, range: 0.50...0.90, step: 0.01)
                         .tint(colors.accent)
                         .onChange(of: threshold) { _, v in GradingLogic.setThreshold(v, for: subject) }
                     HStack(spacing: 12) {
-                        Text("3.62 → \(GradingLogic.roundedGrade(raw: 3.62, threshold: threshold))-as").skinFont(.caption, weight: .semibold).foregroundStyle(.secondary)
+                        Text("3.62 → \(GradingLogic.roundedGrade(raw: 3.62, threshold: threshold))-as").font(RoundingSkinFont.example).foregroundStyle(.secondary)
                         Text("•").foregroundStyle(.tertiary)
-                        Text("3.79 → \(GradingLogic.roundedGrade(raw: 3.79, threshold: threshold))-as").skinFont(.caption, weight: .semibold).foregroundStyle(.secondary)
+                        Text("3.79 → \(GradingLogic.roundedGrade(raw: 3.79, threshold: threshold))-as").font(RoundingSkinFont.example).foregroundStyle(.secondary)
                     }
                 }
                 .padding(.vertical, 4)
@@ -60,5 +60,21 @@ struct RoundingDetailView: View {
             threshold = GradingLogic.threshold(for: subject)
             isExempted = ExemptedStore.isExempted(subject)
         }
+    }
+}
+
+/// Betűk a kerekítés-nézethez. Summitban és Minecraftban pontosan azt adja,
+/// amit eddig a `skinFont` (title3 bold / caption semibold); Cyberpunkban a
+/// küszöb nagy Rajdhani HUD-kijelző, a példasor egyenközű kód.
+private enum RoundingSkinFont {
+    static var readout: Font {
+        MinecraftTheme.isActive ? MinecraftTheme.font(.title3)
+            : CyberpunkTheme.isActive ? CyberpunkTheme.display(size: 30, weight: .bold, relativeTo: .title3)
+            : Font.system(.title3, weight: .bold)
+    }
+    static var example: Font {
+        MinecraftTheme.isActive ? MinecraftTheme.font(.caption)
+            : CyberpunkTheme.isActive ? CyberpunkTheme.mono(size: 11, relativeTo: .caption)
+            : Font.system(.caption, weight: .semibold)
     }
 }

@@ -80,12 +80,16 @@ struct ProfileCropView: View {
                         p.addLine(to: CGPoint(x: square.maxX, y: y))
                     }
                 }
-                .stroke(Color.white.opacity(0.65), lineWidth: 1)
+                .stroke(CyberpunkTheme.isActive ? CyberpunkTheme.cyan.opacity(0.5) : Color.white.opacity(0.65), lineWidth: 1)
                 .allowsHitTesting(false)
                 Rectangle()
                     .path(in: square)
-                    .stroke(Color.white, lineWidth: 2)
+                    .stroke(CyberpunkTheme.isActive ? CyberpunkTheme.yellow : Color.white, lineWidth: 2)
                     .allowsHitTesting(false)
+                // Cyberpunk: HUD-célzó sarokjelek a kivágás négy sarkán.
+                if CyberpunkTheme.isActive {
+                    CPCropTicks(square: square)
+                }
 
                 VStack {
                     HStack {
@@ -94,7 +98,7 @@ struct ProfileCropView: View {
                             .foregroundStyle(.white)
                             .mcInlineButton()
                         Spacer()
-                        Text("Kivágás")
+                        Text(CyberpunkTheme.isActive ? "KIVÁGÁS" : "Kivágás")
                             .skinFont(.headline, weight: .semibold)
                             .foregroundStyle(.white)
                         Spacer()
@@ -107,7 +111,7 @@ struct ProfileCropView: View {
                         }
                         .skinFont(.body, weight: .bold)
                         .foregroundStyle(.white)
-                        .mcInlineButton()
+                        .mcInlineButton(prominent: CyberpunkTheme.isActive)
                     }
                     .padding(.horizontal, 20)
                     // fullScreenCover a notch / óra alá is benyúlik —
@@ -160,5 +164,25 @@ struct ProfileCropView: View {
         guard !rect.isNull, rect.width > 10, rect.height > 10,
               let cg = image.cgImage?.cropping(to: rect.integral) else { return nil }
         return UIImage(cgImage: cg, scale: image.scale, orientation: image.imageOrientation)
+    }
+}
+
+/// A kivágó-négyzet sarkain kifelé álló, vastag sárga L-jelek
+/// (Cyberpunk-célzó); statikus Path, gesztusokat nem fog meg.
+private struct CPCropTicks: View {
+    var square: CGRect
+
+    var body: some View {
+        Path { p in
+            let l: CGFloat = 22, o: CGFloat = 4
+            let r = square.insetBy(dx: -o, dy: -o)
+            p.move(to: CGPoint(x: r.minX, y: r.minY + l)); p.addLine(to: CGPoint(x: r.minX, y: r.minY)); p.addLine(to: CGPoint(x: r.minX + l, y: r.minY))
+            p.move(to: CGPoint(x: r.maxX - l, y: r.minY)); p.addLine(to: CGPoint(x: r.maxX, y: r.minY)); p.addLine(to: CGPoint(x: r.maxX, y: r.minY + l))
+            p.move(to: CGPoint(x: r.maxX, y: r.maxY - l)); p.addLine(to: CGPoint(x: r.maxX, y: r.maxY)); p.addLine(to: CGPoint(x: r.maxX - l, y: r.maxY))
+            p.move(to: CGPoint(x: r.minX + l, y: r.maxY)); p.addLine(to: CGPoint(x: r.minX, y: r.maxY)); p.addLine(to: CGPoint(x: r.minX, y: r.maxY - l))
+        }
+        .stroke(CyberpunkTheme.yellow, lineWidth: 3)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
