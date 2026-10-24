@@ -19,6 +19,9 @@ struct CheatView: View {
     @State private var showingAdd = false
     @State private var apiKeyDraft = ""
     @State private var showKeyField = false
+    /// A kulcs statikus tárban él (nem publikált): a változás-értesítés
+    /// ezt lépteti, hogy a kulcs-szekció tényleg újrarajzolódjon.
+    @State private var keyTick = 0
     /// Sheetben nyitva kell az X a csukáshoz (a Feladatok toolbar-
     /// gombja így nyitja) — tab-gyökérként nincs rá szükség.
     let showCloseButton: Bool
@@ -34,7 +37,7 @@ struct CheatView: View {
     var body: some View {
         NavigationStack {
             List {
-                if !MetaAIKeyStore.hasKey {
+                if keyTick >= 0, !MetaAIKeyStore.hasKey {
                     Section {
                         Button { showKeyField.toggle() } label: {
                             SkinLabel("Meta AI-kulcs hozzáadása", systemImage: "key.fill")
@@ -155,7 +158,9 @@ struct CheatView: View {
                 CheatWatchPush.push(sheets)
             }
             .onReceive(NotificationCenter.default.publisher(for: MetaAIKeyStore.changedNotification)) { _ in
-                // A kulcs-sor eltűnéséhez / megjelenéséhez elég az újrarajz.
+                // A kulcs-sor eltűnéséhez / megjelenéséhez újrarajz kell
+                // (pl. a Beállításokban vagy szinkronból érkezett kulcs).
+                keyTick += 1
             }
             .task { await load() }
             .refreshable {
@@ -211,17 +216,42 @@ private struct AddCheatSheetView: View {
     @State private var subject = ""
     @State private var examID: String? = nil
 
+    /// Választható tárgyak: a Jegyek-tab köre + a dolgozatok tárgyai (egy
+    /// dolgozathoz kötött lap tárgya akkor is választható, ha a tárgy épp
+    /// nincs a jegyek között).
+    private var subjectOptions: [String] {
+        Array(Set(subjects).union(exams.map(\.subject)))
+            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            .sorted()
+    }
+
     var body: some View {
         NavigationStack {
             Form {
-                Section("Miről szól") {
+                Section {
                     TextField("Cím (pl. Babits Mihály)", text: $title, prompt: skinPrompt("Cím (pl. Babits Mihály)"))
                         .mcInput()
-                    SkinMenuPicker(
-                        title: "Tantárgy",
-                        selection: $subject,
-                        options: [SkinOption(value: "", title: "Válassz…")] + subjects.map { SkinOption(value: $0, title: $0) }
-                    )
+                    if subjectOptions.isEmpty {
+                        // Nincs még tantárgylista (friss belépés, offline):
+                        // kézzel beírható, különben a lap fel sem vehető.
+                        TextField("Tantárgy (pl. Irodalom)", text: $subject, prompt: skinPrompt("Tantárgy (pl. Irodalom)"))
+                            .mcInput()
+                    } else {
+                        SkinMenuPicker(
+                            title: "Tantárgy",
+                            selection: $subject,
+                            options: [SkinOption(value: "", title: "Válassz…")] + subjectOptions.map { SkinOption(value: $0, title: $0) }
+                        )
+                    }
+                } header: {
+                    Text("Miről szól")
+                } footer: {
+                    // A „Kész" cím és tárgy nélkül szürke — mondjuk is meg, miért.
+                    if subjectOptions.isEmpty {
+                        Text("Még nincs tantárgylista — írd be kézzel, vagy húzd le a Jegyek tabot.")
+                    } else if title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || subject.isEmpty {
+                        Text("A mentéshez cím és tantárgy kell.")
+                    }
                 }
                 .mcListRowComfy(fill: colors.surface)
                 Section("Dolgozat (opcionális)") {
@@ -234,6 +264,13 @@ private struct AddCheatSheetView: View {
                     )
                 }
                 .mcListRowComfy(fill: colors.surface)
+                .onChange(of: examID) { _, id in
+                    // Dolgozat választásakor a tárgy magától kitöltődik,
+                    // ha még nincs megadva.
+                    if subject.isEmpty, let ex = exams.first(where: { $0.id == id }) {
+                        subject = ex.subject
+                    }
+                }
             }
             .skinFormChrome()
             .navigationTitle("Új jegyzetlap")
@@ -245,12 +282,14 @@ private struct AddCheatSheetView: View {
                 SkinToolbarItem(placement: .confirmationAction) {
                     Button("Kész") {
                         let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !t.isEmpty, !subject.isEmpty else { return }
+                        let subj = subject.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !t.isEmpty, !subj.isEmpty else { return }
                         let ex = exams.first { $0.id == examID }
-                        onSave(CheatSheet(examId: examID, subject: subject, title: t, date: ex?.date))
+                        onSave(CheatSheet(examId: examID, subject: subj, title: t, date: ex?.date))
                         dismiss()
                     }
-                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || subject.isEmpty)
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                              || subject.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }

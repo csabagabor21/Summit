@@ -25,6 +25,15 @@ struct CheatSheetView: View {
     @Environment(\.colorScheme) var scheme
     var colors: AppColors { theme.colors(for: scheme) }
 
+    init(sheetID: String, exams: [ExamItem], subjects: [String]) {
+        self.sheetID = sheetID
+        self.exams = exams
+        self.subjects = subjects
+        // Már a push első képkockáján a lap látsszon — `onAppear`-ből
+        // töltve egy pillanatra a „A lapot törölték" állapot villant fel.
+        _sheet = State(initialValue: CheatStore.load().first { $0.id == sheetID })
+    }
+
     var body: some View {
         Group {
             if let s = sheet {
@@ -187,6 +196,12 @@ struct CheatSheetView: View {
         do {
             let topics = try await MetaAIClient.generateTopics(
                 subject: c.subject, title: c.title, materials: c.materials)
+            // A generálás alatt (akár percekig) feltöltött anyag / átírt cím
+            // ne vesszen el: a friss tárolt lapba írjuk a témákat, nem a
+            // generálás előtti pillanatképbe.
+            // (Ha közben törölték a lapot, nem támasztjuk fel.)
+            guard let latest = CheatStore.load().first(where: { $0.id == c.id }) else { return }
+            c = latest
             c.topics = topics
             persist(c)
         } catch {
