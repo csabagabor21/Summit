@@ -284,6 +284,7 @@ extension View {
     /// stack-túlcsordulással elszállt (Beállítások megnyitásakor).
     func skinFont(_ style: Font.TextStyle, weight: Font.Weight? = nil, design: Font.Design? = nil) -> some View {
         self.font(MinecraftTheme.isActive ? MinecraftTheme.font(style)
+                  : CyberpunkTheme.isActive ? CyberpunkTheme.font(style, weight: weight)
                   : weight.map { Font.system(style, design: design, weight: $0) } ?? Font.system(style, design: design))
     }
 }
@@ -293,6 +294,7 @@ extension View {
     /// Minecraftban Monocraft (a számok is, a `.rounded` design helyett).
     func skinFont(size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> some View {
         self.font(MinecraftTheme.isActive ? MinecraftFontLoader.font(size: (size * 0.92).rounded())
+                  : CyberpunkTheme.isActive ? CyberpunkTheme.display(size: (size * 1.08).rounded(), weight: weight, relativeTo: .body)
                   : .system(size: size, weight: weight, design: design))
     }
 
@@ -300,6 +302,7 @@ extension View {
     /// is kap (az óra-/szám-kiírásokhoz); a Monocraft eleve egyenközű.
     func skinFontDigits(_ style: Font.TextStyle, weight: Font.Weight? = nil) -> some View {
         self.font(MinecraftTheme.isActive ? MinecraftTheme.font(style)
+                  : CyberpunkTheme.isActive ? CyberpunkTheme.font(style, weight: weight).monospacedDigit()
                   : (weight.map { Font.system(style, weight: $0) } ?? Font.system(style)).monospacedDigit())
     }
 }
@@ -384,7 +387,7 @@ struct McClickButtonStyle: PrimitiveButtonStyle {
 struct McPlainClickButtonStyle: PrimitiveButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         Button(role: configuration.role) {
-            McSound.play(.click)
+            McSound.play(.click)  // Cyberpunkban CPSound-blipre fordul
             configuration.trigger()
         } label: {
             configuration.label
@@ -404,6 +407,8 @@ extension View {
     func skinGlassButton(prominent: Bool = false, compact: Bool = false) -> some View {
         if MinecraftTheme.isActive {
             self.buttonStyle(McButtonStyle(prominent: prominent, compact: compact))
+        } else if CyberpunkTheme.isActive {
+            self.buttonStyle(CPButtonStyle(kind: prominent ? .primary : .secondary, compact: compact))
         } else if prominent {
             self.buttonStyle(.glassProminent)
         } else {
@@ -416,6 +421,8 @@ extension View {
     func skinBorderedButton(prominent: Bool = false) -> some View {
         if MinecraftTheme.isActive {
             self.buttonStyle(McButtonStyle(prominent: prominent))
+        } else if CyberpunkTheme.isActive {
+            self.buttonStyle(CPButtonStyle(kind: prominent ? .primary : .secondary))
         } else if prominent {
             self.buttonStyle(.borderedProminent)
         } else {
@@ -429,6 +436,8 @@ extension View {
     func skinToolbarItem() -> some View {
         if MinecraftTheme.isActive {
             self.buttonStyle(McButtonStyle(compact: true))
+        } else if CyberpunkTheme.isActive {
+            self.buttonStyle(CPButtonStyle(kind: .secondary, compact: true))
         } else {
             self
         }
@@ -471,6 +480,8 @@ struct SkinToggleStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         if MinecraftTheme.isActive {
             McCheckboxToggleStyle().makeBody(configuration: configuration)
+        } else if CyberpunkTheme.isActive {
+            CPToggleStyle().makeBody(configuration: configuration)
         } else {
             Toggle(configuration).toggleStyle(.automatic)
         }
@@ -508,8 +519,15 @@ extension View {
     /// Minecraftban pixel-panel (`McBlockPanel`), Summitban valódi üveg.
     @ViewBuilder
     func skinGlass<S: Shape>(in shape: S, tint: Color? = nil, interactive: Bool = true, face: Color? = nil) -> some View {
-        if MinecraftTheme.isActive {
-            self.background(McBlockPanel(face: face ?? tint?.opacity(0.85) ?? MinecraftTheme.panelFace))
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+            // Egy típusú ág: a skin a háttér belsejében dől el.
+            self.background {
+                if CyberpunkTheme.isActive {
+                    CPPanelBackground(accent: tint ?? CyberpunkTheme.red, fill: face ?? CyberpunkTheme.panel, cut: 10, showsTab: false)
+                } else {
+                    McBlockPanel(face: face ?? tint?.opacity(0.85) ?? MinecraftTheme.panelFace)
+                }
+            }
         } else {
             let base: Glass = tint.map { Glass.regular.tint($0) } ?? .regular
             self.glassEffect(interactive ? base.interactive() : base, in: shape)
@@ -520,8 +538,8 @@ extension View {
     /// Minecraftban lépcsős pixelsarok, sosem kerek.
     @ViewBuilder
     func skinClip<S: Shape>(_ shape: S) -> some View {
-        if MinecraftTheme.isActive {
-            self.clipShape(McPixelShape(steps: 1))
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+            self.clipShape(CyberpunkTheme.isActive ? AnyShape(CPChamferShape(cut: 8)) : AnyShape(McPixelShape(steps: 1)))
         } else {
             self.clipShape(shape)
         }
@@ -531,8 +549,10 @@ extension View {
     /// háttere (sötét föld-csempe), Summitban a rendszeré.
     @ViewBuilder
     func skinSheetBackground() -> some View {
-        if MinecraftTheme.isActive {
-            self.presentationBackground { McMenuBackground() }
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+            self.presentationBackground {
+                if CyberpunkTheme.isActive { CPBackdrop() } else { McMenuBackground() }
+            }
         } else {
             self
         }
@@ -550,12 +570,19 @@ extension MinecraftTheme {
     /// `continuous: false` a sima (`.circular`) `RoundedRectangle` Summit-ága.
     static func shape(cornerRadius: CGFloat, continuous: Bool = true) -> AnyShape {
         isActive ? AnyShape(McPixelShape(steps: cornerRadius >= 12 ? 2 : 1))
+            : CyberpunkTheme.isActive ? AnyShape(CPChamferShape(cut: min(14, max(4, cornerRadius * 0.6))))
                  : AnyShape(RoundedRectangle(cornerRadius: cornerRadius, style: continuous ? .continuous : .circular))
     }
 
     /// Skin-érzékeny kapszula / kör.
-    static var capsule: AnyShape { isActive ? AnyShape(McPixelShape(steps: 1)) : AnyShape(Capsule()) }
-    static var circle: AnyShape { isActive ? AnyShape(McPixelShape(steps: 2)) : AnyShape(Circle()) }
+    static var capsule: AnyShape {
+        isActive ? AnyShape(McPixelShape(steps: 1))
+            : CyberpunkTheme.isActive ? AnyShape(CPChamferShape(cut: 6)) : AnyShape(Capsule())
+    }
+    static var circle: AnyShape {
+        isActive ? AnyShape(McPixelShape(steps: 2))
+            : CyberpunkTheme.isActive ? AnyShape(CPChamferShape(cut: 6, corners: .all)) : AnyShape(Circle())
+    }
 }
 
 /// A játék menü-háttere: a `menu_background` csempe, 3x pixelekkel.
@@ -596,6 +623,13 @@ struct McSeparator: View {
 struct McTextFieldFrame: ViewModifier {
     @FocusState private var focused: Bool
     func body(content: Content) -> some View {
+        if CyberpunkTheme.isActive {
+            content.cpInput()
+        } else {
+            mcBody(content)
+        }
+    }
+    private func mcBody(_ content: Content) -> some View {
         content
             .font(MinecraftTheme.font(.body))
             .foregroundStyle(Color(hex: 0xE0E0E0))
@@ -646,7 +680,12 @@ enum McSound: String, CaseIterable {
     private static let mergeWindow: CFTimeInterval = 0.09
 
     static func play(_ sound: McSound, volume: Float? = nil) {
-        guard MinecraftTheme.isActive else { return }
+        guard MinecraftTheme.isActive else {
+            // Cyberpunkban a képernyők McSound-hívásai szintetizált HUD-blipre
+            // fordulnak (nincs játék-asset); Summitban néma.
+            if CyberpunkTheme.isActive { CPSound.play(sound.cyberpunkEquivalent) }
+            return
+        }
         let volume = volume ?? (sound == .click ? buttonVolume : 1)
         let now = CACurrentMediaTime()
         if let last = lastStart[sound], now - last.at < mergeWindow, last.player.isPlaying {
@@ -679,6 +718,16 @@ enum McSound: String, CaseIterable {
             for sound in [McSound.click, .tab] where (pool[sound] ?? []).isEmpty {
                 if let player = makePlayer(sound) { pool[sound] = [player] }
             }
+        }
+    }
+
+    /// A Cyberpunk-skin megfelelő hangja.
+    var cyberpunkEquivalent: CPSound {
+        switch self {
+        case .click, .pop: return .click
+        case .tab: return .tab
+        case .levelUp, .orb, .challengeComplete: return .confirm
+        case .toastIn: return .toast
         }
     }
 
@@ -759,6 +808,8 @@ struct SkinSegmentedPicker<Value: Hashable>: View {
             }
             .accessibilityElement(children: .contain)
             .accessibilityLabel(accessibilityTitle)
+        } else if CyberpunkTheme.isActive {
+            CPSegmentedPicker(selection: $selection, options: options, accessibilityTitle: accessibilityTitle)
         } else {
             Picker(accessibilityTitle, selection: $selection) {
                 ForEach(Array(options.enumerated()), id: \.offset) { _, option in
@@ -780,6 +831,8 @@ struct SkinProgressBar: View {
     var body: some View {
         if MinecraftTheme.isActive {
             McProgressBar(value: value)
+        } else if CyberpunkTheme.isActive {
+            CPProgressBar(value: value, tint: tint)
         } else {
             ProgressView(value: value).tint(tint)
         }
@@ -792,7 +845,7 @@ extension ToolbarContent {
     /// A rendszer Liquid Glass kapszulája a toolbar-elem mögött Minecraftban
     /// rejtve (a gombot `skinToolbarItem()` stílusozza), Summitban marad.
     func skinToolbarBackground() -> some ToolbarContent {
-        self.sharedBackgroundVisibility(MinecraftTheme.isActive ? .hidden : .automatic)
+        self.sharedBackgroundVisibility(MinecraftTheme.isActive || CyberpunkTheme.isActive ? .hidden : .automatic)
     }
 }
 
@@ -840,7 +893,7 @@ struct SkinFormSection<Content: View>: View {
     var fill: Color
     @ViewBuilder var content: () -> Content
     var body: some View {
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             Section {
                 content().mcListRow(fill: fill)
             } header: {
@@ -857,7 +910,7 @@ extension View {
     /// látszik át); Summitban nem változtat semmin.
     @ViewBuilder
     func skinFormBackground() -> some View {
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             self.scrollContentBackground(.hidden)
         } else {
             self
@@ -872,6 +925,7 @@ extension View {
     /// cseréje: Minecraftban Monocraft (az eleve egyenközű).
     func skinFontDigits(size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> some View {
         self.font(MinecraftTheme.isActive ? MinecraftFontLoader.font(size: (size * 0.92).rounded())
+                  : CyberpunkTheme.isActive ? CyberpunkTheme.display(size: (size * 1.08).rounded(), weight: weight, relativeTo: .body).monospacedDigit()
                   : .system(size: size, weight: weight, design: design).monospacedDigit())
     }
 }
@@ -946,8 +1000,8 @@ extension View {
     /// stílus nélküli szövegek is Monocraft betűt kapnak; Summitban semmi.
     @ViewBuilder
     func mcDefaultFont(_ style: Font.TextStyle = .body) -> some View {
-        if MinecraftTheme.isActive {
-            self.font(MinecraftTheme.font(style))
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+            self.font(CyberpunkTheme.isActive ? CyberpunkTheme.font(style) : MinecraftTheme.font(style))
         } else {
             self
         }
@@ -958,6 +1012,8 @@ extension View {
     func skinInlineButton() -> some View {
         if MinecraftTheme.isActive {
             self.buttonStyle(McButtonStyle(compact: true))
+        } else if CyberpunkTheme.isActive {
+            self.buttonStyle(CPButtonStyle(kind: .secondary, compact: true))
         } else {
             self.buttonStyle(.plain)
         }

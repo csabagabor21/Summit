@@ -11,6 +11,9 @@ struct GradeCircle: View {
         if theme.isMinecraft {
             // Minecraft: tömör concrete-blokk, bevel-lel és kemény árnyékkal.
             McGradeBlock(value: value, size: size)
+        } else if theme.isCyberpunk {
+            // Cyberpunk: levágott sarkú HUD-jelvény a jegy színében.
+            CPGradeBadge(value: value, size: size)
         } else {
         // Az üveg a szám háttere — testvér-ZStackben az üveg-passz takarná a számot.
         Text("\(value)")

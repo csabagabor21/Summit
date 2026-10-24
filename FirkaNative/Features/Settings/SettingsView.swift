@@ -229,11 +229,11 @@ struct SettingsView: View {
                         options: VisualSkin.allCases.map { SkinOption(value: $0, title: $0.title, icon: $0.icon) }
                     )
                 }
-                .accessibilityLabel("Felület: Summit vagy Minecraft")
+                .accessibilityLabel("Felület: Summit, Minecraft vagy Cyberpunk")
                 summitDivider
                 // Accent —简单 színválasztó. Minecraftban a skin fűzöldje él,
                 // a kiemelőszín nem hat — ott a választó el van rejtve.
-                if !theme.isMinecraft {
+                if !theme.isMinecraft && !theme.isCyberpunk {
                     summitRow {
                         accentColorContent
                             .padding(.vertical, 4)

@@ -17,11 +17,13 @@ struct ContentView: View {
         // Minecraft-skin: a kifejezett betűstílus nélküli szövegek (szekció-
         // fejlécek, sima gombfeliratok, mezők) is Monocraftban jelennek meg.
         // Summitban nil = a rendszer alap-környezete, semmi nem változik.
-        .environment(\.font, theme.isMinecraft ? MinecraftTheme.font(.body) : nil)
+        // Cyberpunkban ugyanígy Rajdhani.
+        .environment(\.font, theme.isMinecraft ? MinecraftTheme.font(.body)
+                     : theme.isCyberpunk ? CyberpunkTheme.font(.body) : nil)
         .animation(SummitMotion.gentle, value: session.isLoggedIn)
         // Skin-váltáskor a nav/tab-sávok betűje is átvált (UIKit-appearance).
         .onChange(of: theme.skin) { _, s in
-            MinecraftTheme.applyChromeAppearance(minecraft: s == .minecraft)
+            s.applyChromeAppearance()
         }
         // Continuity (Handoff): a másik eszközön álló Summit átveszi
         // az aktuális tabot + pozíciót (lásd HandoffCenter.handle).
@@ -132,6 +134,8 @@ struct SkinSegmented<Value: Hashable>: View {
                     .accessibilityAddTraits(on ? .isSelected : [])
                 }
             }
+        } else if CyberpunkTheme.isActive {
+            CPSegmentedPicker(selection: $selection, options: options.map { ($0.value, $0.title) }, accessibilityTitle: title)
         } else {
             Picker(title, selection: $selection) {
                 ForEach(options) { opt in
@@ -379,6 +383,27 @@ struct SkinEmptyState: View {
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 16)
             .accessibilityElement(children: .combine)
+        } else if CyberpunkTheme.isActive {
+            VStack(spacing: 10) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 40, weight: .light))
+                    .foregroundStyle(CyberpunkTheme.cyan)
+                CPLabel("NO DATA", color: CyberpunkTheme.red)
+                Text(title.uppercased())
+                    .font(CyberpunkTheme.font(.title3, weight: .bold))
+                    .tracking(1.2)
+                    .foregroundStyle(CyberpunkTheme.text)
+                    .multilineTextAlignment(.center)
+                if let description {
+                    description
+                        .font(CyberpunkTheme.font(.callout))
+                        .foregroundStyle(CyberpunkTheme.dim)
+                        .multilineTextAlignment(.center)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
+            .accessibilityElement(children: .combine)
         } else {
             ContentUnavailableView(title, systemImage: systemImage, description: description)
         }
@@ -391,7 +416,7 @@ struct SkinDot: View {
     var size: CGFloat = 6
 
     var body: some View {
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             Rectangle().fill(color).frame(width: max(size, MinecraftTheme.px), height: max(size, MinecraftTheme.px))
         } else {
             Circle().fill(color).frame(width: size, height: size)
@@ -434,7 +459,7 @@ struct SkinToolbarItem<Content: View>: ToolbarContent {
 
     var body: some ToolbarContent {
         ToolbarItem(placement: placement) { content().mcFixedSize().skinToolbarItem() }
-            .sharedBackgroundVisibility(MinecraftTheme.isActive ? .hidden : .automatic)
+            .sharedBackgroundVisibility(MinecraftTheme.isActive || CyberpunkTheme.isActive ? .hidden : .automatic)
     }
 }
 
@@ -445,6 +470,8 @@ extension View {
     func mcButtonOrPlain(compact: Bool = true) -> some View {
         if MinecraftTheme.isActive {
             self.buttonStyle(McButtonStyle(compact: compact))
+        } else if CyberpunkTheme.isActive {
+            self.buttonStyle(.skinPlain)
         } else {
             self.buttonStyle(.plain)
         }
@@ -476,7 +503,7 @@ extension View {
     /// margó; Summitban semmi.
     @ViewBuilder
     func mcListRowComfy(fill: Color) -> some View {
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             self.listRowBackground(MinecraftTheme.skinRowBackground(fill))
                 .listRowSeparator(.hidden)
                 .listRowInsets(MinecraftTheme.rowInsets(nil))
@@ -496,7 +523,7 @@ extension View {
     /// Summitban a gyári (keret nélküli) sor.
     @ViewBuilder
     func mcInput() -> some View {
-        if MinecraftTheme.isActive { self.summitInput() } else { self }
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive { self.summitInput() } else { self }
     }
 
     /// Szövegsor-gomb (Mentés, Törlés…) kő-gombként Minecraftban; Summitban
@@ -505,6 +532,8 @@ extension View {
     func mcInlineButton(prominent: Bool = false) -> some View {
         if MinecraftTheme.isActive {
             self.buttonStyle(McButtonStyle(prominent: prominent, compact: true))
+        } else if CyberpunkTheme.isActive {
+            self.buttonStyle(CPButtonStyle(kind: prominent ? .primary : .secondary, compact: true))
         } else {
             self
         }
@@ -513,16 +542,26 @@ extension View {
     /// Minecraftban a megadott pixelbetű-stílus; Summitban nem nyúl semmihez
     /// (olyan helyre, ahol a gyári betű nincs kifejezetten megadva).
     func mcFont(_ style: Font.TextStyle) -> some View {
-        self.transformEnvironment(\.font) { if MinecraftTheme.isActive { $0 = MinecraftTheme.font(style) } }
+        self.transformEnvironment(\.font) {
+            if MinecraftTheme.isActive { $0 = MinecraftTheme.font(style) }
+            else if CyberpunkTheme.isActive { $0 = CyberpunkTheme.font(style) }
+        }
     }
 
     /// Kerek/kapszula háttér helyett: Summitban a kapszula (kitöltés és/vagy
     /// körvonal), Minecraftban pixel-panel.
     @ViewBuilder
     func skinPill(fill: Color? = nil, stroke: Color? = nil, lineWidth: CGFloat = 1) -> some View {
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             self.padding(MinecraftTheme.px)
-                .background { McBlockPanel(face: fill ?? .clear, castsShadow: false) }
+                .background {
+                    if CyberpunkTheme.isActive {
+                        CPChamferShape(cut: 6).fill(fill ?? .clear)
+                            .overlay(CPChamferShape(cut: 6).strokeBorder(stroke ?? .clear, lineWidth: lineWidth))
+                    } else {
+                        McBlockPanel(face: fill ?? .clear, castsShadow: false)
+                    }
+                }
         } else {
             self
                 .background { if let fill { Capsule().fill(fill) } }
@@ -534,7 +573,7 @@ extension View {
     /// elválasztó + a panel-behúzásnak megfelelő sor-margó; Summitban semmi.
     @ViewBuilder
     func mcRowChrome() -> some View {
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             self.listRowSeparator(.hidden).listRowInsets(MinecraftTheme.rowInsets(nil))
         } else {
             self
@@ -545,8 +584,10 @@ extension View {
     /// Summitban nem csinál semmit.
     @ViewBuilder
     func mcListChrome() -> some View {
-        if MinecraftTheme.isActive {
-            self.scrollContentBackground(.hidden).background { MinecraftBackdrop(ground: false) }
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+            self.scrollContentBackground(.hidden).background {
+                if CyberpunkTheme.isActive { CPBackdrop() } else { MinecraftBackdrop(ground: false) }
+            }
         } else {
             self
         }
@@ -556,8 +597,10 @@ extension View {
     /// Minecraftban sötét pixel-panel (a játék sötét dialógusa, a menü-háttéren).
     @ViewBuilder
     func skinCard(fill: Color, cornerRadius: CGFloat = 16) -> some View {
-        if MinecraftTheme.isActive {
-            self.background { McBlockPanel(face: Color(hex: 0x2E2E33)) }
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+            self.background {
+                if CyberpunkTheme.isActive { CPPanelBackground() } else { McBlockPanel(face: Color(hex: 0x2E2E33)) }
+            }
         } else {
             self.background(fill, in: RoundedRectangle(cornerRadius: cornerRadius))
         }
@@ -567,7 +610,7 @@ extension View {
     /// háttere. Summitban nem csinál semmit.
     @ViewBuilder
     func skinFormChrome() -> some View {
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             self.scrollContentBackground(.hidden).skinSheetBackground()
         } else {
             self
@@ -581,6 +624,8 @@ struct SkinDivider: View {
     var body: some View {
         if MinecraftTheme.isActive {
             Rectangle().fill(Color.black.opacity(0.22)).frame(height: MinecraftTheme.px)
+        } else if CyberpunkTheme.isActive {
+            CPDivider(showsTick: false)
         } else {
             Divider()
         }

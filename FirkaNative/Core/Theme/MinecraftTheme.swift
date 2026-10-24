@@ -106,6 +106,8 @@ enum MinecraftTheme {
 static func skinRowBackground(_ color: Color) -> some View {
     if isActive {
         McRowPanel(face: color)
+    } else if CyberpunkTheme.isActive {
+        CPRowBackground(fill: color)
     } else {
         color
     }
@@ -266,10 +268,15 @@ extension View {
     /// (Egy típusú lánc: a skin az értékekben ágazik, lásd `skinFont`.)
     func mcSectionHeader() -> some View {
         let mc = MinecraftTheme.isActive
+        let cp = CyberpunkTheme.isActive
+        // Cyberpunk: nagybetűs, ritkított, HUD-vörös Rajdhani (a belső
+        // foregroundStyle nyer a `skinSecondaryOnSky` külső stílusa felett).
         return self
-            .font(mc ? MinecraftTheme.headerFont(size: 12) : .caption.weight(.semibold))
-            .tracking(mc ? 0.5 : 0)
+            .font(mc ? MinecraftTheme.headerFont(size: 12)
+                  : cp ? CyberpunkTheme.font(.subheadline, weight: .bold) : .caption.weight(.semibold))
+            .tracking(mc ? 0.5 : cp ? 1.6 : 0)
             .textCase(mc ? nil : .uppercase)
+            .foregroundStyle(cp ? AnyShapeStyle(CyberpunkTheme.red) : mc ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
             .skinSecondaryOnSky()
     }
 
@@ -278,7 +285,8 @@ extension View {
     func mcTitle() -> some View {
         let mc = MinecraftTheme.isActive
         return self
-            .font(mc ? MinecraftTheme.headerFont(size: 26) : .title2.weight(.bold))
+            .font(mc ? MinecraftTheme.headerFont(size: 26)
+                  : CyberpunkTheme.isActive ? CyberpunkTheme.font(.title, weight: .bold) : .title2.weight(.bold))
             .foregroundStyle(.primary)
             .shadow(color: mc ? .black.opacity(0.45) : .clear, radius: 0, x: 2, y: 2)
     }
@@ -288,7 +296,9 @@ extension View {
     func mcDisplay(_ size: CGFloat) -> some View {
         let mc = MinecraftTheme.isActive
         return self
-            .font(mc ? MinecraftTheme.headerFont(size: size) : .system(size: size, weight: .bold, design: .rounded))
+            .font(mc ? MinecraftTheme.headerFont(size: size)
+                  : CyberpunkTheme.isActive ? CyberpunkTheme.display(size: (size * 1.1).rounded(), weight: .bold)
+                  : .system(size: size, weight: .bold, design: .rounded))
             .shadow(color: mc ? .black.opacity(0.45) : .clear, radius: 0, x: 2, y: 2)
     }
 }
@@ -546,7 +556,7 @@ extension View {
 /// Summitban nem csinál semmit (marad a gyári sor).
 @ViewBuilder
 func mcListRow(fill: Color) -> some View {
-    if MinecraftTheme.isActive {
+    if MinecraftTheme.isActive || CyberpunkTheme.isActive {
         self.listRowBackground(MinecraftTheme.skinRowBackground(fill))
             .listRowSeparator(.hidden)
             .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
@@ -559,8 +569,16 @@ func mcListRow(fill: Color) -> some View {
 /// Minecraftban dirt-blokk keret + bevel. Meglévő fill mellé tehető.
 @ViewBuilder
 func mcHairlineBorder(cornerRadius: CGFloat = 12) -> some View {
-    if MinecraftTheme.isActive {
-        self.clipShape(McPixelShape(steps: 2)).overlay(McBlockPanel(face: .clear, castsShadow: false))
+    if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+        let cp = CyberpunkTheme.isActive
+        self.clipShape(cp ? AnyShape(CPChamferShape(cut: 10)) : AnyShape(McPixelShape(steps: 2)))
+            .overlay {
+                if cp {
+                    CPChamferShape(cut: 10).strokeBorder(CyberpunkTheme.red.opacity(0.55), lineWidth: 1)
+                } else {
+                    McBlockPanel(face: .clear, castsShadow: false)
+                }
+            }
     } else {
         self.overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
     }
@@ -1024,6 +1042,7 @@ extension MinecraftTheme {
     /// (+ a körvonal és a bevel két pixelével) bővítve, hogy a szöveg ne
     /// a kereten üljön. Summitban az eredeti érték (nil = rendszer-alap).
     static func rowInsets(_ base: EdgeInsets?) -> EdgeInsets? {
+        if CyberpunkTheme.isActive { return CyberpunkTheme.rowInsets(base) }
         guard isActive else { return base }
         let b = base ?? EdgeInsets(top: 11, leading: 16, bottom: 11, trailing: 16)
         let h = McRowPanel.horizontalInset, v = McSoil.unit
@@ -1066,6 +1085,8 @@ struct McCardBackground: View {
     var body: some View {
         if MinecraftTheme.isActive {
             McBlockPanel(face: fill)
+        } else if CyberpunkTheme.isActive {
+            CPPanelBackground(fill: CyberpunkTheme.panel)
         } else {
             RoundedRectangle(cornerRadius: cornerRadius)
                 .fill(fill)
@@ -1083,7 +1104,15 @@ struct McPanelStyle: ViewModifier {
     var radius: CGFloat = 6
     func body(content: Content) -> some View {
         content
-            .background(McBlockPanel(face: panel))
+            .background {
+                // Cyberpunkban ugyanez a modifier HUD-panelt ad (a
+                // `summitGlassRow` és a `minecraftCard` így egy típusú marad).
+                if CyberpunkTheme.isActive {
+                    CPPanelBackground()
+                } else {
+                    McBlockPanel(face: panel)
+                }
+            }
     }
     private var panel: Color {
         scheme == .dark ? Color(hex: 0x2E2E33) : Color(hex: 0xC6C6C6)

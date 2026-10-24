@@ -7,6 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		55A742C9612178164A5D71DB /* Rajdhani-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D062E6ED9578FC39FDD74D73 /* Rajdhani-Medium.ttf */; };
+		061D02E374603EE65367F931 /* Rajdhani-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9FD2217207EE83978EC8B329 /* Rajdhani-SemiBold.ttf */; };
+		452B9C30405F57E2F40B0FCB /* Rajdhani-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 6B4E87F1E2CC1D38620E0090 /* Rajdhani-Bold.ttf */; };
+		2299AAB704A3F479D73694F3 /* IBMPlexMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B404A40E1B470BCCE2C7B084 /* IBMPlexMono-Medium.ttf */; };
+		9F6A587997F46917FFB90D36 /* CyberpunkTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A2AA202F9F84824D5E98F3C /* CyberpunkTheme.swift */; };
+		246E71E78C65E413D1C9AF90 /* CyberpunkKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D359AE0819EF25D0EA5DE48 /* CyberpunkKit.swift */; };
 		97F404A6B7BF7501425ECE19 /* LessonChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E50491AAB1ACCD3D835FAF5 /* LessonChanges.swift */; };
 		1D1AC22AEA4C403806823A6C /* KretaRefreshStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11A1A6E5A2655C33A513A6A6 /* KretaRefreshStatus.swift */; };
 		2FCDC44DD1A0F3BBE1E008B6 /* KretaCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D138C18CDD0547E2CE473A6 /* KretaCache.swift */; };
@@ -219,6 +225,12 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		D062E6ED9578FC39FDD74D73 /* Rajdhani-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Rajdhani-Medium.ttf; sourceTree = "<group>"; };
+		9FD2217207EE83978EC8B329 /* Rajdhani-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Rajdhani-SemiBold.ttf; sourceTree = "<group>"; };
+		6B4E87F1E2CC1D38620E0090 /* Rajdhani-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Rajdhani-Bold.ttf; sourceTree = "<group>"; };
+		B404A40E1B470BCCE2C7B084 /* IBMPlexMono-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = IBMPlexMono-Medium.ttf; sourceTree = "<group>"; };
+		8A2AA202F9F84824D5E98F3C /* CyberpunkTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyberpunkTheme.swift; sourceTree = "<group>"; };
+		9D359AE0819EF25D0EA5DE48 /* CyberpunkKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyberpunkKit.swift; sourceTree = "<group>"; };
 		9E50491AAB1ACCD3D835FAF5 /* LessonChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LessonChanges.swift; sourceTree = "<group>"; };
 		11A1A6E5A2655C33A513A6A6 /* KretaRefreshStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaRefreshStatus.swift; sourceTree = "<group>"; };
 		8D138C18CDD0547E2CE473A6 /* KretaCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KretaCache.swift; sourceTree = "<group>"; };
@@ -470,6 +482,10 @@
 				3416FE5FE2AD4F04AF595463 /* mc_item_writable_book.png */,
 				17A872D4E35C40E3A9ED1EF0 /* mc_grass_side.png */,
 				B2C3D4E5F60718293A4B01C2 /* Monocraft.ttf */,
+				B404A40E1B470BCCE2C7B084 /* IBMPlexMono-Medium.ttf */,
+				6B4E87F1E2CC1D38620E0090 /* Rajdhani-Bold.ttf */,
+				9FD2217207EE83978EC8B329 /* Rajdhani-SemiBold.ttf */,
+				D062E6ED9578FC39FDD74D73 /* Rajdhani-Medium.ttf */,
 				1D92783AAF33901FDCC0CB3B /* LaunchScreen.storyboard */,
 				89E8B5ED4F9208BE53619044 /* showcase1.png */,
 				D545B038F89135DDB38415E2 /* showcase2.png */,
@@ -552,6 +568,8 @@
 				19DFC7C10A0189809286952D /* GradeCircle.swift */,
 				8B2C3D4E5F60718293A4B5C6 /* MinecraftTheme.swift */,
 				D52E3F4A5B6C7D8E9F0A1B2C /* MinecraftKit.swift */,
+				9D359AE0819EF25D0EA5DE48 /* CyberpunkKit.swift */,
+				8A2AA202F9F84824D5E98F3C /* CyberpunkTheme.swift */,
 				3D59A6CCFD64FBB01C3CF5B5 /* SummitMotion.swift */,
 				58E3C021CA7F83DB9478FE33 /* ThemeStore.swift */,
 			);
@@ -934,6 +952,10 @@
 				0548E20B37FB4B17943A8D44 /* mc_item_writable_book.png in Resources */,
 				726FD1354C9341F18F596A51 /* mc_grass_side.png in Resources */,
 				A1B2C3D4E5F60718293A4B01 /* Monocraft.ttf in Resources */,
+				2299AAB704A3F479D73694F3 /* IBMPlexMono-Medium.ttf in Resources */,
+				452B9C30405F57E2F40B0FCB /* Rajdhani-Bold.ttf in Resources */,
+				061D02E374603EE65367F931 /* Rajdhani-SemiBold.ttf in Resources */,
+				55A742C9612178164A5D71DB /* Rajdhani-Medium.ttf in Resources */,
 				497DBC3AB13FF8515F308F9E /* showcase1.png in Resources */,
 				1794ABDF8895488700C4BF24 /* showcase2.png in Resources */,
 				371B199FB30740EA5F3A7D25 /* showcase3.png in Resources */,
@@ -1039,6 +1061,8 @@
 				6FD6D376BF8C8537963C516F /* GradeCircle.swift in Sources */,
 				7A1B2C3D4E5F60718293A4B5 /* MinecraftTheme.swift in Sources */,
 				C41D2E3F4A5B6C7D8E9F0A1B /* MinecraftKit.swift in Sources */,
+				246E71E78C65E413D1C9AF90 /* CyberpunkKit.swift in Sources */,
+				9F6A587997F46917FFB90D36 /* CyberpunkTheme.swift in Sources */,
 				F8233A954E2118EBB3EBFD56 /* GradesView.swift in Sources */,
 				D98770305ADBCA9B0CCC1D6D /* GradingLogic.swift in Sources */,
 				3DD981EF753741F402A6F479 /* HomeView.swift in Sources */,

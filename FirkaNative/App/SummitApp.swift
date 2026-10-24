@@ -21,10 +21,12 @@ struct SummitApp: App {
         // módosítás nélkül, CSAK ha a mentett skin Minecraft (Summit skinben
         // a regisztráció fölösleges indítási munka; skinváltáskor az első
         // pixelbetű-kérés regisztrál, lásd MinecraftFontLoader.font).
-        let savedMinecraft = UserDefaults.standard.string(forKey: "ui.skin") == VisualSkin.minecraft.rawValue
-        if savedMinecraft { MinecraftFontLoader.registerOnce() }
-        // Nav/tab-sávok pixelbetűje, ha a mentett skin Minecraft.
-        MinecraftTheme.applyChromeAppearance(minecraft: savedMinecraft)
+        let savedSkin = VisualSkin(rawValue: UserDefaults.standard.string(forKey: "ui.skin") ?? "") ?? .summit
+        if savedSkin == .minecraft { MinecraftFontLoader.registerOnce() }
+        // Cyberpunk-skin betűi (Rajdhani + IBM Plex Mono, OFL) ugyanígy lustán.
+        if savedSkin == .cyberpunk { CyberpunkFontLoader.registerOnce() }
+        // Nav/tab-sávok betűje a mentett skin szerint.
+        savedSkin.applyChromeAppearance()
         // Régi per-típus értesítéskapcsolók összevonása a főkapcsolóba
         // (egyszeri, idempotens — csak akkor nyúl, ha régi kulcs él).
         NotificationManager.migratePerTypeKeys()
@@ -110,10 +112,12 @@ struct SummitApp: App {
                 // triggerek sosem változnak, így ott némák maradnak.
                 .sensoryFeedback(.alignment, trigger: HapticRelay.shared.selectionTick)
                 .sensoryFeedback(.levelChange, trigger: HapticRelay.shared.commitTick)
-                .tint(theme.isMinecraft ? MinecraftTheme.grass : theme.accent)
-                // Minecraftban minden stílus nélküli gomb halkan kattan.
-                .buttonStyle(McClickButtonStyle())
-                .preferredColorScheme(theme.mode.scheme)
+                .tint(theme.isMinecraft ? MinecraftTheme.grass : theme.isCyberpunk ? CyberpunkTheme.yellow : theme.accent)
+                // Minecraftban minden stílus nélküli gomb halkan kattan,
+                // Cyberpunkban blippel (a másik skinben mindkettő néma).
+                .buttonStyle(CPClickButtonStyle())
+                // Cyberpunkban kényszerített sötét séma (Night City mindig éjszaka).
+                .preferredColorScheme(theme.effectiveScheme)
                 .onAppear {
                     // Macen (iPad-app Macen) ne tudjon pici ablakba zsugorodni
                     MacSupport.applyWindowSizing()

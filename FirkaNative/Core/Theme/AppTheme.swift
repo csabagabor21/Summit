@@ -76,7 +76,7 @@ extension View {
     @ViewBuilder
     func functionalGlass(cornerRadius: CGFloat = 20, tint: Color? = nil) -> some View {
         // Minecraft-skinben a kártya pixel-blokk, nem üveg.
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             self
         } else if #available(iOS 26.0, *) {
             if let t = tint { self.glassEffect(.regular.tint(t).interactive(), in: .rect(cornerRadius: cornerRadius)) }
@@ -96,7 +96,7 @@ extension View {
     @ViewBuilder
     func glassEffectIfAvailable(in circle: Circle = Circle(), tint: Color? = nil) -> some View {
         // Minecraftban nincs üveg: a hívó saját pixel-háttere marad.
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             self
         } else if #available(iOS 26.0, *) {
             if let t = tint { self.glassEffect(.regular.tint(t).interactive(), in: circle) }
@@ -108,7 +108,7 @@ extension View {
 
     @ViewBuilder
     func glassEffectIfAvailable(in rect: RoundedRectangle, tint: Color? = nil) -> some View {
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             self
         } else if #available(iOS 26.0, *) {
             if let t = tint { self.glassEffect(.regular.tint(t).interactive(), in: rect) }
@@ -127,7 +127,8 @@ extension View {
     /// Világos és sötét módban is olvasható, kontrasztot nem tör meg.
     @ViewBuilder
     func summitInput() -> some View {
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+            // A McTextFieldFrame Cyberpunkban HUD-mezőt (cpInput) ad.
             self.modifier(McTextFieldFrame())
         } else {
             summitInputBox()
@@ -155,7 +156,8 @@ extension View {
         // blokk-stílusúra váltja, a Summit-ág változatlan marad.
         // (UserDefaults-olvasás: nincs Environment-függés, preview-ban
         // az alapértelmezett Summit-ág fut.)
-        if UserDefaults.standard.string(forKey: "ui.skin") == VisualSkin.minecraft.rawValue {
+        // Cyberpunkban ugyanez a lánc HUD-panelt ad (McPanelStyle belül ágazik).
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             self.minecraftCard(cornerRadius: 6)
         } else if #available(iOS 26.0, *) {
             // NEM `.interactive()`: ez egy sziget-háttér (több sor
@@ -174,13 +176,15 @@ extension View {
     /// sidebar + toolbar. Semmi kézi blur/opacity: a rendszer rajzol.
     @ViewBuilder
     func summitListChrome(colors: AppColors) -> some View {
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             // Minecraft: élő égbolt minden lista mögött (napos dolog a
             // Főoldalon is) — a sorok blokk-háttere takar, a közökben
-            // átlátszik az ég.
+            // átlátszik az ég. Cyberpunk: Night City-háttér (CPBackdrop).
             self
                 .scrollContentBackground(.hidden)
-                .background { MinecraftBackdrop(ground: false) }
+                .background {
+                    if CyberpunkTheme.isActive { CPBackdrop() } else { MinecraftBackdrop(ground: false) }
+                }
         } else if MacSupport.isNativeMac {
             self
                 .scrollContentBackground(.visible)
@@ -198,7 +202,7 @@ extension View {
     func summitToolbarBackground() -> some View {
         // Minecraft: a nav-sáv a játék menü-fejléce (földcsempe), a tetején
         // átlátszó — a kényszerített rendszer-sáv helyett az appearance dönt.
-        if MinecraftTheme.isActive || MacSupport.isNativeMac {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive || MacSupport.isNativeMac {
             self
         } else {
             self.toolbarBackground(.visible, for: .navigationBar)
@@ -210,8 +214,9 @@ extension View {
     /// az áttetsző ablakon.
     @ViewBuilder
     func summitRowSurface(colors: AppColors) -> some View {
-        if MinecraftTheme.isActive {
-            self.listRowBackground(McRowPanel(face: colors.surface))
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+            // Cyberpunkban a skinRowBackground HUD-panelt ad.
+            self.listRowBackground(MinecraftTheme.skinRowBackground(colors.surface))
         } else if MacSupport.isNativeMac {
             self.listRowBackground(Color.clear)
         } else {
@@ -223,8 +228,10 @@ extension View {
     /// natív Mac-ablakban átlátszó — a mögöttes tartalom áttűnik.
     @ViewBuilder
     func summitSheetBackground() -> some View {
-        if MinecraftTheme.isActive {
-            self.background { McMenuBackground() }
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+            self.background {
+                if CyberpunkTheme.isActive { CPBackdrop() } else { McMenuBackground() }
+            }
         } else if MacSupport.isNativeMac {
             self.background(Color.clear)
         } else {

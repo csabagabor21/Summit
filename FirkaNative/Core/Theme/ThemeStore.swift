@@ -5,18 +5,33 @@ import SwiftUI
 /// telített fűzöld, meleg napfény, puha mélység-árnyék — nem a régi,
 /// fakó alfa-stílus).
 enum VisualSkin: String, CaseIterable, Identifiable {
-    case summit, minecraft
+    case summit, minecraft, cyberpunk
     var id: String { rawValue }
     var title: String {
         switch self {
         case .summit: return "Summit"
         case .minecraft: return "Minecraft"
+        case .cyberpunk: return "Cyberpunk"
         }
     }
     var icon: String {
         switch self {
         case .summit: return "mountain.2.fill"
         case .minecraft: return "cube.fill"
+        case .cyberpunk: return "bolt.horizontal.fill"
+        }
+    }
+
+    /// UIKit-chrome (nav-sáv, tab-feliratok) átállítása a skinre. Előbb a
+    /// kikapcsolandó skin áll vissza, utána kapcsol be az aktív — így a két
+    /// skin appearance-e nem írja felül egymást.
+    func applyChromeAppearance() {
+        if self == .cyberpunk {
+            MinecraftTheme.applyChromeAppearance(minecraft: false)
+            CyberpunkTheme.applyChromeAppearance(active: true)
+        } else {
+            CyberpunkTheme.applyChromeAppearance(active: false)
+            MinecraftTheme.applyChromeAppearance(minecraft: self == .minecraft)
         }
     }
 }
@@ -61,6 +76,11 @@ final class ThemeStore: ObservableObject {
         set { skinRaw = newValue.rawValue }
     }
     var isMinecraft: Bool { skin == .minecraft }
+    /// Cyberpunk 2077 HUD-skin (mindig sötét séma, sárga akcentus).
+    var isCyberpunk: Bool { skin == .cyberpunk }
+    /// Az app tényleges színsémája: Cyberpunkban kényszerített sötét
+    /// (Night City mindig éjszaka), különben a user választása.
+    var effectiveScheme: ColorScheme? { isCyberpunk ? .dark : mode.scheme }
     // Szövegméret-felülírás ("system" = rendszer). Macen (iPad-app Macen)
     // alapból nagyobb, hogy ne legyen apró az egész felület.
     // (A SwiftUI-s ContentSizeCategory nem String-rawValue-s, ezért saját kulcs.)
@@ -123,6 +143,8 @@ final class ThemeStore: ObservableObject {
         // Minecraft-skin: teljes paletta-átfestés (a saját kiemelőszín
         // ilyenkor nem él — a skiné a fűzöld).
         if skin == .minecraft { return MinecraftTheme.reskin(base, scheme: scheme) }
+        // Cyberpunk-skin: mindig sötét HUD-paletta, sárga akcentus.
+        if skin == .cyberpunk { return CyberpunkTheme.reskin(base, scheme: scheme) }
         // Apply custom accent
         return base.withAccent(accent)
     }
