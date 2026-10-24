@@ -24,6 +24,10 @@ struct NotesView: View {
     @State private var showingPicker = false
     @State private var pendingLesson: LessonItem?
     @State private var openAddAfterPicker = false
+    /// Az óraválasztó saját órái: a házi-ablak órái + a következő 4 hét
+    /// (különben jövő heti óra nem volt, házi nélkül pedig egy sem).
+    @State private var pickerLessons: [LessonItem] = []
+    @State private var pickerLoading = false
     /// Órarendi órák az óraszám-pillekhez (a csatolmány-lehúzás mellékterméke).
     @State private var lessons: [LessonItem]
     /// Hiányzások a dolgozat-pótláshoz (ugyanabban a körben jön, mint a többi).
@@ -211,7 +215,7 @@ struct NotesView: View {
                     }
                 }
                 SkinToolbarItem(placement: .topBarTrailing) {
-                    Button { pendingLesson = nil; showingPicker = true } label: {
+                    Button { openLessonPicker() } label: {
                         SkinIcon("plus")
                     }
                     .accessibilityLabel(filter == 1 ? "Saját dolgozat hozzáadása" : "Saját feladat hozzáadása")
@@ -220,7 +224,8 @@ struct NotesView: View {
             // 1) Óraválasztó (órarend szerint, nem naptár szerint).
             .sheet(isPresented: $showingPicker, onDismiss: openAddIfNeeded) {
                 LessonPickerSheet(
-                    lessons: lessons,
+                    lessons: pickerLessons,
+                    isLoading: pickerLoading,
                     onPick: { lesson in
                         pendingLesson = lesson
                         openAddAfterPicker = true
@@ -272,14 +277,26 @@ struct NotesView: View {
             .onReceive(NotificationCenter.default.publisher(for: switchToTasks)) { notif in
                 // Direkt kézbesítés nyert a Handoff-pendinggel szemben.
                 HandoffCenter.shared.pendingTasks = nil
-                if (notif.userInfo?["segment"] as? String) == "exams" {
-                    filter = 1
-                } else {
-                    filter = 0
+                let wantsExams = (notif.userInfo?["segment"] as? String) == "exams"
+                let fid = notif.userInfo?["flash"] as? String
+                // A szegmens oda nyílik, ahol a tétel ténylegesen van: a
+                // lejárt / kipipált tétel a Készben él („hw-"/„ex-" előtagú
+                // sor-azonosítóval) — különben semmi nem villant fel.
+                var segment = wantsExams ? 1 : 0
+                var scrollID = fid
+                if let fid {
+                    let live = wantsExams ? filteredExams.contains { $0.id == fid }
+                                          : filteredHomeworks.contains { $0.id == fid }
+                    let doneID = (wantsExams ? "ex-" : "hw-") + fid
+                    if !live, doneEntries.contains(where: { $0.id == doneID }) {
+                        segment = 2
+                        scrollID = doneID
+                    }
                 }
-                if let fid = notif.userInfo?["flash"] as? String {
+                filter = segment
+                if let fid, let scrollID {
                     // Tabváltás után fusson, hogy a sorok már legyenek
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { flash(id: fid) }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { flash(id: fid, scrollTo: scrollID) }
                 } else {
                     flashedID = nil; flashPulse = false
                 }
@@ -309,12 +326,13 @@ struct NotesView: View {
     }
 
     /// Kiemelőszínű flash + odagörgetés az órarendből átjött feladathoz/dolgozathoz.
-    private func flash(id: String) {
+    /// `scrollTo`: a List-sor azonosítója, ha eltér a tételétől (Kész: előtagos).
+    private func flash(id: String, scrollTo: String? = nil) {
         withAnimation { flashedID = id }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             withAnimation(.easeInOut(duration: 0.45).repeatCount(3, autoreverses: true)) { flashPulse = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                withAnimation { scrollProxy?.scrollTo(id, anchor: .center) }
+                withAnimation { scrollProxy?.scrollTo(scrollTo ?? id, anchor: .center) }
             }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
@@ -444,6 +462,38 @@ struct NotesView: View {
         return [s] + subjects
     }
 
+    /// Az óraválasztó nyitása: azonnal a már ismert órákkal (házi-ablak +
+    /// gyorstárban lévő következő 4 hét), a hiányzó hetek a háttérben
+    /// töltődnek be (a heti gyorstár szabályai szerint).
+    private func openLessonPicker() {
+        pendingLesson = nil
+        let range = pickerRange
+        pickerLessons = mergedPickerLessons(KretaStore.shared.availableLessons(from: range.from, to: range.to))
+        showingPicker = true
+        guard let user = session.selectedUser else { return }
+        let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
+        guard !iss.isEmpty else { return }
+        pickerLoading = true
+        Task {
+            let fetched = await kreta.fetchTimetable(iss: iss, from: range.from, to: range.to)
+            pickerLessons = mergedPickerLessons(fetched)
+            pickerLoading = false
+        }
+    }
+
+    private var pickerRange: (from: Date, to: Date) {
+        let today = Calendar.current.startOfDay(for: Date())
+        return (today, Calendar.current.date(byAdding: .day, value: 28, to: today) ?? today)
+    }
+
+    /// A házi-ablak órái + a kapott órák, azonosító szerint egyszer, időrendben.
+    private func mergedPickerLessons(_ extra: [LessonItem]) -> [LessonItem] {
+        var seen = Set<String>()
+        return (pickerLessons + lessons + extra)
+            .filter { seen.insert($0.id).inserted }
+            .sorted { $0.start < $1.start }
+    }
+
     /// Óraválasztó bezárása után (választással vagy "Naptár szerint"-tel)
     /// nyílik a felvevő lap — kézi becsukásnál nem.
     private func openAddIfNeeded() {
@@ -484,6 +534,7 @@ struct NotesView: View {
             McPixelShape(steps: 1).strokeBorder(color, lineWidth: isFlash ? MinecraftTheme.px : 0).allowsHitTesting(false)
         } else {
             RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(color, lineWidth: width)
+                .allowsHitTesting(false)
         }
     }
 
@@ -505,7 +556,7 @@ struct NotesView: View {
             Button {
                 // Készre pipa = ünnepelt kimenet (success), levétel = könnyű
                 // koppanás. KRÉTA-kész tételnél nincs állapotváltás — ott néma.
-                if !hw.isDone { SummitHaptics.taskToggled(markedDone: !done) }
+                SummitHaptics.taskToggled(markedDone: !done)
                 withAnimation(SummitMotion.snappy) { completed.toggleHomework(hw.id) }
             } label: {
                 SkinIcon(done ? "checkmark.circle.fill" : "circle", size: 30)
@@ -513,6 +564,10 @@ struct NotesView: View {
                     .foregroundStyle(done ? Color.green : .secondary)
             }
             .buttonStyle(.skinPlain)
+            // KRÉTA-ban kész tétel: a pipa nem vehető le (eddig némán
+            // billentette a helyi állapotot, látható változás nélkül).
+            .disabled(hw.isDone)
+            .accessibilityLabel(done ? "Kész" : "Készre jelölés")
             .padding(.top, 2)
             VStack(alignment: .leading, spacing: 6) {
                 // Csak a fejléc és az előnézet nyit-csuk — a kinyitott
@@ -788,6 +843,8 @@ struct NotesView: View {
 /// elő a felvevő lapon. A "Naptár szerint" úttal marad a kézi dátumozás.
 struct LessonPickerSheet: View {
     let lessons: [LessonItem]
+    /// A következő hetek órái még töltődnek.
+    var isLoading: Bool = false
     let onPick: (LessonItem) -> Void
     let onSkip: () -> Void
     @Environment(\.dismiss) private var dismiss
@@ -796,8 +853,9 @@ struct LessonPickerSheet: View {
     var colors: AppColors { theme.colors(for: scheme) }
     @State private var day: Date
 
-    init(lessons: [LessonItem], onPick: @escaping (LessonItem) -> Void, onSkip: @escaping () -> Void) {
+    init(lessons: [LessonItem], isLoading: Bool = false, onPick: @escaping (LessonItem) -> Void, onSkip: @escaping () -> Void) {
         self.lessons = lessons
+        self.isLoading = isLoading
         self.onPick = onPick
         self.onSkip = onSkip
         let cal = Calendar.current
@@ -823,7 +881,14 @@ struct LessonPickerSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                if days.isEmpty {
+                if days.isEmpty && isLoading {
+                    HStack(spacing: 10) {
+                        SkinProgress()
+                        Text("Órarend betöltése…").skinFont(.subheadline).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 120)
+                    .listRowBackground(Color.clear)
+                } else if days.isEmpty {
                     SkinEmptyState(
                         title: "Nincs betöltött óra",
                         systemImage: "calendar.badge.exclamationmark",
@@ -863,6 +928,9 @@ struct LessonPickerSheet: View {
                                             .skinFont(.caption2, weight: .semibold)
                                             .foregroundStyle(.tertiary)
                                     }
+                                    // `.plain` gombban csak a rajzolt pixelek
+                                    // koppinthatók: a Spacer-rész enélkül halott.
+                                    .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.skinPlain)
                             }
@@ -877,6 +945,13 @@ struct LessonPickerSheet: View {
                 .mcListRowComfy(fill: colors.surface)
             }
             .skinFormChrome()
+            .onChange(of: days) { _, new in
+                // A háttérben beérkező jövő heti órák: ha a választott nap
+                // már elmúlt (a házi-ablak régi óráiból jött), a legközelebbi
+                // tanítási napra ugrik.
+                let today = Calendar.current.startOfDay(for: Date())
+                if day < today, let next = new.first(where: { $0 >= today }) { day = next }
+            }
             .navigationTitle("Melyik órához?")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
