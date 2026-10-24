@@ -66,7 +66,8 @@ struct ContentView: View {
 /// Mező-helyőrző: Minecraftban a fekete mezőn is olvasható szürke szöveg
 /// (a rendszer-helyőrző sötét lenne), Summitban a gyári.
 func skinPrompt(_ text: String) -> Text {
-    MinecraftTheme.isActive ? Text(text).foregroundStyle(Color(hex: 0x7A7A7A)) : Text(text)
+    MinecraftTheme.isActive ? Text(text).foregroundStyle(Color(hex: 0x7A7A7A))
+        : CyberpunkTheme.isActive ? Text(text).foregroundStyle(CyberpunkTheme.dim) : Text(text)
 }
 
 /// Egy választható érték a szegmens- és menüválasztókhoz.
@@ -172,7 +173,7 @@ struct SkinMenuPicker<Value: Hashable>: View {
                 } label: {
                     HStack(spacing: 8) {
                         Text(options.first { $0.value == selection }?.title ?? "—").lineLimit(1)
-                        McGlyph(kind: .chevronDown, size: 14)
+                        SkinChevron(direction: .down, size: 14)
                     }
                     .modifier(McButtonLook())
                 }
@@ -336,6 +337,8 @@ struct SkinProgress: View {
     var body: some View {
         if MinecraftTheme.isActive {
             McPixelSpinner(color: color ?? .primary)
+        } else if CyberpunkTheme.isActive {
+            CPSpinner(color: color ?? CyberpunkTheme.yellow)
         } else {
             ProgressView()
         }
@@ -354,6 +357,27 @@ private struct McPixelSpinner: View {
                     Rectangle()
                         .fill(i == phase ? color : color.opacity(0.28))
                         .frame(width: 2 * MinecraftTheme.px, height: 2 * MinecraftTheme.px)
+                }
+            }
+        }
+        .accessibilityLabel("Betöltés")
+    }
+}
+
+/// Cyberpunk-betöltésjelző: öt keskeny sáv, amelyeken egy fényes szakasz
+/// fut végig (léptetve, 0,12 mp-enként). Reduce Motion mellett álló sávok.
+private struct CPSpinner: View {
+    var color: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.12)) { ctx in
+            let phase = reduceMotion ? -1 : Int(ctx.date.timeIntervalSinceReferenceDate / 0.12) % 7
+            HStack(spacing: 2) {
+                ForEach(0..<5, id: \.self) { i in
+                    Rectangle()
+                        .fill(i == phase || i == phase - 1 ? color : color.opacity(reduceMotion ? 0.6 : 0.22))
+                        .frame(width: 3, height: 12)
                 }
             }
         }
@@ -436,12 +460,12 @@ struct SkinNavLink<Destination: View, Label: View>: View {
     }
 
     var body: some View {
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             ZStack {
                 NavigationLink { destination().mcBackButton().mcPushClick() } label: { EmptyView() }.opacity(0)
                 HStack(spacing: 8) {
                     label()
-                    McGlyph(kind: .chevronRight, size: 16)
+                    SkinChevron()
                         .foregroundStyle(.secondary)
                 }
             }
@@ -484,6 +508,15 @@ extension View {
     func skinOutlinePill(_ accent: Color) -> some View {
         if MinecraftTheme.isActive {
             self
+        } else if CyberpunkTheme.isActive {
+            // HUD-címke: nagybetűs, ritkított, levágott sarkú körvonal.
+            self
+                .textCase(.uppercase)
+                .tracking(1)
+                .foregroundStyle(accent)
+                .padding(.horizontal, 12).padding(.vertical, 7)
+                .background(CPChamferShape(cut: 6, corners: [.topLeft, .bottomRight]).fill(accent.opacity(0.08)))
+                .overlay(CPChamferShape(cut: 6, corners: [.topLeft, .bottomRight]).strokeBorder(accent.opacity(0.7), lineWidth: 1))
         } else {
             self
                 .foregroundStyle(accent)

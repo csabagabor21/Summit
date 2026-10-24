@@ -254,7 +254,32 @@ struct SkinIcon: View {
             case .glyph(let kind): McGlyph(kind: kind, size: s * 0.8).frame(width: s, height: s)
             }
         } else {
+            // Cyberpunkban vékonyabb, egyszínű vonalikon (HUD-rajzolat);
+            // Summitban nil = a gyári megjelenés változatlan.
+            let cp = CyberpunkTheme.isActive
             Image(systemName: systemName)
+                .symbolRenderingMode(cp ? .monochrome : nil)
+                .fontWeight(cp ? .light : nil)
+        }
+    }
+}
+
+/// Skin-érzékeny navigációs nyíl: Minecraftban pixel-chevron, Cyberpunkban
+/// vékony sárga chevron, Summitban a rendszer `chevron.*` szimbóluma.
+/// Egy típus — a skin a belsejében dől el.
+struct SkinChevron: View {
+    enum Direction { case left, right, down }
+    var direction: Direction = .right
+    var size: CGFloat = 16
+
+    var body: some View {
+        if MinecraftTheme.isActive {
+            McGlyph(kind: direction == .left ? .chevronLeft : direction == .down ? .chevronDown : .chevronRight, size: size)
+        } else {
+            Image(systemName: direction == .left ? "chevron.left" : direction == .down ? "chevron.down" : "chevron.right")
+                .font(.system(size: size * 0.8, weight: CyberpunkTheme.isActive ? .light : .semibold))
+                .foregroundStyle(CyberpunkTheme.isActive ? AnyShapeStyle(CyberpunkTheme.yellow) : AnyShapeStyle(.tertiary))
+                .frame(width: size, height: size)
         }
     }
 }
@@ -940,10 +965,10 @@ struct McNavLink<Destination: View, Label: View>: View {
     @ViewBuilder var label: () -> Label
 
     var body: some View {
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             HStack(spacing: 8) {
                 label().frame(maxWidth: .infinity, alignment: .leading)
-                McGlyph(kind: .chevronRight, size: 16).foregroundStyle(.secondary)
+                SkinChevron().foregroundStyle(.secondary)
             }
             .overlay { NavigationLink { destination().mcBackButton().mcPushClick() } label: { EmptyView() }.opacity(0) }
         } else {
@@ -974,10 +999,10 @@ struct McNavValueLink<Value: Hashable, Label: View>: View {
     @ViewBuilder var label: () -> Label
 
     var body: some View {
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             HStack(spacing: 8) {
                 label().frame(maxWidth: .infinity, alignment: .leading)
-                McGlyph(kind: .chevronRight, size: 16).foregroundStyle(.secondary)
+                SkinChevron().foregroundStyle(.secondary)
             }
             .overlay { NavigationLink(value: value) { EmptyView() }.opacity(0) }
         } else {
@@ -1068,7 +1093,8 @@ extension View {
     func skinSecondaryOnSky() -> some View {
         let mc = MinecraftTheme.isActive
         return self
-            .foregroundStyle(mc ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
+            .foregroundStyle(mc ? AnyShapeStyle(Color.white)
+                             : CyberpunkTheme.isActive ? AnyShapeStyle(CyberpunkTheme.dim) : AnyShapeStyle(.secondary))
             .shadow(color: mc ? Color(hex: 0x3F3F3F) : .clear, radius: 0,
                     x: mc ? MinecraftTheme.px / 1.5 : 0, y: mc ? MinecraftTheme.px / 1.5 : 0)
     }
@@ -1084,9 +1110,31 @@ struct McBackButtonModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .navigationBarBackButtonHidden(MinecraftTheme.isActive)
+            .navigationBarBackButtonHidden(MinecraftTheme.isActive || CyberpunkTheme.isActive)
             .toolbar {
-                if MinecraftTheme.isActive {
+                if CyberpunkTheme.isActive {
+                    // Cyberpunk: vékony sárga „< VISSZA" HUD-felirat, üveg nélkül.
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            CPSound.play(.click)
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 15, weight: .light))
+                                Text("VISSZA")
+                                    .font(CyberpunkTheme.mono(size: 12, relativeTo: .footnote))
+                                    .tracking(1.2)
+                            }
+                            .foregroundStyle(CyberpunkTheme.yellow)
+                            .padding(.vertical, 6)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Vissza")
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                } else if MinecraftTheme.isActive {
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
                             McSound.play(.click)
