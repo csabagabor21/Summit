@@ -8,13 +8,20 @@ enum GradeTab: String, CaseIterable, Identifiable {
 }
 
 /// Jegy nélküli tantárgy jelvénye: Summitban üres karika, Minecraftban
-/// üres inventory-slot (a játék szürke rekesze) kötőjellel.
+/// üres inventory-slot (a játék szürke rekesze) kötőjellel, Cyberpunkban
+/// szaggatott, levágott sarkú üres HUD-foglalat.
 private struct EmptySubjectBadge: View {
     let scheme: ColorScheme
     var body: some View {
         ZStack {
             if MinecraftTheme.isActive {
                 McInventorySlot().frame(width: 44, height: 44)
+            } else if CyberpunkTheme.isActive {
+                CPChamferShape(cut: 44 * 0.22, corners: [.topLeft, .bottomRight])
+                    .fill(CyberpunkTheme.bg)
+                    .overlay(CPChamferShape(cut: 44 * 0.22, corners: [.topLeft, .bottomRight])
+                        .strokeBorder(CyberpunkTheme.dim.opacity(0.55), style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+                    .frame(width: 44, height: 44)
             } else {
                 Circle().fill(Color.clear)
                     .overlay(Circle().strokeBorder(Color.primary.opacity(scheme == .dark ? 0.14 : 0.10), lineWidth: 1.2))
@@ -79,13 +86,13 @@ struct GradesView: View {
                             Section {
                                 HStack(alignment: .lastTextBaseline, spacing: 16) {
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text("ÖSSZÁTLAG").skinFont(.caption2, weight: .semibold).foregroundStyle(.secondary).tracking(1)
-                                        Text(groupedEvkozi.isEmpty ? "—" : String(format: "%.2f", overallEvkozi)).mcDisplay(34)
+                                        Text("ÖSSZÁTLAG").gradeSummaryLabel()
+                                        Text(groupedEvkozi.isEmpty ? "—" : String(format: "%.2f", overallEvkozi)).mcDisplay(34).cpHero(CyberpunkTheme.yellow)
                                     }
                                     Spacer()
                                     VStack(alignment: .trailing, spacing: 2) {
-                                        Text("KEREKÍTVE").skinFont(.caption2, weight: .semibold).foregroundStyle(.secondary).tracking(1)
-                                        Text(groupedEvkozi.isEmpty ? "—" : String(format: "%.2f", overallRoundedEvkozi)).mcDisplay(34)
+                                        Text("KEREKÍTVE").gradeSummaryLabel()
+                                        Text(groupedEvkozi.isEmpty ? "—" : String(format: "%.2f", overallRoundedEvkozi)).mcDisplay(34).cpHero(CyberpunkTheme.cyanBright, chromatic: false)
                                     }
                                 }
                                 .mcSummaryRow(fill: colors.surface)
@@ -178,9 +185,9 @@ struct GradesView: View {
                                 let gradedCount = groupedEvkozi.count
                                 let totalCount = displayEvkoziSubjects.count
                                 if gradedCount == totalCount {
-                                    Text("\(evkoziGrades.count) jegy • \(gradedCount) tárgy").skinFont(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center)
+                                    Text("\(evkoziGrades.count) jegy • \(gradedCount) tárgy").gradeFooterText().frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center)
                                 } else {
-                                    Text("\(evkoziGrades.count) jegy • \(gradedCount)/\(totalCount) tárgy értékelve").skinFont(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center)
+                                    Text("\(evkoziGrades.count) jegy • \(gradedCount)/\(totalCount) tárgy értékelve").gradeFooterText().frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center)
                                 }
                             }
                             .listRowBackground(Color.clear)
@@ -193,8 +200,8 @@ struct GradesView: View {
                             Section {
                                 HStack(alignment: .firstTextBaseline) {
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text("FÉLÉVI ÁTLAG").skinFont(.caption2, weight: .semibold).foregroundStyle(.secondary).tracking(1)
-                                        Text(String(format: "%.2f", overallFelevi)).mcDisplay(34)
+                                        Text("FÉLÉVI ÁTLAG").gradeSummaryLabel()
+                                        Text(String(format: "%.2f", overallFelevi)).mcDisplay(34).cpHero(CyberpunkTheme.yellow)
                                     }
                                     Spacer()
                                 }
@@ -217,7 +224,7 @@ struct GradesView: View {
                                 .mcListRow(fill: colors.surface)
                             }
                             Section {
-                                Text("\(feleviGrades.count) jegy • \(groupedFelevi.count) tárgy").skinFont(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center)
+                                Text("\(feleviGrades.count) jegy • \(groupedFelevi.count) tárgy").gradeFooterText().frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center)
                             }
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
@@ -229,8 +236,8 @@ struct GradesView: View {
                             Section {
                                 HStack(alignment: .firstTextBaseline) {
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text("ÉV VÉGI ÁTLAG").skinFont(.caption2, weight: .semibold).foregroundStyle(.secondary).tracking(1)
-                                        Text(String(format: "%.2f", overallEvvegi)).mcDisplay(34)
+                                        Text("ÉV VÉGI ÁTLAG").gradeSummaryLabel()
+                                        Text(String(format: "%.2f", overallEvvegi)).mcDisplay(34).cpHero(CyberpunkTheme.yellow)
                                     }
                                     Spacer()
                                 }
@@ -603,14 +610,63 @@ private extension View {
 
     /// Átlag-összefoglaló sor: Summitban átlátszó, elválasztó nélküli sor
     /// (a háttéren lebeg), Minecraftban blokk-panel — az ég előtt a
-    /// szám különben nem lenne olvasható.
+    /// szám különben nem lenne olvasható. Cyberpunkban sárga keretes
+    /// HUD-panel akcent-füllel (a képernyő fő adat-blokkja).
     @ViewBuilder
     func mcSummaryRow(fill: Color) -> some View {
-        if MinecraftTheme.isActive {
+        if CyberpunkTheme.isActive {
+            self.listRowBackground(
+                CPPanelBackground(accent: CyberpunkTheme.yellow, fill: CyberpunkTheme.panel, cut: 12)
+                    .padding(.horizontal, CyberpunkTheme.rowHorizontalInset)
+                    .padding(.vertical, CyberpunkTheme.rowVerticalInset)
+            )
+            .listRowSeparator(.hidden)
+            .listRowInsets(CyberpunkTheme.rowInsets(EdgeInsets(top: 12, leading: 16, bottom: 10, trailing: 16)))
+        } else if MinecraftTheme.isActive {
             self.mcListRow(fill: fill)
         } else {
             self.listRowBackground(Color.clear).listRowSeparator(.hidden)
                 .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)))
+        }
+    }
+
+    /// Átlag-címke („ÖSSZÁTLAG"): Summit/Minecraft a régi lánc, Cyberpunkban
+    /// apró egyenközű, ritkított HUD-kódcímke.
+    @ViewBuilder
+    func gradeSummaryLabel() -> some View {
+        if CyberpunkTheme.isActive {
+            self.font(CyberpunkTheme.mono(size: 10, relativeTo: .caption2))
+                .tracking(1.6)
+                .foregroundStyle(CyberpunkTheme.dim)
+        } else {
+            self.skinFont(.caption2, weight: .semibold).foregroundStyle(.secondary).tracking(1)
+        }
+    }
+
+    /// Hero-szám Cyberpunkban: HUD-szín + (csak a fő számon) statikus
+    /// vörös/cián szellemkép. Más skinben változatlan.
+    @ViewBuilder
+    func cpHero(_ color: Color, chromatic: Bool = true) -> some View {
+        if CyberpunkTheme.isActive {
+            // A szellemkép a szín ELŐTT: különben a belső sárga nyerne a
+            // vörös/cián másolatokon is.
+            self.cpChromatic(chromatic ? 1 : 0).foregroundStyle(color)
+        } else {
+            self
+        }
+    }
+
+    /// Lábléc-számláló („48 jegy • 9 tárgy"): Cyberpunkban egyenközű,
+    /// nagybetűs adat-sor, egyébként a régi lánc.
+    @ViewBuilder
+    func gradeFooterText() -> some View {
+        if CyberpunkTheme.isActive {
+            self.font(CyberpunkTheme.mono(size: 11, relativeTo: .footnote))
+                .tracking(1)
+                .textCase(.uppercase)
+                .foregroundStyle(CyberpunkTheme.dim)
+        } else {
+            self.skinFont(.subheadline).foregroundStyle(.secondary)
         }
     }
 }
