@@ -19,7 +19,26 @@ struct ProfileImageView: View {
                         .frame(width: size, height: size)
                         .skinClip(Circle())
                         // Minecraftban a fej keretezett, négyzetes (mint az inventory-slot).
-                        .overlay { if MinecraftTheme.isActive { McSlotFrame() } }
+                        // Cyberpunkban levágott sarkú, sárga 1 px-es neon kerettel.
+                        .overlay {
+                            if MinecraftTheme.isActive {
+                                McSlotFrame()
+                            } else if CyberpunkTheme.isActive {
+                                CPChamferShape(cut: 8).strokeBorder(CyberpunkTheme.yellow, lineWidth: 1)
+                            }
+                        }
+                } else if CyberpunkTheme.isActive {
+                    // Cyberpunk: majdnem fekete HUD-lap, sárga monogram és keret
+                    // (a sárga kitöltés fehér betűvel olvashatatlan lenne).
+                    Text(initials)
+                        .font(CyberpunkTheme.display(size: (size * 0.46).rounded(), weight: .bold, relativeTo: .caption))
+                        .tracking(0.5)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .foregroundStyle(CyberpunkTheme.yellow)
+                        .frame(width: size, height: size)
+                        .background(CPChamferShape(cut: 8).fill(CyberpunkTheme.panel))
+                        .overlay(CPChamferShape(cut: 8).strokeBorder(CyberpunkTheme.yellow, lineWidth: 1))
                 } else if MinecraftTheme.isActive {
                     // Minecraft: akcent-színű pixel-blokk, Monocraft monogrammal.
                     Text(initials)
@@ -40,7 +59,12 @@ struct ProfileImageView: View {
                 }
             }
             if badge {
-                if MinecraftTheme.isActive {
+                if CyberpunkTheme.isActive {
+                    // HUD-jelvény: levágott sarkú vörös négyzet, sötét kerettel.
+                    CPChamferShape(cut: 3).fill(CyberpunkTheme.red).frame(width: 10, height: 10)
+                        .overlay(CPChamferShape(cut: 3).strokeBorder(CyberpunkTheme.bg, lineWidth: 1.5))
+                        .offset(x: 2, y: -2)
+                } else if MinecraftTheme.isActive {
                     Rectangle().fill(Color.red).frame(width: 10, height: 10)
                         .overlay(Rectangle().strokeBorder(.white, lineWidth: MinecraftTheme.px / 2))
                         .offset(x: 2, y: -2)
