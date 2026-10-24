@@ -88,7 +88,7 @@ struct SubjectDetailView: View {
                     HStack(alignment: .center, spacing: 12) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(subject).mcDisplay(22).lineLimit(2)
-                            Text(String(format: "Nyers átlag %.2f → kerekítve %d-es", rawAvg, rounded))
+                            Text(allGrades.isEmpty ? "Még nincs jegy ebből a tárgyból" : String(format: "Nyers átlag %.2f → kerekítve %d-es", rawAvg, rounded))
                                 .skinFont(.caption, weight: .medium)
                                 .foregroundStyle(.secondary)
                             Text(String(format: "Kerekítés %.2f-től • %d jegy", threshold, allGrades.count))
@@ -96,7 +96,13 @@ struct SubjectDetailView: View {
                                 .foregroundStyle(.tertiary)
                         }
                         Spacer()
-                        if MinecraftTheme.isActive {
+                        if allGrades.isEmpty {
+                            // Jegy nélkül nincs átlag: nem „0-s" / „1-es" kör.
+                            Text("—")
+                                .mcDisplay(22)
+                                .foregroundStyle(.tertiary)
+                                .frame(width: 50, height: 50)
+                        } else if MinecraftTheme.isActive {
                             McGradeBlock(value: rounded, size: 50, fontSize: 22)
                         } else {
                             Text("\(rounded)")
@@ -123,7 +129,7 @@ struct SubjectDetailView: View {
                     // Lábjegyzet — Home LiveCard ihletésű, finom progress jelleg
                     HStack(spacing: 6) {
                         MinecraftTheme.dot.fill(colors.accent).frame(width: 6, height: 6)
-                        Text(String(format: "Jelenlegi átlag %.2f", rawAvg))
+                        Text(allGrades.isEmpty ? "Nincs átlag" : String(format: "Jelenlegi átlag %.2f", rawAvg))
                             .skinFont(.caption, weight: .semibold)
                             .foregroundStyle(.secondary)
                         Spacer()
@@ -154,6 +160,14 @@ struct SubjectDetailView: View {
             }
 
             Section {
+                if allGrades.isEmpty {
+                    // Jegy nélküli tárgy: üres szekció helyett magyarázat.
+                    Text("Ebből a tárgyból még nincs évközi jegyed. A + gombbal fantom jegyet adhatsz hozzá, és megnézheted, hogyan alakulna az átlagod.")
+                        .skinFont(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .mcListRow(fill: colors.surface)
+                }
                 ForEach(allGrades.sorted(by: { $0.date > $1.date })) { g in
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 10) {
