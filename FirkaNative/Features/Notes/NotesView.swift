@@ -96,6 +96,7 @@ struct NotesView: View {
     @State private var scrollProxy: ScrollViewProxy?
     private let switchToTasks = Notification.Name("summit.switchToTasks")
     @Environment(\.colorScheme) var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var hSize
     private var isPad: Bool { hSize == .regular }
     /// Széles elrendezés (iPad / Mac): a Watch ilyenkor sidebar-tab,
@@ -418,6 +419,8 @@ struct NotesView: View {
         groupByDay(doneEntries, date: { $0.date }, descending: true)
     }
     /// Napcím: Ma / Holnap / Tegnap, különben "szept. 22., hétfő" + darabszám.
+    /// Cyberpunkban HUD-szekciófejléc (a mai nap sárga, a többi HUD-vörös,
+    /// a darabszám `// 03 DB` kód).
     private func dayHeader(day: Date, count: Int) -> some View {
         let cal = Calendar.current
         let title: String
@@ -428,7 +431,17 @@ struct NotesView: View {
             let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "MMM d., EEEE"
             title = f.string(from: day).capitalized
         }
-        return Text("\(title) • \(count) db").skinSecondaryOnSky()
+        return dayHeaderLabel(title: title, count: count, isToday: cal.isDateInToday(day))
+    }
+    @ViewBuilder
+    private func dayHeaderLabel(title: String, count: Int, isToday: Bool) -> some View {
+        if theme.isCyberpunk {
+            CPSectionHeader(title, code: String(format: "%02d db", count),
+                            accent: isToday ? CyberpunkTheme.yellow : CyberpunkTheme.red)
+                .accessibilityLabel("\(title), \(count) db")
+        } else {
+            Text("\(title) • \(count) db").skinSecondaryOnSky()
+        }
     }
     private var currentIsEmpty: Bool {
         if filter == 1 { return filteredExams.isEmpty }
@@ -516,6 +529,11 @@ struct NotesView: View {
         if let n = exam.lessonIndex { return "\(huDateTime(exam.date)) (\(n). óra)" }
         return huDateTime(exam.date)
     }
+    /// Kész sor halvány arca: Summitban rendszer-zöld, Cyberpunkban HUD-türkiz.
+    private var doneFill: Color {
+        theme.isCyberpunk ? CyberpunkTheme.green.opacity(0.10) : Color.green.opacity(scheme == .dark ? 0.10 : 0.07)
+    }
+
     private func toggleExpanded(_ id: String, expanded: Bool) {
         // Chevron-sor lenyitása = választás: finom tick (csak user-tapból hívódik).
         SummitHaptics.selection()
@@ -532,19 +550,69 @@ struct NotesView: View {
         let width: CGFloat = isFlash ? 2.2 : 0
         if MinecraftTheme.isActive {
             McPixelShape(steps: 1).strokeBorder(color, lineWidth: isFlash ? MinecraftTheme.px : 0).allowsHitTesting(false)
+        } else if CyberpunkTheme.isActive {
+            cpFlashShape.strokeBorder(CyberpunkTheme.yellow.opacity(isFlash ? (flashPulse || reduceMotion ? 1 : 0.35) : 0), lineWidth: isFlash ? 1.5 : 0)
+                .padding(cpFlashOutset).allowsHitTesting(false)
         } else {
             RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(color, lineWidth: width)
                 .allowsHitTesting(false)
         }
     }
 
+    /// Cyberpunk flash-alakzat: a sor HUD-paneljével (CPRowBackground)
+    /// egybeeső levágott sarkú keret — a sor-tartalomtól a panel széléig
+    /// (alap sor-margó) kifelé tolva.
+    private var cpFlashShape: CPChamferShape { CPChamferShape(cut: 10, corners: .diagonal) }
+    private var cpFlashOutset: EdgeInsets { EdgeInsets(top: -11, leading: -16, bottom: -11, trailing: -16) }
+
     @ViewBuilder
     private func flashFill(_ isFlash: Bool) -> some View {
         let color = colors.accent.opacity(isFlash ? (flashPulse ? 0.16 : 0.04) : 0)
         if MinecraftTheme.isActive {
             McPixelShape(steps: 1).fill(color)
+        } else if CyberpunkTheme.isActive {
+            cpFlashShape.fill(CyberpunkTheme.yellow.opacity(isFlash ? (flashPulse || reduceMotion ? 0.12 : 0.04) : 0))
+                .padding(cpFlashOutset).allowsHitTesting(false)
         } else {
             RoundedRectangle(cornerRadius: 12, style: .continuous).fill(color)
+        }
+    }
+
+    /// Kész-pipa: Summitban / Minecraftban a megszokott kör-ikon,
+    /// Cyberpunkban levágott sarkú HUD-jelölőnégyzet (sárga keret, készen
+    /// sárga kitöltés fekete pipával).
+    @ViewBuilder
+    private func checkGlyph(_ on: Bool) -> some View {
+        if CyberpunkTheme.isActive {
+            let box = CPChamferShape(cut: 5, corners: .diagonal)
+            box.fill(on ? CyberpunkTheme.yellow : CyberpunkTheme.panel)
+                .overlay(box.strokeBorder(CyberpunkTheme.yellow.opacity(on ? 1 : 0.6), lineWidth: 1))
+                .overlay {
+                    if on {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .heavy))
+                            .foregroundStyle(Color.black)
+                    }
+                }
+                .frame(width: 22, height: 22)
+                .frame(width: 30, height: 30)
+                .contentShape(Rectangle())
+        } else {
+            SkinIcon(on ? "checkmark.circle.fill" : "circle", size: 30)
+                .font(.system(size: 22))
+                .foregroundStyle(on ? Color.green : .secondary)
+        }
+    }
+
+    /// Sor-háttér: Cyberpunkban HUD-panel az állapot színű kerettel (kész =
+    /// türkiz, pótló = vörös, egyébként a skin alap HUD-vöröse); máshol a
+    /// megszokott `skinRowBackground`.
+    @ViewBuilder
+    private func taskRowBackground(_ fill: Color, accent: Color = CyberpunkTheme.red) -> some View {
+        if CyberpunkTheme.isActive {
+            CPRowBackground(accent: accent, fill: fill)
+        } else {
+            MinecraftTheme.skinRowBackground(fill)
         }
     }
 
@@ -559,9 +627,7 @@ struct NotesView: View {
                 SummitHaptics.taskToggled(markedDone: !done)
                 withAnimation(SummitMotion.snappy) { completed.toggleHomework(hw.id) }
             } label: {
-                SkinIcon(done ? "checkmark.circle.fill" : "circle", size: 30)
-                    .font(.system(size: 22))
-                    .foregroundStyle(done ? Color.green : .secondary)
+                checkGlyph(done)
             }
             .buttonStyle(.skinPlain)
             // KRÉTA-ban kész tétel: a pipa nem vehető le (eddig némán
@@ -572,7 +638,7 @@ struct NotesView: View {
             VStack(alignment: .leading, spacing: 6) {
                 // Csak a fejléc és az előnézet nyit-csuk — a kinyitott
                 // részletező blokkban a gombok önállóan működnek
-                HStack { Text(hw.subject).skinFont(.subheadline, weight: .semibold); if CustomTasksStore.isCustomId(hw.id) { Text("Saját").skinFont(.caption2, weight: .bold).foregroundStyle(colors.accent).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: colors.accent.opacity(0.12)) }; Spacer(); if !hw.attachments.isEmpty { HStack(spacing: 3) { SkinIcon("paperclip"); if hw.attachments.count > 1 { Text("\(hw.attachments.count)") } }.skinFont(.caption2, weight: .semibold).foregroundStyle(.secondary).accessibilityLabel("\(hw.attachments.count) csatolmány") }; if let idx = lessonIndexText(for: hw) { Text(idx).skinFont(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: Color.primary.opacity(0.06)) } }
+                HStack { Text(hw.subject).skinFont(.subheadline, weight: .semibold); if CustomTasksStore.isCustomId(hw.id) { Text("Saját").cpTag().skinFont(.caption2, weight: .bold).foregroundStyle(colors.accent).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: colors.accent.opacity(0.12)) }; Spacer(); if !hw.attachments.isEmpty { HStack(spacing: 3) { SkinIcon("paperclip"); if hw.attachments.count > 1 { Text("\(hw.attachments.count)") } }.skinFont(.caption2, weight: .semibold).foregroundStyle(.secondary).accessibilityLabel("\(hw.attachments.count) csatolmány") }; if let idx = lessonIndexText(for: hw) { Text(idx).cpTag().skinFont(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: Color.primary.opacity(0.06)) } }
                     .contentShape(Rectangle())
                     .onTapGesture { toggleExpanded(hw.id, expanded: expanded) }
                 if expanded {
@@ -622,7 +688,7 @@ struct NotesView: View {
             }
             .buttonStyle(.skinPlain)
         }
-        .listRowBackground(MinecraftTheme.skinRowBackground(done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface))
+        .listRowBackground(taskRowBackground(done ? doneFill : colors.surface, accent: done ? CyberpunkTheme.green : CyberpunkTheme.red))
         .listRowInsets(MinecraftTheme.rowInsets(nil))
         .overlay(flashStroke(isFlash))
         .background(flashFill(isFlash))
@@ -651,14 +717,12 @@ struct NotesView: View {
                 SummitHaptics.taskToggled(markedDone: !ready)
                 withAnimation(SummitMotion.snappy) { completed.toggleExam(exam.id) }
             } label: {
-                SkinIcon(ready ? "checkmark.circle.fill" : "circle", size: 30)
-                    .font(.system(size: 22))
-                    .foregroundStyle(ready ? Color.green : .secondary)
+                checkGlyph(ready)
             }
             .buttonStyle(.skinPlain)
             .padding(.top, 2)
             VStack(alignment: .leading, spacing: 6) {
-                HStack { Text(exam.subject).skinFont(.subheadline, weight: .semibold); if CustomTasksStore.isCustomId(exam.id) { Text("Saját").skinFont(.caption2, weight: .bold).foregroundStyle(colors.accent).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: colors.accent.opacity(0.12)) }; Spacer(); if rolled { Text("Pótló").skinFont(.caption2, weight: .bold).foregroundStyle(.red).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: Color.red.opacity(0.12)) }; if let n = exam.lessonIndex { Text("\(n). óra").skinFont(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: Color.orange.opacity(0.14)) } }
+                HStack { Text(exam.subject).skinFont(.subheadline, weight: .semibold); if CustomTasksStore.isCustomId(exam.id) { Text("Saját").cpTag().skinFont(.caption2, weight: .bold).foregroundStyle(colors.accent).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: colors.accent.opacity(0.12)) }; Spacer(); if rolled { Text("Pótló").cpTag().skinFont(.caption2, weight: .bold).foregroundStyle(theme.isCyberpunk ? CyberpunkTheme.red : .red).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: (theme.isCyberpunk ? CyberpunkTheme.red : Color.red).opacity(0.12)) }; if let n = exam.lessonIndex { Text("\(n). óra").cpTag().skinFont(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: (theme.isCyberpunk ? CyberpunkTheme.yellow : Color.orange).opacity(0.14)) } }
                     .contentShape(Rectangle())
                     .onTapGesture { toggleExpanded(exam.id, expanded: expanded) }
                 if expanded {
@@ -719,7 +783,8 @@ struct NotesView: View {
         }
         // Pótló dolgozat piros háttere (mint a kipipált zöld, csak piros) —
         // a kész (zöld) állapot nyer, ha mindkettő igaz.
-        .listRowBackground(MinecraftTheme.skinRowBackground(ready ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : rolled ? Color.red.opacity(scheme == .dark ? 0.16 : 0.10) : colors.surface))
+        .listRowBackground(taskRowBackground(ready ? doneFill : rolled ? (theme.isCyberpunk ? CyberpunkTheme.red.opacity(0.16) : Color.red.opacity(scheme == .dark ? 0.16 : 0.10)) : colors.surface,
+                                             accent: ready ? CyberpunkTheme.green : CyberpunkTheme.red))
         .listRowInsets(MinecraftTheme.rowInsets(nil))
         .overlay(flashStroke(isFlash))
         .background(flashFill(isFlash))
@@ -909,10 +974,15 @@ struct LessonPickerSheet: View {
                                 Button { onPick(lesson) } label: {
                                     HStack(spacing: 10) {
                                         Text(lesson.index)
+                                            .cpOnly { $0.font(CyberpunkTheme.mono(size: 14, relativeTo: .subheadline)).foregroundStyle(CyberpunkTheme.yellow) }
                                             .skinFont(.subheadline, weight: .bold).monospacedDigit()
                                             .frame(width: 28, height: 28)
                                             .background {
                                                 if MinecraftTheme.isActive { McInventorySlot() }
+                                                else if CyberpunkTheme.isActive {
+                                                    CPChamferShape(cut: 6, corners: .diagonal).fill(CyberpunkTheme.yellow.opacity(0.10))
+                                                        .overlay(CPChamferShape(cut: 6, corners: .diagonal).strokeBorder(CyberpunkTheme.yellow.opacity(0.7), lineWidth: 1))
+                                                }
                                                 else { Circle().fill(Color.primary.opacity(0.08)) }
                                             }
                                         VStack(alignment: .leading, spacing: 2) {
@@ -1026,7 +1096,7 @@ struct AddCustomTaskSheet: View {
                         SkinOption(value: CustomTaskKind.homework, title: "Feladat"),
                         SkinOption(value: CustomTaskKind.exam, title: "Dolgozat"),
                     ])
-                    .padding(.horizontal, theme.isMinecraft ? 16 : 0)
+                    .padding(.horizontal, theme.isMinecraft || theme.isCyberpunk ? 16 : 0)
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 }
@@ -1121,13 +1191,23 @@ enum HomeworkHTML {
                 ? UIFont(name: MinecraftFontLoader.familyName, size: s.heading ? 15 : 14).map {
                     UIFontMetrics(forTextStyle: s.heading ? .headline : .body).scaledFont(for: $0)
                 } : nil
+            // Cyberpunk-skin: Rajdhani (a skin folyószöveg-betűje) ugyanazzal
+            // a Dynamic Type skálával; félkövér / címsor = Bold, egyébként
+            // SemiBold (dőlt változat nincs — a dőlt jelölés ott nem látszik).
+            let cpFont: UIFont? = mcFont == nil && CyberpunkTheme.isActive ? {
+                CyberpunkFontLoader.registerOnce()
+                let name = (s.heading || s.bold) ? CyberpunkFontLoader.displayBold : CyberpunkFontLoader.displaySemiBold
+                return UIFont(name: name, size: s.heading ? 19 : 17).map {
+                    UIFontMetrics(forTextStyle: s.heading ? .headline : .body).scaledFont(for: $0)
+                }
+            }() : nil
             var traits: UIFontDescriptor.SymbolicTraits = []
             if s.bold { traits.insert(.traitBold) }
             if s.italic { traits.insert(.traitItalic) }
-            if mcFont == nil, !traits.isEmpty, let d = font.fontDescriptor.withSymbolicTraits(traits) {
+            if mcFont == nil, cpFont == nil, !traits.isEmpty, let d = font.fontDescriptor.withSymbolicTraits(traits) {
                 font = UIFont(descriptor: d, size: 0)
             }
-            c.font = mcFont ?? font
+            c.font = mcFont ?? cpFont ?? font
             if s.underline { c.underlineStyle = NSUnderlineStyle.single }
             if s.strike { c.strikethroughStyle = NSUnderlineStyle.single }
             if let l = s.link { c.link = l }
@@ -1136,5 +1216,22 @@ enum HomeworkHTML {
             out += part
         }
         return out
+    }
+}
+
+// MARK: - Cyberpunk-segédek (csak ebben a fájlban)
+
+private extension View {
+    /// Csak Cyberpunk-skinben alkalmazott módosítás; Summitban és
+    /// Minecraftban a nézet érintetlen marad.
+    @ViewBuilder
+    func cpOnly<V: View>(_ transform: (Self) -> V) -> some View {
+        if CyberpunkTheme.isActive { transform(self) } else { self }
+    }
+
+    /// Apró címke (Saját / Pótló / óraszám) Cyberpunkban egyenközű,
+    /// nagybetűs HUD-kód. A `skinFont` ELÉ kell tenni (a belső betű nyer).
+    func cpTag() -> some View {
+        cpOnly { $0.font(CyberpunkTheme.mono(size: 10, relativeTo: .caption2)).textCase(.uppercase).tracking(0.8) }
     }
 }
