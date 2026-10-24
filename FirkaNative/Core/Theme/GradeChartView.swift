@@ -84,7 +84,11 @@ struct GradeChartView: View {
     var body: some View {
         // Minecraft: mindkét mód ugyanaz a pixel-rácsra rajzolt grafikon
         // (a Charts-tengelyfeliratok nem kaphatnak pixelbetűt).
-        if MinecraftTheme.isActive {
+        // Cyberpunk: mindkét mód ugyanaz a HUD-grafikon (szögletes
+        // sárga vonal, jegy-színű rombusz-pontok, célkereszt az utolsón).
+        if CyberpunkTheme.isActive {
+            cpBody
+        } else if MinecraftTheme.isActive {
             mcBody
         } else
         // Jegyek fő képernyő: monthly+editorial → régi jól bevált Charts, nem nyúlunk hozzá
@@ -233,6 +237,34 @@ struct GradeChartView: View {
             line: displayPoints.map { McPixelChart.Point(x: nx($0.date), value: $0.avg) },
             dots: dots,
             ticks: xTickDates.map { McPixelChart.Tick(x: nx($0), label: xTickLabel(for: $0)) },
+            height: height
+        )
+    }
+
+    // MARK: Cyberpunk — HUD-grafikon
+
+    @ViewBuilder
+    private var cpBody: some View {
+        if displayGrades.count < 2 {
+            SkinEmptyState(title: "Nincs elég adat", systemImage: "chart.line.flattrend.xyaxis", description: Text("Adj hozzá jegyet"))
+                .frame(height: height)
+        } else {
+            cpChart
+        }
+    }
+
+    private var cpChart: some View {
+        let dom = xDomain
+        let span = max(1, dom.upperBound.timeIntervalSince(dom.lowerBound))
+        func nx(_ d: Date) -> Double { min(1, max(0, d.timeIntervalSince(dom.lowerBound) / span)) }
+        let dots: [CPHudChart.Dot] = displayGrades.count <= 12
+            ? displayGrades.map { CPHudChart.Dot(x: nx($0.date), value: $0.value, heavy: $0.weight >= 200, phantom: $0.id.hasPrefix("phantom")) }
+            : []
+        return CPHudChart(
+            line: displayPoints.map { CPHudChart.Point(x: nx($0.date), value: $0.avg) },
+            dots: dots,
+            ticks: xTickDates.map { CPHudChart.Tick(x: nx($0), label: xTickLabel(for: $0).uppercased()) },
+            code: monthly ? "AVG.TREND // HAVI" : "AVG.TREND // FUTÓ",
             height: height
         )
     }
@@ -510,5 +542,199 @@ private struct McPixelChart: View {
             if e2 >= dy { err += dy; x += sx }
             if e2 <= dx { err += dx; y += sy }
         }
+    }
+}
+
+
+// MARK: - Cyberpunk HUD-grafikon
+
+/// CP2077-HUD vonaldiagram levágott sarkú panelben: szaggatott cián
+/// rácsvonalak, a jegy színére festett 1…5 tengelyfeliratok, szögletes
+/// (nem simított) sárga átlag-vonal halvány sárga területtel, a jegyek
+/// rombusz-pontként a saját színükben (fantom: üres körvonal), az utolsó
+/// ponton célkereszt-sarkok + érték. A rács egyetlen statikus Canvas; csak
+/// megjelenéskor fut egy rövid kirajzolódás (Reduce Motion mellett az sem).
+private struct CPHudChart: View {
+    struct Point { var x: Double; var value: Double }
+    struct Dot { var x: Double; var value: Int; var heavy: Bool; var phantom: Bool }
+    struct Tick { var x: Double; var label: String }
+
+    var line: [Point]
+    var dots: [Dot]
+    var ticks: [Tick]
+    var code: String
+    var height: CGFloat
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Kirajzolódás (0…1) — példányonként egyszer.
+    @State private var progress: CGFloat = 0
+
+    private let yLo = 0.6
+    private let yHi = 5.4
+    private let left: CGFloat = 26
+    private let right: CGFloat = 14
+    private let top: CGFloat = 26
+    private let bottom: CGFloat = 24
+
+    var body: some View {
+        GeometryReader { geo in
+            let plot = plotRect(geo.size)
+            let pts = line.map { CGPoint(x: px($0.x, plot), y: py($0.value, plot)) }
+            ZStack(alignment: .topLeading) {
+                Canvas { ctx, _ in drawGrid(&ctx, plot: plot) }
+                // Terület az átlag-vonal alatt (halvány sárga → semmi).
+                CPPolyArea(points: pts, baseline: plot.maxY)
+                    .fill(LinearGradient(colors: [CyberpunkTheme.yellow.opacity(0.16), CyberpunkTheme.yellow.opacity(0)],
+                                         startPoint: .top, endPoint: .bottom))
+                    .opacity(Double(progress))
+                CPPolyline(points: pts)
+                    .trim(from: 0, to: progress)
+                    .stroke(CyberpunkTheme.yellow, style: StrokeStyle(lineWidth: 1.5, lineCap: .square, lineJoin: .miter))
+                ForEach(Array(dots.enumerated()), id: \.offset) { _, d in
+                    dotView(d).position(x: px(d.x, plot), y: py(Double(d.value), plot))
+                }
+                .opacity(Double(progress))
+                if let last = pts.last, let lastValue = line.last?.value {
+                    reticle(at: last, value: lastValue, in: plot)
+                        .opacity(progress >= 1 ? 1 : 0)
+                }
+                // Tengelyfeliratok: 1…5 a jegy színében.
+                ForEach(1...5, id: \.self) { v in
+                    Text("\(v)")
+                        .font(CyberpunkTheme.mono(size: 10, relativeTo: .caption2))
+                        .foregroundStyle(CyberpunkTheme.gradeColor(for: v).opacity(0.85))
+                        .frame(width: left - 8, alignment: .trailing)
+                        .position(x: (left - 8) / 2 + 2, y: py(Double(v), plot))
+                }
+                ForEach(Array(ticks.enumerated()), id: \.offset) { _, t in
+                    Text(t.label)
+                        .font(CyberpunkTheme.mono(size: 9, relativeTo: .caption2))
+                        .tracking(0.6)
+                        .foregroundStyle(CyberpunkTheme.dim)
+                        .fixedSize()
+                        .position(x: min(geo.size.width - 20, max(left + 18, px(t.x, plot))), y: geo.size.height - 11)
+                }
+                CPLabel(code, color: CyberpunkTheme.dim, size: 9)
+                    .padding(.leading, 16)
+                    .padding(.top, 8)
+            }
+            .dynamicTypeSize(...DynamicTypeSize.xLarge)
+        }
+        .frame(height: height)
+        .background(CPPanelBackground(accent: CyberpunkTheme.yellow, fill: CyberpunkTheme.panel, cut: 12))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Átlag alakulása grafikon")
+        .accessibilityValue(line.last.map { String(format: "utolsó érték %.2f", $0.value) } ?? "")
+        .onAppear {
+            guard progress < 1 else { return }
+            if reduceMotion { progress = 1 } else { withAnimation(.easeOut(duration: 0.55)) { progress = 1 } }
+        }
+    }
+
+    private func plotRect(_ size: CGSize) -> CGRect {
+        CGRect(x: left, y: top, width: max(1, size.width - left - right), height: max(1, size.height - top - bottom))
+    }
+    private func px(_ x: Double, _ plot: CGRect) -> CGFloat { plot.minX + CGFloat(x) * plot.width }
+    private func py(_ v: Double, _ plot: CGRect) -> CGFloat {
+        let t = (min(yHi, max(yLo, v)) - yLo) / (yHi - yLo)
+        return plot.maxY - CGFloat(t) * plot.height
+    }
+
+    private func drawGrid(_ ctx: inout GraphicsContext, plot: CGRect) {
+        for v in 1...5 {
+            let y = py(Double(v), plot).rounded() + 0.5
+            var p = Path(); p.move(to: CGPoint(x: plot.minX, y: y)); p.addLine(to: CGPoint(x: plot.maxX, y: y))
+            ctx.stroke(p, with: .color(CyberpunkTheme.cyan.opacity(v == 3 ? 0.22 : 0.12)), style: StrokeStyle(lineWidth: 1, dash: [2, 4]))
+        }
+        // Bal tengely: vékony vörös vonal, alul rövid fényes szakasszal.
+        let x0 = plot.minX.rounded() - 3.5
+        var axis = Path(); axis.move(to: CGPoint(x: x0, y: plot.minY - 4)); axis.addLine(to: CGPoint(x: x0, y: plot.maxY + 4))
+        ctx.stroke(axis, with: .color(CyberpunkTheme.red.opacity(0.35)), lineWidth: 1)
+        ctx.fill(Path(CGRect(x: x0 - 0.5, y: plot.maxY - 10, width: 2, height: 14)), with: .color(CyberpunkTheme.red))
+    }
+
+    /// Rombusz-pont a jegy színében; nehéz (≥200%) nagyobb, fantom üres.
+    @ViewBuilder
+    private func dotView(_ d: Dot) -> some View {
+        let side: CGFloat = d.heavy ? 10 : 7
+        let color = CyberpunkTheme.gradeColor(for: d.value)
+        CPDiamond()
+            .fill(d.phantom ? CyberpunkTheme.panel : color)
+            .overlay(CPDiamond().stroke(d.phantom ? color : CyberpunkTheme.bg, lineWidth: d.phantom ? 1 : 1.5))
+            .frame(width: side, height: side)
+    }
+
+    /// Célkereszt-sarkok az utolsó ponton + az érték (mono, sárga).
+    private func reticle(at p: CGPoint, value: Double, in plot: CGRect) -> some View {
+        let r: CGFloat = 8
+        let labelLeft = p.x > plot.midX
+        return ZStack {
+            CPReticle(arm: 3.5)
+                .stroke(CyberpunkTheme.yellow, lineWidth: 1)
+                .frame(width: r * 2, height: r * 2)
+                .position(p)
+            Text(String(format: "%.2f", value))
+                .font(CyberpunkTheme.mono(size: 10, relativeTo: .caption2))
+                .foregroundStyle(CyberpunkTheme.bg)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 1)
+                .background(CyberpunkTheme.yellow)
+                .fixedSize()
+                .position(x: labelLeft ? p.x - r - 22 : p.x + r + 22,
+                          y: p.y < plot.minY + 12 ? p.y + 12 : p.y - 12)
+        }
+    }
+}
+
+/// Szögletes (töréspontos) vonal a megadott pontokon — trim-elhető.
+private struct CPPolyline: Shape {
+    var points: [CGPoint]
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        guard let first = points.first else { return p }
+        p.move(to: first)
+        for pt in points.dropFirst() { p.addLine(to: pt) }
+        return p
+    }
+}
+
+/// A vonal alatti terület az alapvonalig.
+private struct CPPolyArea: Shape {
+    var points: [CGPoint]
+    var baseline: CGFloat
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        guard let first = points.first, let last = points.last else { return p }
+        p.move(to: CGPoint(x: first.x, y: baseline))
+        for pt in points { p.addLine(to: pt) }
+        p.addLine(to: CGPoint(x: last.x, y: baseline))
+        p.closeSubpath()
+        return p
+    }
+}
+
+private struct CPDiamond: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        p.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+        p.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+        p.addLine(to: CGPoint(x: rect.minX, y: rect.midY))
+        p.closeSubpath()
+        return p
+    }
+}
+
+/// Négy sarok-szögletből álló célkereszt (a játék lock-on jele).
+private struct CPReticle: Shape {
+    var arm: CGFloat
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let r = rect
+        p.move(to: CGPoint(x: r.minX, y: r.minY + arm)); p.addLine(to: CGPoint(x: r.minX, y: r.minY)); p.addLine(to: CGPoint(x: r.minX + arm, y: r.minY))
+        p.move(to: CGPoint(x: r.maxX - arm, y: r.minY)); p.addLine(to: CGPoint(x: r.maxX, y: r.minY)); p.addLine(to: CGPoint(x: r.maxX, y: r.minY + arm))
+        p.move(to: CGPoint(x: r.maxX, y: r.maxY - arm)); p.addLine(to: CGPoint(x: r.maxX, y: r.maxY)); p.addLine(to: CGPoint(x: r.maxX - arm, y: r.maxY))
+        p.move(to: CGPoint(x: r.minX + arm, y: r.maxY)); p.addLine(to: CGPoint(x: r.minX, y: r.maxY)); p.addLine(to: CGPoint(x: r.minX, y: r.maxY - arm))
+        return p
     }
 }
