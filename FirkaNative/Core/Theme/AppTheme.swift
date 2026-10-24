@@ -158,7 +158,11 @@ extension View {
         if UserDefaults.standard.string(forKey: "ui.skin") == VisualSkin.minecraft.rawValue {
             self.minecraftCard(cornerRadius: 6)
         } else if #available(iOS 26.0, *) {
-            self.glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
+            // NEM `.interactive()`: ez egy sziget-háttér (több sor
+            // tárolója), nem gomb — az interaktív üveg az egész szigetet
+            // megrugóztatta az ujj alatt, a halott felületeken is („reagált,
+            // de nem történt semmi"). A sorok saját gombjai adják a választ.
+            self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
         } else {
             self.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
         }

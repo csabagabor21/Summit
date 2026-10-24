@@ -50,35 +50,46 @@ struct MainTabView: View {
     }
 
     var body: some View {
-        Group {
-            if useCustomHotbar {
-                // Minecraft keskeny kijelzőn: a tartalom a teljes magasságot
-                // kitölti és görgetéskor a fű és a föld MÖGÉ csúszik (nincs
-                // éles vágás a fűsáv fölött); a tabok alsó safe area-ja
-                // (`mcTabChrome`) akkora, hogy a lista vége a virágok fölött
-                // álljon meg. A hotbar a földön ül. Szélesen (iPad/Mac
-                // sidebar) a natív sáv marad.
-                tabContent
-                    .overlay(alignment: .bottom) {
-                        McGrassBlockFooter(height: Self.mcFooterHeight)
-                    }
-                    .overlay(alignment: .bottom) {
-                        mcHotbar.padding(.bottom, 6)
-                    }
-                // Nincs külön ég a tab-tartalom mögött: a tab-oldalak opakok, így
-                // az itteni égbolt sosem látszott (szimulátoron ellenőrizve) —
-                // csak futott (felhő-animációk, percenkénti újrarajzolás). A fű
-                // és a virágok mögött a lista saját ege látszik, az a teljes
-                // képernyőt kitölti (summitListChrome → ignoresSafeArea).
-            } else {
-                tabContent
+        // A Minecraft-talaj és a hotbar MINDIG overlay-ként van jelen (üres,
+        // ha nem kell), nem `if useCustomHotbar { … } else { tabContent }`
+        // ágban: az ág-váltás (skinváltás, vagy Max/Plus iPhone elforgatása
+        // → széles elrendezés) új identitást adott a teljes tab-fának —
+        // minden NavigationStack és a kiválasztott tab elveszett, a user a
+        // Főoldal gyökerére esett vissza.
+        //
+        // Minecraft keskeny kijelzőn: a tartalom a teljes magasságot
+        // kitölti és görgetéskor a fű és a föld MÖGÉ csúszik (nincs éles
+        // vágás a fűsáv fölött); a tabok alsó safe area-ja (`mcTabChrome`)
+        // akkora, hogy a lista vége a virágok fölött álljon meg. A hotbar a
+        // földön ül. Szélesen (iPad/Mac sidebar) a natív sáv marad. Külön ég
+        // nincs a tab-tartalom mögött (a lista saját ege tölti ki a képet).
+        tabContent
+            .overlay(alignment: .bottom) {
+                if useCustomHotbar {
+                    // Díszlet: nem nyel érintést. Eddig a teljes 148 pt-os
+                    // talaj-sáv elnyelte a koppintást ÉS a görgetés indítását
+                    // minden tab alján (a lista alulról felhúzva nem mozdult,
+                    // a fű mögé csúszó sorok halottak voltak).
+                    McGrassBlockFooter(height: Self.mcFooterHeight)
+                        .allowsHitTesting(false)
+                }
             }
-        }
+            .overlay(alignment: .bottom) {
+                if useCustomHotbar {
+                    // Csak maga a hotbar (a slot-gombok egymás mellett, rés
+                    // nélkül) fogad érintést; körülötte a görgetés indulhat.
+                    mcHotbar.padding(.bottom, 6)
+                }
+            }
         .tint(theme.isMinecraft ? MinecraftTheme.grass : colors.accent)
         // Chrome-betűk a látható sávokra is (az init-kori beállítás
         // a már élő sávokon nem mindig fog meg).
         .onAppear {
             MinecraftTheme.applyChromeAppearance(minecraft: theme.isMinecraft)
+            McSound.warmUp()
+        }
+        .onChange(of: theme.isMinecraft) { _, mc in
+            if mc { McSound.warmUp() }
         }
         // NINCS withAnimation(.spring) — a rendszer Liquid Glass morphja animál.
         // Custom spring felülírná a natív görbét és "cooked"-nak hat.
@@ -100,8 +111,20 @@ struct MainTabView: View {
                 }
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: switchToTimetable)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: switchToTimetable)) { notif in
             selected = 2
+            // Mint a Feladatoknál: az Órarend tab tartalma lusta — ha még
+            // sosem nyitották meg, a TimetableView nem él, és a „Mutatás az
+            // órarendben" ugrás elveszne. Egyszer újraküldjük (a relézett
+            // példányon jelölés van, az már nem ütemez újat); a TimetableView
+            // a már kezelt kérés ismétlését eldobja.
+            if let info = notif.userInfo, info["summit.relayed"] == nil {
+                var relayed = info
+                relayed["summit.relayed"] = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    NotificationCenter.default.post(name: switchToTimetable, object: nil, userInfo: relayed)
+                }
+            }
         }
         // Continuity (Handoff): másik eszközről folytatás — a tabot
         // itt állítjuk, a pozíciót a cél-nézet (pending vagy direkt).
@@ -293,20 +316,17 @@ struct MainTabView: View {
 /// Minecraft-tabrejtés: keskeny kijelzőn Minecraft-skinben elrejti a
 /// rendszer-tabsávot (helyette a saját hotbar látszik a fűblokkon).
 private extension View {
-    @ViewBuilder
+    /// Egyetlen, ág nélküli lánc (a `hidden` csak értékeket vált): skin-
+    /// váltáskor a tab gyökere — és vele a NavigationStack — megmarad.
     func mcTabChrome(hidden: Bool) -> some View {
-        if hidden {
-            self.toolbar(.hidden, for: .tabBar)
-                // A tartalom alá behúzódik a talaj + a növények sávja: a
-                // görgetett sorok mögé csúsznak, a lista vége fölöttük áll meg.
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    Color.clear
-                        .frame(height: MainTabView.mcFooterHeight + McFlora.maxHeight)
-                        .allowsHitTesting(false)
-                }
-        } else {
-            self
-        }
+        self.toolbar(hidden ? .hidden : .automatic, for: .tabBar)
+            // A tartalom alá behúzódik a talaj + a növények sávja: a
+            // görgetett sorok mögé csúsznak, a lista vége fölöttük áll meg.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear
+                    .frame(height: hidden ? MainTabView.mcFooterHeight + McFlora.maxHeight : 0)
+                    .allowsHitTesting(false)
+            }
     }
 }
 
@@ -386,6 +406,8 @@ private struct McHotbar: View {
         .id(selected)
         .transition(.opacity.animation(.easeOut(duration: 0.18)))
         .accessibilityHidden(true)
+        // Csak felirat: a mögötte lévő lista görgethető marad.
+        .allowsHitTesting(false)
         .frame(height: 12 * px)
     }
 

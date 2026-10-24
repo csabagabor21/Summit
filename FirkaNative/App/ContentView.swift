@@ -4,15 +4,16 @@ struct ContentView: View {
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var theme: ThemeStore
     @EnvironmentObject var analytics: AnalyticsStore
+    /// A rendszer szövegmérete (felülírás nélkül ez megy tovább változatlanul).
+    @Environment(\.sizeCategory) private var systemSizeCategory
 
     var body: some View {
-        Group {
-            if let cat = theme.sizeCategoryOverride {
-                content.environment(\.sizeCategory, cat)
-            } else {
-                content
-            }
-        }
+        // NEM `if let felülírás { content.environment } else { content }`:
+        // az ág-váltás új nézet-identitást adott, így a Szövegméret
+        // „Rendszer" ↔ fix váltása eldobta az összes NavigationStacket és a
+        // kiválasztott tabot (a user a Főoldal gyökerén találta magát).
+        content
+            .environment(\.sizeCategory, theme.sizeCategoryOverride ?? systemSizeCategory)
         // Minecraft-skin: a kifejezett betűstílus nélküli szövegek (szekció-
         // fejlécek, sima gombfeliratok, mezők) is Monocraftban jelennek meg.
         // Summitban nil = a rendszer alap-környezete, semmi nem változik.
@@ -42,6 +43,11 @@ struct ContentView: View {
                     )) {
                         AnalyticsConsentView()
                             .environmentObject(analytics)
+                            // Hidegindításkor a cover az első layout-körben
+                            // nyílik, amikor az örökölt environment még nem ér
+                            // le (lásd a GradeCelebrationView-nál a MainTabView-
+                            // ban) — a nézet a témát is olvassa, explicit inject.
+                            .environmentObject(theme)
                     }
             } else {
                 LoginView()
@@ -203,6 +209,16 @@ private struct McSliderControl: View {
     var range: ClosedRange<Double>
     var step: Double
     @State private var dragging = false
+    /// Az aktuális húzás függőlegesnek bizonyult (görgetés) — nem állít.
+    @State private var rejected = false
+
+    /// Érték egy x-pozícióból (fogantyú-középre igazítva, lépésre kerekítve).
+    private func set(from x: CGFloat, handleW: CGFloat, travel: CGFloat) {
+        let f = min(1, max(0, Double((x - handleW / 2) / travel)))
+        let raw = range.lowerBound + f * (range.upperBound - range.lowerBound)
+        let snapped = (raw / step).rounded() * step
+        value = min(range.upperBound, max(range.lowerBound, snapped))
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -217,16 +233,24 @@ private struct McSliderControl: View {
                     .offset(x: CGFloat(min(1, max(0, frac))) * travel)
             }
             .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
+            // Koppintás: azonnal oda ugrik (mint a rendszer-csúszka).
+            .onTapGesture { location in set(from: location.x, handleW: handleW, travel: travel) }
+            // Húzás: csak vízszintes túlsúlynál fog meg — a csúszkán induló
+            // függőleges görgetés (DeveloperView, kerekítés-részlet) eddig az
+            // értéket állította a lista görgetése helyett.
+            // Egyidejű gesztus: a lista görgetése sem blokkolódik; az irányt
+            // az első mozdulat dönti el, függőleges húzás végig figyelmen kívül.
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 6)
                     .onChanged { g in
-                        dragging = true
-                        let f = min(1, max(0, Double((g.location.x - handleW / 2) / travel)))
-                        let raw = range.lowerBound + f * (range.upperBound - range.lowerBound)
-                        let snapped = (raw / step).rounded() * step
-                        value = min(range.upperBound, max(range.lowerBound, snapped))
+                        if rejected { return }
+                        if !dragging {
+                            guard abs(g.translation.width) > abs(g.translation.height) else { rejected = true; return }
+                            dragging = true
+                        }
+                        set(from: g.location.x, handleW: handleW, travel: travel)
                     }
-                    .onEnded { _ in dragging = false }
+                    .onEnded { _ in dragging = false; rejected = false }
             )
         }
         .frame(height: 12 * MinecraftTheme.px)

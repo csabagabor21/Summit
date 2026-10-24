@@ -667,6 +667,21 @@ enum McSound: String, CaseIterable {
         lastStart[sound] = (now, player)
     }
 
+    /// Előmelegítés (Minecraft-skin indulásakor / bekapcsolásakor): az
+    /// audio-session és a gyakori hangok első lejátszója előre elkészül.
+    /// Eddig az ELSŐ koppintás építette fel őket szinkron a főszálon — épp a
+    /// push-animáció alatt, így az első megnyitás akadt („többször kell
+    /// rányomni"). A következő futási körre ütemezve, nem az indítás útjában.
+    static func warmUp() {
+        guard MinecraftTheme.isActive else { return }
+        DispatchQueue.main.async {
+            guard MinecraftTheme.isActive, prepareSession() else { return }
+            for sound in [McSound.click, .tab] where (pool[sound] ?? []).isEmpty {
+                if let player = makePlayer(sound) { pool[sound] = [player] }
+            }
+        }
+    }
+
     /// Hosszú hang (pl. a 5-ös jegy fanfárja) idő előtti leállítása.
     static func stop(_ sound: McSound) {
         pool[sound]?.forEach { $0.stop() }
