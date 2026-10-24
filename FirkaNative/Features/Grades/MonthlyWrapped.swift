@@ -1278,7 +1278,10 @@ struct WrappedSharePicker: View {
             }
         }
         .sheet(isPresented: $showShare) {
-            ShareSheet(items: shareItems)
+            // A megosztó befejezéskor (küldés / Mégse) maga zárja a lapot —
+            // a kötést ilyenkor vissza kell állítani, különben a következő
+            // „Megosztás" (true → true) nem nyitna semmit.
+            ShareSheet(items: shareItems) { showShare = false }
                 .presentationDetents([.medium, .large])
         }
     }
@@ -1315,8 +1318,14 @@ private extension View {
 /// Rendszer-megosztó (UIActivityViewController) SwiftUI-ból.
 struct ShareSheet: UIViewControllerRepresentable {
     var items: [Any]
+    /// Megosztás vége (siker vagy elvetés) — a hívó itt zárja a kötését.
+    var onFinish: () -> Void = {}
     func makeUIViewController(context: Context) -> UIActivityViewController {
         let vc = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        let finish = onFinish
+        vc.completionWithItemsHandler = { _, _, _, _ in
+            DispatchQueue.main.async { finish() }
+        }
         // iPad: felugró horgony nélkül crashel — a billentyűzet fölé tesszük.
         if let pop = vc.popoverPresentationController,
            let window = UIApplication.shared.connectedScenes
@@ -1375,6 +1384,9 @@ struct MonthlyArchiveView: View {
                             SkinIcon("chevron.right")
                                 .skinFont(.caption, weight: .semibold).foregroundStyle(.tertiary)
                         }
+                        // A teljes sor koppintható (a `.plain` gomb különben
+                        // csak a kirajzolt pixeleken, a Spacer-résen nem).
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.skinPlain)
                     .mcListRow(fill: colors.surface)

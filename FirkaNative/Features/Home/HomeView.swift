@@ -78,6 +78,9 @@ struct HomeView: View {
                                 SkinIcon("chevron.right")
                                     .skinFont(.caption, weight: .semibold).foregroundStyle(.tertiary)
                             }
+                            // A Spacer-rés is koppintható (a `.plain` gomb
+                            // különben csak a kirajzolt pixeleken reagál).
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.skinPlain)
                         .listRowBackground(MinecraftTheme.skinRowBackground(colors.surface))
@@ -200,7 +203,13 @@ struct HomeView: View {
                                             withAnimation(SummitMotion.snappy) { completed.toggleExam(e.id) }
                                         }
                                     }
-                                    NavigationLink("Összes dolgozat (\(vm.exams.count))") { NotesView(initialFilter: 1).mcBackButton() }.skinFont(.caption, weight: .semibold).tint(colors.accent)
+                                    // Tabváltás, nem beágyazott második NotesView-verem (lásd iPhone-ág).
+                                    Button("Összes dolgozat (\(vm.exams.count))") {
+                                        NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ["segment": "exams"])
+                                    }
+                                    .skinFont(.caption, weight: .semibold)
+                                    .foregroundStyle(colors.accent)
+                                    .buttonStyle(.skinPlain)
                                 }
                             }.frame(maxWidth: .infinity, alignment: .topLeading)
                             // Jobb: feladatok
@@ -217,7 +226,12 @@ struct HomeView: View {
                                             withAnimation(SummitMotion.snappy) { completed.toggleHomework(h.id) }
                                         }
                                     }
-                                    NavigationLink("Összes feladat (\(hwVisible.count))") { NotesView().mcBackButton() }.skinFont(.caption, weight: .semibold).tint(colors.accent)
+                                    Button("Összes feladat (\(hwVisible.count))") {
+                                        NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil)
+                                    }
+                                    .skinFont(.caption, weight: .semibold)
+                                    .foregroundStyle(colors.accent)
+                                    .buttonStyle(.skinPlain)
                                 }
                             }.frame(maxWidth: .infinity, alignment: .topLeading)
                         }.padding(.vertical, 4)
@@ -261,9 +275,23 @@ struct HomeView: View {
                                 }
                             )
                         }
-                        McNavLink { NotesView(initialFilter: 1) } label: {
-                            Text("Összes dolgozat (\(sorted.count))")
-                        }.mcListRow(fill: colors.surface)
+                        // A Feladatok tab Dolgozatok szegmensére vált (mint az
+                        // „Összes jegy"), nem push-ol egy második NotesView-t:
+                        // annak saját NavigationStackje a Főoldal vermébe
+                        // ágyazódott (dupla/hiányzó sáv, Minecraftban eltűnő
+                        // vissza-gomb, ugráló visszalépés).
+                        Button {
+                            NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ["segment": "exams"])
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text("Összes dolgozat (\(sorted.count))").foregroundStyle(.primary)
+                                Spacer()
+                                SkinIcon("chevron.right", size: 14).skinFont(.footnote, weight: .semibold).foregroundStyle(.tertiary)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.skinPlain)
+                        .mcListRow(fill: colors.surface)
                     }
                 } header: { Text("Közelgő dolgozatok").mcSectionHeader() }
 
@@ -299,9 +327,19 @@ struct HomeView: View {
                                 }
                             )
                         }
-                        McNavLink { NotesView() } label: {
-                            Text("Összes feladat (\(sorted.count))")
-                        }.mcListRow(fill: colors.surface)
+                        // A Feladatok tabra vált (lásd „Összes dolgozat").
+                        Button {
+                            NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil)
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text("Összes feladat (\(sorted.count))").foregroundStyle(.primary)
+                                Spacer()
+                                SkinIcon("chevron.right", size: 14).skinFont(.footnote, weight: .semibold).foregroundStyle(.tertiary)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.skinPlain)
+                        .mcListRow(fill: colors.surface)
                     }
                 } header: { Text("Közelgő feladatok").mcSectionHeader() }
                 }
