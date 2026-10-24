@@ -57,7 +57,13 @@ struct MessagesView: View {
                         .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 4, trailing: 16))
                         .listRowSeparator(.hidden)
                         .animation(SummitMotion.gentle, value: box)
-                        .onChange(of: box) { _, _ in Task { await loadMessages() } }
+                        .onChange(of: box) { _, _ in
+                            // Dobozváltáskor az előző doboz sorai nem maradhatnak
+                            // kint (és nem nyithatók): váz, amíg az új betölt.
+                            messages = []
+                            isLoadingMessages = true
+                            Task { await loadMessages() }
+                        }
                     }
 
                     if isLoadingMessages {
@@ -195,6 +201,11 @@ struct MessagesView: View {
             }
         }
         .padding(.vertical, 4)
+        // Csukott kártyán az egész sor nyit (a típus/tanár/dátum-sor is,
+        // ami korábban halott volt); nyitva csak a fejléc csuk, hogy a
+        // kijelölhető törzsszövegre koppintás ne zárja be.
+        .contentShape(Rectangle())
+        .onTapGesture { if !expanded { toggleNote(n.id, expanded: expanded) } }
         .summitRowSurface(colors: colors)
         .mcRowChrome()
     }
@@ -233,7 +244,12 @@ struct MessagesView: View {
     func loadMessages(force: Bool = false) async {
         guard session.selectedUser != nil else { isLoadingMessages = false; return }
         if messages.isEmpty { isLoadingMessages = true }
-        messages = await kreta.fetchMessages(box: box, force: force)
+        let requested = box
+        let fetched = await kreta.fetchMessages(box: requested, force: force)
+        // Közben másik dobozra váltott: a lassabban beérkező régi válasz
+        // nem írhatja felül az újat.
+        guard requested == box else { return }
+        messages = fetched
         isLoadingMessages = false
     }
 
