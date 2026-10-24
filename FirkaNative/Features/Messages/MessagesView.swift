@@ -257,7 +257,6 @@ private struct MessageDetailView: View {
     @State private var detail: MessageItem?
     @State private var isLoading = false
     @StateObject private var attStore = AttachmentStore()
-    @State private var showPreview = false
 
     private var shown: MessageItem { detail ?? message }
 
@@ -322,14 +321,11 @@ private struct MessageDetailView: View {
                 isLoading = false
             }
         }
-        .sheet(isPresented: $showPreview) {
+        .sheet(isPresented: $attStore.isPreviewing) {
             if let url = attStore.previewURL {
                 QuickLookPreview(url: url)
                     .ignoresSafeArea()
             }
-        }
-        .onChange(of: attStore.previewURL) { _, new in
-            showPreview = new != nil
         }
     }
 }
