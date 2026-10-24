@@ -2,7 +2,11 @@ import SwiftUI
 
 struct SubjectDetailView: View {
     let subject: String
-    @State var grades: [GradeItem] // sorted by date
+    /// A tárgy évközi jegyei dátum szerint. NEM `@State`: az egyszeri
+    /// másolat a push pillanatában befagyott (ha akkor még nem volt meg a
+    /// lista, a részlet üres maradt). Így a hívó (Jegyek lista / Főoldal)
+    /// friss adata élőben átjön; a fantomok külön állapotban élnek.
+    let grades: [GradeItem]
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var theme: ThemeStore
     @Environment(\.colorScheme) var scheme

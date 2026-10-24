@@ -878,6 +878,11 @@ struct TipusDTO: Decodable {
 }
 
 struct KretaGradeDTO: Decodable {
+    /// Vágott tárgynév; üres / hiányzó → „Ismeretlen".
+    static func cleanSubject(_ raw: String?) -> String {
+        let n = (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return n.isEmpty ? "Ismeretlen" : n
+    }
     let Uid: String?
     let Tantargy: TantargyDTO?
     let SzamErtek: Int?
@@ -899,7 +904,9 @@ struct KretaGradeDTO: Decodable {
         }()
         return GradeItem(
             id: Uid ?? UUID().uuidString,
-            subject: Tantargy?.Nev ?? "Ismeretlen",
+            // Vágva: a KRÉTA-név végén néha szóköz van, az átlag-végpont és a
+            // tárgy-cache viszont vágott alakot ad — eltérő kulcs = dupla tárgy.
+            subject: Self.cleanSubject(Tantargy?.Nev),
             value: SzamErtek ?? 0,
             valueText: SzovegesErtek ?? "\(SzamErtek ?? 0)",
             date: KretaDateParser.parse(KeszitesDatuma ?? RogzitesDatuma) ?? Date(),
@@ -934,7 +941,9 @@ struct KretaLessonDTO: Decodable {
         lenientDTOs(from: data).compactMap { $0.toItem() }
     }
     func toItem() -> LessonItem? {
-        guard let tant = Tantargy?.Nev, !tant.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
+        // Vágott név (mint a jegyeknél és az átlag-végpontnál): a tárgyak
+        // így minden forrásból ugyanazzal a kulccsal egyesülnek.
+        guard let tant = Tantargy?.Nev?.trimmingCharacters(in: .whitespacesAndNewlines), !tant.isEmpty else { return nil }
         guard let start = KretaDateParser.parse(KezdetIdopont), let end = KretaDateParser.parse(VegIdopont) else { return nil }
         let room = (TeremNeve ?? "").replacingOccurrences(of: "_", with: " ").replacingOccurrences(of: " terem", with: "", options: .caseInsensitive)
         let allapotNev = (Allapot?.Nev ?? "").lowercased()

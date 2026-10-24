@@ -139,8 +139,11 @@ struct HomeView: View {
                     } else {
                         ForEach(vm.grades.sorted { $0.date > $1.date }.prefix(3)) { g in
                             McNavLink {
-                                let grouped = Dictionary(grouping: vm.grades, by: { $0.subject })
-                                SubjectDetailView(subject: g.subject, grades: (grouped[g.subject] ?? [g]).sorted { $0.date < $1.date })
+                                // Ugyanaz a szűrés, mint a Jegyek tabon (évközi,
+                                // kanonikus tárgy-egyezés) — a két belépési pont
+                                // ugyanazt az átlagot és grafikont mutatja.
+                                SubjectDetailView(subject: g.subject.trimmingCharacters(in: .whitespacesAndNewlines),
+                                                  grades: GradesView.evkoziGrades(for: g.subject, in: vm.grades))
                             } label: {
                                 HStack(spacing: 10) {
                                     GradeCircle(value: g.value, size: 32)

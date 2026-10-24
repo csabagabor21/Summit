@@ -26,12 +26,30 @@ enum GradingLogic {
         UserDefaults.standard.set(dict, forKey: key)
         cacheLock.lock()
         cachedThresholds = dict
+        cachedCanonical = nil
         revision += 1
         cacheLock.unlock()
         NotificationCenter.default.post(name: changedNotification, object: nil)
     }
+    /// Kanonikus tárgynév → küszöb (a pontos név hiányában): a kerekítést
+    /// a tárgy-cache (vágott) nevén állítják be, a jegy viszont régebbi
+    /// gyorstárból vágatlan / eltérő kis-nagybetűs alakkal is jöhet.
+    private static var cachedCanonical: [String: Double]?
+
     static func threshold(for subject: String) -> Double {
-        loadThresholds()[subject] ?? defaultThreshold
+        let d = loadThresholds()
+        if let t = d[subject] { return t }
+        guard !d.isEmpty else { return defaultThreshold }
+        return canonicalThresholds(d)[SubjectMatcher.canonical(subject)] ?? defaultThreshold
+    }
+
+    private static func canonicalThresholds(_ d: [String: Double]) -> [String: Double] {
+        cacheLock.lock(); defer { cacheLock.unlock() }
+        if let c = cachedCanonical { return c }
+        var out: [String: Double] = [:]
+        for (name, t) in d.sorted(by: { $0.key < $1.key }) { out[SubjectMatcher.canonical(name)] = out[SubjectMatcher.canonical(name)] ?? t }
+        cachedCanonical = out
+        return out
     }
     static func setThreshold(_ t: Double, for subject: String) {
         var d = loadThresholds(); d[subject] = t; save(d)

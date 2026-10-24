@@ -29,18 +29,14 @@ struct GradesView: View {
     @EnvironmentObject var theme: ThemeStore
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var kreta: KretaClient
-    /// A mentett jegyek a közös gyorstárból (KretaStore): tabra lépéskor
-    /// azonnal látszanak, a váz csak akkor jön, ha még semmi nincs mentve.
-    @State private var grades: [GradeItem] = KretaStore.shared.value(.grades) ?? []
-    @State private var allSubjects: [String] = GradesView.storedSubjects()
-    @State private var isLoading = KretaStore.shared.grades == nil
-
-    /// Mentett tárgylista (hálózati + tárgy-cache unió, mint a load-ban).
-    private static func storedSubjects() -> [String] {
-        let net: [String] = KretaStore.shared.value(.subjects) ?? []
-        let cached = UserDefaults.standard.stringArray(forKey: KretaClient.cachedSubjectsKey) ?? []
-        return Array(Set(net).union(cached)).sorted()
-    }
+    /// Jegyek + tárgylista a közös gyorstárból (KretaStore). `@StateObject`:
+    /// a kezdőérték EGYSZER olvasódik be (tabra lépéskor azonnal látszik a
+    /// mentett adat), és nem a MainTabView body-jában — így a store minden
+    /// írása nem értékeli újra a teljes tab-fát (lásd `GradesModel`).
+    @StateObject private var model = GradesModel()
+    private var grades: [GradeItem] { model.grades }
+    private var allSubjects: [String] { model.subjects }
+    private var isLoading: Bool { model.isLoading }
     @State private var selectedTab: GradeTab = .evkozi
     // Explicit path: adat-újratöltéskor a value-less linkek állapota átsiklott
     // sorok között, a vissza gomb így végigment a tárgyakon. Path-szal egy pop = egy szint.
@@ -117,29 +113,25 @@ struct GradesView: View {
                                             let thr = GradingLogic.threshold(for: subject)
                                             let rnd = GradingLogic.roundedGrade(raw: raw, threshold: thr)
                                             Button {
-                                                SummitHaptics.selection()
-                                                path = NavigationPath()
-                                                path.append(subject)
+                                                openSubject(subject)
                                             } label: {
                                                 HStack(spacing: 12) {
                                                     GradeCircle(value: rnd, size: 44)
                                                     VStack(alignment: .leading, spacing: 3) { Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1); Text(String(format: "%.2f • %d jegy", raw, items.count)).skinFont(.caption2).foregroundStyle(.secondary).lineLimit(1) }
                                                     Spacer()
                                                     SkinIcon("chevron.right", size: 14).skinFont(.caption2, weight: .semibold).foregroundStyle(.tertiary)
-                                                }.padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 14))
+                                                }.padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 14)).contentShape(Rectangle())
                                             }.buttonStyle(.skinPlain)
                                         } else {
                                             Button {
-                                                SummitHaptics.selection()
-                                                path = NavigationPath()
-                                                path.append(subject)
+                                                openSubject(subject)
                                             } label: {
                                                 HStack(spacing: 12) {
                                                     EmptySubjectBadge(scheme: scheme)
                                                     VStack(alignment: .leading, spacing: 3) { Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1); Text("Nincs jegy").skinFont(.caption2).foregroundStyle(.tertiary).lineLimit(1) }
                                                     Spacer()
                                                     SkinIcon("chevron.right", size: 14).skinFont(.caption2, weight: .semibold).foregroundStyle(.tertiary)
-                                                }.padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 14))
+                                                }.padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 14)).contentShape(Rectangle())
                                             }.buttonStyle(.skinPlain)
                                         }
                                     }
@@ -150,7 +142,7 @@ struct GradesView: View {
                                     let raw = GradingLogic.weightedAverage(items)
                                     let thr = GradingLogic.threshold(for: subject)
                                     let rnd = GradingLogic.roundedGrade(raw: raw, threshold: thr)
-                                    subjectLink(subject) {
+                                    subjectRow(subject) {
                                         HStack(spacing: 12) {
                                             GradeCircle(value: rnd, size: 44)
                                             VStack(alignment: .leading, spacing: 3) {
@@ -160,11 +152,10 @@ struct GradesView: View {
                                             Spacer()
                                         }.padding(.vertical, 2)
                                     }
-                                    .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
-                                    .mcListRow(fill: colors.surface)
+                                    .subjectRowChrome(fill: colors.surface)
                                 } else {
                                     // Nincs még jegy — KRÉTA tudja a tantárgyat, üresen mutatjuk
-                                    subjectLink(subject) {
+                                    subjectRow(subject) {
                                         HStack(spacing: 12) {
                                             EmptySubjectBadge(scheme: scheme)
                                             VStack(alignment: .leading, spacing: 3) {
@@ -174,8 +165,7 @@ struct GradesView: View {
                                             Spacer()
                                         }.padding(.vertical, 2)
                                     }
-                                    .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
-                                    .mcListRow(fill: colors.surface)
+                                    .subjectRowChrome(fill: colors.surface)
                                 }
                             }
                             }
@@ -274,8 +264,14 @@ struct GradesView: View {
                 SummitHaptics.light()
             }
             .task { await load() }
+            // A közös gyorstár figyelése (mint a Főoldalon): a máshonnan
+            // (Főoldal, háttérfrissítés) érkező jegyek is azonnal beíródnak —
+            // a nyitott tantárgy-részlet is, mert az a lista állapotából él.
+            .background {
+                KretaStoreWatcher(kinds: [.grades, .subjects]) { model.syncFromStore() }
+            }
             .navigationDestination(for: String.self) { subject in
-                SubjectDetailView(subject: subject, grades: gradesFor(subject)).mcBackButton().mcPushClick()
+                SubjectDetailView(subject: subject, grades: gradesFor(subject)).mcBackButton()
             }
             .onChange(of: grades) { _, _ in
                 if selectedTab == .felevi && feleviGrades.isEmpty { selectedTab = .evkozi }
@@ -295,22 +291,38 @@ struct GradesView: View {
         return opts
     }
 
-    /// Tantárgy-sor navigációval: Summitban a gyári `NavigationLink`,
-    /// Minecraftban rejtett link + saját pixel-nyíl (a rendszer-chevron
-    /// SF-ikon, az nem maradhat).
+    /// Tantárgy megnyitása: a verem PONTOSAN egy szintre áll (gyors dupla
+    /// koppintás sem tol két részletet egymásra, vissza egyből a listára).
+    private func openSubject(_ subject: String) {
+        SummitHaptics.selection()
+        path = NavigationPath([subject])
+    }
+
+    /// Tantárgy-sor: gomb, ami a `path`-ra tolja a tárgyat — mindkét skinben.
+    /// Korábban `NavigationLink(value:)` volt (Minecraftban egy rejtett,
+    /// nulla méretű link a sor alatt): az a lista sor-kiválasztására
+    /// támaszkodott, ami a sorra/listára kerülő bármely gesztussal (és
+    /// frissítés közbeni újrarajzolással) elnyelődhetett — „többször kell
+    /// rányomni, mire megnyílik". A gomb saját, determinisztikus találati
+    /// felülettel dolgozik: a margó a címkében van, a `contentShape` a
+    /// teljes sort fedi. Minecraftban a `.skinPlain` adja a kattanást.
     @ViewBuilder
-    private func subjectLink<Content: View>(_ subject: String, @ViewBuilder content: () -> Content) -> some View {
-        if MinecraftTheme.isActive {
-            ZStack {
-                NavigationLink(value: subject) { EmptyView() }.opacity(0)
-                HStack(spacing: 8) {
-                    content()
-                    SkinIcon("chevron.right", size: 14).foregroundStyle(.tertiary)
-                }
+    private func subjectRow<Content: View>(_ subject: String, @ViewBuilder content: () -> Content) -> some View {
+        let base = EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)
+        Button {
+            openSubject(subject)
+        } label: {
+            HStack(spacing: 8) {
+                content()
+                SkinIcon("chevron.right", size: 14)
+                    .skinFont(.footnote, weight: .semibold)
+                    .foregroundStyle(.tertiary)
             }
-        } else {
-            NavigationLink(value: subject) { content() }
+            .padding(MinecraftTheme.rowInsets(base) ?? base)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.skinPlain)
+        .accessibilityAddTraits(.isLink)
     }
 
     // MARK: - Filtering by típus (nyers kód és szép név is: "evkozi_jegy_ertekeles" / "Évközi értékelés")
@@ -326,17 +338,39 @@ struct GradesView: View {
         let t = g.type.lowercased()
         return t.contains("evvegi") || t.contains("év végi") || t.contains("évvégi")
     }
+    /// Évközi, értékelhető (nem 0-s) jegy?
+    static func isCountedEvkozi(_ g: GradeItem) -> Bool { g.value != 0 && isEvkozi(g) }
+
+    /// Egy tárgy évközi jegyei dátum szerint — a Főoldal „Legújabb jegyek"
+    /// sora is ezt adja a részletnek, így a két belépési pont ugyanazt az
+    /// átlagot / grafikont mutatja (eddig a Főoldal a félévit is beleszámolta).
+    /// Tárgy-egyezés kanonikus névvel (kis/nagybetű, ékezet, szóköz, alias).
+    static func evkoziGrades(for subject: String, in all: [GradeItem]) -> [GradeItem] {
+        let key = SubjectMatcher.canonical(subject)
+        return all.filter { isCountedEvkozi($0) && SubjectMatcher.canonical($0.subject) == key }
+            .sorted { $0.date < $1.date }
+    }
+
     /// Szűrés, csoportosítás, átlagok EGYSZER adatváltozásonként — eddig
     /// minden hozzáférés (soronként többször) újra szűrt és csoportosított.
     /// Memó a bemenetekre (jegyek, tárgyak, kerekítési küszöbök verziója).
+    ///
+    /// A tárgyak KANONIKUS kulcs (`SubjectMatcher.canonical`) szerint
+    /// egyesülnek: a jegyek (`Tantargy.Nev`), az átlag-végpont és az
+    /// órarend ugyanazt a tárgyat eltérő alakban is adhatja (záró szóköz,
+    /// kis/nagybetű). Eddig pontos szöveg-egyezés volt a kulcs, így egy
+    /// tárgy kétszer jelent meg — a „Nincs jegy" ikerre koppintva a részlet
+    /// üresen nyílt, pedig volt jegy. A kijelzett név a jegyeké (ha van).
     private struct Derived {
         var evkozi: [GradeItem] = []
         var felevi: [GradeItem] = []
         var evvegi: [GradeItem] = []
+        /// Kijelzett név → évközi jegyek dátum szerint növekvőben.
         var groupedEvkozi: [String: [GradeItem]] = [:]
-        var sortedEvkozi: [String: [GradeItem]] = [:]
         var groupedFelevi: [String: [GradeItem]] = [:]
         var groupedEvvegi: [String: [GradeItem]] = [:]
+        /// Kanonikus kulcs → kijelzett név (a részlet-kereséshez).
+        var nameForKey: [String: String] = [:]
         var displayEvkoziSubjects: [String] = []
         var overallEvkozi: Double = 0
         var overallRoundedEvkozi: Double = 0
@@ -351,19 +385,46 @@ struct GradesView: View {
     }
     @MainActor private static var derivedMemo: (key: DerivedKey, value: Derived)?
 
+    /// Kanonikus kulcs → kijelzett név: a jegyekben leggyakoribb (vágott)
+    /// alak nyer, jegy nélküli tárgynál a tárgylista alakja.
+    private static func displayNames(grades: [GradeItem], subjects: [String]) -> [String: String] {
+        var counts: [String: [String: Int]] = [:]
+        for g in grades {
+            let name = g.subject.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { continue }
+            counts[SubjectMatcher.canonical(name), default: [:]][name, default: 0] += 1
+        }
+        var out: [String: String] = [:]
+        for (key, names) in counts {
+            out[key] = names.max { $0.value != $1.value ? $0.value < $1.value : $0.key > $1.key }?.key
+        }
+        for s in subjects {
+            let name = s.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty, name != "Ismeretlen" else { continue }
+            let key = SubjectMatcher.canonical(name)
+            if out[key] == nil { out[key] = name }
+        }
+        return out
+    }
+
     private var derived: Derived {
         let key = DerivedKey(grades: grades, subjects: allSubjects, thresholdsRevision: GradingLogic.revision)
         if let m = Self.derivedMemo, m.key == key { return m.value }
         var d = Derived()
-        d.evkozi = grades.filter { $0.value != 0 && Self.isEvkozi($0) }
+        d.nameForKey = Self.displayNames(grades: grades, subjects: allSubjects)
+        let names = d.nameForKey
+        func displayName(_ g: GradeItem) -> String {
+            names[SubjectMatcher.canonical(g.subject)] ?? g.subject.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        d.evkozi = grades.filter { Self.isCountedEvkozi($0) }
         d.felevi = grades.filter { $0.value != 0 && Self.isFelevi($0) }
         d.evvegi = grades.filter { $0.value != 0 && Self.isEvvegi($0) }
-        d.groupedEvkozi = Dictionary(grouping: d.evkozi, by: { $0.subject })
-        d.sortedEvkozi = d.groupedEvkozi.mapValues { $0.sorted { $0.date < $1.date } }
-        d.groupedFelevi = Dictionary(grouping: d.felevi, by: { $0.subject })
-        d.groupedEvvegi = Dictionary(grouping: d.evvegi, by: { $0.subject })
+        d.groupedEvkozi = Dictionary(grouping: d.evkozi, by: displayName).mapValues { $0.sorted { $0.date < $1.date } }
+        d.groupedFelevi = Dictionary(grouping: d.felevi, by: displayName)
+        d.groupedEvvegi = Dictionary(grouping: d.evvegi, by: displayName)
         // KRÉTA tudja a tantárgyakat akkor is ha nincs bennük jegy — display minden felvett tárgyat mutat
-        d.displayEvkoziSubjects = Set(d.groupedEvkozi.keys).union(allSubjects).sorted()
+        d.displayEvkoziSubjects = Set(d.groupedEvkozi.keys).union(names.values)
+            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
         // overall csak évköziből, félévi/évvégi nem számít bele az évközi átlagba
         d.overallEvkozi = GradingLogic.overallAverage(grouped: d.groupedEvkozi)
         d.overallRoundedEvkozi = GradingLogic.overallRoundedAverage(grouped: d.groupedEvkozi)
@@ -384,8 +445,13 @@ struct GradesView: View {
 
     var groupedEvkozi: [String: [GradeItem]] { derived.groupedEvkozi }
 
+    /// A részlet jegyei: a kijelzett névre, különben kanonikus egyezéssel
+    /// (pl. egy régebbi alakkal a verembe került tárgy is megtalálja a jegyeit).
     private func gradesFor(_ subject: String) -> [GradeItem] {
-        derived.sortedEvkozi[subject] ?? []
+        let d = derived
+        if let hit = d.groupedEvkozi[subject] { return hit }
+        if let name = d.nameForKey[SubjectMatcher.canonical(subject)], let hit = d.groupedEvkozi[name] { return hit }
+        return []
     }
     var groupedFelevi: [String: [GradeItem]] { derived.groupedFelevi }
     var groupedEvvegi: [String: [GradeItem]] { derived.groupedEvvegi }
@@ -414,13 +480,16 @@ struct GradesView: View {
     /// jön, ha még semmi mutatnivaló nincs; egyébként a régi jegyek
     /// maradnak, és a háttérben érkező új adat dinamikusan beíródik.
     /// Lehúzás (`force`) mindent megkerül — az tényleges frissítés.
+    ///
+    /// A megjelenített jegyek forrása a közös gyorstár: sikeres letöltés
+    /// után az új lista, hibánál a legutóbbi mentett marad (a `fetchGrades`
+    /// hibánál `lastKnown ?? []`-et ad — eddig egy ilyen üres válasz a
+    /// tárgylista sikere mellett az összes jegyet kitörölte a képernyőről).
     func load(force: Bool = false) async {
         // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből.
-        guard let user = session.selectedUser else { isLoading = false; return }
-        let hadData = !grades.isEmpty
-        if !hadData { isLoading = true }
+        guard let user = session.selectedUser else { model.finishLoading(); return }
         let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
-        if iss.isEmpty || iss == "unknown" { isLoading=false; return }
+        if iss.isEmpty || iss == "unknown" { model.finishLoading(); return }
         KretaStore.shared.activate(user)
         // Új adat jött-e (mentési idő szerint) — a diff és az órára küldés
         // csak ilyenkor fut, a puszta tabváltás nem ismétli.
@@ -428,29 +497,105 @@ struct GradesView: View {
         async let gradesTask = kreta.fetchGrades(iss: iss, force: force)
         async let subjectsTask = kreta.fetchAllSubjectNames(iss: iss, force: force)
         let (g, s) = await (gradesTask, subjectsTask)
-        // Totális fetch-hiba (lejárt token, offline): a legutóbbi jegyek
-        // maradnak, nem ürül ki a Jegyek tab egy sikertelen refresh-től.
-        if g.isEmpty && s.isEmpty && !grades.isEmpty {
-            isLoading=false
-            return
-        }
-        if grades != g { grades = g }
-        let freshGrades = KretaStore.shared.savedAt(.grades) != gradesBefore || KretaStore.shared.grades == nil
+        model.apply(fetchedGrades: g, fetchedSubjects: s)
+        let freshGrades = KretaStore.shared.savedAt(.grades) != gradesBefore
         // Lehúzáskor új jegy → ünneplő kártya (elsőre csak magot vet, duplán nem jelez)
         if freshGrades { NotificationManager.shared.checkGrades(g, userId: user.id) }
-        // Megjelenítéshez a cache is jöhet (offline), de vissza csak hálózati tárgyakat
-        // mentünk — a demo-módból beszennyezett cache így következő online loadkor kigyógyul.
-        let cached = UserDefaults.standard.stringArray(forKey: KretaClient.cachedSubjectsKey) ?? []
-        let subjectsUnion = Array(Set(s).union(cached)).sorted()
-        if allSubjects != subjectsUnion { allSubjects = subjectsUnion }
-        if !s.isEmpty { UserDefaults.standard.set(s.sorted(), forKey: KretaClient.cachedSubjectsKey) }
+        // A közös tárgy-cache (Felmentés / Kerekítés listái) csak valós
+        // backend hálózati tárgyaival frissül — demo-tárgy nem kerülhet bele.
+        if !s.isEmpty, !user.isLocalBackend { KretaClient.mergeCachedSubjects(s) }
         // Apple Watch: a friss jegyek + tárgyak + kerekítések mennek az órára is.
         if freshGrades { WatchSyncSender.pushGrades(grades: grades, subjects: allSubjects) }
-        isLoading=false
+    }
+}
+
+/// A Jegyek tab adatállapota. Osztály + `@StateObject`, hogy a kezdőérték
+/// (a gyorstár olvasása) egyszer, a nézet telepítésekor fusson — a korábbi
+/// `@State x = KretaStore.shared...` kezdőértékek a MainTabView body-jában
+/// értékelődtek ki, így a store MINDEN írása (bármely adattípus frissítése)
+/// újraépítette a teljes tab-fát.
+@MainActor
+final class GradesModel: ObservableObject {
+    @Published private(set) var grades: [GradeItem]
+    @Published private(set) var subjects: [String]
+    @Published private(set) var isLoading: Bool
+    /// A legutóbbi tárgylista-letöltés (a demo-backend nem menti a store-ba).
+    private var fetchedSubjects: [String] = []
+    private var account: String?
+
+    init() {
+        let store = KretaStore.shared
+        let g: [GradeItem]? = store.value(.grades)
+        grades = g ?? []
+        subjects = Self.clean(store.value(.subjects) ?? [])
+        isLoading = g == nil
+        account = store.accountHash
+    }
+
+    private static func clean(_ names: [String]) -> [String] {
+        Array(Set(names.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && $0 != "Ismeretlen" })).sorted()
+    }
+
+    /// A gyorstár változott (bármely forrásból: Főoldal, háttérfrissítés,
+    /// lehúzás): a mentett jegyek azonnal beíródnak. Fiókváltáskor a másik
+    /// fiók adata nem maradhat a képernyőn.
+    func syncFromStore() {
+        let store = KretaStore.shared
+        let stored: [GradeItem]? = store.value(.grades)
+        let storedSubjects: [String] = store.value(.subjects) ?? []
+        if store.accountHash != account {
+            account = store.accountHash
+            fetchedSubjects = []
+            set(grades: stored ?? [], subjects: Self.clean(storedSubjects))
+            isLoading = stored == nil
+            return
+        }
+        if let stored {
+            set(grades: stored, subjects: Self.clean(storedSubjects + fetchedSubjects))
+            isLoading = false
+        } else if !storedSubjects.isEmpty {
+            set(grades: grades, subjects: Self.clean(storedSubjects + fetchedSubjects))
+        }
+    }
+
+    /// Letöltés vége: a store a mérvadó (siker = új lista, hiba = a régi
+    /// marad). Ha a store nem vette át (pl. épp más fiók aktív), a nem üres
+    /// letöltött lista jelenik meg; az üres válasz sosem töröl.
+    func apply(fetchedGrades: [GradeItem], fetchedSubjects s: [String]) {
+        let store = KretaStore.shared
+        if !s.isEmpty { fetchedSubjects = s }
+        let stored: [GradeItem]? = store.value(.grades)
+        let newGrades = stored ?? (fetchedGrades.isEmpty ? grades : fetchedGrades)
+        let storedSubjects: [String] = store.value(.subjects) ?? []
+        let merged = Self.clean(storedSubjects + fetchedSubjects)
+        set(grades: newGrades, subjects: merged.isEmpty ? subjects : merged)
+        isLoading = false
+    }
+
+    func finishLoading() { isLoading = false }
+
+    private func set(grades g: [GradeItem], subjects s: [String]) {
+        if grades != g { grades = g }
+        if subjects != s { subjects = s }
     }
 }
 
 private extension View {
+    /// Tantárgy-sor chrome: a margó a gomb címkéjében van (lásd
+    /// `subjectRow`), így a sor teljes felülete koppintható — a sor-inset
+    /// nulla. Minecraftban blokk-panel háttér, rejtett elválasztó.
+    @ViewBuilder
+    func subjectRowChrome(fill: Color) -> some View {
+        if MinecraftTheme.isActive {
+            self.listRowBackground(MinecraftTheme.skinRowBackground(fill))
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets())
+        } else {
+            self.listRowInsets(EdgeInsets())
+        }
+    }
+
     /// Átlag-összefoglaló sor: Summitban átlátszó, elválasztó nélküli sor
     /// (a háttéren lebeg), Minecraftban blokk-panel — az ég előtt a
     /// szám különben nem lenne olvasható.
