@@ -50,6 +50,20 @@ struct AttachmentRow: View {
     @ObservedObject var store: AttachmentStore
     @EnvironmentObject var kreta: KretaClient
     @Environment(\.colorScheme) var scheme
+    private var cp: Bool { CyberpunkTheme.isActive }
+
+    /// Fájltípus-kód a kiterjesztésből (`PDF`, `IMG`, `DOC`…) a Cyberpunk-sorhoz.
+    static func cpTypeCode(_ name: String) -> String {
+        let ext = (name as NSString).pathExtension.lowercased()
+        switch ext {
+        case "": return "FILE"
+        case "png", "jpg", "jpeg", "heic", "gif", "webp": return "IMG"
+        case "doc", "docx", "odt", "rtf": return "DOC"
+        case "xls", "xlsx", "ods", "csv": return "XLS"
+        case "ppt", "pptx", "odp": return "PPT"
+        default: return String(ext.prefix(4)).uppercased()
+        }
+    }
 
     var body: some View {
         if MinecraftTheme.isActive {
@@ -83,29 +97,53 @@ struct AttachmentRow: View {
                     } else {
                         SkinIcon(att.symbol)
                             .skinFont(.caption, weight: .semibold)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(cp ? AnyShapeStyle(CyberpunkTheme.cyan) : AnyShapeStyle(.secondary))
                             .frame(width: 20)
                     }
                     Text(att.name)
                         .skinFont(.caption, weight: .medium)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(cp ? AnyShapeStyle(CyberpunkTheme.text) : AnyShapeStyle(.primary))
                         .lineLimit(1)
+                    if cp {
+                        CPLabel(Self.cpTypeCode(att.name), color: CyberpunkTheme.cyan)
+                    }
                     if let s = att.sizeText {
-                        Text(s).skinFont(.caption2).foregroundStyle(.tertiary).monospacedDigit()
+                        Text(s).cpgSizeFont().foregroundStyle(.tertiary).monospacedDigit()
                     }
                     Spacer(minLength: 4)
                     SkinIcon("chevron.right")
                         .skinFont(.caption2, weight: .semibold)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(cp ? AnyShapeStyle(CyberpunkTheme.cyan) : AnyShapeStyle(.tertiary))
                 }
                 .padding(.horizontal, 10).padding(.vertical, 8)
-                .background(
-                    Capsule()
-                        .fill(Color.primary.opacity(scheme == .dark ? 0.08 : 0.05))
-                        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
-                )
+                .background {
+                    if cp {
+                        // Cyberpunk: levágott sarkú adat-csík, 1 px-es cián kerettel.
+                        CPChamferShape(cut: 8, corners: [.topLeft, .bottomRight])
+                            .fill(CyberpunkTheme.cyan.opacity(0.06))
+                            .overlay(CPChamferShape(cut: 8, corners: [.topLeft, .bottomRight])
+                                .strokeBorder(CyberpunkTheme.cyan.opacity(0.55), lineWidth: 1))
+                    } else {
+                        Capsule()
+                            .fill(Color.primary.opacity(scheme == .dark ? 0.08 : 0.05))
+                            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+                    }
+                }
             }
             .buttonStyle(.skinPlain)
+        }
+    }
+}
+
+private extension View {
+    /// Méret-felirat: Cyberpunkban egyenközű HUD-betű, máshol a korábbi
+    /// `skinFont(.caption2)`.
+    @ViewBuilder
+    func cpgSizeFont() -> some View {
+        if CyberpunkTheme.isActive {
+            self.font(CyberpunkTheme.mono(size: 10, relativeTo: .caption2))
+        } else {
+            self.skinFont(.caption2)
         }
     }
 }
@@ -127,7 +165,7 @@ struct AttachmentsBlock: View {
                 }
                 if let err = store.errorText {
                     SkinLabel(err, systemImage: "exclamationmark.triangle.fill")
-                        .skinFont(.caption).foregroundStyle(.orange)
+                        .skinFont(.caption).foregroundStyle(CyberpunkTheme.isActive ? CyberpunkTheme.red : Color.orange)
                 }
             }
             .sheet(isPresented: $store.isPreviewing) {

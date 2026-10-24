@@ -37,6 +37,12 @@ struct MessagesView: View {
     var body: some View {
         List {
                 Section {
+                    if theme.isCyberpunk {
+                        cpStatusLine
+                            .listRowBackground(Color.clear)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 0, trailing: 16))
+                            .listRowSeparator(.hidden)
+                    }
                     SkinSegmented(selection: $topTab, options: [
                         SkinOption(value: 0, title: "Üzenetek"), SkinOption(value: 1, title: "Feljegyzések"),
                     ])
@@ -96,22 +102,29 @@ struct MessagesView: View {
                                             .frame(width: 24)
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(m.sender).skinFont(.subheadline, weight: .semibold).lineLimit(1)
+                                                .cpgContact(unread: !m.isRead)
                                             Text(m.subject).skinFont(.caption).foregroundStyle(.secondary).lineLimit(2)
                                             HStack(spacing: 6) {
-                                                Text(m.date.formatted(date: .abbreviated, time: .omitted))
-                                                    .skinFont(.caption2).foregroundStyle(.tertiary)
+                                                Text(theme.isCyberpunk ? cpStamp(m.date) : m.date.formatted(date: .abbreviated, time: .omitted))
+                                                    .cpgMono(.caption2, size: 10).foregroundStyle(.tertiary)
                                                 if !m.attachments.isEmpty {
-                                                    SkinLabel("\(m.attachments.count)", systemImage: "paperclip")
-                                                        .skinFont(.caption2, weight: .medium).foregroundStyle(.secondary)
+                                                    if theme.isCyberpunk {
+                                                        CPLabel("ATT \(m.attachments.count)", color: CyberpunkTheme.cyan)
+                                                    } else {
+                                                        SkinLabel("\(m.attachments.count)", systemImage: "paperclip")
+                                                            .skinFont(.caption2, weight: .medium).foregroundStyle(.secondary)
+                                                    }
                                                 }
                                             }
                                         }
                                         Spacer(minLength: 4)
                                         if !m.isRead {
+                                            if theme.isCyberpunk { CPLabel("NEW", color: CyberpunkTheme.yellow) }
                                             SkinDot(color: colors.accent, size: 8)
                                         }
                                     }
                                 }
+                                .cpgThreadRow(unread: !m.isRead)
                             }
                         }
                         .mcListRowComfy(fill: colors.surface)
@@ -177,14 +190,16 @@ struct MessagesView: View {
             .contentShape(Rectangle())
             .onTapGesture { toggleNote(n.id, expanded: expanded) }
             HStack(spacing: 6) {
-                Text(n.displayType).skinFont(.caption2, weight: .semibold)
+                Text(n.displayType).cpgMono(.caption2, size: 10, weight: .semibold)
+                    .cpgTag(CyberpunkTheme.coral)
                     .padding(.horizontal, 8).padding(.vertical, 3)
-                    .skinPill(fill: colors.accent.opacity(0.14))
+                    .skinPill(fill: theme.isCyberpunk ? CyberpunkTheme.coral.opacity(0.10) : colors.accent.opacity(0.14),
+                              stroke: theme.isCyberpunk ? CyberpunkTheme.coral.opacity(0.7) : nil)
                 if !n.teacher.isEmpty {
                     Text(n.teacher).skinFont(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Text(huDate(n.date))
-                    .skinFont(.caption2).foregroundStyle(.tertiary)
+                    .cpgMono(.caption2, size: 10).foregroundStyle(.tertiary)
             }
             if expanded {
                 if n.plainBody.isEmpty {
@@ -215,6 +230,34 @@ struct MessagesView: View {
     // nem a rendszer "2026. Sep 2."-ja.
     private func huDate(_ d: Date) -> String {
         let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "yyyy. MMM d."
+        return f.string(from: d)
+    }
+
+    // MARK: Cyberpunk — a játékbeli telefon MESSAGES-appjának fejléce
+
+    /// Apró HUD-státuszsor a szegmensek fölött: rendszer-kód balra, a
+    /// darabszámok egyenközű betűvel jobbra. Tabváltáskor egyszer rándul
+    /// (a `cpGlitch` Reduce Motion mellett néma).
+    private var cpStatusLine: some View {
+        let unread = messages.filter { !$0.isRead }.count
+        let count = topTab == 0
+            ? "\(messages.count) MSG · \(unread) NEW"
+            : "\(notes.count) NOTES"
+        return HStack(spacing: 8) {
+            CPLabel(topTab == 0 ? "// MESSAGES.SYS" : "// NOTICES.SYS",
+                    color: CyberpunkTheme.yellow, bracketed: false)
+                .cpGlitch(trigger: topTab)
+            Rectangle().fill(CyberpunkTheme.red.opacity(0.35)).frame(height: 1)
+            CPLabel(count, color: CyberpunkTheme.dim, bracketed: false)
+                .fixedSize()
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(topTab == 0 ? "\(messages.count) üzenet, \(unread) olvasatlan" : "\(notes.count) feljegyzés")
+    }
+
+    /// HUD-időbélyeg a listasorba: `24.10.2026 // 14:02`.
+    private func cpStamp(_ d: Date) -> String {
+        let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "dd.MM.yyyy // HH:mm"
         return f.string(from: d)
     }
 
@@ -280,14 +323,19 @@ private struct MessageDetailView: View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
+                    if theme.isCyberpunk {
+                        CPLabel("INCOMING // SECURE CHANNEL", color: CyberpunkTheme.cyan, bracketed: false)
+                    }
                     Text(shown.subject)
                         .skinFont(.headline)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     HStack(spacing: 6) {
-                        Text(shown.sender).skinFont(.caption, weight: .semibold).foregroundStyle(.secondary)
+                        Text(shown.sender).skinFont(.caption, weight: .semibold)
+                            .cpgContact(unread: true)
+                            .foregroundStyle(.secondary)
                         Text("•").foregroundStyle(.tertiary)
                         Text(shown.date.formatted(date: .abbreviated, time: .shortened))
-                            .skinFont(.caption).foregroundStyle(.secondary)
+                            .cpgMono(.caption, size: 11).foregroundStyle(.secondary)
                     }
                     SkinDivider().opacity(0.5)
                     if isLoading && shown.body.isEmpty {
@@ -297,6 +345,7 @@ private struct MessageDetailView: View {
                     } else {
                         Text(shown.plainBody).skinFont(.callout).textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .cpgBubble()
                     }
                 }
                 .padding(.vertical, 4)
@@ -309,10 +358,14 @@ private struct MessageDetailView: View {
                     }
                     if let err = attStore.errorText {
                         SkinLabel(err, systemImage: "exclamationmark.triangle.fill")
-                            .skinFont(.caption).foregroundStyle(.orange)
+                            .skinFont(.caption).foregroundStyle(theme.isCyberpunk ? CyberpunkTheme.red : Color.orange)
                     }
                 } header: {
-                    Text("Csatolmányok (\(shown.attachments.count))")
+                    if theme.isCyberpunk {
+                        CPSectionHeader("Csatolmányok", code: String(format: "%02d", shown.attachments.count), accent: CyberpunkTheme.cyan)
+                    } else {
+                        Text("Csatolmányok (\(shown.attachments.count))")
+                    }
                 }
                 .mcListRowComfy(fill: colors.surface)
             }
@@ -342,6 +395,82 @@ private struct MessageDetailView: View {
                 QuickLookPreview(url: url)
                     .ignoresSafeArea()
             }
+        }
+    }
+}
+
+// MARK: - Cyberpunk-részletek (csak Cyberpunk-skinben hatnak)
+//
+// Egyszintű kapcsolók: Summitban és Minecraftban a modifier az eredeti
+// láncot adja vissza változatlanul (a `cpgMono` ott a régi `skinFont`).
+
+private extension View {
+    /// Egyenközű HUD-betű (dátum, kód, darabszám) Cyberpunkban; máshol a
+    /// korábbi `skinFont(style, weight:)`.
+    @ViewBuilder
+    func cpgMono(_ style: Font.TextStyle, size: CGFloat, weight: Font.Weight? = nil) -> some View {
+        if CyberpunkTheme.isActive {
+            self.font(CyberpunkTheme.mono(size: size, relativeTo: style)).tracking(0.6)
+        } else {
+            self.skinFont(style, weight: weight)
+        }
+    }
+
+    /// Feladó mint telefon-kontakt: nagybetűs, ritkított; olvasatlannál a
+    /// jellegzetes sárga, olvasottnál a sima HUD-szövegszín.
+    @ViewBuilder
+    func cpgContact(unread: Bool) -> some View {
+        if CyberpunkTheme.isActive {
+            self.textCase(.uppercase).tracking(1)
+                .foregroundStyle(unread ? CyberpunkTheme.yellow : CyberpunkTheme.text)
+        } else {
+            self
+        }
+    }
+
+    /// Kis címke-szöveg színe + nagybetű (pl. feljegyzés-típus) Cyberpunkban.
+    @ViewBuilder
+    func cpgTag(_ color: Color) -> some View {
+        if CyberpunkTheme.isActive {
+            self.textCase(.uppercase).foregroundStyle(color)
+        } else {
+            self
+        }
+    }
+
+    /// Üzenet-szál sora: a panel bal belső élén 2 pt-os jelzősáv — olvasatlan
+    /// sárga, olvasott halvány. Overlay, így a sor elrendezése nem változik.
+    @ViewBuilder
+    func cpgThreadRow(unread: Bool) -> some View {
+        if CyberpunkTheme.isActive {
+            self.overlay(alignment: .leading) {
+                Rectangle()
+                    .fill(unread ? CyberpunkTheme.yellow : CyberpunkTheme.dim.opacity(0.35))
+                    .frame(width: 2)
+                    .padding(.vertical, 2)
+                    .offset(x: -12)
+                    .accessibilityHidden(true)
+            }
+        } else {
+            self
+        }
+    }
+
+    /// Bejövő üzenet buborékja: levágott sarkú mély panel, cián bal szegéllyel
+    /// — mint a játék telefonjának beszélgetés-nézete.
+    @ViewBuilder
+    func cpgBubble() -> some View {
+        if CyberpunkTheme.isActive {
+            let shape = CPChamferShape(cut: 10, corners: [.topLeft, .bottomRight])
+            self.padding(.leading, 14).padding(.trailing, 12).padding(.vertical, 12)
+                .background(shape.fill(CyberpunkTheme.bgDeep))
+                .overlay(shape.strokeBorder(CyberpunkTheme.cyan.opacity(0.35), lineWidth: 1))
+                .overlay(alignment: .leading) {
+                    Rectangle().fill(CyberpunkTheme.cyan).frame(width: 2).padding(.vertical, 10)
+                        .accessibilityHidden(true)
+                }
+        } else {
+            self
         }
     }
 }
