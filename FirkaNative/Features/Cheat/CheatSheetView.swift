@@ -40,9 +40,12 @@ struct CheatSheetView: View {
                 List {
                     if let ex = exams.first(where: { $0.id == s.examId }) {
                         Section {
+                            if theme.isCyberpunk {
+                                CPLabel("Kapcsolt dolgozat", color: CyberpunkTheme.coral)
+                            }
                             SkinLabel("\(ex.subject) • \(ex.mode)", systemImage: "doc.text")
                                 .skinFont(.subheadline, weight: .semibold)
-                                .skinAccent(colors.accent)
+                                .skinAccent(theme.isCyberpunk ? CyberpunkTheme.coral : colors.accent)
                             if !ex.plainDescription.isEmpty {
                                 Text(ex.plainDescription)
                                     .skinFont(.caption).foregroundStyle(.secondary)
@@ -55,9 +58,13 @@ struct CheatSheetView: View {
                             SkinNavLink {
                                 MaterialTextView(material: m)
                             } label: {
-                                SkinLabel("\(m.name) • \(m.isImage ? "kép" : "\(m.text.count) kar.\(m.isPDF ? " + teljes pdf" : "")")", systemImage: m.isImage ? "photo.fill" : "doc.fill")
-                                    .skinFont(.subheadline)
-                                    .lineLimit(1)
+                                if theme.isCyberpunk {
+                                    cpgMaterialLabel(m)
+                                } else {
+                                    SkinLabel("\(m.name) • \(m.isImage ? "kép" : "\(m.text.count) kar.\(m.isPDF ? " + teljes pdf" : "")")", systemImage: m.isImage ? "photo.fill" : "doc.fill")
+                                        .skinFont(.subheadline)
+                                        .lineLimit(1)
+                                }
                             }
                         }
                         .onDelete { idx in
@@ -73,10 +80,15 @@ struct CheatSheetView: View {
                         }
                         .mcInlineButton()
                         if let err = importError {
-                            Text(err).skinFont(.caption).foregroundStyle(.red)
+                            Text(theme.isCyberpunk ? "ERR // \(err)" : err).cpgMono(.caption, size: 11)
+                                .foregroundStyle(theme.isCyberpunk ? CyberpunkTheme.red : Color.red)
                         }
                     } header: {
-                        Text("Feltöltött anyagok • \(s.materials.count) db")
+                        if theme.isCyberpunk {
+                            CPSectionHeader("Feltöltött anyagok", code: "\(s.materials.count) db", accent: CyberpunkTheme.cyan)
+                        } else {
+                            Text("Feltöltött anyagok • \(s.materials.count) db")
+                        }
                     }
                     .mcListRowComfy(fill: colors.surface)
                     Section {
@@ -85,12 +97,12 @@ struct CheatSheetView: View {
                         } label: {
                             HStack {
                                 if generating { SkinProgress().scaleEffect(0.8) }
-                                SkinLabel(generating ? "Készül…" : "Jegyzet készítése AI-jal",
+                                SkinLabel(generating ? (theme.isCyberpunk ? "Feldolgozás…" : "Készül…") : "Jegyzet készítése AI-jal",
                                       systemImage: "sparkles")
                                     .skinAccent(colors.accent)
                             }
                         }
-                        .mcInlineButton()
+                        .mcInlineButton(prominent: theme.isCyberpunk)
                         .disabled(generating || s.materials.isEmpty)
                         if !MetaAIKeyStore.hasKey {
                             Text("Saját kulcs nélkül a közös, ingyenes Gemini készíti (gyenge!) — saját Meta AI-kulccsal jobb. Kulcs a Watch-tab tetején adható meg.")
@@ -100,7 +112,8 @@ struct CheatSheetView: View {
                                 .skinFont(.caption).foregroundStyle(.secondary)
                         }
                         if let err = genError {
-                            Text(err).skinFont(.caption).foregroundStyle(.red)
+                            Text(theme.isCyberpunk ? "ERR // \(err)" : err).cpgMono(.caption, size: 11)
+                                .foregroundStyle(theme.isCyberpunk ? CyberpunkTheme.red : Color.red)
                         }
                         Button { showingAddTopic = true } label: {
                             SkinLabel("Téma kézi felvétele", systemImage: "plus")
@@ -108,7 +121,11 @@ struct CheatSheetView: View {
                         }
                         .mcInlineButton()
                     } header: {
-                        Text("Témák • \(s.topics.count) db")
+                        if theme.isCyberpunk {
+                            CPSectionHeader("Témák", code: "\(s.topics.count) db", accent: CyberpunkTheme.yellow)
+                        } else {
+                            Text("Témák • \(s.topics.count) db")
+                        }
                     }
                     .mcListRowComfy(fill: colors.surface)
                     if !s.topics.isEmpty {
@@ -118,7 +135,8 @@ struct CheatSheetView: View {
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(t.title)
                                             .skinFont(.subheadline, weight: .semibold)
-                                            .foregroundStyle(.primary)
+                                            .foregroundStyle(theme.isCyberpunk ? AnyShapeStyle(CyberpunkTheme.yellow) : AnyShapeStyle(.primary))
+                                            .textCase(theme.isCyberpunk ? .uppercase : nil)
                                             .frame(maxWidth: .infinity, alignment: .leading)
                                         if t.body.isEmpty {
                                             Text("(üres — koppints a szerkesztéshez)")
@@ -303,10 +321,16 @@ private struct TopicEditView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Cím") { TextField("Téma címe", text: $title, prompt: skinPrompt("Téma címe")).mcInput() }
-                    .mcListRowComfy(fill: colors.surface)
-                Section("Jegyzet") {
+                Section {
+                    TextField("Téma címe", text: $title, prompt: skinPrompt("Téma címe")).mcInput()
+                } header: {
+                    cpgSectionHeader("Cím", code: "01")
+                }
+                .mcListRowComfy(fill: colors.surface)
+                Section {
                     topicEditor
+                } header: {
+                    cpgSectionHeader("Jegyzet", code: "02")
                 }
                 .mcListRowComfy(fill: colors.surface)
             }
@@ -333,7 +357,7 @@ extension TopicEditView {
     /// Jegyzet-szerkesztő: Minecraftban a játék szövegmező-kerete.
     @ViewBuilder
     fileprivate var topicEditor: some View {
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             TextEditor(text: $noteBody)
                 .scrollContentBackground(.hidden)
                 .frame(minHeight: 220)
@@ -358,6 +382,7 @@ private struct MaterialTextView: View {
                 Image(uiImage: ui)
                     .resizable()
                     .scaledToFit()
+                    .cpgImageFrame()
                     .padding()
             } else {
                 Text(material.text)
@@ -367,7 +392,10 @@ private struct MaterialTextView: View {
                     .mcMaterialPanel()
             }
         }
-        .background { if theme.isMinecraft { MinecraftBackdrop(ground: false) } }
+        .background {
+            if theme.isMinecraft { MinecraftBackdrop(ground: false) }
+            else if theme.isCyberpunk { CPBackdrop() }
+        }
         .navigationTitle(material.name)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -378,6 +406,66 @@ private extension View {
     /// Summitban semmi.
     @ViewBuilder
     func mcMaterialPanel() -> some View {
-        if MinecraftTheme.isActive { self.minecraftCard().padding(.horizontal, 16) } else { self }
+        if MinecraftTheme.isActive { self.minecraftCard().padding(.horizontal, 16) }
+        else if CyberpunkTheme.isActive { self.cpPanel(accent: CyberpunkTheme.cyan, padding: nil).padding(.horizontal, 16) }
+        else { self }
     }
+
+    @ViewBuilder
+    func cpgMono(_ style: Font.TextStyle, size: CGFloat) -> some View {
+        if CyberpunkTheme.isActive {
+            self.font(CyberpunkTheme.mono(size: size, relativeTo: style)).tracking(0.6)
+        } else {
+            self.skinFont(style)
+        }
+    }
+
+    /// Kép-anyag Cyberpunkban: vékony cián, levágott sarkú keret + sarok-
+    /// konzolok, mint a játék scanner-nézetében. Máshol semmi.
+    @ViewBuilder
+    func cpgImageFrame() -> some View {
+        if CyberpunkTheme.isActive {
+            self.padding(6)
+                .overlay(CPChamferShape(cut: 10, corners: [.topLeft, .bottomRight])
+                    .strokeBorder(CyberpunkTheme.cyan.opacity(0.6), lineWidth: 1))
+                .overlay(alignment: .topTrailing) { CPLabel("SCAN", color: CyberpunkTheme.cyan).padding(8) }
+        } else {
+            self
+        }
+    }
+}
+
+// MARK: - Cyberpunk-részletek
+
+/// Form-szekció fejléce: Cyberpunkban `CPSectionHeader` kóddal, máshol a
+/// korábbi `Section("…")` fejléc-szövege.
+@ViewBuilder
+private func cpgSectionHeader(_ title: String, code: String) -> some View {
+    if CyberpunkTheme.isActive {
+        CPSectionHeader(title, code: code)
+    } else {
+        Text(LocalizedStringKey(title))
+    }
+}
+
+/// Feltöltött anyag sora Cyberpunkban: fájltípus-kód (`[PDF]`, `[IMG]`,
+/// `[TXT]`), név, jobbra egyenközű méret — mint egy adat-shard listája.
+@ViewBuilder
+private func cpgMaterialLabel(_ m: CheatMaterial) -> some View {
+    HStack(spacing: 8) {
+        CPLabel(m.isImage ? "IMG" : m.isPDF ? "PDF" : "TXT", color: CyberpunkTheme.cyan)
+        Text(m.name)
+            .font(CyberpunkTheme.font(.subheadline, weight: .semibold))
+            .foregroundStyle(CyberpunkTheme.text)
+            .lineLimit(1)
+        Spacer(minLength: 4)
+        if !m.isImage {
+            Text("\(m.text.count) CHR")
+                .font(CyberpunkTheme.mono(size: 10, relativeTo: .caption2))
+                .foregroundStyle(CyberpunkTheme.dim)
+                .lineLimit(1)
+                .fixedSize()
+        }
+    }
+    .accessibilityElement(children: .combine)
 }
