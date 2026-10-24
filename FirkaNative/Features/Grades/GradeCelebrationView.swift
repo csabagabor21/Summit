@@ -15,6 +15,16 @@ struct GradeCelebrationView: View {
     @State private var appeared = false
     @State private var pulse = false
     @State private var shownPct = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // Cyberpunk „breach"-felfedés állapota (a többi skin nem olvassa):
+    // 0 = sötét, 1 = fejléc-csík, 2 = panel nyitva (dekódol), 3 = kész.
+    @State private var cpPhase = 0
+    /// Dekódolás közben villogó álszámjegy; nil = a valódi jegy látszik.
+    @State private var cpDigit: Int? = nil
+    /// A jegy „lezárt" (dekódolás vége) — ez indítja az egyszeri glitchet.
+    @State private var cpLocked = false
+    /// Koppintással átugorva: a százalék rögtön a végértéken áll.
+    @State private var cpSkipped = false
     private let switchToGrades = Notification.Name("summit.switchToGrades")
 
     var colors: AppColors { theme.colors(for: scheme) }
@@ -32,7 +42,9 @@ struct GradeCelebrationView: View {
 
     var body: some View {
         Group {
-            if theme.isMinecraft {
+            if theme.isCyberpunk {
+                cpContent
+            } else if theme.isMinecraft {
                 mcContent
             } else {
                 summitContent
@@ -46,6 +58,8 @@ struct GradeCelebrationView: View {
                 // Minecraft: a 5-ös „Kihívás teljesítve", a többi level-up hang
                 // (egyszer; a kihívás-fanfár hosszú, ezért zárásnál leállítjuk).
                 McSound.play(grade.value == 5 ? .challengeComplete : .levelUp)
+            } else if theme.isCyberpunk {
+                // Cyberpunk: a hangok a breach-szekvenciából szólnak (cpRunBreach).
             } else {
                 withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { pulse = true }
             }
@@ -53,6 +67,11 @@ struct GradeCelebrationView: View {
         .onDisappear {
             McSound.stop(.challengeComplete)
             McSound.stop(.levelUp)
+        }
+        .task {
+            // Cyberpunk breach-felfedés (más skinben azonnal kilép).
+            guard theme.isCyberpunk else { return }
+            await cpRunBreach()
         }
         .task {
             // Százalék felpörgetése 0-ról a célra (ha nincs valós %, nincs animáció sem)
@@ -321,6 +340,231 @@ struct GradeCelebrationView: View {
                 .opacity(appeared ? 1 : 0)
             }
         }
+    }
+}
+
+// MARK: - Cyberpunk ág — „breach protocol" felfedés
+//
+// ~1,2 mp, koppintással átugorható: sárga fejléc-csík besöpör → a HUD-panel
+// függőlegesen kinyílik, a jegy 6 álszámjegyen át „dekódolódik" → lezár egy
+// rövid kromatikus rándulással + megerősítő blippel → a street-cred-szerű
+// sáv és az infó beúszik. Reduce Motion mellett nincs dekódolás/söprés,
+// csak a kész állapot (a hang marad). Rajzolás statikus, nincs per-frame.
+
+extension GradeCelebrationView {
+    /// A jegy szintje a HUD nyelvén (felirat + szín).
+    fileprivate var cpTier: (label: String, color: Color) {
+        switch grade.value {
+        case 5: return ("KIVÁLÓ // 5", CyberpunkTheme.cyanBright)
+        case 4: return ("JÓ // 4", CyberpunkTheme.green)
+        case 3: return ("KÖZEPES // 3", CyberpunkTheme.yellow)
+        case 2: return ("ELÉGSÉGES // 2", CyberpunkTheme.orange)
+        case 1: return ("RIASZTÁS // 1", CyberpunkTheme.red)
+        default: return ("JEGY", CyberpunkTheme.dim)
+        }
+    }
+
+    /// Stabil, determinisztikus „memóriacím" a jegyhez (csak díszítés).
+    fileprivate var cpCode: String {
+        let sum = grade.id.unicodeScalars.reduce(UInt32(7)) { ($0 &* 31) &+ $1.value }
+        return String(format: "0x%04X", sum & 0xFFFF)
+    }
+
+    /// A kijelzett százalék: átugrásnál / Reduce Motionnél rögtön a végérték.
+    fileprivate var cpPct: Int {
+        (cpSkipped || reduceMotion) ? (percent ?? 0) : shownPct
+    }
+
+    @MainActor
+    fileprivate func cpRunBreach() async {
+        if reduceMotion {
+            cpLocked = true
+            cpPhase = 3
+            CPSound.play(.confirm)
+            return
+        }
+        /// Alvás; false, ha közben átugrották / bezárták.
+        func nap(_ ms: UInt64) async -> Bool {
+            try? await Task.sleep(nanoseconds: ms * 1_000_000)
+            return !Task.isCancelled && cpPhase < 3
+        }
+        guard await nap(60) else { return }
+        withAnimation(.easeOut(duration: 0.2)) { cpPhase = 1 }
+        guard await nap(200) else { return }
+        CPSound.play(.glitch, volume: 0.6)
+        cpDigit = Int.random(in: 1...5)
+        withAnimation(.easeOut(duration: 0.18)) { cpPhase = 2 }
+        for _ in 0..<6 {
+            guard await nap(45) else { return }
+            let cur = cpDigit
+            cpDigit = (1...5).filter { $0 != cur }.randomElement()
+        }
+        guard await nap(45) else { return }
+        cpLock()
+        guard await nap(220) else { return }
+        withAnimation(.easeOut(duration: 0.25)) { cpPhase = 3 }
+    }
+
+    fileprivate func cpLock() {
+        guard !cpLocked else { return }
+        cpDigit = nil
+        cpLocked = true
+        CPSound.play(.confirm)
+    }
+
+    /// Koppintás a háttérre: azonnal a kész állapot.
+    fileprivate func cpSkip() {
+        guard cpPhase < 3 else { return }
+        cpSkipped = true
+        cpLock()
+        withAnimation(.easeOut(duration: 0.15)) { cpPhase = 3 }
+    }
+
+    fileprivate var cpContent: some View {
+        let tint = gradeColor
+        let tier = cpTier
+        let xp = percent != nil ? Double(cpPct) / 100 : Double(grade.value) / 5
+        return ZStack {
+            CPBackdrop()
+            // Halvány jegyszínű derengés felül (statikus).
+            LinearGradient(colors: [tint.opacity(0.16), .clear], startPoint: .top, endPoint: .center)
+                .ignoresSafeArea()
+                .accessibilityHidden(true)
+
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    CPLabel("SUMMIT // KRÉTA.NET", bracketed: false)
+                    Spacer()
+                    Button {
+                        NotificationManager.shared.celebrationGrade = nil
+                    } label: {
+                        Image(systemName: "xmark").font(.system(size: 14, weight: .bold))
+                    }
+                    .buttonStyle(CPButtonStyle(kind: .secondary, compact: true))
+                    .accessibilityLabel("Bezárás")
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+
+                // Fejléc-csík: balról besöpör (a játék breach-fejléce).
+                HStack(spacing: 8) {
+                    Text("ÚJ JEGY")
+                        .font(CyberpunkTheme.font(.headline, weight: .bold))
+                        .tracking(2)
+                    Spacer(minLength: 8)
+                    Text("BREACH // \(cpCode)")
+                        .font(CyberpunkTheme.mono(size: 11, relativeTo: .caption2))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(Color.black)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(CPChamferShape(cut: 10, corners: [.topLeft, .bottomRight]).fill(CyberpunkTheme.yellow))
+                .scaleEffect(x: cpPhase >= 1 ? 1 : 0.02, y: 1, anchor: .leading)
+                .opacity(cpPhase >= 1 ? 1 : 0)
+                .padding(.horizontal, 20)
+                .padding(.top, 14)
+                .accessibilityElement(children: .combine)
+
+                Text("KRÉTA › \(grade.subject.uppercased()) › \(dateText.uppercased())")
+                    .font(CyberpunkTheme.mono(size: 11, relativeTo: .caption2))
+                    .foregroundStyle(CyberpunkTheme.dim)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 22)
+                    .padding(.top, 6)
+                    .opacity(cpPhase >= 1 ? 1 : 0)
+
+                Spacer(minLength: 12)
+
+                // Hős-panel: függőlegesen nyílik, benne a dekódolódó jegy.
+                VStack(spacing: 10) {
+                    CPLabel(tier.label, color: tier.color, size: 11)
+                    Text("\(cpDigit ?? grade.value)")
+                        .font(CyberpunkTheme.display(size: 104, weight: .bold, relativeTo: .largeTitle))
+                        .monospacedDigit()
+                        .foregroundStyle(cpDigit == nil ? tint : CyberpunkTheme.text.opacity(0.55))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .cpChromatic(cpLocked ? 1.2 : 0)
+                        .cpGlitch(trigger: cpLocked)
+                        .contentTransition(.identity)
+                        .accessibilityLabel("\(grade.value)-es jegy")
+                    if percent != nil {
+                        Text("\(cpPct)%")
+                            .font(CyberpunkTheme.display(size: 34, weight: .semibold, relativeTo: .title))
+                            .monospacedDigit()
+                            .foregroundStyle(tint)
+                            .contentTransition(.numericText())
+                    }
+                    CPProgressBar(value: cpLocked ? xp : 0, tint: tint, segments: 20, height: 8)
+                        .animation(reduceMotion ? nil : .easeOut(duration: 0.45), value: cpLocked)
+                    HStack {
+                        CPLabel("SÚLY \(grade.weight)%", bracketed: false)
+                        Spacer()
+                        CPLabel(percent != nil ? "PONTSZÁM" : "SZINT \(grade.value)/5", bracketed: false)
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 18)
+                .frame(minWidth: 240, maxWidth: 300)
+                .background(CPPanelBackground(accent: tint, fill: CyberpunkTheme.panel, corners: .diagonal, cut: 18))
+                .scaleEffect(x: 1, y: cpPhase >= 2 ? 1 : 0.04, anchor: .center)
+                .opacity(cpPhase >= 2 ? 1 : 0)
+
+                Spacer(minLength: 16)
+
+                // Infóblokk: tantárgy + téma, alatta kód-címkék.
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(grade.subject)
+                        .font(CyberpunkTheme.display(size: 26, weight: .bold, relativeTo: .title2))
+                        .foregroundStyle(CyberpunkTheme.text)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.7)
+                    Text(topicLine)
+                        .font(CyberpunkTheme.font(.headline, weight: .semibold))
+                        .foregroundStyle(CyberpunkTheme.dim)
+                        .lineLimit(3)
+                    CPDivider(color: tint)
+                        .padding(.vertical, 4)
+                    Text("\(friendlyGradeType(grade.type)) · \(grade.teacher)".uppercased())
+                        .font(CyberpunkTheme.mono(size: 11, relativeTo: .caption))
+                        .tracking(0.6)
+                        .foregroundStyle(CyberpunkTheme.dim)
+                        .lineLimit(2)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 28)
+                .opacity(cpPhase >= 3 ? 1 : 0)
+                .offset(y: cpPhase >= 3 || reduceMotion ? 0 : 10)
+
+                Spacer(minLength: 20)
+
+                VStack(spacing: 10) {
+                    Button {
+                        NotificationManager.shared.celebrationGrade = nil
+                        NotificationCenter.default.post(name: switchToGrades, object: nil)
+                    } label: {
+                        Text("Megnézem a jegyeim")
+                    }
+                    .buttonStyle(CPButtonStyle(kind: .primary, fullWidth: true))
+                    Button {
+                        NotificationManager.shared.celebrationGrade = nil
+                    } label: {
+                        Text("Szuper!")
+                    }
+                    .buttonStyle(CPButtonStyle(kind: .secondary, fullWidth: true))
+                }
+                .padding(.horizontal, 28)
+                .padding(.bottom, 8)
+                .opacity(cpPhase >= 2 ? 1 : 0)
+            }
+        }
+        // Koppintás bárhová (a gombokon kívül) = átugrás a kész állapotra;
+        // a gombok saját koppintása elsőbbséget élvez.
+        .contentShape(Rectangle())
+        .onTapGesture { cpSkip() }
     }
 }
 

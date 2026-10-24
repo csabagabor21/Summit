@@ -102,6 +102,8 @@ struct SubjectDetailView: View {
                                 .mcDisplay(22)
                                 .foregroundStyle(.tertiary)
                                 .frame(width: 50, height: 50)
+                        } else if CyberpunkTheme.isActive {
+                            CPGradeBadge(value: rounded, size: 50)
                         } else if MinecraftTheme.isActive {
                             McGradeBlock(value: rounded, size: 50, fontSize: 22)
                         } else {
@@ -117,7 +119,7 @@ struct SubjectDetailView: View {
                         }
                     }
 
-                    if MinecraftTheme.isActive { McSeparator(footer: true) } else { Divider().opacity(0.45) }
+                    if CyberpunkTheme.isActive { CPDivider() } else if MinecraftTheme.isActive { McSeparator(footer: true) } else { Divider().opacity(0.45) }
 
                     // Szűrő — Home Tab stílusú, compact
                     SkinSegmentedPicker(selection: $graphRange, options: GraphRange.allCases.map { ($0, $0.title) })
@@ -171,7 +173,10 @@ struct SubjectDetailView: View {
                 ForEach(allGrades.sorted(by: { $0.date > $1.date })) { g in
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 10) {
-                            if MinecraftTheme.isActive {
+                            if CyberpunkTheme.isActive {
+                                CPGradeBadge(value: g.value, size: 30)
+                                    .opacity(g.id.hasPrefix("phantom") ? 0.6 : 1)
+                            } else if MinecraftTheme.isActive {
                                 McGradeBlock(value: g.value, size: 30, fontSize: 12)
                                     .opacity(g.id.hasPrefix("phantom") ? 0.6 : 1)
                             } else {
@@ -358,6 +363,11 @@ enum GraphRange: String, CaseIterable, Identifiable {
 }
 
 private extension MinecraftTheme {
-    /// Kis pont-jelző: Summitban kör, Minecraftban négyzet (pixel).
-    static var dot: AnyShape { isActive ? AnyShape(Rectangle()) : AnyShape(Circle()) }
+    /// Kis pont-jelző: Summitban kör, Minecraftban négyzet (pixel),
+    /// Cyberpunkban kis rombusz (HUD-jelölő).
+    static var dot: AnyShape {
+        if isActive { return AnyShape(Rectangle()) }
+        if CyberpunkTheme.isActive { return AnyShape(CPChamferShape(cut: 3, corners: .all)) }
+        return AnyShape(Circle())
+    }
 }

@@ -195,7 +195,9 @@ struct MonthlyWrappedCard: View {
 
     var body: some View {
         Group {
-            if MinecraftTheme.isActive {
+            if CyberpunkTheme.isActive {
+                cpBody
+            } else if MinecraftTheme.isActive {
                 mcBody
             } else {
                 summitBody
@@ -623,6 +625,171 @@ struct MonthlyWrappedCard: View {
         .padding(.vertical, 10)
     }
 
+    // MARK: Cyberpunk ág — havi „contract debrief" HUD
+
+    /// A hónap a játék stat-képernyőjének nyelvén: sárga hős-panel az
+    /// átlaggal és szegmentált sávval, kódcímkés csempék, vékony vonalak.
+    private var cpBody: some View {
+        ZStack {
+            CPBackdrop()
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(alignment: .center, spacing: 8) {
+                            CPLabel(month.wrappedTitle, color: CyberpunkTheme.dim, size: 11)
+                                .minimumScaleFactor(0.7)
+                            Spacer()
+                            Button(action: toggleStar) {
+                                Image(systemName: isStarred ? "star.fill" : "star")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                            .buttonStyle(CPButtonStyle(kind: isStarred ? .primary : .secondary, compact: true))
+                            .accessibilityLabel(isStarred ? "Csillag levétele (a kép újra forog)" : "Kép rögzítése erre a hónapra")
+                            Button {
+                                SummitHaptics.selection()
+                                share()
+                            } label: {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                            .buttonStyle(CPButtonStyle(kind: .secondary, compact: true))
+                            .accessibilityLabel("Megosztás")
+                            Button(action: onClose) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                            .buttonStyle(CPButtonStyle(kind: .secondary, compact: true))
+                            .accessibilityLabel("Bezárás")
+                        }
+                        .padding(.top, 8)
+
+                        // Hős: havi összesítő — átlag sárgán, 1–5 skálás sáv.
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                CPLabel("HAVI ÖSSZESÍTŐ", color: CyberpunkTheme.yellow, bracketed: false, size: 11)
+                                Spacer(minLength: 0)
+                                CPLabel("ID \(month.id)", bracketed: false)
+                            }
+                            Text(month.title.uppercased())
+                                .font(CyberpunkTheme.display(size: 28, weight: .bold, relativeTo: .title2))
+                                .tracking(1)
+                                .foregroundStyle(CyberpunkTheme.text)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                            Text("\(stats.count) jegy • \(stats.exams) dolgozat")
+                                .cpInk(CyberpunkTheme.dim, .subheadline)
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text(String(format: "%.1f", stats.avg))
+                                    .font(CyberpunkTheme.display(size: 72, weight: .bold, relativeTo: .largeTitle))
+                                    .monospacedDigit()
+                                    .foregroundStyle(CyberpunkTheme.yellow)
+                                    .cpChromatic(1)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.6)
+                                CPLabel("ÁTLAG", bracketed: false, size: 11)
+                            }
+                            CPProgressBar(value: stats.avg / 5, tint: CyberpunkTheme.yellow, segments: 25, height: 8)
+                            HStack {
+                                CPLabel("1.0", bracketed: false, size: 9)
+                                Spacer()
+                                CPLabel("5.0", bracketed: false, size: 9)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .cpPanel(accent: CyberpunkTheme.yellow, cut: 16, padding: 16)
+                        .padding(.top, 14)
+                        .stagger(appeared, 0)
+
+                        // Csempék: kódcímke + nagy érték + leírás.
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 12) {
+                            cpTile(code: "01", value: "\(stats.fives)", valueColor: CyberpunkTheme.gradeColor(for: 5),
+                                   label: "ötös", sub: "\(stats.count) jegyből")
+                            cpTile(code: "02", value: "\(stats.absences)",
+                                   valueColor: stats.unjustified == 0 ? CyberpunkTheme.text : CyberpunkTheme.red,
+                                   label: "hiányzás", sub: stats.unjustified == 0 ? "mind igazolt" : "\(stats.unjustified) igazolatlan")
+                            cpTile(code: "03", value: "\(stats.lateCount)",
+                                   valueColor: stats.lateCount == 0 ? CyberpunkTheme.text : CyberpunkTheme.orange,
+                                   label: "késés", sub: stats.lateCount == 0 ? "egyszer sem" : "\(stats.lateMinutes) perc")
+                            cpTile(code: "04", value: "\(stats.exams)", valueColor: CyberpunkTheme.text,
+                                   label: "dolgozat", sub: "e hónapban")
+                        }
+                        .padding(.top, 16)
+                        .stagger(appeared, 0.16)
+
+                        // Legjobb + legtöbbet javult.
+                        if stats.bestSubject != nil || stats.mostImproved != nil {
+                            VStack(spacing: 10) {
+                                if let best = stats.bestSubject {
+                                    cpRow(code: "MAX", title: "Legjobb tárgyad", value: best.name,
+                                          figure: String(format: "%.1f", best.avg), accent: CyberpunkTheme.cyan)
+                                    if stats.mostImproved != nil {
+                                        CPDivider(color: CyberpunkTheme.red, showsTick: false)
+                                    }
+                                }
+                                if let imp = stats.mostImproved {
+                                    cpRow(code: "UP", title: "Legtöbbet javultál", value: imp.name,
+                                          figure: "+" + String(format: "%.1f", imp.delta), accent: CyberpunkTheme.green)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .cpPanel(accent: CyberpunkTheme.cyan, padding: 14)
+                            .padding(.top, 12)
+                            .stagger(appeared, 0.24)
+                        }
+
+                        // Eloszlás.
+                        VStack(alignment: .leading, spacing: 10) {
+                            CPSectionHeader("Eloszlás", code: "\(stats.count) jegy")
+                            WrappedDistBar(distribution: stats.distribution, colors: distColors)
+                            cpDistCounts(stats.distribution)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .cpPanel(padding: 14)
+                        .padding(.top, 12)
+                        .padding(.bottom, 24)
+                        .stagger(appeared, 0.32)
+                    }
+                    .padding(.horizontal, 20)
+                }
+                CPLabel(personTitle, size: 10)
+                    .padding(.bottom, 18)
+            }
+        }
+    }
+
+    private func cpTile(code: String, value: String, valueColor: Color, label: String, sub: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            CPLabel(code, size: 9)
+            Text(value)
+                .font(CyberpunkTheme.display(size: 34, weight: .bold, relativeTo: .title))
+                .monospacedDigit()
+                .foregroundStyle(valueColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Text(label.uppercased()).cpInk(CyberpunkTheme.text, .caption).tracking(1).lineLimit(1)
+            Text(sub).cpInk(CyberpunkTheme.dim, .caption2).lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cpPanel(cut: 10, padding: 12)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func cpRow(code: String, title: String, value: String, figure: String, accent: Color) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            Rectangle().fill(accent).frame(width: 2, height: 34)
+            VStack(alignment: .leading, spacing: 2) {
+                CPLabel("\(code) // \(title)", color: CyberpunkTheme.dim, bracketed: false, size: 10)
+                Text(value).cpInk(CyberpunkTheme.text, .headline).lineLimit(1).minimumScaleFactor(0.7)
+            }
+            Spacer(minLength: 8)
+            Text(figure)
+                .font(CyberpunkTheme.display(size: 24, weight: .bold, relativeTo: .title3))
+                .monospacedDigit()
+                .foregroundStyle(accent)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
     // MARK: Megosztás-választó (swipe 5 hegy között)
 
     /// A kártya Megosztás gombja a hegyválasztót nyitja — a renderelés
@@ -651,6 +818,30 @@ private extension View {
             .font(MinecraftTheme.font(style))
             .foregroundStyle(Color(hex: hex))
             .shadow(color: Color(hex: shadow), radius: 0, x: MinecraftTheme.px / 1.5, y: MinecraftTheme.px / 1.5)
+    }
+}
+
+private extension View {
+    /// Cyberpunk-szöveg: Rajdhani (Dynamic Type) + HUD-szín.
+    func cpInk(_ color: Color, _ style: Font.TextStyle) -> some View {
+        self.font(CyberpunkTheme.font(style)).foregroundStyle(color)
+    }
+}
+
+/// Cyberpunk eloszlás-számok: jegyszínű számjegy + halvány darabszám (mono).
+private func cpDistCounts(_ distribution: [Int: Int]) -> some View {
+    HStack(spacing: 12) {
+        ForEach([5, 4, 3, 2, 1], id: \.self) { v in
+            HStack(spacing: 3) {
+                Text("\(v)")
+                    .font(CyberpunkTheme.display(size: 15, weight: .bold, relativeTo: .caption))
+                    .foregroundStyle(CyberpunkTheme.gradeColor(for: v))
+                Text("×\(distribution[v] ?? 0)")
+                    .font(CyberpunkTheme.mono(size: 11, relativeTo: .caption2))
+                    .foregroundStyle(CyberpunkTheme.dim)
+            }
+        }
+        Spacer(minLength: 0)
     }
 }
 
@@ -689,11 +880,45 @@ struct WrappedDistBar: View {
     var distribution: [Int: Int]
     var colors: [Int: Color]
     var body: some View {
-        if MinecraftTheme.isActive {
+        if CyberpunkTheme.isActive {
+            cpBar
+        } else if MinecraftTheme.isActive {
             mcBar
         } else {
             summitBar
         }
+    }
+
+    /// Cyberpunk: ~30 kemény élű szegmens (mint a RAM-sáv) a jegyszínekkel,
+    /// 2 pt-os résekkel, vékony halvány keretben. Minden előforduló jegy
+    /// legalább egy szegmenst kap.
+    private var cpCells: [Int] {
+        let total = distribution.values.reduce(0, +)
+        guard total > 0 else { return Array(repeating: 0, count: 30) }
+        return [5, 4, 3, 2, 1].flatMap { v -> [Int] in
+            let n = distribution[v] ?? 0
+            guard n > 0 else { return [] }
+            return Array(repeating: v, count: max(1, Int((Double(n) / Double(total) * 30).rounded())))
+        }
+    }
+
+    private var cpBar: some View {
+        let cells = cpCells
+        return GeometryReader { geo in
+            let gap: CGFloat = 2
+            let w = max(1, (geo.size.width - gap * CGFloat(cells.count - 1)) / CGFloat(cells.count))
+            HStack(spacing: gap) {
+                ForEach(Array(cells.enumerated()), id: \.offset) { _, v in
+                    Rectangle()
+                        .fill(v == 0 ? CyberpunkTheme.dim.opacity(0.18) : (colors[v] ?? CyberpunkTheme.dim))
+                        .frame(width: w)
+                }
+            }
+        }
+        .frame(height: 10)
+        .padding(3)
+        .overlay(Rectangle().strokeBorder(CyberpunkTheme.dim.opacity(0.4), lineWidth: 1))
+        .accessibilityHidden(true)
     }
 
     /// Minecraft: fekete keretes sáv, a jegyszínű szakaszok kemény élű
@@ -950,11 +1175,96 @@ struct WrappedPeakPage: View {
     }
 
     var body: some View {
-        if MinecraftTheme.isActive {
+        if CyberpunkTheme.isActive {
+            cpBody
+        } else if MinecraftTheme.isActive {
             mcBody
         } else {
             summitBody
         }
+    }
+
+    /// Cyberpunk: HUD-háttér, tömör levágott sarkú panelek, sárga hős-átlag.
+    /// Fotó és üveg nélkül, így a megosztott kép (ImageRenderer) ugyanaz,
+    /// mint a képernyő — a render-példánynak nincs külön ága.
+    private var cpBody: some View {
+        ZStack {
+            CPBackdrop()
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    Text(personTitle.uppercased())
+                        .font(CyberpunkTheme.font(.footnote, weight: .bold))
+                        .tracking(1.5)
+                        .foregroundStyle(CyberpunkTheme.yellow)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Spacer(minLength: 8)
+                    CPLabel("SUMMIT.NET", bracketed: false)
+                }
+                .padding(.top, 8)
+                CPDivider(color: CyberpunkTheme.yellow)
+                    .padding(.top, 6)
+                Spacer(minLength: 8)
+                VStack(alignment: .leading, spacing: 8) {
+                    CPLabel("\(stats.count) jegy • \(stats.exams) dolgozat", color: CyberpunkTheme.dim, size: 11)
+                    Text(String(format: "%.1f", stats.avg))
+                        .font(CyberpunkTheme.display(size: 88, weight: .bold, relativeTo: .largeTitle))
+                        .monospacedDigit()
+                        .foregroundStyle(CyberpunkTheme.yellow)
+                        .cpChromatic(1.2)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                    CPProgressBar(value: stats.avg / 5, tint: CyberpunkTheme.yellow, segments: 25, height: 8)
+                    if let best = stats.bestSubject {
+                        Text("Legjobb: \(best.name) • \(String(format: "%.1f", best.avg))")
+                            .cpInk(CyberpunkTheme.text, .subheadline)
+                            .lineLimit(2)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .cpPanel(accent: CyberpunkTheme.yellow, cut: 18, padding: 18)
+                Spacer(minLength: 10)
+                HStack(spacing: 10) {
+                    cpMini(code: "01", value: "\(stats.fives)", valueColor: CyberpunkTheme.gradeColor(for: 5), label: "ötös", sub: "\(stats.count) jegyből")
+                    cpMini(code: "02", value: "\(stats.absences)", valueColor: stats.unjustified == 0 ? CyberpunkTheme.text : CyberpunkTheme.red, label: "hiányzás", sub: absenceSub)
+                    cpMini(code: "03", value: "\(stats.lateCount)", valueColor: stats.lateCount == 0 ? CyberpunkTheme.text : CyberpunkTheme.orange, label: lateLabel)
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    WrappedDistBar(distribution: stats.distribution, colors: distColors)
+                    cpDistCounts(stats.distribution)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .cpPanel(padding: 14)
+                .padding(.top, 10)
+                Spacer(minLength: 10)
+                CPLabel("SUMMIT", size: 11)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.bottom, 4)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 56)
+            .padding(.bottom, 16)
+        }
+    }
+
+    private func cpMini(code: String, value: String, valueColor: Color, label: String, sub: String? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            CPLabel(code, size: 9)
+            Text(value)
+                .font(CyberpunkTheme.display(size: 28, weight: .bold, relativeTo: .title2))
+                .monospacedDigit()
+                .foregroundStyle(valueColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(label.uppercased()).cpInk(CyberpunkTheme.text, .caption).lineLimit(1).minimumScaleFactor(0.6)
+            Text(sub ?? " ")
+                .cpInk(CyberpunkTheme.dim, .caption2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .opacity(sub == nil ? 0 : 1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cpPanel(cut: 10, padding: 12)
     }
 
     /// Minecraft: menü-háttér, pala-panelek, advancement-keretes ikonok —
@@ -1229,7 +1539,13 @@ struct WrappedSharePicker: View {
             VStack {
                 HStack {
                     Spacer()
-                    if MinecraftTheme.isActive {
+                    if CyberpunkTheme.isActive {
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark").font(.system(size: 14, weight: .bold))
+                        }
+                        .buttonStyle(CPButtonStyle(kind: .secondary, compact: true))
+                        .accessibilityLabel("Bezárás")
+                    } else if MinecraftTheme.isActive {
                         Button { dismiss() } label: { SkinIcon("xmark", size: 24) }
                             .buttonStyle(McButtonStyle(compact: true))
                             .accessibilityLabel("Bezárás")
@@ -1248,7 +1564,17 @@ struct WrappedSharePicker: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 10)
                 Spacer()
-                if MinecraftTheme.isActive {
+                if CyberpunkTheme.isActive {
+                    Button {
+                        SummitHaptics.selection()
+                        Task { await renderAndShare() }
+                    } label: {
+                        Label("Megosztás", systemImage: "square.and.arrow.up")
+                    }
+                    .buttonStyle(CPButtonStyle(kind: .primary, fullWidth: true))
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+                } else if MinecraftTheme.isActive {
                     Button {
                         SummitHaptics.selection()
                         Task { await renderAndShare() }
@@ -1307,7 +1633,7 @@ private extension View {
     /// lista-képernyőn); Summitban semmi nem változik.
     @ViewBuilder
     func mcArchiveChrome(colors: AppColors) -> some View {
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             self.summitListChrome(colors: colors)
         } else {
             self
