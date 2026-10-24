@@ -1126,6 +1126,8 @@ struct McBackButtonModifier: ViewModifier {
                                     .font(CyberpunkTheme.mono(size: 12, relativeTo: .footnote))
                                     .tracking(1.2)
                             }
+                            // A toolbar-elem különben szűkre szabja („VI…").
+                            .fixedSize()
                             .foregroundStyle(CyberpunkTheme.yellow)
                             .padding(.vertical, 6)
                             .contentShape(Rectangle())

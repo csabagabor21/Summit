@@ -701,13 +701,14 @@ private struct AbsenceRow: View {
 
 /// Liquid Glass akció nélküli kártyára: valódi `.regular` üveg, de
 /// `.interactive()` nélkül (az csak koppintható elemre való). Minecraftban
-/// nincs üveg, a kártya saját pixel-panelje marad.
+/// és Cyberpunkban nincs üveg, a kártya saját panelje marad (Cyberpunkban
+/// az üveg lekerekített sarka kilógott a levágott sarkú HUD-panel mögül).
 private struct StaticCardGlass: ViewModifier {
     var enabled: Bool
     var cornerRadius: CGFloat
 
     func body(content: Content) -> some View {
-        if enabled && !MinecraftTheme.isActive {
+        if enabled && !MinecraftTheme.isActive && !CyberpunkTheme.isActive {
             content.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
         } else {
             content

@@ -596,10 +596,11 @@ final class GradesModel: ObservableObject {
 private extension View {
     /// Tantárgy-sor chrome: a margó a gomb címkéjében van (lásd
     /// `subjectRow`), így a sor teljes felülete koppintható — a sor-inset
-    /// nulla. Minecraftban blokk-panel háttér, rejtett elválasztó.
+    /// nulla. Minecraftban blokk-panel, Cyberpunkban HUD-sor háttér
+    /// (`skinRowBackground` mindkettőt tudja), rejtett elválasztó.
     @ViewBuilder
     func subjectRowChrome(fill: Color) -> some View {
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             self.listRowBackground(MinecraftTheme.skinRowBackground(fill))
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets())

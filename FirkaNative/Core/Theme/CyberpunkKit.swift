@@ -296,7 +296,12 @@ struct CPSectionHeader: View {
                 .tracking(1.6)
                 .foregroundStyle(accent)
                 .lineLimit(1)
-            Rectangle().fill(accent.opacity(0.35)).frame(height: 1)
+                // A cím az elsőbb: a vonal zsugorodik nullára, mielőtt a cím
+                // „…"-ra vágódna (eddig az egyenlő elosztás levágta a hosszabb
+                // címeket, pl. „LEGÚJABB JEG…").
+                .layoutPriority(1)
+                .minimumScaleFactor(0.8)
+            Rectangle().fill(accent.opacity(0.35)).frame(minWidth: 8, maxWidth: .infinity, minHeight: 1, maxHeight: 1)
             if let code {
                 Text("// \(code.uppercased())")
                     .font(CyberpunkTheme.mono(size: 10, relativeTo: .caption2))
