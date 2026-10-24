@@ -213,8 +213,10 @@ struct AbsencesView: View {
                                 .shadow(color: scheme == .dark ? colors.shadow.opacity(0.30) : .clear, radius: 14, y: 6)
                         }
                     }
-                    // Light módban glass nélkül — a glass saját árnyéka dobozba clipelődik a List-sorban
-                    .functionalGlassWhen(scheme == .dark, cornerRadius: 20)
+                    // Light módban glass nélkül — a glass saját árnyéka dobozba clipelődik a List-sorban.
+                    // Nem interaktív üveg: a kártyának nincs akciója, az
+                    // `.interactive()` ujj alatt rugózott, mintha gomb lenne.
+                    .modifier(StaticCardGlass(enabled: scheme == .dark, cornerRadius: 20))
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
@@ -623,6 +625,24 @@ private struct AbsenceRow: View {
         if isUnjustified { return colors.red.opacity(scheme == .dark ? 0.10 : 0.06) }
         if isDelay { return colors.orange.opacity(scheme == .dark ? 0.08 : 0.05) }
         return colors.surface
+    }
+}
+
+// MARK: - Statikus (nem interaktív) kártya-üveg
+
+/// Liquid Glass akció nélküli kártyára: valódi `.regular` üveg, de
+/// `.interactive()` nélkül (az csak koppintható elemre való). Minecraftban
+/// nincs üveg, a kártya saját pixel-panelje marad.
+private struct StaticCardGlass: ViewModifier {
+    var enabled: Bool
+    var cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        if enabled && !MinecraftTheme.isActive {
+            content.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            content
+        }
     }
 }
 

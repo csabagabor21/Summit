@@ -14,6 +14,15 @@ final class AttachmentStore: ObservableObject {
     @Published var loadingId: String?
     @Published var errorText: String?
 
+    /// A QuickLook-lap kötése. Csukáskor a `previewURL` is nil lesz — így
+    /// ugyanarra a csatolmányra újra koppintva a lap ismét felnyílik (a
+    /// korábbi `onChange(of: previewURL)`-es kötés azonos URL-nél nem
+    /// váltott, a második koppintás némán letöltött, de nem nyitott semmit).
+    var isPreviewing: Bool {
+        get { previewURL != nil }
+        set { if !newValue { previewURL = nil } }
+    }
+
     /// Letöltés + megnyitás. `ownerId`: házi-uid (a KRÉTA útvonalhoz kellhet).
     func open(_ att: AttachmentItem, ownerId: String? = nil, kreta: KretaClient) async {
         if loadingId != nil { return }
@@ -107,7 +116,6 @@ struct AttachmentsBlock: View {
     let attachments: [AttachmentItem]
     var ownerId: String? = nil
     @StateObject private var store = AttachmentStore()
-    @State private var showPreview = false
 
     var body: some View {
         if !attachments.isEmpty {
@@ -122,14 +130,11 @@ struct AttachmentsBlock: View {
                         .skinFont(.caption).foregroundStyle(.orange)
                 }
             }
-            .sheet(isPresented: $showPreview) {
+            .sheet(isPresented: $store.isPreviewing) {
                 if let url = store.previewURL {
                     QuickLookPreview(url: url)
                         .ignoresSafeArea()
                 }
-            }
-            .onChange(of: store.previewURL) { _, new in
-                showPreview = new != nil
             }
         }
     }

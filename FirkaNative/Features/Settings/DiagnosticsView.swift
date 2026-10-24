@@ -18,6 +18,10 @@ struct DiagnosticsView: View {
     @State private var workerStatus: String = "–"
     /// Apple Watch szinkron-jelentés (pushonként frissül).
     @State private var watchReport = WatchSyncSender.report()
+    /// Látható visszajelzés a gombokra (különben némának tűnnének).
+    @State private var logCopied = false
+    @State private var watchSyncing = false
+    @State private var workerLoading = false
 
     var body: some View {
         List {
@@ -53,7 +57,8 @@ struct DiagnosticsView: View {
             .mcListRowComfy(fill: colors.surface)
             Section {
                 Text(workerStatus).skinFont(.caption2, design: .monospaced).foregroundStyle(.secondary)
-                Button("Worker állapot frissítése") { Task { await loadWorkerStatus() } }
+                Button(workerLoading ? "Lekérés…" : "Worker állapot frissítése") { Task { await loadWorkerStatus() } }
+                .disabled(workerLoading)
                 .mcInlineButton()
             } header: {
                 Text("Worker (mai terv)").mcFont(.caption)
@@ -73,12 +78,16 @@ struct DiagnosticsView: View {
                 diagRow("Jegyzet push", watchReport.cheatText)
                 if let err = watchReport.errorText { diagRow("Hiba", err) }
                 diagRow("Ítélet", watchReport.verdictText)
-                Button("Óra szinkronizálása most") {
+                Button(watchSyncing ? "Szinkronizálás…" : "Óra szinkronizálása most") {
                     Task {
+                        watchSyncing = true
                         await WatchAutoPush.refreshNow(session: session, kreta: kreta, completed: completed)
                         watchReport = WatchSyncSender.report()
+                        watchSyncing = false
+                        SummitHaptics.selection()
                     }
                 }
+                .disabled(watchSyncing)
                 .mcInlineButton()
             } header: {
                 Text("Apple Watch szinkron").mcFont(.caption)
@@ -118,8 +127,14 @@ struct DiagnosticsView: View {
             }
             .mcListRowComfy(fill: colors.surface)
             Section {
-                Button("Napló másolása") {
+                Button(logCopied ? "Kimásolva a vágólapra" : "Napló másolása") {
                     UIPasteboard.general.string = diagExport
+                    SummitHaptics.success()
+                    logCopied = true
+                    Task {
+                        try? await Task.sleep(nanoseconds: 2_000_000_000)
+                        logCopied = false
+                    }
                 }
                 .mcInlineButton()
             } header: {
@@ -161,6 +176,8 @@ struct DiagnosticsView: View {
 
     private func loadWorkerStatus() async {
         guard let uid = session.selectedUser?.id else { workerStatus = "nincs belépett user"; return }
+        workerLoading = true
+        defer { workerLoading = false }
         workerStatus = "lekérés…"
         workerStatus = await SummitPushSync.shared.fetchStatus(userId: uid, dayKey: SummitLiveActivityManager.dayKey(for: Date()))
     }

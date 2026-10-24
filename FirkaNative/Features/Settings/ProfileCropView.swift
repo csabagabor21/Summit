@@ -123,6 +123,23 @@ struct ProfileCropView: View {
         }
     }
 
+    /// A kivágóba menő kép előkészítése: álló (`.up`) tájolásra rajzolva,
+    /// 1x skálán, a hosszabb oldal max. 2048 pont. A `cropped` a CGImage
+    /// nyers pixeleiből vág — elforgatott fotón (a kamera álló képei
+    /// `.right` tájolásúak) e nélkül rossz részletet adna.
+    static func prepared(_ image: UIImage, maxSide: CGFloat = 2048) -> UIImage {
+        let longest = max(image.size.width, image.size.height)
+        guard longest > 0 else { return image }
+        let k = min(1, maxSide / longest)
+        if image.imageOrientation == .up, image.scale == 1, k == 1 { return image }
+        let size = CGSize(width: (image.size.width * k).rounded(), height: (image.size.height * k).rounded())
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
+    }
+
     private func clamped(_ o: CGSize, dispW: CGFloat, dispH: CGFloat, side: CGFloat) -> CGSize {
         let mx = max(0, (dispW - side) / 2)
         let my = max(0, (dispH - side) / 2)
