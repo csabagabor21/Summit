@@ -81,11 +81,19 @@ struct MainTabView: View {
                     mcHotbar.padding(.bottom, 6)
                 }
             }
+            .overlay(alignment: .bottom) {
+                // Cyberpunk keskeny kijelzőn: saját HUD-sáv (a rendszer-
+                // tabsáv rejtve, a tartalom alja a sáv fölött áll meg —
+                // `mcTabChrome(inset:)`). Szélesen a natív sidebar marad.
+                // Szintén mindig jelen lévő overlay, hogy a skinváltás ne
+                // adjon új identitást a tab-fának.
+                if useCPBar { cpTabBar }
+            }
         .tint(theme.isMinecraft ? MinecraftTheme.grass : colors.accent)
         // Chrome-betűk a látható sávokra is (az init-kori beállítás
         // a már élő sávokon nem mindig fog meg).
         .onAppear {
-            MinecraftTheme.applyChromeAppearance(minecraft: theme.isMinecraft)
+            theme.skin.applyChromeAppearance()
             McSound.warmUp()
         }
         .onChange(of: theme.isMinecraft) { _, mc in
@@ -146,6 +154,7 @@ struct MainTabView: View {
         .onChange(of: selected) { _, tab in
             // Széles elrendezés (rendszer-tabsáv): itt nincs hotbar-callback.
             if theme.isMinecraft, !useCustomHotbar { McSound.play(.tab) }
+            if theme.isCyberpunk, !useCPBar { CPSound.play(.tab) }
             // Minden tabváltást hirdetünk — a másik eszköz dockjában
             // ettől jön fel a Summit ikon az aktuális hellyel.
             HandoffCenter.shared.setTab(tab)
@@ -191,19 +200,19 @@ struct MainTabView: View {
     private var nativeSidebar: some View {
         TabView(selection: $selected) {
             Tab(value: 0) {
-                HomeView().mcTabChrome(hidden: useCustomHotbar).id(mcRootTokens[0, default: 0])
+                HomeView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).id(mcRootTokens[0, default: 0])
             } label: { tabLabel(0) }
             Tab(value: 1) {
-                GradesView().mcTabChrome(hidden: useCustomHotbar).id(mcRootTokens[1, default: 0])
+                GradesView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).id(mcRootTokens[1, default: 0])
             } label: { tabLabel(1) }
             Tab(value: 2) {
-                TimetableView().mcTabChrome(hidden: useCustomHotbar).id(mcRootTokens[2, default: 0])
+                TimetableView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).id(mcRootTokens[2, default: 0])
             } label: { tabLabel(2) }
             Tab(value: 5) {
-                NotesView().mcTabChrome(hidden: useCustomHotbar).id(mcRootTokens[5, default: 0])
+                NotesView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).id(mcRootTokens[5, default: 0])
             } label: { tabLabel(5) }
             Tab(value: 4) {
-                AbsencesView().mcTabChrome(hidden: useCustomHotbar).id(mcRootTokens[4, default: 0])
+                AbsencesView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).id(mcRootTokens[4, default: 0])
             } label: { tabLabel(4) }
             // Watch-tab CSAK széles elrendezésen (iPad / Mac sidebar) —
             // iPhone-on nincs (ott a Feladatok bal felső toolbar-gombja
@@ -234,6 +243,7 @@ struct MainTabView: View {
 
     /// Minecraft-skinben blokkos ikonok + címek, különben a gyáriak.
     private func tabIcon(_ tab: Int) -> String {
+        if theme.isCyberpunk { return Self.cpTabIcon(tab) }
         guard theme.isMinecraft else {
             switch tab {
             case 0: return "house.fill"
@@ -250,6 +260,46 @@ struct MainTabView: View {
     /// Minecraft keskeny kijelzőn: a rendszer-tabsáv rejtve — helyette
     /// saját hotbar jön a fűblokkra. Máshol a natív sáv marad.
     private var useCustomHotbar: Bool { theme.isMinecraft && !isWide }
+    /// Cyberpunk keskeny kijelzőn: saját HUD-tabsáv (lásd `CPTabBar`).
+    private var useCPBar: Bool { theme.isCyberpunk && !isWide }
+    /// Rejtett-e a rendszer-tabsáv (saját sáv van helyette).
+    private var hidesSystemTabBar: Bool { useCustomHotbar || useCPBar }
+    /// A saját sáv által elfoglalt alsó sáv magassága (a tartalom ennyivel
+    /// előbb áll meg).
+    private var customBarInset: CGFloat {
+        useCPBar ? CPTabBar.height : MainTabView.mcFooterHeight + McFlora.maxHeight
+    }
+
+    /// Cyberpunk-tabikonok: körvonalas (nem kitöltött) SF-szimbólumok —
+    /// vékony HUD-rajzolat.
+    static func cpTabIcon(_ tab: Int) -> String {
+        switch tab {
+        case 0: return "house"
+        case 1: return "star"
+        case 2: return "calendar"
+        case 5: return "checklist"
+        case 4: return "person.crop.rectangle.stack"
+        case 3: return "applewatch"
+        default: return "circle"
+        }
+    }
+
+    /// Saját Cyberpunk HUD-tabsáv. Újrakoppintás az aktív fülre: a tab
+    /// verme a gyökérre ugrik (mint a hotbaron / rendszer-sávon).
+    private var cpTabBar: some View {
+        CPTabBar(
+            items: [0, 1, 2, 5, 4].map { CPTabBar.Item(tab: $0, icon: Self.cpTabIcon($0), title: tabTitle($0)) },
+            selected: selected
+        ) { tab in
+            SummitHaptics.selection()
+            CPSound.play(.tab)
+            if tab == selected {
+                mcRootTokens[tab, default: 0] += 1
+            } else {
+                selected = tab
+            }
+        }
+    }
     /// Hotbar-újrakoppintás: az aktív slotra koppintva a tab navigációs
     /// verme a gyökérre ugrik (mint a rendszer-tabsávon) — az új azonosító
     /// újraépíti a tab NavigationStackjét.
@@ -301,11 +351,11 @@ struct MainTabView: View {
     // MARK: - iOS 17 fallback (Summit target régebbi OS-en) — natív TabView
     private var phoneTabsLegacy: some View {
         TabView(selection: $selected) {
-            HomeView().mcTabChrome(hidden: useCustomHotbar).tabItem { tabLabel(0) }.tag(0)
-            GradesView().mcTabChrome(hidden: useCustomHotbar).tabItem { tabLabel(1) }.tag(1)
-            TimetableView().mcTabChrome(hidden: useCustomHotbar).tabItem { tabLabel(2) }.tag(2)
-            NotesView().mcTabChrome(hidden: useCustomHotbar).tabItem { tabLabel(5) }.tag(5)
-            AbsencesView().mcTabChrome(hidden: useCustomHotbar).tabItem { tabLabel(4) }.tag(4)
+            HomeView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).tabItem { tabLabel(0) }.tag(0)
+            GradesView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).tabItem { tabLabel(1) }.tag(1)
+            TimetableView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).tabItem { tabLabel(2) }.tag(2)
+            NotesView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).tabItem { tabLabel(5) }.tag(5)
+            AbsencesView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).tabItem { tabLabel(4) }.tag(4)
             if watchTabVisible {
                 CheatView().tabItem { tabLabel(3) }.tag(3)
             }
@@ -316,15 +366,17 @@ struct MainTabView: View {
 /// Minecraft-tabrejtés: keskeny kijelzőn Minecraft-skinben elrejti a
 /// rendszer-tabsávot (helyette a saját hotbar látszik a fűblokkon).
 private extension View {
-    /// Egyetlen, ág nélküli lánc (a `hidden` csak értékeket vált): skin-
-    /// váltáskor a tab gyökere — és vele a NavigationStack — megmarad.
-    func mcTabChrome(hidden: Bool) -> some View {
+    /// Egyetlen, ág nélküli lánc (a `hidden` és az `inset` csak értékeket
+    /// vált): skinváltáskor a tab gyökere — és vele a NavigationStack —
+    /// megmarad.
+    func mcTabChrome(hidden: Bool, inset: CGFloat) -> some View {
         self.toolbar(hidden ? .hidden : .automatic, for: .tabBar)
-            // A tartalom alá behúzódik a talaj + a növények sávja: a
-            // görgetett sorok mögé csúsznak, a lista vége fölöttük áll meg.
+            // A tartalom alá behúzódik a saját sáv (Minecraftban a talaj
+            // + a növények, Cyberpunkban a HUD-sáv): a görgetett sorok
+            // mögé csúsznak, a lista vége fölöttük áll meg.
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 Color.clear
-                    .frame(height: hidden ? MainTabView.mcFooterHeight + McFlora.maxHeight : 0)
+                    .frame(height: hidden ? inset : 0)
                     .allowsHitTesting(false)
             }
     }
@@ -467,5 +519,80 @@ private struct McHotbar: View {
         .frame(width: CGFloat(barWidthPx + 4) * px, height: CGFloat(barHeightPx + 4) * px)
         .offset(x: -2 * px, y: -2 * px)
         .allowsHitTesting(false)
+    }
+}
+
+/// Cyberpunk 2077 HUD-tabsáv: majdnem fekete, opak sáv vékony vörös felső
+/// vonallal (bal végén fényes szakasz), öt cella vékony ikonnal és apró
+/// egyenközű nagybetűs felirattal; a kijelölt cella sárga, levágott sarkú
+/// kitöltést kap fekete tartalommal, sarkában a fül kódja (01–05).
+/// Statikus, olcsó nézet: nincs animáció, nincs üveg.
+struct CPTabBar: View {
+    struct Item: Identifiable {
+        let tab: Int
+        let icon: String
+        let title: String
+        var id: Int { tab }
+    }
+    var items: [Item]
+    var selected: Int
+    var onSelect: (Int) -> Void
+
+    /// A sáv magassága a home-jelző fölött (a tartalom ennyivel előbb áll meg).
+    static let height: CGFloat = 60
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ZStack(alignment: .leading) {
+                Rectangle().fill(CyberpunkTheme.red.opacity(0.5)).frame(height: 1)
+                Rectangle().fill(CyberpunkTheme.red).frame(width: 56, height: 2)
+            }
+            .frame(height: 2)
+            HStack(spacing: 4) {
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    let on = item.tab == selected
+                    Button { onSelect(item.tab) } label: {
+                        cell(item, index: index, on: on)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(item.title)
+                    .accessibilityAddTraits(on ? [.isSelected, .isButton] : .isButton)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.top, 6)
+            .padding(.bottom, 4)
+        }
+        .frame(height: Self.height, alignment: .top)
+        .background(CyberpunkTheme.bg.ignoresSafeArea(edges: .bottom))
+    }
+
+    private func cell(_ item: Item, index: Int, on: Bool) -> some View {
+        VStack(spacing: 3) {
+            Image(systemName: item.icon)
+                .font(.system(size: 19, weight: on ? .regular : .light))
+                .frame(height: 22)
+            Text(item.title.uppercased())
+                .font(CyberpunkTheme.mono(size: 9, relativeTo: .caption2))
+                .tracking(0.6)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+        .foregroundStyle(on ? Color.black : CyberpunkTheme.text.opacity(0.62))
+        .frame(maxWidth: .infinity, minHeight: 48)
+        .background {
+            if on {
+                CPChamferShape(cut: 8, corners: [.topLeft, .bottomRight]).fill(CyberpunkTheme.yellow)
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            Text(String(format: "%02d", index + 1))
+                .font(CyberpunkTheme.mono(size: 7, relativeTo: .caption2))
+                .foregroundStyle(on ? Color.black.opacity(0.6) : CyberpunkTheme.dim.opacity(0.7))
+                .padding(.top, 2)
+                .padding(.trailing, 4)
+                .accessibilityHidden(true)
+        }
+        .contentShape(Rectangle())
     }
 }
