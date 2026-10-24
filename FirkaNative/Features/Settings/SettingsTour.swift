@@ -60,6 +60,7 @@ private struct TourHighlightModifier: ViewModifier {
                         RoundedRectangle(cornerRadius: 20)
                             .strokeBorder(accent, lineWidth: 2.5)
                             .shadow(color: accent.opacity(0.5), radius: reduceMotion ? 0 : (pulse ? 10 : 4))
+                            .allowsHitTesting(false)
                     }
                 }
             }

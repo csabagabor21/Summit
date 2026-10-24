@@ -18,6 +18,13 @@ struct SettingsView: View {
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var cropImage: UIImage?
     @State private var showPhotoOptions = false
+    @State private var showPhotoPicker = false
+    @State private var instituteMsg = ""
+    @State private var schoolNameMsg = ""
+    /// Az utolsó bekapcsolási kísérlet elbukott: a státuszsor ilyenkor a
+    /// hibát mutatja, nem a „jelszó mentve — kapcsolhatod" szöveget.
+    @State private var syncEnableFailed = false
+    @State private var confirmSyncDelete = false
     @AppStorage("exams.rolloverOnAbsence") private var examRollover = true
     @AppStorage("developer.enabled") private var devEnabled = false
     @AppStorage("home.demoPreviewActive") private var isPreviewOn = false
@@ -98,6 +105,10 @@ struct SettingsView: View {
         Group {
             // Profil-sziget (fejléc nélkül, mint eddig)
             HStack(spacing: 12) {
+                // Koppintásra: kép nélkül egyből a fotóválasztó, képpel a
+                // csere/törlés lap (korábban kép nélkül egy csak „Mégse”
+                // gombos, zsákutca-dialógus nyílt).
+                Button { avatarTapped() } label: {
                 ZStack(alignment: .bottomTrailing) {
                     ProfileImageView(name: session.displayName, userId: summitProfileKey, size: 56).frame(width: 56, height: 56)
                     if theme.isMinecraft {
@@ -113,7 +124,10 @@ struct SettingsView: View {
                             .offset(x: 2, y: 2)
                     }
                 }
-                .onTapGesture { showPhotoOptions = true }
+                .contentShape(Rectangle())
+                }
+                .buttonStyle(.skinPlain)
+                .accessibilityLabel("Profilkép módosítása")
                 VStack(alignment: .leading, spacing: 2) {
                     Text(session.displayName).skinFont(.headline)
                     if let real = session.selectedUser?.name, real != session.displayName {
@@ -136,17 +150,18 @@ struct SettingsView: View {
             .summitGlassRow(cornerRadius: 20)
             .id(AnyHashable(SettingsTour.Anchor.profile))
             .tourHighlight(active: tourIs(.profile), accent: colors.accent)
+            .photosPicker(isPresented: $showPhotoPicker, selection: $selectedPhoto, matching: .images, photoLibrary: .shared())
             .confirmationDialog("Profilkép", isPresented: $showPhotoOptions, titleVisibility: .visible) {
-                // PhotosPicker is already in row; dialog for remove
-                // (a törlés SummitSync-értesítést postol → a `photo` mező
-                // delta-feltöltése automatikus, kézi push nem kell)
+                Button("Új kép választása") { showPhotoPicker = true }
+                // A törlés SummitSync-értesítést postol → a `photo` mező
+                // delta-feltöltése automatikus, kézi push nem kell.
                 if profileStore.hasImage(for: summitProfileKey) {
                     Button("Kép törlése", role: .destructive) {
                         profileStore.remove(for: summitProfileKey)
                     }
                 }
                 Button("Mégse", role: .cancel) {}
-                } message: { Text("Új kép a Módosítással, vagy töröld a jelenlegit.") }
+                } message: { Text("Válassz új képet, vagy töröld a jelenlegit.") }
 
             // Becenév: eszköz-helyi megjelenítési név (üdvözlés, profil).
             // Nem szinkronizálódik, a KRÉTA-név és a statisztika változatlan.
@@ -181,19 +196,18 @@ struct SettingsView: View {
             // Havi Wrapped-archívum: a banner csak elsejéig él, itt minden
             // jegyes hónap visszanézhető (a jegyek gyorstárból jönnek).
             summitIsland(header: "Havi összefoglalók") {
-                summitRow {
-                    NavigationLink {
-                        MonthlyArchiveView().mcBackButton()
-                    } label: {
-                        HStack {
-                            SkinLabel("Havi összefoglalók", systemImage: "sparkles").skinFont(.subheadline, weight: .medium)
-                            Spacer()
-                            SkinIcon("chevron.right")
-                                .skinFont(.caption, weight: .semibold).foregroundStyle(.tertiary)
-                        }
+                NavigationLink {
+                    MonthlyArchiveView().mcBackButton()
+                } label: {
+                    HStack {
+                        SkinLabel("Havi összefoglalók", systemImage: "sparkles").skinFont(.subheadline, weight: .medium)
+                        Spacer()
+                        SkinIcon("chevron.right")
+                            .skinFont(.caption, weight: .semibold).foregroundStyle(.tertiary)
                     }
-                    .tint(colors.accent)
+                    .summitTapRow()
                 }
+                .tint(colors.accent)
             }
 
             summitIsland(header: "Megjelenés", tour: .appearance, tourActive: tourIs(.appearance)) {
@@ -233,23 +247,24 @@ struct SettingsView: View {
             }
 
             summitIsland(header: "Tanári kerekítés", footer: "Tantárgyanként külön állítható.", tour: .rounding, tourActive: tourIs(.rounding)) {
-                summitRow {
-                    NavigationLink { TeacherRoundingView().mcBackButton() } label: {
-                        HStack {
-                            SkinLabel("Tanári kerekítés", systemImage: "slider.horizontal.below.rounded")
-                                .skinFont(.subheadline, weight: .medium)
-                            Spacer()
-                            if isLoadingSubjects {
-                                SkinProgress().scaleEffect(0.85)
-                            } else if subjects.isEmpty {
-                                Text("—").foregroundStyle(.tertiary).skinFont(.caption)
-                            } else {
-                                Text("\(subjects.count) tárgy").skinFont(.caption, weight: .medium).foregroundStyle(.secondary)
-                            }
+                NavigationLink { TeacherRoundingView().mcBackButton() } label: {
+                    HStack {
+                        SkinLabel("Tanári kerekítés", systemImage: "slider.horizontal.below.rounded")
+                            .skinFont(.subheadline, weight: .medium)
+                        Spacer()
+                        if isLoadingSubjects {
+                            SkinProgress().scaleEffect(0.85)
+                        } else if subjects.isEmpty {
+                            Text("—").foregroundStyle(.tertiary).skinFont(.caption)
+                        } else {
+                            Text("\(subjects.count) tárgy").skinFont(.caption, weight: .medium).foregroundStyle(.secondary)
                         }
+                        SkinIcon("chevron.right")
+                            .skinFont(.caption, weight: .semibold).foregroundStyle(.tertiary)
                     }
-                    .tint(colors.accent)
+                    .summitTapRow()
                 }
+                .tint(colors.accent)
             }
         }
     }
@@ -279,19 +294,18 @@ struct SettingsView: View {
             }
 
             summitIsland(header: "Iskolai események", footer: "0. óraként az órarend tetején. A kézi beállításod sosem íródik felül.", tour: .events, tourActive: tourIs(.events)) {
-                summitRow {
-                    Button { SummitHaptics.selection(); withAnimation(SummitMotion.snappy) { calendarExpanded.toggle() } } label: {
-                        HStack {
-                            SkinLabel("Tannaptár", systemImage: "calendar").skinFont(.subheadline, weight: .medium)
-                            Spacer()
-                            SkinIcon("chevron.down")
-                                .skinFont(.caption, weight: .semibold).foregroundStyle(.secondary)
-                                .rotationEffect(.degrees(calendarExpanded ? 180 : 0))
-                        }
+                Button { SummitHaptics.selection(); withAnimation(SummitMotion.snappy) { calendarExpanded.toggle() } } label: {
+                    HStack {
+                        SkinLabel("Tannaptár", systemImage: "calendar").skinFont(.subheadline, weight: .medium)
+                        Spacer()
+                        SkinIcon("chevron.down")
+                            .skinFont(.caption, weight: .semibold).foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(calendarExpanded ? 180 : 0))
                     }
-                    .buttonStyle(.skinPlain)
-                    .accessibilityValue(calendarExpanded ? "kinyitva" : "zárva")
+                    .summitTapRow()
                 }
+                .buttonStyle(.skinPlain)
+                .accessibilityValue(calendarExpanded ? "kinyitva" : "zárva")
                 if calendarExpanded {
                     summitDivider
                     summitRow { SchoolEventsSection() }
@@ -360,20 +374,19 @@ struct SettingsView: View {
     private var settingsAccountSection: some View {
         Group {
             summitIsland(header: "Fiók", tour: .account, tourActive: tourIs(.account)) {
-                summitRow {
-                    Button { SummitHaptics.selection(); withAnimation(SummitMotion.snappy) { accountExpanded.toggle() } } label: {
-                        HStack {
-                            SkinLabel("Fiók", systemImage: "person.crop.circle").skinFont(.subheadline, weight: .medium)
-                            Spacer()
-                            Text(session.displayName).skinFont(.caption).foregroundStyle(.secondary).lineLimit(1)
-                            SkinIcon("chevron.down")
-                                .skinFont(.caption, weight: .semibold).foregroundStyle(.secondary)
-                                .rotationEffect(.degrees(accountExpanded ? 180 : 0))
-                        }
+                Button { SummitHaptics.selection(); withAnimation(SummitMotion.snappy) { accountExpanded.toggle() } } label: {
+                    HStack {
+                        SkinLabel("Fiók", systemImage: "person.crop.circle").skinFont(.subheadline, weight: .medium)
+                        Spacer()
+                        Text(session.displayName).skinFont(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        SkinIcon("chevron.down")
+                            .skinFont(.caption, weight: .semibold).foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(accountExpanded ? 180 : 0))
                     }
-                    .buttonStyle(.skinPlain)
-                    .accessibilityValue(accountExpanded ? "kinyitva" : "zárva")
+                    .summitTapRow()
                 }
+                .buttonStyle(.skinPlain)
+                .accessibilityValue(accountExpanded ? "kinyitva" : "zárva")
                 if accountExpanded {
                 summitDivider
                 summitRow {
@@ -404,14 +417,22 @@ struct SettingsView: View {
                                     .textInputAutocapitalization(.never)
                                     .autocorrectionDisabled()
                                     .summitInput()
+                                    .onChange(of: draftIss) { _, _ in instituteMsg = "" }
                                 Button("Mentés") {
                                     session.updateInstitute(draftIss)
                                     kreta.instituteCode = session.selectedUser?.instituteCode
                                     kreta.sessionExpired = false
                                     kreta.showExpiredAlert = false
+                                    SummitHaptics.selection()
+                                    instituteMsg = "Mentve: \(session.selectedUser?.instituteCode ?? draftIss) — húzd le a listákat."
                                 }
                                 .skinFont(.subheadline, weight: .bold)
+                                // Üres kóddal minden KRÉTA-hívás elhalna.
+                                .disabled(draftIss.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                                 .mcInlineButton()
+                            }
+                            if !instituteMsg.isEmpty {
+                                Text(instituteMsg).skinFont(.caption2).foregroundStyle(.secondary)
                             }
                             Text("Ha minden üres, ez a kód rossz — utána frissíts lehúzással.")
                                 .skinFont(.caption2).foregroundStyle(.tertiary)
@@ -437,8 +458,13 @@ struct SettingsView: View {
                                 TextField("pl. Siófoki SZC Mathiász János Technikum", text: $draftSchoolName, prompt: skinPrompt("pl. Siófoki SZC Mathiász János Technikum"))
                                     .skinFont(.subheadline)
                                     .summitInput()
+                                    .onChange(of: draftSchoolName) { _, _ in schoolNameMsg = "" }
                                 Button("Mentés") {
                                     session.setSchoolOverride(draftSchoolName)
+                                    SummitHaptics.selection()
+                                    schoolNameMsg = draftSchoolName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                        ? "Kézi név törölve — a KRÉTA-beli név él."
+                                        : "Mentve."
                                     Task {
                                         await session.refreshSchoolName(kreta: kreta)
                                         analytics.recordEvent(schoolName: session.heartbeatSchoolName, event: "consent", instituteCode: session.selectedUser?.instituteCode)
@@ -446,6 +472,9 @@ struct SettingsView: View {
                                 }
                                 .skinFont(.subheadline, weight: .bold)
                                 .mcInlineButton()
+                            }
+                            if !schoolNameMsg.isEmpty {
+                                Text(schoolNameMsg).skinFont(.caption2).foregroundStyle(.secondary)
                             }
                             Text("Csak ha a Diagnosztika szerint nincs név. Hivatalos, városos név kell.")
                                 .skinFont(.caption2).foregroundStyle(.tertiary)
@@ -460,15 +489,21 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Meta AI-kulcs").skinFont(.caption, weight: .semibold).foregroundStyle(.secondary)
                         HStack {
-                            SecureField("Meta API-kulcs", text: $draftMetaAIKey, prompt: skinPrompt("Meta API-kulcs"))
+                            // Csak a user gépelése jelöl szerkesztettnek és törli az
+                            // üzenetet — a kódbeli beírás (betöltés, Törlés) nem
+                            // (korábban a „Törölve." azonnal el is tűnt).
+                            SecureField("Meta API-kulcs", text: Binding(
+                                get: { draftMetaAIKey },
+                                set: { new in
+                                    draftMetaAIKey = new
+                                    metaAIKeyEdited = true
+                                    metaAIKeyMsg = ""
+                                }
+                            ), prompt: skinPrompt("Meta API-kulcs"))
                                 .skinFont(.subheadline, design: .monospaced)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
                                 .summitInput()
-                                .onChange(of: draftMetaAIKey) { _, _ in
-                                    metaAIKeyEdited = true
-                                    metaAIKeyMsg = ""
-                                }
                             Button("Mentés") {
                                 MetaAIKeyStore.save(draftMetaAIKey)
                                 metaAIKeyEdited = false
@@ -513,37 +548,41 @@ struct SettingsView: View {
     private var settingsBottomSection: some View {
         Group {
             summitIsland(header: "Diagnosztika", tour: .diagnostics, tourActive: tourIs(.diagnostics)) {
-                summitRow {
-                    NavigationLink { DiagnosticsView().mcBackButton() } label: {
-                        HStack {
-                            SkinLabel("Diagnosztika", systemImage: "stethoscope")
-                                .skinFont(.subheadline, weight: .medium)
-                            Spacer()
-                            if kreta.sessionExpired {
-                                Text("hiba").skinFont(.caption2, weight: .bold).foregroundStyle(.red)
-                            } else if !kreta.diagLog.isEmpty {
-                                Text("\(kreta.diagLog.count)").skinFont(.caption2, design: .monospaced).foregroundStyle(.tertiary)
-                            }
+                NavigationLink { DiagnosticsView().mcBackButton() } label: {
+                    HStack {
+                        SkinLabel("Diagnosztika", systemImage: "stethoscope")
+                            .skinFont(.subheadline, weight: .medium)
+                        Spacer()
+                        if kreta.sessionExpired {
+                            Text("hiba").skinFont(.caption2, weight: .bold).foregroundStyle(.red)
+                        } else if !kreta.diagLog.isEmpty {
+                            Text("\(kreta.diagLog.count)").skinFont(.caption2, design: .monospaced).foregroundStyle(.tertiary)
                         }
+                        SkinIcon("chevron.right")
+                            .skinFont(.caption, weight: .semibold).foregroundStyle(.tertiary)
                     }
+                    .summitTapRow()
                 }
+                .tint(colors.accent)
             }
 
             if devEnabled {
                 summitIsland(header: "Fejlesztő") {
-                    summitRow {
-                        NavigationLink { DeveloperView().mcBackButton() } label: {
-                            HStack {
-                                SkinLabel("Fejlesztő", systemImage: "hammer.fill")
-                                    .skinFont(.subheadline, weight: .medium)
-                                Spacer()
-                                if isPreviewOn {
-                                    Text("idő-eltolás")
-                                        .skinFont(.caption2, weight: .bold).foregroundStyle(colors.accent)
-                                }
+                    NavigationLink { DeveloperView().mcBackButton() } label: {
+                        HStack {
+                            SkinLabel("Fejlesztő", systemImage: "hammer.fill")
+                                .skinFont(.subheadline, weight: .medium)
+                            Spacer()
+                            if isPreviewOn {
+                                Text("idő-eltolás")
+                                    .skinFont(.caption2, weight: .bold).foregroundStyle(colors.accent)
                             }
+                            SkinIcon("chevron.right")
+                                .skinFont(.caption, weight: .semibold).foregroundStyle(.tertiary)
                         }
+                        .summitTapRow()
                     }
+                    .tint(colors.accent)
                 }
             }
 
@@ -574,7 +613,10 @@ struct SettingsView: View {
                 summitRow { summitSyncSection }
             }
 
-            Text("Summit • Gábor Csaba").skinFont(.caption2).foregroundStyle(.tertiary).frame(maxWidth: .infinity)
+            Text("Summit • Gábor Csaba").skinFont(.caption2).foregroundStyle(.tertiary)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
                 .onTapGesture { registerDevTap() }
         }
     }
@@ -674,6 +716,13 @@ struct SettingsView: View {
         .onChange(of: theme.sizeCategoryKey) { _, _ in summitSync.markDirty(.sizeKey) }
         .onChange(of: tourStep) { _, new in
             guard let n = new, SettingsTour.steps.indices.contains(n) else { return }
+            // A lenyíló szigeteknél (Fiók, Iskolai események) a túra
+            // szövege a rejtett tartalomról szól — azt ki is nyitjuk.
+            switch SettingsTour.steps[n].anchor {
+            case .account: withAnimation(SummitMotion.snappy) { accountExpanded = true }
+            case .events: withAnimation(SummitMotion.snappy) { calendarExpanded = true }
+            default: break
+            }
             withAnimation(SummitMotion.gentle) {
                 proxy.scrollTo(AnyHashable(SettingsTour.steps[n].anchor), anchor: .center)
             }
@@ -811,6 +860,16 @@ struct SettingsView: View {
         draftNickname = ""
     }
 
+    /// Profilkép-koppintás: kép nélkül egyből a fotóválasztó, képpel a
+    /// csere/törlés választó.
+    private func avatarTapped() {
+        if profileStore.hasImage(for: summitProfileKey) {
+            showPhotoOptions = true
+        } else {
+            showPhotoPicker = true
+        }
+    }
+
     private func summitRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 0) { content() }
             .padding(.horizontal, 16)
@@ -828,11 +887,16 @@ struct SettingsView: View {
     }
 
     private func handlePhotoChange(_ item: PhotosPickerItem?) async {
-        guard let item, let data = try? await item.loadTransferable(type: Data.self), let ui = UIImage(data: data),
+        guard let item else { return }
+        // Sikertelen betöltésnél is ürül: különben ugyanazt a képet újra
+        // kiválasztva az `onChange` nem sülne el, a választás néma maradna.
+        defer { selectedPhoto = nil }
+        guard let data = try? await item.loadTransferable(type: Data.self), let ui = UIImage(data: data),
               session.selectedUser?.id != nil else { return }
-        // Mentés előtt rendszer-fotós kivágó — a kész képet 512-re méretezzük
-        cropImage = ui
-        selectedPhoto = nil
+        // Mentés előtt rendszer-fotós kivágó — a kész képet 512-re méretezzük.
+        // Előtte álló tájolásra rajzolva: a kivágó a CGImage nyers pixeleiből
+        // vág, ami az elforgatott (pl. álló kamerás) fotónál rossz részletet adott.
+        cropImage = ProfileCropView.prepared(ui)
     }
 
     @ViewBuilder
@@ -928,6 +992,7 @@ struct SettingsView: View {
                     .textContentType(.newPassword)
                     .summitInput()
                     .disabled(summitSyncBusy)
+                    .onChange(of: summitSyncPassphrase) { _, _ in syncEnableFailed = false }
             }
             HStack(spacing: 12) {
                 if summitSync.isEnabled {
@@ -935,10 +1000,16 @@ struct SettingsView: View {
                         .skinFont(.caption, weight: .bold)
                         .disabled(summitSyncBusy)
                         .mcInlineButton()
-                    Button("Szinkron törlése", role: .destructive) { Task { await summitSyncDelete() } }
+                    Button("Szinkron törlése", role: .destructive) { confirmSyncDelete = true }
                         .skinFont(.caption, weight: .bold)
                         .disabled(summitSyncBusy)
                         .mcInlineButton()
+                        .confirmationDialog("Törlöd a szinkront?", isPresented: $confirmSyncDelete, titleVisibility: .visible) {
+                            Button("Szinkron törlése", role: .destructive) { Task { await summitSyncDelete() } }
+                            Button("Mégse", role: .cancel) {}
+                        } message: {
+                            Text("A szerveren tárolt titkosított beállítások törlődnek, és ezen az eszközön kikapcsol a szinkron. A helyi beállításaid megmaradnak.")
+                        }
                 }
                 if summitSyncBusy { SkinProgress().scaleEffect(0.8) }
                 if !summitSync.isEnabled {
@@ -965,6 +1036,7 @@ struct SettingsView: View {
     }
 
     private var summitSyncStatusText: String {
+        if syncEnableFailed { return summitSync.status }
         if SummitSync.loadPassphrase() != nil { return "jelszó mentve — kapcsolhatod" }
         return summitSync.status
     }
@@ -995,6 +1067,8 @@ struct SettingsView: View {
     }
 
     private func summitSyncEnable() async {
+        // Minden kimenetnél: ha nem kapcsolt be, a hiba-státusz látsszon.
+        defer { syncEnableFailed = !summitSync.isEnabled }
         guard let at = summitSyncToken else { summitSync.status = "nincs munkamenet"; return }
         guard summitSyncPassphrase.count >= SummitSync.minPassphraseLength else {
             summitSync.status = "min. 8 karakteres jelmondat kell"
@@ -1109,5 +1183,18 @@ private struct LiveActivitySettingsRow: View {
         // Ne itt indítsunk valódi órát — csak jogosultság próba (üres nem indít)
         // A valódi indítás a HomeView-ban történik, amikor van aktuális óra.
         manager.refreshSystemState()
+    }
+}
+
+private extension View {
+    /// Koppintható sziget-sor (gomb / link címkéje): a `summitRow` margója a
+    /// címkén BELÜL van, és a teljes téglalap találati felület — így a sor
+    /// közepe (Spacer) és széle is reagál, nem csak a felirat pixelei.
+    func summitTapRow() -> some View {
+        self
+            .padding(.horizontal, 16)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
     }
 }
