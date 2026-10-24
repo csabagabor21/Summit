@@ -27,6 +27,9 @@ struct TimetableView: View {
     // Kézi navigálás (hét/nap lapozás) után az okos ugrás nem dobhat vissza —
     // csak a "Ma" gomb és az első betöltés ugorhat a következő tanítási napra.
     @State private var userHasNavigated = false
+    /// Legutóbb kezelt „Mutatás az órarendben" kérés (a relézett ismétlés szűréséhez).
+    @State private var lastJumpKey: String?
+    @State private var lastJumpAt = Date.distantPast
     @State private var loadError: String? = nil
     @State private var flashedLessonID: String?
     /// Koppintott óra fullscreen részletezője (tanár, időpont, ikon,
@@ -412,6 +415,9 @@ struct TimetableView: View {
                     // (csak az óraszám-sor nélkül).
                     Section {
                         dayHeader(showsSummary: false)
+                        // Üres napon is lehessen napot váltani húzással.
+                        .contentShape(Rectangle())
+                        .simultaneousGesture(daySwipeGesture)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 2, trailing: 16))
@@ -433,6 +439,10 @@ struct TimetableView: View {
                             // mögé csúszna, ezért ott a fejléc alá tapad.
                             .frame(maxWidth: .infinity, minHeight: MinecraftTheme.isActive ? nil : 220)
                             .padding(.vertical, MinecraftTheme.isActive ? 0 : 16)
+                            // Óra nélküli napon eddig nem volt mit húzni: a
+                            // napváltó swipe csak az óra-idővonalon élt.
+                            .contentShape(Rectangle())
+                            .simultaneousGesture(daySwipeGesture)
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
                             .listRowInsets(EdgeInsets(top: MinecraftTheme.isActive ? 8 : 24, leading: 16, bottom: 24, trailing: 16))
@@ -444,6 +454,8 @@ struct TimetableView: View {
                     // (7 órából az utolsó felmentett → "6 óra", a 6. végéig).
                     Section {
                         dayHeader(showsSummary: true)
+                        .contentShape(Rectangle())
+                        .simultaneousGesture(daySwipeGesture)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 2, trailing: 16))
@@ -483,7 +495,10 @@ struct TimetableView: View {
             // igazodik, nyugalmi helyzetben az első óra nem csúszik alá).
             .safeAreaBar(edge: .top, spacing: 0) { weekBar }
             .scrollEdgeEffectStyle(.soft, for: .top)
-            .onChange(of: selectedDay) { _, _ in userHasNavigated = true }
+            // (A „kézi navigálás" jelzőt a user-akciók állítják — nap-sáv,
+            // swipe, hétlapozás —, nem egy selectedDay-onChange: az a kód
+            // okos nap-ugrására is tüzelt, így a „Ma" gomb a megnyomása után
+            // is kint ragadt.)
             .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
             .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
@@ -619,6 +634,13 @@ struct TimetableView: View {
                       let deadlineTS = info["deadline"] as? Double else { return }
                 let deadline = Date(timeIntervalSince1970: deadlineTS)
                 let hwId = info["hwId"] as? String
+                // A MainTabView egyszer újraküldi (lusta tab-tartalom): ha az
+                // eredetit már kezeltük, az ismétlés nem ugrik/villan újra.
+                let key = "\(subject)|\(deadlineTS)|\(hwId ?? "")"
+                if info["summit.relayed"] != nil, key == lastJumpKey,
+                   Date().timeIntervalSince(lastJumpAt) < 3 { return }
+                lastJumpKey = key
+                lastJumpAt = Date()
                 Task { await jumpToLesson(subject: subject, deadline: deadline, hwId: hwId) }
             }
             // Continuity-folytatás (élő nézet): a küldő hét/nap/órája.
@@ -898,7 +920,9 @@ struct TimetableView: View {
                 .contentTransition(.numericText())
                 .animation(SummitMotion.page, value: weekOffset)
                 .onTapGesture {
-                    guard weekOffset != 0 else { return }
+                    // Ugyanakkor él, amikor a „Ma" gomb látszik (napot
+                    // lapozva is, nem csak más héten).
+                    guard weekOffset != 0 || userHasNavigated else { return }
                     // Nem Button, ezért a kattanás kézzel (csak MC-ben szól).
                     McSound.play(.click)
                     goToSmartToday()
@@ -999,7 +1023,8 @@ struct TimetableView: View {
         return Button {
             guard tag != selectedDay else { return }
             SummitHaptics.selection()
-            McSound.play(.click)
+            // A kattanást a `.skinPlain` stílus adja (eddig duplán szólt).
+            userHasNavigated = true
             withAnimation(SummitMotion.page) { selectedDay = tag }
         } label: {
             VStack(spacing: 3) {
@@ -1546,8 +1571,8 @@ private struct TimetableRow: View {
                                     .fill(Color.clear)
                                     .glassEffect(
                                         isTintedGlass
-                                            ? .regular.tint((ringTint ?? colors.accent).opacity(scheme == .dark ? (hasAssignment ? 0.22 : isCurrent ? 0.18 : 0.12) : (hasAssignment ? 0.18 : isCurrent ? 0.14 : 0.09))).interactive()
-                                            : .regular.tint(Color.white.opacity(scheme == .dark ? 0.06 : 0.04)).interactive(),
+                                            ? .regular.tint((ringTint ?? colors.accent).opacity(scheme == .dark ? (hasAssignment ? 0.22 : isCurrent ? 0.18 : 0.12) : (hasAssignment ? 0.18 : isCurrent ? 0.14 : 0.09)))
+                                            : .regular.tint(Color.white.opacity(scheme == .dark ? 0.06 : 0.04)),
                                         in: .circle
                                     )
                             } else {
@@ -1578,7 +1603,7 @@ private struct TimetableRow: View {
             // nem a részei — beágyazott Button nem tüzelne megbízhatóan,
             // és a VoiceOver egybeolvasztaná őket.
             VStack(alignment: .leading, spacing: 0) {
-                Button(action: { print("SUMMIT-ROW-TAP \(lesson.id)"); McSound.play(.click); onSelect() }) {
+                Button(action: openDetail) {
                     HStack(alignment: .top, spacing: 10) {
                         VStack(alignment: .leading, spacing: 4) {
                         // Badge row — felmentett is zöld, elmarad piros, helyettesítés narancs;
@@ -1634,6 +1659,9 @@ private struct TimetableRow: View {
                             .foregroundStyle(.tertiary)
                     }
                     }
+                    // Teljes fejléc-felület koppintható (a Spacer-rés és a
+                    // rövid sorok melletti üres hely is), nem csak a szövegek.
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("lesson-row-\(lesson.id)")
@@ -1749,7 +1777,20 @@ private struct TimetableRow: View {
             .padding(.leading, 0)
         }
         .padding(.horizontal, 0)
+        // Az egész kártya (14 pt-os margó, óraszám-kör, üres sávok) nyitja a
+        // részletet. A fejléc-gomb és a házi/dolgozat-pillek saját gombok —
+        // a gyermek-gomb mindig nyer, így azok a saját céljukra visznek.
+        // Eddig csak a szövegek pixelei voltak koppinthatók: „többször kell
+        // rányomni, mire megnyílik".
         .contentShape(Rectangle())
+        .onTapGesture(perform: openDetail)
+    }
+
+    /// Részletező megnyitása (fejléc-gomb és a kártya többi felülete).
+    /// A gomb `.plain`, így a Minecraft-kattanás innen jön (egy forrás).
+    private func openDetail() {
+        McSound.play(.click)
+        onSelect()
     }
 
     private var remainingText: String {
@@ -1998,7 +2039,6 @@ private struct LessonDetailSheet: View {
                 .skinToolbarBackground()
             }
             .accessibilityIdentifier("lesson-detail")
-            .onAppear { print("SUMMIT-DETAIL-APPEARED \(lesson.id)") }
         }
         .tint(colors.accent)
     }
