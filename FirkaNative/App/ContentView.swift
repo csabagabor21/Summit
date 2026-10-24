@@ -6,6 +6,8 @@ struct ContentView: View {
     @EnvironmentObject var analytics: AnalyticsStore
     /// A rendszer szövegmérete (felülírás nélkül ez megy tovább változatlanul).
     @Environment(\.sizeCategory) private var systemSizeCategory
+    /// Cyberpunkra váltáskor egyszer lejátszott belépő átmenet.
+    @State private var cyberpunkBoot = false
 
     var body: some View {
         // NEM `if let felülírás { content.environment } else { content }`:
@@ -21,6 +23,15 @@ struct ContentView: View {
         .environment(\.font, theme.isMinecraft ? MinecraftTheme.font(.body)
                      : theme.isCyberpunk ? CyberpunkTheme.font(.body) : nil)
         .animation(SummitMotion.gentle, value: session.isLoggedIn)
+        // Cyberpunkra váltás a felület-választóból: rövid „boot"-átmenet.
+        .overlay {
+            if cyberpunkBoot {
+                CPBootOverlay { cyberpunkBoot = false }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: CyberpunkTheme.bootRequest)) { _ in
+            cyberpunkBoot = true
+        }
         // Skin-váltáskor a nav/tab-sávok betűje is átvált (UIKit-appearance).
         .onChange(of: theme.skin) { _, s in
             s.applyChromeAppearance()
@@ -495,7 +506,7 @@ extension View {
         if MinecraftTheme.isActive {
             self.buttonStyle(McButtonStyle(compact: compact))
         } else if CyberpunkTheme.isActive {
-            self.buttonStyle(.skinPlain)
+            self.buttonStyle(CPButtonStyle(kind: .secondary, compact: compact))
         } else {
             self.buttonStyle(.plain)
         }

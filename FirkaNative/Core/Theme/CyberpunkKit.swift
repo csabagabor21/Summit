@@ -883,3 +883,83 @@ struct CPClickButtonStyle: PrimitiveButtonStyle {
         .buttonStyle(.automatic)
     }
 }
+
+// MARK: - Belépő „boot" átmenet (skinváltáskor)
+
+extension CyberpunkTheme {
+    /// A felület-választó ezt postolja, amikor a user Cyberpunkra vált —
+    /// a gyökér (ContentView) erre egyszer lejátssza a `CPBootOverlay`-t.
+    /// (Távoli szinkronból érkező skinváltásra szándékosan nem fut.)
+    static let bootRequest = Notification.Name("summit.cyberpunk.boot")
+}
+
+/// Rövid (~1 mp) belépő átmenet Cyberpunkra váltáskor: fekete képernyő
+/// scanline-nal, végigfutó fényes pásztázó sáv, kromatikusan elcsúszó
+/// „NIGHT CITY" felirat, töltődő HUD-sáv, glitch-reccs és megerősítő blip,
+/// majd elhalványul. Nem fogja meg az érintést. Reduce Motion mellett nincs
+/// mozgás/glitch: a felirat fél mp-ig áll, aztán elhalványul.
+struct CPBootOverlay: View {
+    var onFinish: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var scan: CGFloat = 0
+    @State private var opacity: Double = 1
+    @State private var glitchTick = 0
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                CPBackdrop()
+                if !reduceMotion {
+                    LinearGradient(colors: [.clear, CyberpunkTheme.cyan.opacity(0.35), CyberpunkTheme.yellow.opacity(0.9),
+                                            CyberpunkTheme.cyan.opacity(0.35), .clear],
+                                   startPoint: .top, endPoint: .bottom)
+                        .frame(height: 46)
+                        .position(x: geo.size.width / 2, y: scan * (geo.size.height + 46) - 23)
+                        .blendMode(.screen)
+                }
+                VStack(spacing: 12) {
+                    CPLabel("SYS_BOOT // NC-2077", color: CyberpunkTheme.red)
+                    Text("NIGHT CITY")
+                        .font(CyberpunkTheme.display(size: 46, weight: .bold, relativeTo: .largeTitle))
+                        .tracking(4)
+                        .foregroundStyle(CyberpunkTheme.yellow)
+                        .cpChromatic(reduceMotion ? 0 : 2)
+                        .cpGlitch(trigger: glitchTick)
+                    CPLabel("NEURAL LINK ESTABLISHED", color: CyberpunkTheme.cyan, bracketed: false)
+                    ZStack(alignment: .leading) {
+                        Rectangle().fill(CyberpunkTheme.yellow.opacity(0.15))
+                        Rectangle().fill(CyberpunkTheme.yellow)
+                            .scaleEffect(x: max(0.001, scan), anchor: .leading)
+                    }
+                    .frame(width: 200, height: 4)
+                }
+                .position(x: geo.size.width / 2, y: geo.size.height / 2)
+            }
+        }
+        .ignoresSafeArea()
+        .opacity(opacity)
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Cyberpunk felület bekapcsolva")
+        .task {
+            CPSound.play(.glitch)
+            if reduceMotion {
+                scan = 1
+                try? await Task.sleep(for: .milliseconds(550))
+                withAnimation(.easeOut(duration: 0.25)) { opacity = 0 }
+                try? await Task.sleep(for: .milliseconds(260))
+                onFinish()
+                return
+            }
+            glitchTick += 1
+            withAnimation(.easeInOut(duration: 0.75)) { scan = 1 }
+            try? await Task.sleep(for: .milliseconds(760))
+            CPSound.play(.confirm)
+            glitchTick += 1
+            try? await Task.sleep(for: .milliseconds(180))
+            withAnimation(.easeOut(duration: 0.3)) { opacity = 0 }
+            try? await Task.sleep(for: .milliseconds(320))
+            onFinish()
+        }
+    }
+}

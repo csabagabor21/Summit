@@ -1086,7 +1086,11 @@ struct McCardBackground: View {
         if MinecraftTheme.isActive {
             McBlockPanel(face: fill)
         } else if CyberpunkTheme.isActive {
-            CPPanelBackground(fill: CyberpunkTheme.panel)
+            // A kapott (akár áttetsző állapot-) szín az opak panel-alapon.
+            ZStack {
+                CPChamferShape(cut: 12, corners: .diagonal).fill(CyberpunkTheme.panel)
+                CPPanelBackground(fill: fill)
+            }
         } else {
             RoundedRectangle(cornerRadius: cornerRadius)
                 .fill(fill)

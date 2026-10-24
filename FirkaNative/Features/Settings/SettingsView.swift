@@ -117,6 +117,14 @@ struct SettingsView: View {
                             .frame(width: 30, height: 30)
                             .background { McInventorySlot() }
                             .offset(x: 3, y: 3)
+                    } else if theme.isCyberpunk {
+                        // Levágott sarkú sárga HUD-jelvény a kerek helyett.
+                        Image(systemName: "camera")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Color.black)
+                            .frame(width: 22, height: 22)
+                            .background(CPChamferShape(cut: 5, corners: [.topLeft, .bottomRight]).fill(CyberpunkTheme.yellow))
+                            .offset(x: 2, y: 2)
                     } else {
                         Circle().fill(colors.accent).frame(width: 22, height: 22)
                             .overlay(SkinIcon("camera.fill").font(.system(size: 10, weight: .bold)).foregroundStyle(.white))
@@ -217,19 +225,25 @@ struct SettingsView: View {
                         selection: Binding(get: { theme.mode }, set: { theme.mode = $0 }),
                         options: AppThemeMode.allCases.map { SkinOption(value: $0, title: $0.title, icon: $0.icon) }
                     )
+                    // Cyberpunkban a séma kényszerítetten sötét — a választó
+                    // megmarad (a többi skinre visszaváltva él), de itt inaktív.
+                    .disabled(theme.isCyberpunk)
+                    .opacity(theme.isCyberpunk ? 0.4 : 1)
+                    if theme.isCyberpunk {
+                        CPLabel("NIGHT CITY = MINDIG SÖTÉT", color: CyberpunkTheme.dim, bracketed: false, size: 9)
+                            .padding(.top, 6)
+                    }
                 }
                 summitDivider
                 // Felület-skin: Summit (gyári) vagy Minecraft (modern
                 // 1.20+ blokk-stílus + shader-hangulat). Minden eszközre
                 // szinkronizálódik (sync `skin` mező).
+                // Három előnézeti csempe (mindegyik a saját skinje stílusában),
+                // így a választó bármelyik aktív skinben egyformán olvasható.
                 summitRow {
-                    SkinSegmented(
-                        title: "Felület",
-                        selection: Binding(get: { theme.skin }, set: { theme.skin = $0 }),
-                        options: VisualSkin.allCases.map { SkinOption(value: $0, title: $0.title, icon: $0.icon) }
-                    )
+                    SkinChoiceTiles(selection: Binding(get: { theme.skin }, set: { theme.skin = $0 }),
+                                    accent: colors.accent)
                 }
-                .accessibilityLabel("Felület: Summit, Minecraft vagy Cyberpunk")
                 summitDivider
                 // Accent —简单 színválasztó. Minecraftban a skin fűzöldje él,
                 // a kiemelőszín nem hat — ott a választó el van rejtve.
@@ -648,6 +662,8 @@ struct SettingsView: View {
         .background {
             if theme.isMinecraft {
                 MinecraftBackdrop(scrollOffset: scrollOffset, mountain: true)
+            } else if theme.isCyberpunk {
+                CPBackdrop()
             } else {
                 SummitBackdrop(scrollOffset: scrollOffset)
             }
@@ -791,14 +807,8 @@ struct SettingsView: View {
     private func summitIsland<Content: View>(header: String? = nil, footer: String? = nil, tour anchor: SettingsTour.Anchor? = nil, tourActive: Bool = false, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             if let header {
-                Group {
-                    if theme.isMinecraft {
-                        Text(header).minecraftHeader(size: 12).skinSecondaryOnSky()
-                    } else {
-                        Text(header).mcSectionHeader()
-                    }
-                }
-                .padding(.horizontal, 4)
+                SettingsIslandHeader(text: header)
+                    .padding(.horizontal, 4)
             }
             VStack(alignment: .leading, spacing: 0) {
                 content()
@@ -881,6 +891,9 @@ struct SettingsView: View {
     private var summitDivider: some View {
         if theme.isMinecraft {
             Rectangle().fill(Color.black.opacity(0.22)).frame(height: MinecraftTheme.px)
+        } else if theme.isCyberpunk {
+            // Vékony, halvány vörös HUD-vonal a sorok között.
+            Rectangle().fill(CyberpunkTheme.red.opacity(0.2)).frame(height: 1).padding(.horizontal, 14)
         } else {
             Divider().padding(.leading, 16)
         }
@@ -1124,7 +1137,7 @@ private struct SummitGlassGroup<Content: View>: View {
     var content: Content
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     var body: some View {
-        if MinecraftTheme.isActive {
+        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
             content
         } else if #available(iOS 26.0, *) {
             GlassEffectContainer { content }
@@ -1196,5 +1209,136 @@ private extension View {
             .padding(.vertical, 11)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
+    }
+}
+
+/// Sziget-fejléc a Beállításokban — egy típus, a skin a belsejében dől el
+/// (a sok sziget miatt itt nem mélyülhet a nézet-típus, lásd dcfe1eb).
+/// Cyberpunkban `CPSectionHeader` egy stabil, a címből képzett kóddal.
+private struct SettingsIslandHeader: View {
+    var text: String
+
+    var body: some View {
+        if MinecraftTheme.isActive {
+            Text(text).minecraftHeader(size: 12).skinSecondaryOnSky()
+        } else if CyberpunkTheme.isActive {
+            CPSectionHeader(text, code: Self.code(for: text))
+        } else {
+            Text(text).mcSectionHeader()
+        }
+    }
+
+    /// Determinisztikus „CFG_xx" kód a címből (a `hashValue` futásonként
+    /// változna, ezért a Unicode-skalárok összege).
+    static func code(for text: String) -> String {
+        let sum = text.unicodeScalars.reduce(0) { $0 &+ Int($1.value) }
+        return String(format: "CFG_%02X", sum % 256)
+    }
+}
+
+/// Felület-választó: három előnézeti csempe, mindegyik a SAJÁT skinje
+/// stílusában (Summit: kék üveg-ég, lekerekítve; Minecraft: fű + föld,
+/// éles pixel-sarok, Monocraft; Cyberpunk: fekete, levágott sarok, sárga
+/// Rajdhani). A kijelölt csempe az aktív skin kiemelőszínű keretét kapja
+/// pipával — így a választó mindhárom aktív skinben egyformán működik.
+/// Cyberpunkra váltáskor a gyökér lejátssza a belépő átmenetet.
+private struct SkinChoiceTiles: View {
+    @Binding var selection: VisualSkin
+    var accent: Color
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(VisualSkin.allCases) { skin in
+                let on = skin == selection
+                Button {
+                    guard skin != selection else { return }
+                    McSound.play(.click)
+                    SummitHaptics.selection()
+                    selection = skin
+                    if skin == .cyberpunk {
+                        NotificationCenter.default.post(name: CyberpunkTheme.bootRequest, object: nil)
+                    }
+                } label: {
+                    tile(skin)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 74)
+                        .clipShape(Self.shape(skin))
+                        .overlay(Self.shape(skin).stroke(on ? accent : Color.primary.opacity(0.18), lineWidth: on ? 2.5 : 1))
+                        .overlay(alignment: .topTrailing) {
+                            if on {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 10, weight: .heavy))
+                                    .foregroundStyle(Color.black)
+                                    .frame(width: 18, height: 18)
+                                    .background(accent, in: Self.shape(skin))
+                                    .padding(5)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Felület: \(skin.title)")
+                .accessibilityAddTraits(on ? [.isSelected, .isButton] : .isButton)
+            }
+        }
+    }
+
+    private static func shape(_ skin: VisualSkin) -> AnyShape {
+        switch skin {
+        case .summit: return AnyShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        case .minecraft: return AnyShape(Rectangle())
+        case .cyberpunk: return AnyShape(CPChamferShape(cut: 12, corners: [.topLeft, .bottomRight]))
+        }
+    }
+
+    @ViewBuilder
+    private func tile(_ skin: VisualSkin) -> some View {
+        switch skin {
+        case .summit:
+            ZStack {
+                LinearGradient(colors: [Color(hex: 0x4A90E2), Color(hex: 0xA8D0F5)], startPoint: .top, endPoint: .bottom)
+                VStack(spacing: 4) {
+                    Image(systemName: "mountain.2.fill").font(.system(size: 20, weight: .semibold))
+                    Text("Summit").font(.system(size: 13, weight: .semibold, design: .rounded))
+                }
+                .foregroundStyle(.white)
+            }
+        case .minecraft:
+            ZStack {
+                VStack(spacing: 0) {
+                    Color(hex: 0x6EC1F5)
+                    Color(hex: 0x5EBB2B).frame(height: 10)
+                    Color(hex: 0x8A5A2B).frame(height: 18)
+                }
+                Text("Minecraft")
+                    .font(MinecraftFontLoader.font(size: 12))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .foregroundStyle(.white)
+                    .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: 1.5, y: 1.5)
+                    .padding(.horizontal, 4)
+                    .offset(y: -8)
+            }
+        case .cyberpunk:
+            ZStack(alignment: .bottomLeading) {
+                CyberpunkTheme.bg
+                Rectangle().fill(CyberpunkTheme.red).frame(width: 22, height: 2)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(.leading, 16)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("[ NC_77 ]")
+                        .font(CyberpunkTheme.mono(size: 8))
+                        .foregroundStyle(CyberpunkTheme.cyan)
+                    Text("CYBERPUNK")
+                        .font(CyberpunkTheme.display(size: 16, weight: .bold, relativeTo: .subheadline))
+                        .tracking(1)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .foregroundStyle(CyberpunkTheme.yellow)
+                }
+                .padding(.horizontal, 8)
+                .padding(.bottom, 8)
+            }
+        }
     }
 }
