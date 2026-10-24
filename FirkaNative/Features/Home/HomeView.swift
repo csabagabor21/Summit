@@ -561,6 +561,9 @@ private struct PadExamRow: View {
             } label: {
                 SkinIcon(done ? "checkmark.circle.fill" : "circle", size: 24)
                     .skinFont(size: 20).foregroundStyle(done ? Color.green : .secondary)
+                    // Nagyobb találati felület a pipának (a kártya többi része
+                    // az órarendre visz, egy félrecsúszott koppintás ne oda).
+                    .contentShape(Rectangle().inset(by: -10))
             }.buttonStyle(.plain)
             VStack(alignment: .leading, spacing: 2) {
                 Text(exam.subject).skinFont(.subheadline, weight: .semibold).lineLimit(1)
@@ -569,12 +572,15 @@ private struct PadExamRow: View {
             }
             Spacer()
         }
+        // A 10 pt-os margó is a kártya része: a contentShape a margó UTÁN
+        // (eddig előtte volt, így a kártya széle halott maradt).
+        .padding(10)
         .contentShape(Rectangle())
         .onTapGesture {
             SummitHaptics.selection()
             NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": exam.subject, "deadline": exam.date.timeIntervalSince1970])
         }
-        .padding(10).background(cardBackground)
+        .background(cardBackground)
     }
     private var cardBackground: some View {
         McCardBackground(fill: done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : rolled ? Color.red.opacity(scheme == .dark ? 0.16 : 0.10) : colors.surface, cornerRadius: 12)
@@ -601,6 +607,9 @@ private struct PadHomeworkRow: View {
             } label: {
                 SkinIcon(done ? "checkmark.circle.fill" : "circle", size: 24)
                     .skinFont(size: 20).foregroundStyle(done ? Color.green : .secondary)
+                    // Nagyobb találati felület a pipának (a kártya többi része
+                    // az órarendre visz, egy félrecsúszott koppintás ne oda).
+                    .contentShape(Rectangle().inset(by: -10))
             }.buttonStyle(.plain)
             VStack(alignment: .leading, spacing: 2) {
                 Text(homework.subject).skinFont(.subheadline, weight: .semibold).lineLimit(1)
@@ -609,12 +618,15 @@ private struct PadHomeworkRow: View {
             }
             Spacer()
         }
+        // A 10 pt-os margó is a kártya része: a contentShape a margó UTÁN
+        // (eddig előtte volt, így a kártya széle halott maradt).
+        .padding(10)
         .contentShape(Rectangle())
         .onTapGesture {
             SummitHaptics.selection()
             NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": homework.subject, "deadline": homework.deadline.timeIntervalSince1970])
         }
-        .padding(10).background(cardBackground)
+        .background(cardBackground)
     }
     private var cardBackground: some View {
         McCardBackground(fill: done ? Color.green.opacity(scheme == .dark ? 0.10 : 0.07) : colors.surface, cornerRadius: 12)
@@ -646,7 +658,10 @@ private struct HomeAssignmentRow: View {
                     .skinFont(size: 21, weight: .regular)
                     .foregroundStyle(done ? Color.green : .secondary)
                     .frame(width: 22, height: 22)
-                    .contentShape(Rectangle())
+                    // 22 pt túl kicsi cél: a sor többi része az órarendre
+                    // visz, így a pipa mellé koppintva nem pipált. Nagyobb
+                    // (42 pt-os) találati felület, a layout változatlan.
+                    .contentShape(Rectangle().inset(by: -10))
             }
             .buttonStyle(.plain)
             VStack(alignment: .leading, spacing: 3) {

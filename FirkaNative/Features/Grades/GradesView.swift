@@ -136,6 +136,11 @@ struct GradesView: View {
                                         }
                                     }
                                 }.padding(.horizontal, 16).padding(.vertical, 8)
+                                // A rács a saját kártyáit rajzolja: nincs mögötte
+                                // rendszer-sorháttér / elválasztó.
+                                .listRowBackground(Color.clear)
+                                .listRowInsets(EdgeInsets())
+                                .listRowSeparator(.hidden)
                             } else {
                             ForEach(displayEvkoziSubjects, id: \.self) { subject in
                                 if let items = groupedEvkozi[subject] {

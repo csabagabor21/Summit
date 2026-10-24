@@ -1065,6 +1065,11 @@ extension UINavigationController: @retroactive UIGestureRecognizerDelegate {
     }
 
     public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        gestureRecognizer == interactivePopGestureRecognizer ? viewControllers.count > 1 : true
+        guard gestureRecognizer == interactivePopGestureRecognizer else { return true }
+        // Futó push/pop alatt NEM indulhat: a félbehagyott átmenet (a
+        // push-animáció alatt indított szélső húzás) „beragadt" vermet
+        // hagyott, ami a következő navigációig minden koppintást elnyelt.
+        // (A darabszám push közben már 2, az önmagában nem véd.)
+        return viewControllers.count > 1 && transitionCoordinator == nil
     }
 }
