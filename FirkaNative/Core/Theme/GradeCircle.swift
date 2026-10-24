@@ -12,8 +12,9 @@ struct GradeCircle: View {
             // Minecraft: tömör concrete-blokk, bevel-lel és kemény árnyékkal.
             McGradeBlock(value: value, size: size)
         } else if theme.isCyberpunk {
-            // Cyberpunk: levágott sarkú HUD-jelvény a jegy színében.
-            CPGradeBadge(value: value, size: size)
+            // Cyberpunk: levágott sarkú HUD-jelvény a jegy színében,
+            // szint-csíkkal (lásd `CpGradeChip`).
+            CpGradeChip(value: value, size: size)
         } else {
         // Az üveg a szám háttere — testvér-ZStackben az üveg-passz takarná a számot.
         Text("\(value)")
@@ -56,5 +57,83 @@ struct McGradeBlock: View {
                              shade: .black.opacity(0.28))
             )
             .accessibilityLabel("\(value)")
+    }
+}
+
+/// Jegy-jelvény Cyberpunkban: a kit `CPGradeBadge`-e (levágott sarkú,
+/// 1 px-es neon keret a jegy színében) kiegészítve, hogy a jegy szín
+/// nélkül is azonnal olvasható legyen:
+/// - alul 5 szegmenses szint-csík, ahány a jegy, annyi világít (a játék
+///   HUD-jának töltöttség-pipjei — színtévesztőnek is egyértelmű);
+/// - az 1-es inverz (tömör HUD-vörös lap, fekete szám) — riasztás-panel;
+/// - az 5-ös jobb felső sarkában kis cián sarokjel.
+/// Mindig opak, majdnem fekete alapon ül, így bármilyen felületen
+/// (Főoldal, lista-sor, tantárgy-részlet) ugyanúgy néz ki. Statikus:
+/// se animáció, se glitch (listában tucatszám van belőle).
+/// A `GradeCircle` Cyberpunk-ága ezt használja; a tantárgy-részletező
+/// közvetlenül is hívhatja (mint Minecraftban a `McGradeBlock`-ot).
+struct CpGradeChip: View {
+    let value: Int
+    var size: CGFloat = 44
+    /// Szint-csík (alapból 28 pt fölött látszik, kisebb jelvényen zsúfolt).
+    var showsLevel: Bool = true
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    var body: some View {
+        let color = CyberpunkTheme.gradeColor(for: value)
+        let isGrade = (1...5).contains(value)
+        let alert = value == 1
+        // Nagyon nagy betűméretnél a szám a csíkra csúszna — ott a szám nyer.
+        let level = showsLevel && isGrade && size >= 28 && typeSize <= .xxLarge
+        CPGradeBadge(value: value, size: size, filled: alert)
+            .background(CPChamferShape(cut: size * 0.22, corners: [.topLeft, .bottomRight]).fill(CyberpunkTheme.bg))
+            .overlay(alignment: .bottom) {
+                if level {
+                    CpGradeLevelBar(value: value, color: alert ? .black : color, width: size * 0.56)
+                        .padding(.bottom, max(4, size * 0.13))
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if value == 5 {
+                    CpCornerMark()
+                        .fill(CyberpunkTheme.cyanBright)
+                        .frame(width: size * 0.2, height: size * 0.2)
+                        .padding(2)
+                }
+            }
+            .frame(width: size, height: size)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(value)-es jegy")
+    }
+}
+
+/// Öt szegmenses szint-csík a jegy-jelvény alján.
+private struct CpGradeLevelBar: View {
+    let value: Int
+    let color: Color
+    let width: CGFloat
+    var body: some View {
+        let gap: CGFloat = width > 20 ? 2 : 1
+        let seg = max(1, (width - gap * 4) / 5)
+        HStack(spacing: gap) {
+            ForEach(1...5, id: \.self) { i in
+                Rectangle()
+                    .fill(i <= value ? color : color.opacity(0.22))
+                    .frame(width: seg, height: 2)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// Jobb felső sarokjel (kis derékszögű háromszög) az 5-ös jelvényen.
+private struct CpCornerMark: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        p.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        p.closeSubpath()
+        return p
     }
 }
