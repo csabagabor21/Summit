@@ -240,7 +240,16 @@ struct MainTabView: View {
                 } label: { tabLabel(3) }
             }
         }
-        .tabViewStyle(.sidebarAdaptable)
+        // Custom docknál NEM elég a `.tabBar` toolbar elrejtése:
+        // `.sidebarAdaptable` mellett iPaden a navigációs sávban ott
+        // marad a rendszer sidebar-kapcsológombja, amiből a natív
+        // sidebar (dupla navigáció) nyílik. Ezért ilyenkor a stílus
+        // `.tabBarOnly` — nincs sidebar, nincs kapcsoló, az alsó sávot
+        // pedig a `voxelTabChrome` rejti. Summit-alaptémában marad a
+        // `.sidebarAdaptable`. (A stílusváltás skinváltáskor iPaden
+        // újraépítheti a tab-fát — ez az ára annak, hogy a natív dock
+        // se gombként, se sávként ne jöjjön át.)
+        .summitTabStyle(customDock: hidesSystemTabBar)
         // Ne tegyél ide .toolbarBackground vagy .glassEffect-et:
         // iOS 26-on a TabBar/Sidebar chrome magától Liquid Glass.
         // Content glass tilos — "glass can't sample other glass".
@@ -412,6 +421,20 @@ struct MainTabView: View {
             if watchTabVisible {
                 CheatView().tabItem { tabLabel(3) }.tag(3)
             }
+        }
+    }
+}
+
+private extension View {
+    /// TabView-stílus a dock-döntéshez: custom docknál `.tabBarOnly`
+    /// (különben iPaden maradna a sidebar és a kapcsoló-gombja),
+    /// különben a szélesen adaptív natív sáv/sidebar.
+    @ViewBuilder
+    func summitTabStyle(customDock: Bool) -> some View {
+        if customDock {
+            self.tabViewStyle(.tabBarOnly)
+        } else {
+            self.tabViewStyle(.sidebarAdaptable)
         }
     }
 }
