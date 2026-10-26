@@ -10,9 +10,13 @@
 #   - cp_logo:     main_menu/menu_background_1080p.xbm atlasz angol
 #                  CYBERPUNK 2077 logója (az atlaszban függőlegesen
 #                  tükrözve tárolódik, vissza kell forgatni)
-#   - cp_pattern:  fx/textures/other/fx_circuit_y_tile_d.xbm áramkör-
-#                  minta (512x168-as csempe, screen-keveréssel ül a
-#                  gombok/panelek áttetsző alapján)
+#   - cp_pattern:  base/fx/textures/other/fx_circuit_y_tile_d.xbm
+#                  (TCM_DXTAlpha = BC3) áramkör-minta. FIGYELEM: az RGB
+#                  mindenhol fehér, a mintát az ALFA hordozza — alfás
+#                  RGBA PNG-ként kell tartani, RGB-re lapítani TILOS.
+#                  A Mac-archívumban tárolt legfelső mip 256x256
+#                  (platformMipBias), ez az eredeti csempe; varrás-
+#                  mentesen csempézhető, felskálázni/generálni tilos.
 #
 # Lánc: WolvenKit.Console unbundle (.xbm) -> WolvenKit convert s
 # (.xbm.json: méret + tömörítés + base64 textúra) -> BC7/BC3 dekódolás
@@ -40,6 +44,7 @@ wk() { arch -x86_64 "$DOTNET" "$WK/WolvenKit.CLI.dll" "$@"; }
 wk unbundle "$ARCH" -o "$OUT/raw" -r "pause_menu/tex/menu_bg_texture_1080p"
 wk unbundle "$ARCH" -o "$OUT/raw" -r "pause_menu/atlas_pause_menu_buttons"
 wk unbundle "$ARCH" -o "$OUT/raw" -r "main_menu/menu_background_1080p"
+wk unbundle "$ARCH" -o "$OUT/raw" -r "fx/textures/other/fx_circuit_y_tile_d"
 
 # 2) Dekódolás .png-be (a .xbm.json melletti base64 blokkból).
 uv run --no-project --with texture2ddecoder --with pillow python - "$OUT" <<'PYEOF'
@@ -53,6 +58,10 @@ for f in glob.glob(out + '/raw/**/*.xbm', recursive=True):
     comp=rc['setup']['compression']
     raw=base64.b64decode(rc['renderTextureResource']['renderResourceBlobPC']['Data']['textureData']['Bytes'])
     dec={'TCM_QualityColor':texture2ddecoder.decode_bc7,'TCM_DXTAlpha':texture2ddecoder.decode_bc3,'TCM_DXTNoAlpha':texture2ddecoder.decode_bc1}[comp]
+    # fx_circuit_y_tile_d: a tárolt mip-lánc 256x256-ról indul (bias),
+    # nem a deklarált 512-ről — a mip0-t a maga méretén dekódoljuk.
+    if 'fx_circuit_y_tile_d' in f:
+        w, h = 256, 256
     name=os.path.basename(f).replace('.xbm','.png')
     Image.frombytes('RGBA',(w,h),dec(raw,w,h)).save(out+'/png/'+name)
     print(name, w, h, comp)

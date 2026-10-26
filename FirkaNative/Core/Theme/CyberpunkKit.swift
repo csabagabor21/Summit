@@ -90,7 +90,7 @@ struct CPPanelBackground: View {
         // Áttetsző alap (a menü-háttér áttűnik, mint a játékban) és
         // rajta a játék áramkör-mintája, az alakzatra vágva.
         shape.fill(fill.opacity(hi ? 1 : 0.86))
-            .overlay(CPGamePattern(opacity: hi ? 0 : 0.07).clipShape(shape))
+            .overlay(CPGamePattern(opacity: hi ? 0 : 0.16).clipShape(shape))
             .overlay(shape.strokeBorder(accent.opacity(hi ? 1 : 0.55), lineWidth: hi ? 1.5 : 1))
             .overlay(alignment: .topLeading) {
                 if showsTab {
@@ -175,7 +175,7 @@ struct CPGameButtonShape: View {
                     .resizable(capInsets: EdgeInsets(top: 26, leading: 44, bottom: 26, trailing: 44), resizingMode: .stretch)
                     .foregroundStyle(fill)
                 // Áramkör-minta a gombon, a sziluett alfájára maszkolva.
-                CPGamePattern(opacity: 0.10)
+                CPGamePattern(opacity: 0.22)
                     .mask {
                         Image("cp_btn_bg")
                             .resizable(capInsets: EdgeInsets(top: 26, leading: 44, bottom: 26, trailing: 44), resizingMode: .stretch)
@@ -187,18 +187,18 @@ struct CPGameButtonShape: View {
     }
 }
 
-/// A játék áramkör-mintája (`fx/textures/other/fx_circuit_y_tile`,
-/// fehér nyomvonalak fekete alapon) csempézve, screen-keveréssel:
-/// a fekete eltűnik, csak a halvány nyomvonalak maradnak az áttetsző
-/// gomb-/panel-alapon — ahogy a játék menü-elemein is minta ül a
-/// sötét, áttetsző háttéren. A hívó vágja a saját alakjára.
+/// A játék eredeti áramkör-mintája
+/// (`base/fx/textures/other/fx_circuit_y_tile_d.xbm`, BC3/DXTAlpha):
+/// az RGB mindenhol fehér, a mintát az ALFA-csatorna hordozza
+/// (fehér nyomvonalak átlátszó alapon), ezért alfásan, keverés
+/// nélkül csempézzük — csak az opacity halványít. A hívó vágja
+/// a saját alakjára.
 struct CPGamePattern: View {
     var opacity: Double = 0.08
     var body: some View {
         if UIImage(named: "cp_pattern") != nil {
             Image("cp_pattern")
                 .resizable(resizingMode: .tile)
-                .blendMode(.screen)
                 .opacity(opacity)
                 .accessibilityHidden(true)
         }
