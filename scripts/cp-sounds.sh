@@ -50,6 +50,8 @@ wk unbundle "$ARCH/audio_2_soundbanks.archive" -o "$OUT/opus" -w "*.opusinfo"
 #      ui_generic_set_01_negative   -> cp_snd_error
 #      ui_phone_sms                 -> cp_snd_toast
 #      ui_splash_screen_glitch      -> cp_snd_glitch (1 mp-re vágva)
+#      vfx_fullscreen_braindance_entering (két réteg keverve, 3,4 mp)
+#                                   -> cp_snd_braindance (téma-választás)
 python3 "$WWISER" "$OUT/bnk/base/sound/soundbanks/sfx_container.bnk" -g -go "$OUT/txtp" -gw "$OUT/wem" -gd
 
 echo "A média-ID-ket az sfx_container.opusinfo alapján vágd ki a"

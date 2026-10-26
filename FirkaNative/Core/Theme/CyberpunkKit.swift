@@ -87,7 +87,10 @@ struct CPPanelBackground: View {
     var body: some View {
         let shape = CPChamferShape(cut: cut, corners: corners)
         let hi = contrast == .increased
-        shape.fill(fill)
+        // Áttetsző alap (a menü-háttér áttűnik, mint a játékban) és
+        // rajta a játék áramkör-mintája, az alakzatra vágva.
+        shape.fill(fill.opacity(hi ? 1 : 0.86))
+            .overlay(CPGamePattern(opacity: hi ? 0 : 0.07).clipShape(shape))
             .overlay(shape.strokeBorder(accent.opacity(hi ? 1 : 0.55), lineWidth: hi ? 1.5 : 1))
             .overlay(alignment: .topLeading) {
                 if showsTab {
@@ -166,12 +169,38 @@ struct CPGameButtonShape: View {
     var fill: Color
     var body: some View {
         if UIImage(named: "cp_btn_bg") != nil {
-            Image("cp_btn_bg")
-                .renderingMode(.template)
-                .resizable(capInsets: EdgeInsets(top: 26, leading: 44, bottom: 26, trailing: 44), resizingMode: .stretch)
-                .foregroundStyle(fill)
+            ZStack {
+                Image("cp_btn_bg")
+                    .renderingMode(.template)
+                    .resizable(capInsets: EdgeInsets(top: 26, leading: 44, bottom: 26, trailing: 44), resizingMode: .stretch)
+                    .foregroundStyle(fill)
+                // Áramkör-minta a gombon, a sziluett alfájára maszkolva.
+                CPGamePattern(opacity: 0.10)
+                    .mask {
+                        Image("cp_btn_bg")
+                            .resizable(capInsets: EdgeInsets(top: 26, leading: 44, bottom: 26, trailing: 44), resizingMode: .stretch)
+                    }
+            }
         } else {
             CPChamferShape(cut: 10, corners: [.topLeft, .bottomRight]).fill(fill)
+        }
+    }
+}
+
+/// A játék áramkör-mintája (`fx/textures/other/fx_circuit_y_tile`,
+/// fehér nyomvonalak fekete alapon) csempézve, screen-keveréssel:
+/// a fekete eltűnik, csak a halvány nyomvonalak maradnak az áttetsző
+/// gomb-/panel-alapon — ahogy a játék menü-elemein is minta ül a
+/// sötét, áttetsző háttéren. A hívó vágja a saját alakjára.
+struct CPGamePattern: View {
+    var opacity: Double = 0.08
+    var body: some View {
+        if UIImage(named: "cp_pattern") != nil {
+            Image("cp_pattern")
+                .resizable(resizingMode: .tile)
+                .blendMode(.screen)
+                .opacity(opacity)
+                .accessibilityHidden(true)
         }
     }
 }
@@ -751,8 +780,12 @@ enum CPSound: String, CaseIterable {
     case error = "cp_snd_error"
     /// Értesítés érkezett (`ui_phone_sms`).
     case toast = "cp_snd_toast"
-    /// Glitch (belépő boot-átmenet, `ui_splash_screen_glitch`).
+    /// Glitch (jegyzet-ünneplés, `ui_splash_screen_glitch`).
     case glitch = "cp_snd_glitch"
+    /// Braindance-belépés (`vfx_fullscreen_braindance_entering`, a játék
+    /// két rétege együtt, 3,4 mp-re vágva) — a téma kiválasztásakor és a
+    /// boot-átmenet alatt szól.
+    case braindance = "cp_snd_braindance"
 
     /// Hangonként kis lejátszó-készlet (mint a `McSound`-nál): gyors
     /// egymásutánban a hangok átfedhetnek, nem vágják el egymást.
@@ -804,6 +837,7 @@ enum CPSound: String, CaseIterable {
         case .confirm, .toast: return 0.7
         case .error: return 0.8
         case .glitch: return 0.45
+        case .braindance: return 0.8
         }
     }
 
@@ -869,86 +903,94 @@ extension CyberpunkTheme {
     static let bootRequest = Notification.Name("summit.cyberpunk.boot")
 }
 
-/// Rövid (~1 mp) belépő átmenet Cyberpunkra váltáskor: fekete képernyő
-/// scanline-nal, végigfutó fényes pásztázó sáv, kromatikusan elcsúszó
-/// „NIGHT CITY" felirat, töltődő HUD-sáv, glitch-reccs és megerősítő blip,
-/// majd elhalványul. Nem fogja meg az érintést. Reduce Motion mellett nincs
-/// mozgás/glitch: a felirat fél mp-ig áll, aztán elhalványul.
+/// Belépő átmenet Cyberpunkra váltáskor: CSAK a játék braindance-
+/// belépésének vizuális lényege, semmi más. Fekete képernyő, rövid
+/// fehér túlterhelés-impulzusok, majd egy nagy, teljes (opacity 1)
+/// fehér vakítás lassú lecsengéssel és enyhe glitch-rángással — a
+/// játék eredeti braindance-belépő hangjára (`CPSound.braindance`,
+/// 3,4 mp) időzítve. A játék effektje engine worldEffect/particle
+/// (`p_braindance_entering`), fájlként SwiftUI-ba nem áthozható,
+/// ezért itt a hangra szinkronizálva újraépítve.
+/// Nincs logó, felirat, sáv vagy keret: a fehér réteg a ZStack
+/// legfelső, utolsó eleme, teljes képernyőn, és az overlay saját
+/// elhalványulása csak akkor indul, amikor a vakítás már lecsengett
+/// 0-ra — így semmi nem áll a flash előtt és nem is halványítja.
+/// Összesen ~3,4 mp, nem fogja meg az érintést. Reduce Motion
+/// mellett nincs villanás (fényérzékenység!): csak fekete, majd
+/// rövid, nyugodt elhalványulás.
 struct CPBootOverlay: View {
     var onFinish: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var scan: CGFloat = 0
     @State private var opacity: Double = 1
-    @State private var glitchTick = 0
+    /// A fehér vakítás erőssége (0 = fekete, 1 = teljes fehér).
+    @State private var flash: Double = 0
+    /// Enyhe vízszintes glitch-rángás a vakítás lecsengése közben.
+    @State private var jitter: CGFloat = 0
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                CPBackdrop()
-                if !reduceMotion {
-                    LinearGradient(colors: [.clear, CyberpunkTheme.cyan.opacity(0.35), CyberpunkTheme.yellow.opacity(0.9),
-                                            CyberpunkTheme.cyan.opacity(0.35), .clear],
-                                   startPoint: .top, endPoint: .bottom)
-                        .frame(height: 46)
-                        .position(x: geo.size.width / 2, y: scan * (geo.size.height + 46) - 23)
-                        .blendMode(.screen)
-                }
-                VStack(spacing: 12) {
-                    CPLabel("SYS_BOOT // NC-2077", color: CyberpunkTheme.red)
-                    // Az eredeti CYBERPUNK 2077 logó a játék főmenü-
-                    // atlaszából (scripts/cp-ui-assets.sh); ha hiányzik,
-                    // a betűs változat marad.
-                    if UIImage(named: "cp_logo") != nil {
-                        Image("cp_logo")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 280)
-                            .cpChromatic(reduceMotion ? 0 : 2)
-                            .cpGlitch(trigger: glitchTick)
-                            .accessibilityLabel("Cyberpunk 2077")
-                    } else {
-                        Text("NIGHT CITY")
-                            .font(CyberpunkTheme.display(size: 46, weight: .bold, relativeTo: .largeTitle))
-                            .tracking(4)
-                            .foregroundStyle(CyberpunkTheme.yellow)
-                            .cpChromatic(reduceMotion ? 0 : 2)
-                            .cpGlitch(trigger: glitchTick)
-                    }
-                    CPLabel("NEURAL LINK ESTABLISHED", color: CyberpunkTheme.cyan, bracketed: false)
-                    ZStack(alignment: .leading) {
-                        Rectangle().fill(CyberpunkTheme.yellow.opacity(0.15))
-                        Rectangle().fill(CyberpunkTheme.yellow)
-                            .scaleEffect(x: max(0.001, scan), anchor: .leading)
-                    }
-                    .frame(width: 200, height: 4)
-                }
-                .position(x: geo.size.width / 2, y: geo.size.height / 2)
-            }
+        ZStack {
+            Color.black
+            // A vakítás: bizonyítottan a legfelső réteg (a ZStack
+            // utolsó gyereke, fölötte semmi), teljes képernyős fehér.
+            Color.white
+                .opacity(flash)
+                .offset(x: jitter)
         }
         .ignoresSafeArea()
         .opacity(opacity)
         .allowsHitTesting(false)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Cyberpunk felület bekapcsolva")
-        .task {
-            CPSound.play(.glitch)
-            if reduceMotion {
-                scan = 1
-                try? await Task.sleep(for: .milliseconds(550))
-                withAnimation(.easeOut(duration: 0.25)) { opacity = 0 }
-                try? await Task.sleep(for: .milliseconds(260))
-                onFinish()
-                return
-            }
-            glitchTick += 1
-            withAnimation(.easeInOut(duration: 0.75)) { scan = 1 }
-            try? await Task.sleep(for: .milliseconds(760))
-            CPSound.play(.confirm)
-            glitchTick += 1
-            try? await Task.sleep(for: .milliseconds(180))
+        .task { await run() }
+    }
+
+    private func run() async {
+        // A téma-választás hangja: az eredeti braindance-belépés (3,4 mp).
+        CPSound.play(.braindance)
+        if reduceMotion {
+            // Fényérzékenység: semmi villanás, csak nyugodt átmenet.
+            try? await Task.sleep(for: .milliseconds(700))
             withAnimation(.easeOut(duration: 0.3)) { opacity = 0 }
             try? await Task.sleep(for: .milliseconds(320))
             onFinish()
+            return
         }
+        // Fekete alap, majd rövid túlterhelés-impulzusok növekvő
+        // erővel (nem animált, azonnali kapcsolás = valódi villanás).
+        try? await Task.sleep(for: .milliseconds(250))
+        flash = 0.7
+        try? await Task.sleep(for: .milliseconds(70))
+        flash = 0
+        try? await Task.sleep(for: .milliseconds(120))
+        flash = 1
+        try? await Task.sleep(for: .milliseconds(60))
+        flash = 0
+        try? await Task.sleep(for: .milliseconds(100))
+        // Dupla reccsenés közvetlenül a nagy vakítás előtt.
+        flash = 1
+        try? await Task.sleep(for: .milliseconds(50))
+        flash = 0
+        try? await Task.sleep(for: .milliseconds(50))
+        flash = 1
+        try? await Task.sleep(for: .milliseconds(50))
+        flash = 0
+        try? await Task.sleep(for: .milliseconds(90))
+        // A nagy vakítás: gyorsan fel teljes fehérre, rövid tartás,
+        // majd lassú (~1,4 mp) lecsengés enyhe rángással — a hang
+        // ívének második felére időzítve.
+        withAnimation(.easeIn(duration: 0.12)) { flash = 1 }
+        try? await Task.sleep(for: .milliseconds(420))
+        withAnimation(.easeOut(duration: 1.4)) { flash = 0 }
+        for step in 0..<14 {
+            jitter = step % 2 == 0 ? CGFloat(3 - step / 4) : CGFloat(-(3 - step / 4))
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        jitter = 0
+        flash = 0
+        // A vakítás már 0: csak most halványulhat el maga az overlay.
+        try? await Task.sleep(for: .milliseconds(250))
+        withAnimation(.easeOut(duration: 0.35)) { opacity = 0 }
+        try? await Task.sleep(for: .milliseconds(380))
+        onFinish()
     }
 }

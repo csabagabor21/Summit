@@ -10,6 +10,9 @@
 #   - cp_logo:     main_menu/menu_background_1080p.xbm atlasz angol
 #                  CYBERPUNK 2077 logója (az atlaszban függőlegesen
 #                  tükrözve tárolódik, vissza kell forgatni)
+#   - cp_pattern:  fx/textures/other/fx_circuit_y_tile_d.xbm áramkör-
+#                  minta (512x168-as csempe, screen-keveréssel ül a
+#                  gombok/panelek áttetsző alapján)
 #
 # Lánc: WolvenKit.Console unbundle (.xbm) -> WolvenKit convert s
 # (.xbm.json: méret + tömörítés + base64 textúra) -> BC7/BC3 dekódolás
