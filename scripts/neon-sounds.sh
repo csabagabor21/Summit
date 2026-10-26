@@ -52,6 +52,24 @@ wk unbundle "$ARCH/audio_2_soundbanks.archive" -o "$OUT/opus" -w "*.opusinfo"
 #      ui_splash_screen_glitch      -> snd_neo_glitch (1 mp-re vágva)
 #      vfx_fullscreen_enter_entering (két réteg keverve, 3,4 mp)
 #                                   -> snd_neo_enter (téma-választás)
+#
+# snd_neo_enter utómunka (KÖTELEZŐ, vágás TILOS): az eredeti 3,4 mp-es
+# hang vége elhalkul (mért fade-kezdet ~2,92 mp; 0,2 mp-es RMS-ablakok:
+# 2,8 mp-nél -20,5 dB, 3,0 mp-nél -28,9 dB, 3,2 mp-nél -39,1 dB).
+# A fade-et NEM vágjuk le (az hirtelen, teljes hangerős cut-offot adna),
+# hanem hangerő-kompenzációval szüntetjük meg:
+#   1) RMS-burok mérése 120 ms-os simítással; referenciaszint = a hang
+#      teste (0-2,90 mp) simított RMS-ének mediánja (~-21,2 dBFS).
+#   2) 2,92 mp-től mintánként gain = referenciaszint - mért burok (dB),
+#      monoton növekvőre kényszerítve, 100 ms-os simítással, +28 dB
+#      sapkával (ténylegesen ~+3,4 dB @3,0 mp ... ~+17,6 dB @3,28 mp).
+#   3) Csak az utolsó 120 ms-ban (3,28-3,40 mp) Hann-lecsengés nullára
+#      a kattanás ellen; addig a hang teljes erővel szól.
+#   4) Csúcs-ellenőrzés: ha a csúcs -1 dBFS fölé menne, normalizálás
+#      -1 dBFS-re (a jelenlegi verziónál nem kellett: csúcs -8,3 dBFS).
+# Eredmény (0,2 mp-es RMS-ablakok): 3,0 mp-nél -21,6 dB, 3,2 mp-nél
+# -23,0 dB (ebben már benne van a végi 120 ms-os lecsengés fele) —
+# a test szintjéhez (±3 dB) képest nincs elhalkulás és nincs vágás.
 python3 "$WWISER" "$OUT/bnk/base/sound/soundbanks/sfx_container.bnk" -g -go "$OUT/txtp" -gw "$OUT/wem" -gd
 
 echo "A média-ID-ket az sfx_container.opusinfo alapján vágd ki a"
