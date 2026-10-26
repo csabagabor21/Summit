@@ -730,7 +730,7 @@ struct CPFormSection<Content: View>: View {
 enum CPSound: String, CaseIterable {
     /// Gomb-lenyomás a játék menüiben (`ui_menu_onpress`).
     case click = "cp_snd_click"
-    /// Fülváltás a főmenüben (`ui_main_menu_open_tab`).
+    /// Fülváltás a játék menüiben (`ui_gui_tab_change`) — a dockon ez szól.
     case tab = "cp_snd_tab"
     /// Pozitív visszaigazolás (`ui_positive`).
     case confirm = "cp_snd_confirm"
@@ -783,7 +783,7 @@ enum CPSound: String, CaseIterable {
     private var gain: Float {
         switch self {
         case .click: return 0.5
-        case .tab: return 0.65
+        case .tab: return 0.85
         case .confirm, .toast: return 0.7
         case .error: return 0.8
         case .glitch: return 0.45

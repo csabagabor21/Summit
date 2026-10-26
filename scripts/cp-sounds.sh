@@ -40,7 +40,7 @@ wk unbundle "$ARCH/audio_2_soundbanks.archive" -o "$OUT/opus" -w "*.opusinfo"
 # 2) Eseménynév -> média-ID a bankból (wwiser txtp: CAkEvent FNV-hash ->
 #    Source média-ID). A cél-események és a belőlük lett asset-nevek:
 #      ui_menu_onpress              -> cp_snd_click
-#      ui_main_menu_open_tab        -> cp_snd_tab
+#      ui_gui_tab_change            -> cp_snd_tab
 #      ui_positive                  -> cp_snd_confirm
 #      ui_generic_set_01_negative   -> cp_snd_error
 #      ui_phone_sms                 -> cp_snd_toast
