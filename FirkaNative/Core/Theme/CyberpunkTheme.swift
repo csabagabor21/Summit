@@ -42,8 +42,9 @@ enum CyberpunkTheme {
     // MARK: - Paletta
     /// Jellegzetes CP2077-sárga (fő gomb, kijelölés, kiemelés).
     static let yellow: Color = Color(hex: 0xFCEE0A)
-    /// HUD-vörös (keretek, címek, hiba, figyelmeztetés).
-    static let red: Color = Color(hex: 0xFF4655)
+    /// HUD-vörös (keretek, címek, hiba, figyelmeztetés) — a játék
+    /// menüinek vöröse (#FF003C), nem általános neonvörös.
+    static let red: Color = Color(hex: 0xFF003C)
     /// Korall-vörös (másodlagos vörös: halványabb keret, 2-es jegy-közeli).
     static let coral: Color = Color(hex: 0xF75049)
     /// Cián akcentus (adat, link, aktív állapot).

@@ -129,11 +129,12 @@ extension View {
 
 // MARK: - Háttér
 
-/// Teljes képernyős Night City-háttér: majdnem fekete alap, a sarkokban
-/// halvány vörös és cián derengés, finom raszter-rács és scanline.
+/// Teljes képernyős menü-háttér: a játék menüi mögötti sötét, enyhén
+/// vöröses-fekete alap átlós sraffozással és finom scanline-nal — nincs
+/// sarok-derengés és rács (az nem a menük nyelve, általános neon-klisé).
 /// Statikus (nincs TimelineView / animáció): a Canvas csak méretváltáskor
 /// rajzol újra. Reduce Transparency mellett tömör háttér, emelt
-/// kontrasztnál rács/derengés nélkül.
+/// kontrasztnál minta nélkül.
 struct CPBackdrop: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
@@ -143,11 +144,8 @@ struct CPBackdrop: View {
             CyberpunkTheme.bg.ignoresSafeArea()
         } else {
             ZStack {
-                CyberpunkTheme.bg
-                RadialGradient(colors: [CyberpunkTheme.red.opacity(0.16), .clear],
-                               center: .topLeading, startRadius: 0, endRadius: 420)
-                RadialGradient(colors: [CyberpunkTheme.cyan.opacity(0.10), .clear],
-                               center: .bottomTrailing, startRadius: 0, endRadius: 460)
+                LinearGradient(colors: [Color(hex: 0x0D0508), CyberpunkTheme.bg, Color(hex: 0x050507)],
+                               startPoint: .top, endPoint: .bottom)
                 CPGridLayer()
                     .drawingGroup()
             }
@@ -157,7 +155,8 @@ struct CPBackdrop: View {
     }
 }
 
-/// Raszter-rács (40 pt) + scanline (3 pt) egyetlen statikus Canvasban.
+/// Átlós sraffozás (a menük háttérmintája) + scanline (3 pt) egyetlen
+/// statikus Canvasban.
 private struct CPGridLayer: View, Equatable {
     var body: some View {
         Canvas(rendersAsynchronously: true) { ctx, size in
@@ -168,18 +167,17 @@ private struct CPGridLayer: View, Equatable {
                 y += 3
             }
             ctx.fill(scan, with: .color(Color.white.opacity(0.018)))
-            var grid = Path()
-            var x: CGFloat = 0
-            while x < size.width {
-                grid.addRect(CGRect(x: x, y: 0, width: 0.5, height: size.height))
-                x += 40
+            // 45°-os, ritka átlós vonalak: a vonal két átellenes sarokpontja
+            // közötti sávokat eltolva rajzoljuk.
+            var hatch = Path()
+            let step: CGFloat = 14
+            var d = -size.height
+            while d < size.width {
+                hatch.move(to: CGPoint(x: d, y: size.height))
+                hatch.addLine(to: CGPoint(x: d + size.height, y: 0))
+                d += step
             }
-            y = 0
-            while y < size.height {
-                grid.addRect(CGRect(x: 0, y: y, width: size.width, height: 0.5))
-                y += 40
-            }
-            ctx.fill(grid, with: .color(CyberpunkTheme.cyan.opacity(0.045)))
+            ctx.stroke(hatch, with: .color(Color.white.opacity(0.022)), lineWidth: 5)
         }
     }
 }
@@ -187,7 +185,8 @@ private struct CPGridLayer: View, Equatable {
 // MARK: - Gomb
 
 /// CP2077-gomb: levágott sarok, nagybetűs, ritkított Rajdhani felirat.
-/// - `.primary`: sárga kitöltés, fekete felirat (a játék fő akció-gombja).
+/// - `.primary`: a játék menü-kijelölése — tömör vörös kitöltés, fekete
+///   felirat (a sárga a játékban márka-/kiemelőszín, nem gombkitöltés).
 /// - `.secondary`: cián körvonal, cián felirat.
 /// - `.destructive`: vörös körvonal + halvány vörös arc, vörös felirat.
 /// Lenyomva a kitöltés invertál / felvillan, és halk blip szól.
@@ -205,7 +204,7 @@ struct CPButtonStyle: ButtonStyle {
         let shape = CPChamferShape(cut: compact ? 6 : 10, corners: [.topLeft, .bottomRight])
         let accent: Color = {
             switch kind {
-            case .primary: return CyberpunkTheme.yellow
+            case .primary: return CyberpunkTheme.red
             case .secondary: return CyberpunkTheme.cyan
             case .destructive: return CyberpunkTheme.red
             }
@@ -213,14 +212,14 @@ struct CPButtonStyle: ButtonStyle {
         let fg: Color = {
             guard isEnabled else { return CyberpunkTheme.dim }
             switch kind {
-            case .primary: return pressed ? CyberpunkTheme.yellow : Color.black
+            case .primary: return pressed ? CyberpunkTheme.red : Color.black
             default: return pressed ? Color.black : accent
             }
         }()
         let fill: Color = {
             guard isEnabled else { return CyberpunkTheme.panel }
             switch kind {
-            case .primary: return pressed ? CyberpunkTheme.panelRaised : CyberpunkTheme.yellow
+            case .primary: return pressed ? CyberpunkTheme.panelRaised : CyberpunkTheme.red
             default: return pressed ? accent : accent.opacity(kind == .destructive ? 0.12 : 0.06)
             }
         }()
@@ -338,7 +337,7 @@ struct CPDivider: View {
 // MARK: - Szegmens-választó
 
 /// `Picker(.segmented)` HUD-párja: egymás melletti levágott sarkú fülek,
-/// a kijelölt sárga kitöltésű fekete felirattal, a többi halvány
+/// a kijelölt vörös kitöltésű fekete felirattal, a többi halvány
 /// körvonalas. Váltáskor blip.
 struct CPSegmentedPicker<Value: Hashable>: View {
     @Binding var selection: Value
@@ -362,8 +361,8 @@ struct CPSegmentedPicker<Value: Hashable>: View {
                         .foregroundStyle(on ? Color.black : CyberpunkTheme.text.opacity(0.75))
                         .frame(maxWidth: .infinity, minHeight: 36)
                         .padding(.horizontal, 4)
-                        .background(shape.fill(on ? CyberpunkTheme.yellow : CyberpunkTheme.panel))
-                        .overlay(shape.strokeBorder(on ? CyberpunkTheme.yellow : CyberpunkTheme.dim.opacity(0.45), lineWidth: 1))
+                        .background(shape.fill(on ? CyberpunkTheme.red : CyberpunkTheme.panel))
+                        .overlay(shape.strokeBorder(on ? CyberpunkTheme.red : CyberpunkTheme.dim.opacity(0.45), lineWidth: 1))
                         .contentShape(shape)
                 }
                 .buttonStyle(.plain)
@@ -598,7 +597,7 @@ extension View {
 
 // MARK: - Kapcsoló, beviteli mező
 
-/// Szögletes HUD-kapcsoló: bekapcsolva sárga, kikapcsolva halvány keret.
+/// Szögletes HUD-kapcsoló: bekapcsolva vörös, kikapcsolva halvány keret.
 struct CPToggleStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         let on = configuration.isOn
@@ -611,11 +610,11 @@ struct CPToggleStyle: ToggleStyle {
             } label: {
                 ZStack(alignment: on ? .trailing : .leading) {
                     CPChamferShape(cut: 5, corners: [.topLeft, .bottomRight])
-                        .fill(on ? CyberpunkTheme.yellow.opacity(0.18) : CyberpunkTheme.panel)
+                        .fill(on ? CyberpunkTheme.red.opacity(0.18) : CyberpunkTheme.panel)
                         .overlay(CPChamferShape(cut: 5, corners: [.topLeft, .bottomRight])
-                            .strokeBorder(on ? CyberpunkTheme.yellow : CyberpunkTheme.dim.opacity(0.6), lineWidth: 1))
+                            .strokeBorder(on ? CyberpunkTheme.red : CyberpunkTheme.dim.opacity(0.6), lineWidth: 1))
                     Rectangle()
-                        .fill(on ? CyberpunkTheme.yellow : CyberpunkTheme.dim)
+                        .fill(on ? CyberpunkTheme.red : CyberpunkTheme.dim)
                         .frame(width: 18, height: 18)
                         .padding(4)
                 }
@@ -718,158 +717,111 @@ struct CPFormSection<Content: View>: View {
     }
 }
 
-// MARK: - Hangok (procedurálisan szintetizált blipek)
+// MARK: - Hangok (igazi Cyberpunk 2077 UI-hangok)
 
-/// UI-hangok, futásidőben generált PCM-pufferekből (nincs játék-asset).
-/// `.ambient` audio-session: a némító kapcsoló elnémítja, más app zenéjét
-/// nem állítja le. Csak Cyberpunk-skinben szól.
-enum CPSound: CaseIterable {
-    /// Rövid, magas blip (gomb-lenyomás).
-    case click
-    /// Dupla blip (fül-/szegmensváltás).
-    case tab
-    /// Emelkedő csipogás (megerősítés, mentés).
-    case confirm
-    /// Mély, kettős zúgás (hiba).
-    case error
-    /// Két hangú „adat érkezett" (toast).
-    case toast
-    /// Zajos, bitzúzott reccs (glitch-kiemelés).
-    case glitch
+/// A játék saját UI-hangjai, a saját Cyberpunk 2077-telepítésből
+/// kinyerve (Wwise-esemény → `.wem` → AAC, Data Setként az asset
+/// catalog `Cyberpunk/` mappájában — ahogy a Minecraft-hangok is a
+/// játékból jönnek). Szintetizált utánzat nincs: ha egy asset hiányzik,
+/// a hang néma marad.
+/// `.ambient` audio-session: ha a telefon némítva van (oldalsó némító
+/// kapcsoló), az app sem csipog, és más app zenéjét sem állítja le.
+/// Csak Cyberpunk-skinben szól.
+enum CPSound: String, CaseIterable {
+    /// Gomb-lenyomás a játék menüiben (`ui_menu_onpress`).
+    case click = "cp_snd_click"
+    /// Fülváltás a főmenüben (`ui_main_menu_open_tab`).
+    case tab = "cp_snd_tab"
+    /// Pozitív visszaigazolás (`ui_positive`).
+    case confirm = "cp_snd_confirm"
+    /// Negatív visszaigazolás / hiba (`ui_generic_set_01_negative`).
+    case error = "cp_snd_error"
+    /// Értesítés érkezett (`ui_phone_sms`).
+    case toast = "cp_snd_toast"
+    /// Glitch (belépő boot-átmenet, `ui_splash_screen_glitch`).
+    case glitch = "cp_snd_glitch"
 
-    private static let sampleRate: Double = 44_100
-    private static var engine: AVAudioEngine?
-    private static var players: [AVAudioPlayerNode] = []
-    private static var nextPlayer = 0
-    private static var buffers: [CPSound: AVAudioPCMBuffer] = [:]
-    private static var format: AVAudioFormat?
+    /// Hangonként kis lejátszó-készlet (mint a `McSound`-nál): gyors
+    /// egymásutánban a hangok átfedhetnek, nem vágják el egymást.
+    private static var pool: [CPSound: [AVAudioPlayer]] = [:]
+    private static var sessionReady = false
+    private static let poolSize = 3
     private static var lastPlay: [CPSound: CFTimeInterval] = [:]
-    private static var failed = false
 
     /// Lejátszás (Cyberpunk-skinen kívül néma). Ugyanaz a hang 60 ms-on
     /// belül nem indul kétszer (gombstílus + akció egy koppintásra).
     static func play(_ sound: CPSound, volume: Float = 1) {
-        guard CyberpunkTheme.isActive, !failed else { return }
+        guard CyberpunkTheme.isActive else { return }
         let now = CACurrentMediaTime()
         if let last = lastPlay[sound], now - last < 0.06 { return }
         lastPlay[sound] = now
-        guard let engine = prepareEngine(), let buffer = buffer(for: sound) else { return }
-        if !engine.isRunning {
-            do { try engine.start() } catch { return }
+        guard prepareSession() else { return }
+        var players = pool[sound] ?? []
+        if players.count < poolSize, let fresh = makePlayer(sound) {
+            players.append(fresh)
+            pool[sound] = players
         }
-        let player = players[nextPlayer]
-        nextPlayer = (nextPlayer + 1) % players.count
+        guard let player = players.first(where: { !$0.isPlaying }) ?? players.first else { return }
         player.volume = volume * sound.gain
-        player.scheduleBuffer(buffer, at: nil, options: .interrupts, completionHandler: nil)
-        if !player.isPlaying { player.play() }
+        player.currentTime = 0
+        player.play()
+    }
+
+    /// Előmelegítés (Cyberpunk-skin indulásakor / bekapcsolásakor): a
+    /// session és a gyakori hangok lejátszója előre elkészül, hogy az
+    /// első koppintás (és a boot-glitch) ne akkor építkezzen.
+    static func warmUp() {
+        guard CyberpunkTheme.isActive else { return }
+        DispatchQueue.main.async {
+            guard CyberpunkTheme.isActive, prepareSession() else { return }
+            for sound in [CPSound.click, .tab, .glitch] where (pool[sound] ?? []).isEmpty {
+                if let player = makePlayer(sound) { pool[sound] = [player] }
+            }
+        }
     }
 
     private var gain: Float {
         switch self {
-        case .click: return 0.35
-        case .tab: return 0.45
-        case .confirm, .toast: return 0.5
-        case .error: return 0.55
-        case .glitch: return 0.3
+        case .click: return 0.5
+        case .tab: return 0.65
+        case .confirm, .toast: return 0.7
+        case .error: return 0.8
+        case .glitch: return 0.45
         }
     }
 
-    private static func prepareEngine() -> AVAudioEngine? {
-        if let engine { return engine }
+    /// `.ambient` session: a telefon némító kapcsolója az appot is
+    /// elnémítja, más app zenéje tovább szólhat mellette.
+    private static func prepareSession() -> Bool {
+        if sessionReady { return true }
         do {
             try AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default, options: [.mixWithOthers])
-            let e = AVAudioEngine()
-            guard let fmt = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1) else {
-                failed = true
-                return nil
-            }
-            var nodes: [AVAudioPlayerNode] = []
-            for _ in 0..<4 {
-                let p = AVAudioPlayerNode()
-                e.attach(p)
-                e.connect(p, to: e.mainMixerNode, format: fmt)
-                nodes.append(p)
-            }
-            e.prepare()
-            try e.start()
-            engine = e
-            players = nodes
-            format = fmt
-            return e
+            sessionReady = true
         } catch {
             #if DEBUG
-            print("CPSound: audio-engine hiba: \(error)")
+            print("CPSound: audio session hiba: \(error)")
             #endif
-            failed = true
+        }
+        return sessionReady
+    }
+
+    private static func makePlayer(_ sound: CPSound) -> AVAudioPlayer? {
+        guard let asset = NSDataAsset(name: sound.rawValue) else {
+            #if DEBUG
+            print("CPSound: hiányzó hang-asset: \(sound.rawValue)")
+            #endif
             return nil
         }
-    }
-
-    private static func buffer(for sound: CPSound) -> AVAudioPCMBuffer? {
-        if let b = buffers[sound] { return b }
-        guard let format else { return nil }
-        let samples = synthesize(sound)
-        guard let buf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samples.count)),
-              let ch = buf.floatChannelData?[0] else { return nil }
-        buf.frameLength = AVAudioFrameCount(samples.count)
-        for i in 0..<samples.count { ch[i] = samples[i] }
-        buffers[sound] = buf
-        return buf
-    }
-
-    /// Hang-receptek: rövid szinusz/négyszög-blipek exponenciális
-    /// lecsengéssel, 1 ms-os felfutással (kattanásmentes eleje).
-    private static func synthesize(_ sound: CPSound) -> [Float] {
-        let sr = sampleRate
-        func tone(_ dur: Double, f0: Double, f1: Double? = nil, decay: Double, square: Double = 0, start: Double = 0, into out: inout [Float]) {
-            let n = Int(dur * sr), off = Int(start * sr)
-            if out.count < off + n { out += [Float](repeating: 0, count: off + n - out.count) }
-            var phase = 0.0
-            for i in 0..<n {
-                let t = Double(i) / sr
-                let f = f1.map { f0 + ($0 - f0) * (t / dur) } ?? f0
-                phase += 2 * .pi * f / sr
-                let s = sin(phase)
-                let sq = s >= 0 ? 1.0 : -1.0
-                let wave = s * (1 - square) + sq * square
-                let env = min(1, t / 0.001) * exp(-t / decay)
-                out[off + i] += Float(wave * env)
-            }
+        do {
+            let player = try AVAudioPlayer(data: asset.data)
+            player.prepareToPlay()
+            return player
+        } catch {
+            #if DEBUG
+            print("CPSound: dekódolási hiba (\(sound.rawValue)): \(error)")
+            #endif
+            return nil
         }
-        var out: [Float] = []
-        switch sound {
-        case .click:
-            tone(0.022, f0: 2600, decay: 0.006, square: 0.25, into: &out)
-        case .tab:
-            tone(0.03, f0: 1900, decay: 0.008, square: 0.2, into: &out)
-            tone(0.035, f0: 2850, decay: 0.009, square: 0.2, start: 0.038, into: &out)
-        case .confirm:
-            tone(0.12, f0: 900, f1: 2300, decay: 0.05, square: 0.15, into: &out)
-        case .error:
-            tone(0.08, f0: 170, decay: 0.05, square: 0.6, into: &out)
-            tone(0.1, f0: 140, decay: 0.06, square: 0.6, start: 0.1, into: &out)
-        case .toast:
-            tone(0.08, f0: 1320, decay: 0.03, square: 0.1, into: &out)
-            tone(0.14, f0: 1980, decay: 0.05, square: 0.1, start: 0.07, into: &out)
-        case .glitch:
-            // Determinisztikus LCG-zaj, 8-asával tartva (bitzúzás-hatás).
-            let n = Int(0.09 * sr)
-            var seed: UInt32 = 0x9E3779B9
-            var held: Float = 0
-            out = [Float](repeating: 0, count: n)
-            for i in 0..<n {
-                if i % 8 == 0 {
-                    seed = seed &* 1_664_525 &+ 1_013_904_223
-                    held = Float(Int32(bitPattern: seed)) / Float(Int32.max)
-                }
-                let t = Double(i) / sr
-                out[i] = held * Float(min(1, t / 0.001) * exp(-t / 0.03))
-            }
-        }
-        // Csúcs-normalizálás 0,9-re (a hangerőt a `gain` adja).
-        let peak = out.map { abs($0) }.max() ?? 1
-        if peak > 0 { out = out.map { $0 / peak * 0.9 } }
-        return out
     }
 }
 

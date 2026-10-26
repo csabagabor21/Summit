@@ -68,7 +68,7 @@ struct MainTabView: View {
         // marad. Külön ég nincs a tab-tartalom mögött (a lista saját ege
         // tölti ki a képet).
         tabContent
-            .padding(.bottom, useCustomHotbar ? Self.mcFooterHeight : 0)
+            .padding(.bottom, useCustomHotbar ? Self.mcFooterHeight : useCPBar ? CPTabBar.height : 0)
             .overlay(alignment: .bottom) {
                 if useCustomHotbar {
                     // Díszlet: nem nyel érintést. Eddig a teljes 148 pt-os
@@ -100,9 +100,13 @@ struct MainTabView: View {
         .onAppear {
             theme.skin.applyChromeAppearance()
             McSound.warmUp()
+            CPSound.warmUp()
         }
         .onChange(of: theme.isMinecraft) { _, mc in
             if mc { McSound.warmUp() }
+        }
+        .onChange(of: theme.isCyberpunk) { _, cp in
+            if cp { CPSound.warmUp() }
         }
         // NINCS withAnimation(.spring) — a rendszer Liquid Glass morphja animál.
         // Custom spring felülírná a natív görbét és "cooked"-nak hat.
@@ -269,13 +273,12 @@ struct MainTabView: View {
     private var useCPBar: Bool { theme.isCyberpunk && !isWide }
     /// Rejtett-e a rendszer-tabsáv (saját sáv van helyette).
     private var hidesSystemTabBar: Bool { useCustomHotbar || useCPBar }
-    /// A tab-tartalom alsó tartaléka a saját sáv fölött: Cyberpunkban a
-    /// HUD-sáv teljes magassága (ott a tartalom a sáv fölé ér, mögé
-    /// csúszik), Minecraftban csak a talajból a tartalom elé kilógó
-    /// virágok magassága — a talajt magát a `body` alsó paddingje már
-    /// kivette a tartalom keretéből (a dock az oldal alja).
+    /// A tab-tartalom alsó tartaléka a saját sáv fölött: Minecraftban a
+    /// talajból a tartalom elé kilógó virágok magassága, Cyberpunkban egy
+    /// kis levegő — a sávokat magát a `body` alsó paddingje már kivette
+    /// a tartalom keretéből (a dock az oldal alja, nem a képernyő alja).
     private var customBarInset: CGFloat {
-        useCPBar ? CPTabBar.height : McFlora.maxHeight
+        useCPBar ? 8 : McFlora.maxHeight
     }
 
     /// Cyberpunk-tabikonok: körvonalas (nem kitöltött) SF-szimbólumok —
@@ -379,10 +382,10 @@ private extension View {
     /// megmarad.
     func mcTabChrome(hidden: Bool, inset: CGFloat) -> some View {
         self.toolbar(hidden ? .hidden : .automatic, for: .tabBar)
-            // Alsó tartalék a saját sáv fölött: Minecraftban csak a
-            // talajból kilógó növények (a talaj a tartalom keretén kívül
-            // van, lásd `body`), Cyberpunkban a teljes HUD-sáv — a lista
-            // vége ennyivel a sáv fölött áll meg.
+            // Alsó tartalék a saját sáv fölött: Minecraftban a talajból
+            // kilógó növények, Cyberpunkban egy kis levegő (a sávok a
+            // tartalom keretén kívül vannak, lásd `body`) — a lista vége
+            // ennyivel a sáv fölött áll meg.
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 Color.clear
                     .frame(height: hidden ? inset : 0)
@@ -533,7 +536,7 @@ private struct McHotbar: View {
 
 /// Cyberpunk 2077 HUD-tabsáv: majdnem fekete, opak sáv vékony vörös felső
 /// vonallal (bal végén fényes szakasz), öt cella vékony ikonnal és apró
-/// egyenközű nagybetűs felirattal; a kijelölt cella sárga, levágott sarkú
+/// egyenközű nagybetűs felirattal; a kijelölt cella vörös, levágott sarkú
 /// kitöltést kap fekete tartalommal, sarkában a fül kódja (01–05).
 /// Statikus, olcsó nézet: nincs animáció, nincs üveg.
 struct CPTabBar: View {
@@ -591,7 +594,7 @@ struct CPTabBar: View {
         .frame(maxWidth: .infinity, minHeight: 48)
         .background {
             if on {
-                CPChamferShape(cut: 8, corners: [.topLeft, .bottomRight]).fill(CyberpunkTheme.yellow)
+                CPChamferShape(cut: 8, corners: [.topLeft, .bottomRight]).fill(CyberpunkTheme.red)
             }
         }
         .overlay(alignment: .topTrailing) {
