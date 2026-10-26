@@ -10,6 +10,14 @@
 #   - cp_logo:     main_menu/menu_background_1080p.xbm atlasz angol
 #                  CYBERPUNK 2077 logója (az atlaszban függőlegesen
 #                  tükrözve tárolódik, vissza kell forgatni)
+#   - cp_cell_bg / cp_cell_fg: atlas_shapes_sync.inkatlas
+#                  `cell_bg` (52x52) / `cell_fg` (54x52) darabjai —
+#                  ezekkel épül a jatek PauseButtonItem menugombja
+#                  (pause_menu.inkwidget, cell_bg+cell_fg, kilenc-
+#                  szeletelve, csak jobb also vagas). Feher sablonok.
+#   - cp_check_frame / cp_check_fill: ugyanonnan a
+#                  `checkbox_frame` (44x44) / `checkbox_fill` (36x35)
+#                  jelolonegyzet-darabok (CPToggleStyle).
 #   - cp_pattern:  base/gameplay/gui/fullscreen/inventory/
 #                  atlas_inventory.inkatlas `texture_2slot` darabja
 #                  (636x190) a mögöttes atlas_inventory.xbm (1960x2024,
@@ -58,6 +66,7 @@ wk unbundle "$ARCH" -o "$OUT/raw" -r "pause_menu/tex/menu_bg_texture_1080p"
 wk unbundle "$ARCH" -o "$OUT/raw" -r "pause_menu/atlas_pause_menu_buttons"
 wk unbundle "$ARCH" -o "$OUT/raw" -r "main_menu/menu_background_1080p"
 wk unbundle "$ARCH" -o "$OUT/raw" -r "gui/fullscreen/inventory/atlas_inventory"
+wk unbundle "$ARCH" -o "$OUT/raw" -r "common/shapes/atlas_shapes_sync"
 
 # 2) Dekódolás .png-be (a .xbm.json melletti base64 blokkból).
 uv run --no-project --with texture2ddecoder --with pillow python - "$OUT" <<'PYEOF'

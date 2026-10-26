@@ -189,6 +189,31 @@ struct CPGameButtonShape: View {
     }
 }
 
+/// A játék szünet-menü gombjának valódi cellája: a `PauseButtonItem`
+/// widget (`pause_menu.inkwidget`) nem a `pause_button_bg` sziluettet,
+/// hanem az `atlas_shapes_sync.inkatlas` `cell_bg` (kitöltés) +
+/// `cell_fg` (keret) darabjait használja, kilenc-szeletelve, csak a
+/// jobb alsó sarok vágott. A két darab fehér sablonként, a játék
+/// `tintColor`-szorzásával színezve (scripts/cp-ui-assets.sh).
+/// Hiányzó assetnél a jobb-alsó vágású saját alakzat a tartalék.
+struct CPGameCellBackground: View {
+    var fill: Color
+    var frame: Color
+    var body: some View {
+        if UIImage(named: "cp_cell_bg") != nil, UIImage(named: "cp_cell_fg") != nil {
+            ZStack {
+                Image("cp_cell_bg").renderingMode(.template).resizable().foregroundStyle(fill)
+                CPGamePattern(opacity: 0.22, tint: frame)
+                    .mask { Image("cp_cell_bg").resizable() }
+                Image("cp_cell_fg").renderingMode(.template).resizable().foregroundStyle(frame)
+            }
+        } else {
+            let shape = CPChamferShape(cut: 8, corners: [.bottomRight])
+            shape.fill(fill).overlay(shape.strokeBorder(frame, lineWidth: 1))
+        }
+    }
+}
+
 /// A játék eredeti áramkör-mintája: az inventory-atlasz
 /// (`base/gameplay/gui/fullscreen/inventory/atlas_inventory.inkatlas`,
 /// a mögöttes `atlas_inventory.xbm` BC3 textúrából) `texture_2slot`
@@ -231,12 +256,16 @@ struct CPGamePattern: View {
 
 // MARK: - Gomb
 
-/// CP2077-gomb: levágott sarok, nagybetűs, ritkított Rajdhani felirat.
-/// - `.primary`: a játék menü-kijelölése — tömör vörös kitöltés, fekete
-///   felirat (a sárga a játékban márka-/kiemelőszín, nem gombkitöltés).
-/// - `.secondary`: cián körvonal, cián felirat.
-/// - `.destructive`: vörös körvonal + halvány vörös arc, vörös felirat.
-/// Lenyomva a kitöltés invertál / felvillan, és halk blip szól.
+/// CP2077-gomb a játék `PauseButtonItem` celláján (`cell_bg`+`cell_fg`,
+/// csak jobb-alsó vágás): alapban sötét arc (`Fullscreen_
+/// PrimaryBackgroundDarkest`), vörös keret+felirat (`MenuButton`
+/// Default = `MainColors.Red`); lenyomva tömör kitöltés fekete
+/// felirattal (a `ButtonPause` Hover állapota: `FullAtHover`, fekete
+/// szöveg). A sárga a játékban hover-szín (`MenuButton` Hover =
+/// `ActiveYellow`), érintőképernyőn nincs hover, ezért nem alapállapot.
+/// - `.primary`: vörös keret/felirat, lenyomva vörös arc + fekete felirat.
+/// - `.secondary`: cián keret/felirat (a játék `MainColors.Blue` családja).
+/// - `.destructive`: mint a primary, halvány vörös alaptónussal.
 struct CPButtonStyle: ButtonStyle {
     enum Kind { case primary, secondary, destructive }
     var kind: Kind = .primary
@@ -248,7 +277,7 @@ struct CPButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         let pressed = configuration.isPressed
-        let shape = CPChamferShape(cut: compact ? 6 : 10, corners: [.topLeft, .bottomRight])
+        let shape = CPChamferShape(cut: compact ? 6 : 10, corners: [.bottomRight])
         let accent: Color = {
             switch kind {
             case .primary: return CyberpunkTheme.red
@@ -258,17 +287,12 @@ struct CPButtonStyle: ButtonStyle {
         }()
         let fg: Color = {
             guard isEnabled else { return CyberpunkTheme.dim }
-            switch kind {
-            case .primary: return pressed ? CyberpunkTheme.red : Color.black
-            default: return pressed ? Color.black : accent
-            }
+            return pressed ? Color.black : accent
         }()
         let fill: Color = {
             guard isEnabled else { return CyberpunkTheme.panel }
-            switch kind {
-            case .primary: return pressed ? CyberpunkTheme.panelRaised : CyberpunkTheme.red
-            default: return pressed ? accent : accent.opacity(kind == .destructive ? 0.12 : 0.06)
-            }
+            if pressed { return accent }
+            return kind == .destructive ? accent.opacity(0.12) : CyberpunkTheme.panel
         }()
         return configuration.label
             .font(CyberpunkTheme.font(compact ? .subheadline : .headline, weight: .bold))
@@ -280,14 +304,7 @@ struct CPButtonStyle: ButtonStyle {
             .padding(.horizontal, compact ? 10 : 20)
             .padding(.vertical, compact ? 6 : 11)
             .frame(maxWidth: fullWidth ? .infinity : nil, minHeight: compact ? 34 : 46)
-            .background(CPGameButtonShape(fill: fill, patternTint: accent))
-            .overlay {
-                // A játék gombformáján nincs külön körvonal-él: csak ha a
-                // textúra hiányzik, rajzolunk saját keretet az alakzatra.
-                if UIImage(named: "cp_btn_bg") == nil {
-                    shape.strokeBorder(isEnabled ? accent.opacity(contrast == .increased ? 1 : 0.85) : CyberpunkTheme.dim.opacity(0.5), lineWidth: 1)
-                }
-            }
+            .background(CPGameCellBackground(fill: fill, frame: isEnabled ? accent.opacity(contrast == .increased ? 1 : 0.9) : CyberpunkTheme.dim.opacity(0.5)))
             .contentShape(shape)
             .onChange(of: pressed) { _, down in
                 if down { CPSound.play(.click) }
@@ -389,9 +406,10 @@ struct CPDivider: View {
 
 // MARK: - Szegmens-választó
 
-/// `Picker(.segmented)` HUD-párja: egymás melletti levágott sarkú fülek,
-/// a kijelölt vörös kitöltésű fekete felirattal, a többi halvány
-/// körvonalas. Váltáskor blip.
+/// `Picker(.segmented)` HUD-párja a játék `cell_bg`/`cell_fg`
+/// celláin: a kijelölt tömör vörös kitöltésű fekete felirattal (a
+/// `ButtonPause` Hover-kitöltése), a többi sötét arcú, halvány keretű.
+/// Váltáskor blip.
 struct CPSegmentedPicker<Value: Hashable>: View {
     @Binding var selection: Value
     var options: [(value: Value, title: String)]
@@ -401,7 +419,7 @@ struct CPSegmentedPicker<Value: Hashable>: View {
         HStack(spacing: 4) {
             ForEach(Array(options.enumerated()), id: \.offset) { _, option in
                 let on = option.value == selection
-                let shape = CPChamferShape(cut: 6, corners: [.topLeft, .bottomRight])
+                let shape = CPChamferShape(cut: 6, corners: [.bottomRight])
                 Button {
                     if !on { CPSound.play(.navigate) }
                     selection = option.value
@@ -414,8 +432,7 @@ struct CPSegmentedPicker<Value: Hashable>: View {
                         .foregroundStyle(on ? Color.black : CyberpunkTheme.text.opacity(0.75))
                         .frame(maxWidth: .infinity, minHeight: 36)
                         .padding(.horizontal, 4)
-                        .background(shape.fill(on ? CyberpunkTheme.red : CyberpunkTheme.panel))
-                        .overlay(shape.strokeBorder(on ? CyberpunkTheme.red : CyberpunkTheme.dim.opacity(0.45), lineWidth: 1))
+                        .background(CPGameCellBackground(fill: on ? CyberpunkTheme.red : CyberpunkTheme.panel, frame: on ? CyberpunkTheme.red : CyberpunkTheme.dim.opacity(0.45)))
                         .contentShape(shape)
                 }
                 .buttonStyle(.plain)
@@ -650,7 +667,10 @@ extension View {
 
 // MARK: - Kapcsoló, beviteli mező
 
-/// Szögletes HUD-kapcsoló: bekapcsolva vörös, kikapcsolva halvány keret.
+/// Kapcsoló a játék jelölőnégyzetén: az `atlas_shapes_sync`
+/// `checkbox_frame` kerete + bekapcsolva a `checkbox_fill` kitöltése
+/// (fehér sablonok, játék szerinti tintával). Asset híján a korábbi
+/// csúszka-alakzat a tartalék.
 struct CPToggleStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         let on = configuration.isOn
@@ -661,17 +681,29 @@ struct CPToggleStyle: ToggleStyle {
                 CPSound.play(configuration.isOn ? .valueDown : .valueUp)
                 configuration.isOn.toggle()
             } label: {
-                ZStack(alignment: on ? .trailing : .leading) {
-                    CPChamferShape(cut: 5, corners: [.topLeft, .bottomRight])
-                        .fill(on ? CyberpunkTheme.red.opacity(0.18) : CyberpunkTheme.panel)
-                        .overlay(CPChamferShape(cut: 5, corners: [.topLeft, .bottomRight])
-                            .strokeBorder(on ? CyberpunkTheme.red : CyberpunkTheme.dim.opacity(0.6), lineWidth: 1))
-                    Rectangle()
-                        .fill(on ? CyberpunkTheme.red : CyberpunkTheme.dim)
-                        .frame(width: 18, height: 18)
-                        .padding(4)
+                Group {
+                    if UIImage(named: "cp_check_frame") != nil {
+                        ZStack {
+                            Image("cp_check_frame").renderingMode(.template).resizable()
+                                .foregroundStyle(on ? CyberpunkTheme.red : CyberpunkTheme.dim.opacity(0.6))
+                            if on, UIImage(named: "cp_check_fill") != nil {
+                                Image("cp_check_fill").renderingMode(.template).resizable()
+                                    .foregroundStyle(CyberpunkTheme.red)
+                                    .padding(6)
+                            }
+                        }
+                    } else {
+                        ZStack(alignment: on ? .trailing : .leading) {
+                            CPChamferShape(cut: 5, corners: [.bottomRight])
+                                .fill(on ? CyberpunkTheme.red.opacity(0.18) : CyberpunkTheme.panel)
+                                .overlay(CPChamferShape(cut: 5, corners: [.bottomRight])
+                                    .strokeBorder(on ? CyberpunkTheme.red : CyberpunkTheme.dim.opacity(0.6), lineWidth: 1))
+                            Rectangle().fill(on ? CyberpunkTheme.red : CyberpunkTheme.dim)
+                                .frame(width: 18, height: 18).padding(4)
+                        }
+                    }
                 }
-                .frame(width: 52, height: 28)
+                .frame(width: 28, height: 28)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)

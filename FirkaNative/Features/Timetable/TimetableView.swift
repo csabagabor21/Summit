@@ -1025,8 +1025,10 @@ struct TimetableView: View {
         // Üveg-korong (accent tint) → a kijelölt szám mindig fehér; ma = accent
         // szám, tanítás nélküli nap = halvány szám. Minecraftban tömör korong
         // (ma = accent, egyébként fekete/fehér).
-        // Cyberpunkban sárga, levágott sarkú kijelölő-lap fekete számmal;
-        // ma = sárga szám + vékony sárga aláhúzás.
+        // Cyberpunkban a játék menü-cellája (`cell_bg`/`cell_fg`):
+        // kijelölve mélyvörös kitöltés fekete számmal (a játék
+        // `ButtonPause` Hover-kitöltése), ma = sárga szám + aláhúzás
+        // (a sárga a játék hover/akcent színe, nem kijelölés-kitöltés).
         let mc = MinecraftTheme.isActive
         let cp = CyberpunkTheme.isActive
         let number: AnyShapeStyle = isSel
@@ -1049,7 +1051,7 @@ struct TimetableView: View {
                     .cpOnly { $0.textCase(.uppercase).tracking(1) }
                     .cpMono(10)
                     .skinFont(.caption2, weight: .semibold)
-                    .foregroundStyle(cp ? AnyShapeStyle(isSel || isToday ? CyberpunkTheme.yellow : CyberpunkTheme.dim) : AnyShapeStyle(.secondary))
+                    .foregroundStyle(cp ? AnyShapeStyle(isSel ? CyberpunkTheme.red : isToday ? CyberpunkTheme.yellow : CyberpunkTheme.dim) : AnyShapeStyle(.secondary))
                     .lineLimit(1)
                 ZStack {
                     if isSel {
@@ -1062,8 +1064,7 @@ struct TimetableView: View {
                             }
                             .matchedGeometryEffect(id: "weekDisc", in: weekDiscNS)
                         } else if cp {
-                            CPChamferShape(cut: 8, corners: .diagonal)
-                                .fill(CyberpunkTheme.yellow)
+                            CPGameCellBackground(fill: CyberpunkTheme.red, frame: CyberpunkTheme.red)
                                 .matchedGeometryEffect(id: "weekDisc", in: weekDiscNS)
                         }
                     }
