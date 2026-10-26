@@ -90,7 +90,7 @@ struct CPPanelBackground: View {
         // Áttetsző alap (a menü-háttér áttűnik, mint a játékban) és
         // rajta a játék áramkör-mintája, az alakzatra vágva.
         shape.fill(fill.opacity(hi ? 1 : 0.86))
-            .overlay(CPGamePattern(opacity: hi ? 0 : 0.16).clipShape(shape))
+            .overlay(CPGamePattern(opacity: hi ? 0 : 0.30, tint: accent).clipShape(shape))
             .overlay(shape.strokeBorder(accent.opacity(hi ? 1 : 0.55), lineWidth: hi ? 1.5 : 1))
             .overlay(alignment: .topLeading) {
                 if showsTab {
@@ -167,6 +167,8 @@ struct CPBackdrop: View {
 /// hiányzik, a hívó a saját alakzatát használja.
 struct CPGameButtonShape: View {
     var fill: Color
+    /// A minta nyomainak tónusa (a játék `tintColor`-szorzása).
+    var patternTint: Color = CPGamePattern.supBlue
     var body: some View {
         if UIImage(named: "cp_btn_bg") != nil {
             ZStack {
@@ -175,7 +177,7 @@ struct CPGameButtonShape: View {
                     .resizable(capInsets: EdgeInsets(top: 26, leading: 44, bottom: 26, trailing: 44), resizingMode: .stretch)
                     .foregroundStyle(fill)
                 // Áramkör-minta a gombon, a sziluett alfájára maszkolva.
-                CPGamePattern(opacity: 0.22)
+                CPGamePattern(opacity: 0.30, tint: patternTint)
                     .mask {
                         Image("cp_btn_bg")
                             .resizable(capInsets: EdgeInsets(top: 26, leading: 44, bottom: 26, trailing: 44), resizingMode: .stretch)
@@ -187,20 +189,42 @@ struct CPGameButtonShape: View {
     }
 }
 
-/// A játék eredeti áramkör-mintája
-/// (`base/fx/textures/other/fx_circuit_y_tile_d.xbm`, BC3/DXTAlpha):
-/// az RGB mindenhol fehér, a mintát az ALFA-csatorna hordozza
-/// (fehér nyomvonalak átlátszó alapon), ezért alfásan, keverés
-/// nélkül csempézzük — csak az opacity halványít. A hívó vágja
-/// a saját alakjára.
+/// A játék eredeti áramkör-mintája: az inventory-atlasz
+/// (`base/gameplay/gui/fullscreen/inventory/atlas_inventory.inkatlas`,
+/// a mögöttes `atlas_inventory.xbm` BC3 textúrából) `texture_2slot`
+/// (széles slot, 636x190) darabja — lásd scripts/cp-ui-assets.sh.
+/// A minta színe készre van sütve a textúrába: majdnem fekete
+/// kékeszöld alapon (`#0A1419`) vékony, világos nyomvonalak futnak
+/// sűrűn (a nyers textúrában ~5 px-enként), ezért a játékbeli
+/// léptékhez a darabot NEM csempézzük, hanem a játék ink-képéhez
+/// hasonlóan (`tileType: NoTile`, kitöltésre nyújtva) a felületre
+/// feszítjük — így egy ~50-70 pt magas soron is sok apró nyomelem
+/// látszik, nem 1-2 óriási. A játék a darabot `tintColor`-ral
+/// szorozza (pl. a wardrobe-slot `backgroundLines` képe a
+/// `MainColors.SupBlue` tónust kapja az inventory widgetben):
+/// ezt utánozza a `colorMultiply`, a világos nyomok a `tint`
+/// színét veszik fel, a sötét alap sötét marad. A hívó vágja a
+/// saját alakjára.
 struct CPGamePattern: View {
     var opacity: Double = 0.08
+    /// A játék `MainColors.SupBlue` tónusa (az inventory widget
+    /// `backgroundLines` képének gyári `tintColor` értéke:
+    /// HDR 0.035 / 0.466 / 0.494) — sötét cián nyomok.
+    var tint: Color = CPGamePattern.supBlue
+    static let supBlue: Color = Color(red: 0.035, green: 0.466, blue: 0.494)
+
     var body: some View {
         if UIImage(named: "cp_pattern") != nil {
-            Image("cp_pattern")
-                .resizable(resizingMode: .tile)
-                .opacity(opacity)
-                .accessibilityHidden(true)
+            GeometryReader { geo in
+                Image("cp_pattern")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .clipped()
+                    .colorMultiply(tint)
+                    .opacity(opacity)
+            }
+            .accessibilityHidden(true)
         }
     }
 }
@@ -256,7 +280,7 @@ struct CPButtonStyle: ButtonStyle {
             .padding(.horizontal, compact ? 10 : 20)
             .padding(.vertical, compact ? 6 : 11)
             .frame(maxWidth: fullWidth ? .infinity : nil, minHeight: compact ? 34 : 46)
-            .background(CPGameButtonShape(fill: fill))
+            .background(CPGameButtonShape(fill: fill, patternTint: accent))
             .overlay {
                 // A játék gombformáján nincs külön körvonal-él: csak ha a
                 // textúra hiányzik, rajzolunk saját keretet az alakzatra.
