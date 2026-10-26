@@ -145,7 +145,7 @@ struct LoginView: View {
                 }
                 .cpLoginButton(.secondary)
             }
-            .frame(maxWidth: isPad ? 320 : .infinity)
+            .frame(maxWidth: isPad ? 440 : .infinity)
             .padding(.horizontal, 32)
             .padding(.bottom, 24)
             .summitEntrance(delay: 0.2)

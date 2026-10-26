@@ -103,7 +103,8 @@ struct GradesView: View {
                                     .listRowSeparator(.hidden)
                                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                             } header: { Text("Átlag alakulása — havi").voxelSectionHeader() }
-                            // iPad: két oszlopban, kihasználja a szélességet.
+                            // iPad: adaptív rács — a sáv szélességétől függően
+                            // 2–3 oszlop, kihasználja a szélességet.
                             // Gomb + path-reset NavigationLink helyett: a link
                             // rendszer-chevronje a kártyán KÍVÜL is megjelent
                             // (dupla chevron), és a stack néha többedikre állt
@@ -112,7 +113,7 @@ struct GradesView: View {
                             // chevron csak a kártyán belül marad.
                             if isPad {
                                 let subjects = displayEvkoziSubjects
-                                let cols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+                                let cols = [GridItem(.adaptive(minimum: 330), spacing: 12)]
                                 LazyVGrid(columns: cols, spacing: 12) {
                                     ForEach(subjects, id: \.self) { subject in
                                         if let items = groupedEvkozi[subject] {
@@ -267,7 +268,7 @@ struct GradesView: View {
             }
             .animation(SummitMotion.gentle, value: selectedTab)
             .listStyle(.insetGrouped)
-            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
+            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1280, mac: 1150) : .infinity)
             .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
             .summitListChrome(colors: colors)

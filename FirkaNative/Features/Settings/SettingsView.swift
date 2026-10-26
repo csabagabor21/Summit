@@ -654,7 +654,7 @@ struct SettingsView: View {
             .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 24)
-            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 800, mac: 920) : .infinity)
+            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 920) : .infinity)
             .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
             }

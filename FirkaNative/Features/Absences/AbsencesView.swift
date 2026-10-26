@@ -87,7 +87,7 @@ struct AbsencesView: View {
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("\(displayedDelay)")
-                    .font(NeonTheme.display(size: 34, weight: .bold, relativeTo: .title))
+                    .font(NeonTheme.display(size: isPad ? 44 : 34, weight: .bold, relativeTo: .title))
                     .monospacedDigit()
                     .foregroundStyle(isFullCycle ? NeonTheme.red : NeonTheme.yellow)
                     .contentTransition(.numericText())
@@ -100,7 +100,7 @@ struct AbsencesView: View {
             }
             NeonProgressBar(value: ringProgress, tint: tint, segments: 9, height: 8)
         }
-        .frame(minHeight: 78)
+        .frame(minHeight: isPad ? 96 : 78)
         .accessibilityElement(children: .combine)
     }
 
@@ -113,12 +113,12 @@ struct AbsencesView: View {
         } else if VoxelTheme.isActive {
             VStack(spacing: 8) {
                 Text("\(displayedDelay)")
-                    .voxelDisplay(26)
+                    .voxelDisplay(isPad ? 34 : 26)
                     .monospacedDigit()
                     .foregroundStyle(isFullCycle ? Color.red : .primary)
                 VoxelProgressBar(value: ringProgress)
             }
-            .frame(minHeight: 78)
+            .frame(minHeight: isPad ? 96 : 78)
         } else {
             ZStack {
                 Circle().stroke(Color.primary.opacity(scheme == .dark ? 0.08 : 0.07), lineWidth: 7)
@@ -142,12 +142,12 @@ struct AbsencesView: View {
                     return colors.accent
                 }().opacity(scheme == .dark ? 0.08 : 0.06)).padding(9)
                 Text("\(displayedDelay)")
-                    .voxelDisplay(26)
+                    .voxelDisplay(isPad ? 34 : 26)
                     .monospacedDigit()
                     .foregroundStyle(isFullCycle ? Color.red : .primary)
                     .contentTransition(.numericText())
             }
-            .frame(width: 78, height: 78)
+            .frame(width: isPad ? 104 : 78, height: isPad ? 104 : 78)
         }
     }
 
@@ -210,7 +210,7 @@ struct AbsencesView: View {
                             VStack(spacing: 0) {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("\(absences.count - unjustifiedCount)")
-                                        .voxelDisplay(30)
+                                        .voxelDisplay(isPad ? 38 : 30)
                                         .monospacedDigit()
                                         .foregroundStyle(.primary)
                                         .contentTransition(.numericText())
@@ -228,7 +228,7 @@ struct AbsencesView: View {
                                     .padding(.vertical, 8)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("\(unjustifiedCount)")
-                                        .voxelDisplay(30)
+                                        .voxelDisplay(isPad ? 38 : 30)
                                         .monospacedDigit()
                                         .foregroundStyle(unjustifiedCount > 0 ? colors.red : okGreen)
                                         .contentTransition(.numericText())
@@ -411,7 +411,7 @@ struct AbsencesView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
+            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1280, mac: 1150) : .infinity)
             .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
             .summitListChrome(colors: colors)

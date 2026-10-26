@@ -131,7 +131,7 @@ struct CheatView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
+            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1280, mac: 1150) : .infinity)
             .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
             .summitListChrome(colors: colors)

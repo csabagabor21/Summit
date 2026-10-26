@@ -69,7 +69,7 @@ struct MainTabView: View {
         // Summit-alaptémában marad szélesen a natív sidebar. Külön ég
         // nincs a tab-tartalom mögött (a lista saját ege tölti ki a képet).
         tabContent
-            .padding(.bottom, useCustomHotbar ? Self.voxelFooterHeight : useCPBar ? NeonTabBar.height : 0)
+            .padding(.bottom, useCustomHotbar ? Self.voxelFooterHeight : useCPBar ? NeonTabBar.height(wide: isWide) : 0)
             .overlay(alignment: .bottom) {
                 if useCustomHotbar {
                     // Díszlet: nem nyel érintést. Eddig a teljes 148 pt-os
@@ -479,8 +479,11 @@ private struct VoxelHotbar: View {
     let selected: Int
     let onSelect: (Int) -> Void
 
+    @Environment(\.horizontalSizeClass) private var hotbarHSize
     /// Egy játék-pixel pontban (3 pt → 6/9 fizikai pixel, mindig egész).
-    private let px: CGFloat = 3
+    /// iPaden (regular) 4 pt: a hotbar arányos marad a széles kijelzőn is,
+    /// iPhone-on változatlanul 3 pt.
+    private var px: CGFloat { hotbarHSize == .regular ? 4 : 3 }
     private let slotPx = 20
     private var barWidthPx: Int { slotPx * slots.count + 2 }
     private let barHeightPx = 22
@@ -629,9 +632,14 @@ struct NeonTabBar: View {
     var items: [Item]
     var selected: Int
     var onSelect: (Int) -> Void
+    @Environment(\.horizontalSizeClass) private var hSize
+    /// Széles elrendezés (iPad): a sáv arányosan magasabb, nagyobb ikonokkal.
+    private var isWideLayout: Bool { hSize == .regular }
 
     /// A sáv magassága a home-jelző fölött (a tartalom ennyivel előbb áll meg).
     static let height: CGFloat = 60
+    /// Méretosztályhoz igazított sávmagasság (iPhone: 60, iPad: 72).
+    static func height(wide: Bool) -> CGFloat { wide ? 72 : height }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -659,7 +667,7 @@ struct NeonTabBar: View {
         // overlay csak a tartalom szélességét ajánlaná fel, a sávnak
         // viszont az oldal alját végig ki kell töltenie.
         .frame(maxWidth: .infinity)
-        .frame(height: Self.height, alignment: .top)
+        .frame(height: Self.height(wide: isWideLayout), alignment: .top)
         .background {
             ZStack {
                 NeonTheme.bg.opacity(0.96)
@@ -673,23 +681,23 @@ struct NeonTabBar: View {
         VStack(spacing: 3) {
             if let systemIcon = item.systemIcon {
                 Image(systemName: systemIcon)
-                    .font(.system(size: 20, weight: .regular))
-                    .frame(width: 24, height: 24)
+                    .font(.system(size: isWideLayout ? 24 : 20, weight: .regular))
+                    .frame(width: isWideLayout ? 28 : 24, height: isWideLayout ? 28 : 24)
             } else {
                 Image(item.icon)
                     .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 24, height: 24)
+                    .frame(width: isWideLayout ? 28 : 24, height: isWideLayout ? 28 : 24)
             }
             Text(item.title.uppercased())
-                .font(NeonTheme.mono(size: 9, relativeTo: .caption2))
+                .font(NeonTheme.mono(size: isWideLayout ? 10 : 9, relativeTo: .caption2))
                 .tracking(0.6)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }
         .foregroundStyle(on ? Color.black : NeonTheme.text.opacity(0.62))
-        .frame(maxWidth: .infinity, minHeight: 48)
+        .frame(maxWidth: .infinity, minHeight: isWideLayout ? 56 : 48)
         .background {
             if on {
                 // A hub-fül eredeti formája (`button_big2_bg_tab`),

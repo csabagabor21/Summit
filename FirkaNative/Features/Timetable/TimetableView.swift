@@ -499,7 +499,7 @@ struct TimetableView: View {
             // swipe, hétlapozás —, nem egy selectedDay-onChange: az a kód
             // okos nap-ugrására is tüzelt, így a „Ma" gomb a megnyomása után
             // is kint ragadt.)
-            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
+            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1280, mac: 1150) : .infinity)
             .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
             .summitListChrome(colors: colors)
@@ -2163,7 +2163,7 @@ private struct LessonDetailSheet: View {
                 } header: { sectionTitle("Dolgozat", code: "03") }
             }
             .listStyle(.insetGrouped)
-            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
+            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1280, mac: 1150) : .infinity)
             .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
             .summitListChrome(colors: colors)

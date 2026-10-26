@@ -378,8 +378,9 @@ struct HomeView: View {
             }
             .listStyle(.insetGrouped)
             .voxelDefaultFont()
-            // iPad: keskenyebb, középre igazított lista — nem nyúlik szét 12.9"-en
-            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
+            // iPad (regular): széles sáv, kitölti a kijelzőt ésszerű margóval
+            // (13"-en 1280 pt, kisebb iPaden teljes szélesség) — nem telefonos oszlop.
+            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1280, mac: 1150) : .infinity)
             .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
             .summitListChrome(colors: colors)
