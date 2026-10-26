@@ -903,38 +903,36 @@ extension CyberpunkTheme {
     static let bootRequest = Notification.Name("summit.cyberpunk.boot")
 }
 
-/// Belépő átmenet Cyberpunkra váltáskor: CSAK a játék braindance-
-/// belépésének vizuális lényege, semmi más. Fekete képernyő, rövid
-/// fehér túlterhelés-impulzusok, majd egy nagy, teljes (opacity 1)
-/// fehér vakítás lassú lecsengéssel és enyhe glitch-rángással — a
-/// játék eredeti braindance-belépő hangjára (`CPSound.braindance`,
-/// 3,4 mp) időzítve. A játék effektje engine worldEffect/particle
-/// (`p_braindance_entering`), fájlként SwiftUI-ba nem áthozható,
-/// ezért itt a hangra szinkronizálva újraépítve.
-/// Nincs logó, felirat, sáv vagy keret: a fehér réteg a ZStack
-/// legfelső, utolsó eleme, teljes képernyőn, és az overlay saját
-/// elhalványulása csak akkor indul, amikor a vakítás már lecsengett
-/// 0-ra — így semmi nem áll a flash előtt és nem is halványítja.
-/// Összesen ~3,4 mp, nem fogja meg az érintést. Reduce Motion
-/// mellett nincs villanás (fényérzékenység!): csak fekete, majd
-/// rövid, nyugodt elhalványulás.
+/// Belépő átmenet Cyberpunkra váltáskor: az EREDETI játékbeli
+/// braindance-belépés videón, nem rekonstrukció. A játék effektje
+/// engine worldEffect/particle (`p_braindance_entering`), SwiftUI-ban
+/// nem játszható le és videóra sem renderelhető ki, ezért a jelenet
+/// egy gameplay-felvételből kivágott szakasza fut: `cp_braindance.mp4`
+/// a Resourcesban (Cyberpunk 2077 gameplay, a Judy-féle furgonos
+/// braindance-belépés fehér vakítása, 571,5–574,9 mp a forrásban,
+/// 3,4 mp-re vágva, néma, 720p — lásd a commit-leírást a forrásért).
+/// A videó néma: alatta az eredeti braindance-belépő hang szól
+/// (`CPSound.braindance`, 3,4 mp), a kettő egyszerre indul, így a
+/// kép és a hang végig szinkronban van; a videó utolsó (fehér)
+/// képkockájáról az overlay elhalványulása adja a lecsengést.
+/// Nincs logó, felirat, sáv vagy keret a videón és körülötte sem,
+/// nem fogja meg az érintést. Ha a videófájl valamiért hiányozna a
+/// bundle-ből, rekonstrukció helyett sima fekete kitartás fut a hang
+/// hosszáig. Reduce Motion mellett nincs videó és villanás
+/// (fényérzékenység!): csak rövid fekete átmenet, a hang halkabban
+/// szól (a hang nem villog, de így az egész boot visszafogottabb).
 struct CPBootOverlay: View {
     var onFinish: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var opacity: Double = 1
-    /// A fehér vakítás erőssége (0 = fekete, 1 = teljes fehér).
-    @State private var flash: Double = 0
-    /// Enyhe vízszintes glitch-rángás a vakítás lecsengése közben.
-    @State private var jitter: CGFloat = 0
+    @State private var player: AVPlayer?
 
     var body: some View {
         ZStack {
             Color.black
-            // A vakítás: bizonyítottan a legfelső réteg (a ZStack
-            // utolsó gyereke, fölötte semmi), teljes képernyős fehér.
-            Color.white
-                .opacity(flash)
-                .offset(x: jitter)
+            if !reduceMotion, let player {
+                CPBootVideoView(player: player)
+            }
         }
         .ignoresSafeArea()
         .opacity(opacity)
@@ -945,52 +943,62 @@ struct CPBootOverlay: View {
     }
 
     private func run() async {
-        // A téma-választás hangja: az eredeti braindance-belépés (3,4 mp).
-        CPSound.play(.braindance)
         if reduceMotion {
-            // Fényérzékenység: semmi villanás, csak nyugodt átmenet.
+            // Fényérzékenység: semmi villanás/videó, csak nyugodt
+            // átmenet; a belépő hang halkabban marad meg.
+            CPSound.play(.braindance, volume: 0.5)
             try? await Task.sleep(for: .milliseconds(700))
             withAnimation(.easeOut(duration: 0.3)) { opacity = 0 }
             try? await Task.sleep(for: .milliseconds(320))
             onFinish()
             return
         }
-        // Fekete alap, majd rövid túlterhelés-impulzusok növekvő
-        // erővel (nem animált, azonnali kapcsolás = valódi villanás).
-        try? await Task.sleep(for: .milliseconds(250))
-        flash = 0.7
-        try? await Task.sleep(for: .milliseconds(70))
-        flash = 0
-        try? await Task.sleep(for: .milliseconds(120))
-        flash = 1
-        try? await Task.sleep(for: .milliseconds(60))
-        flash = 0
-        try? await Task.sleep(for: .milliseconds(100))
-        // Dupla reccsenés közvetlenül a nagy vakítás előtt.
-        flash = 1
-        try? await Task.sleep(for: .milliseconds(50))
-        flash = 0
-        try? await Task.sleep(for: .milliseconds(50))
-        flash = 1
-        try? await Task.sleep(for: .milliseconds(50))
-        flash = 0
-        try? await Task.sleep(for: .milliseconds(90))
-        // A nagy vakítás: gyorsan fel teljes fehérre, rövid tartás,
-        // majd lassú (~1,4 mp) lecsengés enyhe rángással — a hang
-        // ívének második felére időzítve.
-        withAnimation(.easeIn(duration: 0.12)) { flash = 1 }
-        try? await Task.sleep(for: .milliseconds(420))
-        withAnimation(.easeOut(duration: 1.4)) { flash = 0 }
-        for step in 0..<14 {
-            jitter = step % 2 == 0 ? CGFloat(3 - step / 4) : CGFloat(-(3 - step / 4))
-            try? await Task.sleep(for: .milliseconds(100))
+        // A videó és az eredeti belépő hang egyszerre indul (3,4 mp).
+        if let url = Bundle.main.url(forResource: "cp_braindance", withExtension: "mp4") {
+            let p = AVPlayer(url: url)
+            p.isMuted = true
+            player = p
+            CPSound.play(.braindance)
+            p.play()
+        } else {
+            // Nincs videó a bundle-ben: fekete kitartás a hang hosszáig.
+            CPSound.play(.braindance)
         }
-        jitter = 0
-        flash = 0
-        // A vakítás már 0: csak most halványulhat el maga az overlay.
-        try? await Task.sleep(for: .milliseconds(250))
+        try? await Task.sleep(for: .milliseconds(3400))
+        // A videó utolsó (fehér) képkockájáról halványul el az overlay.
         withAnimation(.easeOut(duration: 0.35)) { opacity = 0 }
         try? await Task.sleep(for: .milliseconds(380))
+        player?.pause()
+        player = nil
         onFinish()
     }
+}
+
+/// Teljes képernyős, kezelőelemek nélküli videóréteg a boot-videóhoz
+/// (`resizeAspectFill`, mint a játék teljes képernyős átmenete).
+private struct CPBootVideoView: UIViewRepresentable {
+    let player: AVPlayer
+
+    func makeUIView(context: Context) -> CPPlayerLayerView {
+        let view = CPPlayerLayerView()
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = .resizeAspectFill
+        return view
+    }
+
+    func updateUIView(_ uiView: CPPlayerLayerView, context: Context) {
+        uiView.playerLayer.player = player
+    }
+}
+
+private final class CPPlayerLayerView: UIView {
+    override class var layerClass: AnyClass { AVPlayerLayer.self }
+    var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .black
+        isUserInteractionEnabled = false
+    }
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError() }
 }

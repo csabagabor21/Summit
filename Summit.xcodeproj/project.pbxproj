@@ -10,6 +10,7 @@
 		55A742C9612178164A5D71DB /* Rajdhani-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D062E6ED9578FC39FDD74D73 /* Rajdhani-Medium.ttf */; };
 		061D02E374603EE65367F931 /* Rajdhani-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9FD2217207EE83978EC8B329 /* Rajdhani-SemiBold.ttf */; };
 		452B9C30405F57E2F40B0FCB /* Rajdhani-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 6B4E87F1E2CC1D38620E0090 /* Rajdhani-Bold.ttf */; };
+		CB9D00012A3B4C5D6E7F0001 /* cp_braindance.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = CB9D00012A3B4C5D6E7F0002 /* cp_braindance.mp4 */; };
 		2299AAB704A3F479D73694F3 /* IBMPlexMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B404A40E1B470BCCE2C7B084 /* IBMPlexMono-Medium.ttf */; };
 		9F6A587997F46917FFB90D36 /* CyberpunkTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A2AA202F9F84824D5E98F3C /* CyberpunkTheme.swift */; };
 		246E71E78C65E413D1C9AF90 /* CyberpunkKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D359AE0819EF25D0EA5DE48 /* CyberpunkKit.swift */; };
@@ -228,6 +229,7 @@
 		D062E6ED9578FC39FDD74D73 /* Rajdhani-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Rajdhani-Medium.ttf; sourceTree = "<group>"; };
 		9FD2217207EE83978EC8B329 /* Rajdhani-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Rajdhani-SemiBold.ttf; sourceTree = "<group>"; };
 		6B4E87F1E2CC1D38620E0090 /* Rajdhani-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Rajdhani-Bold.ttf; sourceTree = "<group>"; };
+		CB9D00012A3B4C5D6E7F0002 /* cp_braindance.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = cp_braindance.mp4; sourceTree = "<group>"; };
 		B404A40E1B470BCCE2C7B084 /* IBMPlexMono-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = IBMPlexMono-Medium.ttf; sourceTree = "<group>"; };
 		8A2AA202F9F84824D5E98F3C /* CyberpunkTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyberpunkTheme.swift; sourceTree = "<group>"; };
 		9D359AE0819EF25D0EA5DE48 /* CyberpunkKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyberpunkKit.swift; sourceTree = "<group>"; };
@@ -484,6 +486,7 @@
 				B2C3D4E5F60718293A4B01C2 /* Monocraft.ttf */,
 				B404A40E1B470BCCE2C7B084 /* IBMPlexMono-Medium.ttf */,
 				6B4E87F1E2CC1D38620E0090 /* Rajdhani-Bold.ttf */,
+				CB9D00012A3B4C5D6E7F0002 /* cp_braindance.mp4 */,
 				9FD2217207EE83978EC8B329 /* Rajdhani-SemiBold.ttf */,
 				D062E6ED9578FC39FDD74D73 /* Rajdhani-Medium.ttf */,
 				1D92783AAF33901FDCC0CB3B /* LaunchScreen.storyboard */,
@@ -954,6 +957,7 @@
 				A1B2C3D4E5F60718293A4B01 /* Monocraft.ttf in Resources */,
 				2299AAB704A3F479D73694F3 /* IBMPlexMono-Medium.ttf in Resources */,
 				452B9C30405F57E2F40B0FCB /* Rajdhani-Bold.ttf in Resources */,
+				CB9D00012A3B4C5D6E7F0001 /* cp_braindance.mp4 in Resources */,
 				061D02E374603EE65367F931 /* Rajdhani-SemiBold.ttf in Resources */,
 				55A742C9612178164A5D71DB /* Rajdhani-Medium.ttf in Resources */,
 				497DBC3AB13FF8515F308F9E /* showcase1.png in Resources */,
