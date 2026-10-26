@@ -6,8 +6,8 @@ struct ContentView: View {
     @EnvironmentObject var analytics: AnalyticsStore
     /// A rendszer szövegmérete (felülírás nélkül ez megy tovább változatlanul).
     @Environment(\.sizeCategory) private var systemSizeCategory
-    /// Cyberpunkra váltáskor egyszer lejátszott belépő átmenet.
-    @State private var cyberpunkBoot = false
+    /// Neonra váltáskor egyszer lejátszott belépő átmenet.
+    @State private var neonBoot = false
 
     var body: some View {
         // NEM `if let felülírás { content.environment } else { content }`:
@@ -16,21 +16,21 @@ struct ContentView: View {
         // kiválasztott tabot (a user a Főoldal gyökerén találta magát).
         content
             .environment(\.sizeCategory, theme.sizeCategoryOverride ?? systemSizeCategory)
-        // Minecraft-skin: a kifejezett betűstílus nélküli szövegek (szekció-
+        // Voxel-skin: a kifejezett betűstílus nélküli szövegek (szekció-
         // fejlécek, sima gombfeliratok, mezők) is Monocraftban jelennek meg.
         // Summitban nil = a rendszer alap-környezete, semmi nem változik.
-        // Cyberpunkban ugyanígy Rajdhani.
-        .environment(\.font, theme.isMinecraft ? MinecraftTheme.font(.body)
-                     : theme.isCyberpunk ? CyberpunkTheme.font(.body) : nil)
+        // Neonban ugyanígy Rajdhani.
+        .environment(\.font, theme.isVoxel ? VoxelTheme.font(.body)
+                     : theme.isNeon ? NeonTheme.font(.body) : nil)
         .animation(SummitMotion.gentle, value: session.isLoggedIn)
-        // Cyberpunkra váltás a felület-választóból: rövid „boot"-átmenet.
+        // Neonra váltás a felület-választóból: rövid „boot"-átmenet.
         .overlay {
-            if cyberpunkBoot {
-                CPBootOverlay { cyberpunkBoot = false }
+            if neonBoot {
+                NeonBootOverlay { neonBoot = false }
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: CyberpunkTheme.bootRequest)) { _ in
-            cyberpunkBoot = true
+        .onReceive(NotificationCenter.default.publisher(for: NeonTheme.bootRequest)) { _ in
+            neonBoot = true
         }
         // Skin-váltáskor a nav/tab-sávok betűje is átvált (UIKit-appearance).
         .onChange(of: theme.skin) { _, s in
@@ -70,15 +70,15 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Minecraft-skin segédek
-// A kit (MinecraftKit) általános elemein túli, a képernyők közös építőkockái.
+// MARK: - Voxel-skin segédek
+// A kit (VoxelKit) általános elemein túli, a képernyők közös építőkockái.
 // Mind skin-érzékeny: Summitban a gyári vezérlőt adják vissza változatlanul.
 
-/// Mező-helyőrző: Minecraftban a fekete mezőn is olvasható szürke szöveg
+/// Mező-helyőrző: Voxelben a fekete mezőn is olvasható szürke szöveg
 /// (a rendszer-helyőrző sötét lenne), Summitban a gyári.
 func skinPrompt(_ text: String) -> Text {
-    MinecraftTheme.isActive ? Text(text).foregroundStyle(Color(hex: 0x7A7A7A))
-        : CyberpunkTheme.isActive ? Text(text).foregroundStyle(CyberpunkTheme.dim) : Text(text)
+    VoxelTheme.isActive ? Text(text).foregroundStyle(Color(hex: 0x7A7A7A))
+        : NeonTheme.isActive ? Text(text).foregroundStyle(NeonTheme.dim) : Text(text)
 }
 
 /// Egy választható érték a szegmens- és menüválasztókhoz.
@@ -91,48 +91,48 @@ struct SkinOption<Value: Hashable>: Identifiable {
 
 /// Gomb-stílus a szegmensekhez: a kijelölt elem a `button_highlighted`
 /// (fehér keretes) sprite, sárga felirattal — mint a játék választó-gombjai.
-private struct McSegmentStyle: ButtonStyle {
+private struct VoxelSegmentStyle: ButtonStyle {
     var selected: Bool
     func makeBody(configuration: Configuration) -> some View {
         let hi = selected || configuration.isPressed
         configuration.label
-            .font(MinecraftTheme.font(.callout))
+            .font(VoxelTheme.font(.callout))
             .foregroundStyle(selected ? Color(hex: 0xFFFF55) : .white)
-            .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: MinecraftTheme.px / 1.5, y: MinecraftTheme.px / 1.5)
+            .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: VoxelTheme.px / 1.5, y: VoxelTheme.px / 1.5)
             .padding(.horizontal, 6)
             .padding(.vertical, 8)
             .frame(minHeight: 40)
-            .background(McNineSlice(hi ? "mc_widget_button_hi" : "mc_widget_button", border: 3))
+            .background(VoxelNineSlice(hi ? "img_blk_widget_button_hi" : "img_blk_widget_button", border: 3))
             .contentShape(Rectangle())
     }
 }
 
 /// Gombnak látszó felirat-keret (nem ButtonStyle: Menu / DatePicker
 /// címkéjén is használható, ahol a rendszer saját stílust húzna rá).
-private struct McButtonLook: ViewModifier {
+private struct VoxelButtonLook: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .font(MinecraftTheme.font(.body))
+            .font(VoxelTheme.font(.body))
             .foregroundStyle(.white)
-            .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: MinecraftTheme.px / 1.5, y: MinecraftTheme.px / 1.5)
+            .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: VoxelTheme.px / 1.5, y: VoxelTheme.px / 1.5)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .frame(minHeight: 36)
-            .background(McNineSlice("mc_widget_button", border: 3))
+            .background(VoxelNineSlice("img_blk_widget_button", border: 3))
             .contentShape(Rectangle())
     }
 }
 
 /// Szegmentált választó: Summitban a gyári `.segmented` Picker,
-/// Minecraftban egymás melletti kő-gombok (a kijelölt kiemelve).
+/// Voxelben egymás melletti kő-gombok (a kijelölt kiemelve).
 struct SkinSegmented<Value: Hashable>: View {
     var title: String = ""
     @Binding var selection: Value
     var options: [SkinOption<Value>]
 
     var body: some View {
-        if MinecraftTheme.isActive {
-            HStack(spacing: MinecraftTheme.px) {
+        if VoxelTheme.isActive {
+            HStack(spacing: VoxelTheme.px) {
                 ForEach(options) { opt in
                     let on = selection == opt.value
                     Button { selection = opt.value } label: {
@@ -142,12 +142,12 @@ struct SkinSegmented<Value: Hashable>: View {
                         }
                         .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(McSegmentStyle(selected: on))
+                    .buttonStyle(VoxelSegmentStyle(selected: on))
                     .accessibilityAddTraits(on ? .isSelected : [])
                 }
             }
-        } else if CyberpunkTheme.isActive {
-            CPSegmentedPicker(selection: $selection, options: options.map { ($0.value, $0.title) }, accessibilityTitle: title)
+        } else if NeonTheme.isActive {
+            NeonSegmentedPicker(selection: $selection, options: options.map { ($0.value, $0.title) }, accessibilityTitle: title)
         } else {
             Picker(title, selection: $selection) {
                 ForEach(options) { opt in
@@ -164,7 +164,7 @@ struct SkinSegmented<Value: Hashable>: View {
 }
 
 /// Lenyíló választó: Summitban a gyári Picker (`.menu` vagy
-/// `.navigationLink`), Minecraftban kő-gomb a kiválasztott értékkel
+/// `.navigationLink`), Voxelben kő-gomb a kiválasztott értékkel
 /// (a lenyíló lista maga a rendszer menüje).
 struct SkinMenuPicker<Value: Hashable>: View {
     var title: String
@@ -173,7 +173,7 @@ struct SkinMenuPicker<Value: Hashable>: View {
     var navigationStyle = false
 
     var body: some View {
-        if MinecraftTheme.isActive {
+        if VoxelTheme.isActive {
             HStack(spacing: 8) {
                 Text(title)
                 Spacer(minLength: 8)
@@ -186,7 +186,7 @@ struct SkinMenuPicker<Value: Hashable>: View {
                         Text(options.first { $0.value == selection }?.title ?? "—").lineLimit(1)
                         SkinChevron(direction: .down, size: 14)
                     }
-                    .modifier(McButtonLook())
+                    .modifier(VoxelButtonLook())
                 }
                 .buttonStyle(.plain)
             }
@@ -204,7 +204,7 @@ struct SkinMenuPicker<Value: Hashable>: View {
     }
 }
 
-/// Csúszka: Summitban a gyári `Slider`, Minecraftban az igazi
+/// Csúszka: Summitban a gyári `Slider`, Voxelben az igazi
 /// `widget/slider` sötét sáv + `slider_handle` fogantyú.
 struct SkinSlider: View {
     @Binding var value: Double
@@ -212,15 +212,15 @@ struct SkinSlider: View {
     var step: Double
 
     var body: some View {
-        if MinecraftTheme.isActive {
-            McSliderControl(value: $value, range: range, step: step)
+        if VoxelTheme.isActive {
+            VoxelSliderControl(value: $value, range: range, step: step)
         } else {
             Slider(value: $value, in: range, step: step)
         }
     }
 }
 
-private struct McSliderControl: View {
+private struct VoxelSliderControl: View {
     @Binding var value: Double
     var range: ClosedRange<Double>
     var step: Double
@@ -238,12 +238,12 @@ private struct McSliderControl: View {
 
     var body: some View {
         GeometryReader { geo in
-            let handleW = 8 * MinecraftTheme.px
+            let handleW = 8 * VoxelTheme.px
             let travel = max(1, geo.size.width - handleW)
             let frac = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
             ZStack(alignment: .leading) {
-                McNineSlice("mc_widget_slider", border: 1)
-                McNineSlice(dragging ? "mc_widget_slider_handle_hi" : "mc_widget_slider_handle",
+                VoxelNineSlice("img_blk_widget_slider", border: 1)
+                VoxelNineSlice(dragging ? "img_blk_widget_slider_handle_hi" : "img_blk_widget_slider_handle",
                             top: 2, left: 2, bottom: 3, right: 2)
                     .frame(width: handleW)
                     .offset(x: CGFloat(min(1, max(0, frac))) * travel)
@@ -269,7 +269,7 @@ private struct McSliderControl: View {
                     .onEnded { _ in dragging = false; rejected = false }
             )
         }
-        .frame(height: 12 * MinecraftTheme.px)
+        .frame(height: 12 * VoxelTheme.px)
         .accessibilityElement()
         .accessibilityValue(String(format: "%.2f", value))
         .accessibilityAdjustableAction { dir in
@@ -279,23 +279,23 @@ private struct McSliderControl: View {
     }
 }
 
-/// Léptető: Summitban a gyári `Stepper`, Minecraftban −/+ kő-gombok.
+/// Léptető: Summitban a gyári `Stepper`, Voxelben −/+ kő-gombok.
 struct SkinStepper: View {
     var title: String
     @Binding var value: Int
     var range: ClosedRange<Int>
 
     var body: some View {
-        if MinecraftTheme.isActive {
+        if VoxelTheme.isActive {
             HStack(spacing: 8) {
                 Text(title)
                 Spacer(minLength: 8)
-                Button { value = max(range.lowerBound, value - 1) } label: { McGlyph(kind: .minus, size: 16) }
-                    .buttonStyle(McButtonStyle(compact: true))
+                Button { value = max(range.lowerBound, value - 1) } label: { VoxelGlyph(kind: .minus, size: 16) }
+                    .buttonStyle(VoxelButtonStyle(compact: true))
                     .disabled(value <= range.lowerBound)
                     .accessibilityLabel("Csökkentés")
-                Button { value = min(range.upperBound, value + 1) } label: { McGlyph(kind: .plus, size: 16) }
-                    .buttonStyle(McButtonStyle(compact: true))
+                Button { value = min(range.upperBound, value + 1) } label: { VoxelGlyph(kind: .plus, size: 16) }
+                    .buttonStyle(VoxelButtonStyle(compact: true))
                     .disabled(value >= range.upperBound)
                     .accessibilityLabel("Növelés")
             }
@@ -306,7 +306,7 @@ struct SkinStepper: View {
     }
 }
 
-/// Dátumválasztó sor: Summitban a gyári kompakt `DatePicker`, Minecraftban
+/// Dátumválasztó sor: Summitban a gyári kompakt `DatePicker`, Voxelben
 /// kő-gomb a dátummal. A rendszer-naptárat egy átlátszatlanná tett
 /// (színszorzóval kioltott) DatePicker nyitja a gomb fölött.
 struct SkinDateRow: View {
@@ -315,12 +315,12 @@ struct SkinDateRow: View {
     var minDate: Date? = nil
 
     var body: some View {
-        if MinecraftTheme.isActive {
+        if VoxelTheme.isActive {
             HStack(spacing: 8) {
                 Text(title)
                 Spacer(minLength: 8)
                 Text(date.formatted(date: .abbreviated, time: .omitted))
-                    .modifier(McButtonLook())
+                    .modifier(VoxelButtonLook())
                     .overlay { picker(label: false).colorMultiply(.clear) }
             }
         } else {
@@ -340,34 +340,34 @@ struct SkinDateRow: View {
     }
 }
 
-/// Betöltésjelző: Summitban a gyári `ProgressView`, Minecraftban három
+/// Betöltésjelző: Summitban a gyári `ProgressView`, Voxelben három
 /// pixelnégyzet, amelyek közül egy világít (léptetve, nem simán forogva).
 struct SkinProgress: View {
     var color: Color? = nil
 
     var body: some View {
-        if MinecraftTheme.isActive {
-            McPixelSpinner(color: color ?? .primary)
-        } else if CyberpunkTheme.isActive {
-            CPSpinner(color: color ?? CyberpunkTheme.yellow)
+        if VoxelTheme.isActive {
+            VoxelPixelSpinner(color: color ?? .primary)
+        } else if NeonTheme.isActive {
+            NeonSpinner(color: color ?? NeonTheme.yellow)
         } else {
             ProgressView()
         }
     }
 }
 
-private struct McPixelSpinner: View {
+private struct VoxelPixelSpinner: View {
     var color: Color
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.25)) { ctx in
             let phase = reduceMotion ? 0 : Int(ctx.date.timeIntervalSinceReferenceDate / 0.25) % 4
-            HStack(spacing: MinecraftTheme.px) {
+            HStack(spacing: VoxelTheme.px) {
                 ForEach(0..<3, id: \.self) { i in
                     Rectangle()
                         .fill(i == phase ? color : color.opacity(0.28))
-                        .frame(width: 2 * MinecraftTheme.px, height: 2 * MinecraftTheme.px)
+                        .frame(width: 2 * VoxelTheme.px, height: 2 * VoxelTheme.px)
                 }
             }
         }
@@ -375,9 +375,9 @@ private struct McPixelSpinner: View {
     }
 }
 
-/// Cyberpunk-betöltésjelző: öt keskeny sáv, amelyeken egy fényes szakasz
+/// Neon-betöltésjelző: öt keskeny sáv, amelyeken egy fényes szakasz
 /// fut végig (léptetve, 0,12 mp-enként). Reduce Motion mellett álló sávok.
-private struct CPSpinner: View {
+private struct NeonSpinner: View {
     var color: Color
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -396,7 +396,7 @@ private struct CPSpinner: View {
     }
 }
 
-/// Üres állapot: Summitban a gyári `ContentUnavailableView`, Minecraftban
+/// Üres állapot: Summitban a gyári `ContentUnavailableView`, Voxelben
 /// nagy item-ikon + pixelbetűs cím és leírás.
 struct SkinEmptyState: View {
     var title: String
@@ -404,13 +404,13 @@ struct SkinEmptyState: View {
     var description: Text? = nil
 
     var body: some View {
-        if MinecraftTheme.isActive {
+        if VoxelTheme.isActive {
             VStack(spacing: 12) {
-                SkinIcon(systemImage, size: 6 * MinecraftTheme.px * 3)
-                Text(title).mcTitle().multilineTextAlignment(.center)
+                SkinIcon(systemImage, size: 6 * VoxelTheme.px * 3)
+                Text(title).voxelTitle().multilineTextAlignment(.center)
                 if let description {
                     description
-                        .font(MinecraftTheme.font(.callout))
+                        .font(VoxelTheme.font(.callout))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }
@@ -418,21 +418,21 @@ struct SkinEmptyState: View {
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 16)
             .accessibilityElement(children: .combine)
-        } else if CyberpunkTheme.isActive {
+        } else if NeonTheme.isActive {
             VStack(spacing: 10) {
                 Image(systemName: systemImage)
                     .font(.system(size: 40, weight: .light))
-                    .foregroundStyle(CyberpunkTheme.cyan)
-                CPLabel("NO DATA", color: CyberpunkTheme.red)
+                    .foregroundStyle(NeonTheme.cyan)
+                NeonLabel("NO DATA", color: NeonTheme.red)
                 Text(title.uppercased())
-                    .font(CyberpunkTheme.font(.title3, weight: .bold))
+                    .font(NeonTheme.font(.title3, weight: .bold))
                     .tracking(1.2)
-                    .foregroundStyle(CyberpunkTheme.text)
+                    .foregroundStyle(NeonTheme.text)
                     .multilineTextAlignment(.center)
                 if let description {
                     description
-                        .font(CyberpunkTheme.font(.callout))
-                        .foregroundStyle(CyberpunkTheme.dim)
+                        .font(NeonTheme.font(.callout))
+                        .foregroundStyle(NeonTheme.dim)
                         .multilineTextAlignment(.center)
                 }
             }
@@ -445,21 +445,21 @@ struct SkinEmptyState: View {
     }
 }
 
-/// Állapotjelző pötty: Summitban kör, Minecraftban négyzet.
+/// Állapotjelző pötty: Summitban kör, Voxelben négyzet.
 struct SkinDot: View {
     var color: Color
     var size: CGFloat = 6
 
     var body: some View {
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
-            Rectangle().fill(color).frame(width: max(size, MinecraftTheme.px), height: max(size, MinecraftTheme.px))
+        if VoxelTheme.isActive || NeonTheme.isActive {
+            Rectangle().fill(color).frame(width: max(size, VoxelTheme.px), height: max(size, VoxelTheme.px))
         } else {
             Circle().fill(color).frame(width: size, height: size)
         }
     }
 }
 
-/// Navigációs sor listában: Summitban a gyári `NavigationLink`, Minecraftban
+/// Navigációs sor listában: Summitban a gyári `NavigationLink`, Voxelben
 /// a rendszer-nyíl helyett pixel-chevron (a rejtett link adja a koppintást).
 struct SkinNavLink<Destination: View, Label: View>: View {
     var destination: () -> Destination
@@ -471,9 +471,9 @@ struct SkinNavLink<Destination: View, Label: View>: View {
     }
 
     var body: some View {
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+        if VoxelTheme.isActive || NeonTheme.isActive {
             ZStack {
-                NavigationLink { destination().mcBackButton().mcPushClick() } label: { EmptyView() }.opacity(0)
+                NavigationLink { destination().voxelBackButton().voxelPushClick() } label: { EmptyView() }.opacity(0)
                 HStack(spacing: 8) {
                     label()
                     SkinChevron()
@@ -486,48 +486,48 @@ struct SkinNavLink<Destination: View, Label: View>: View {
     }
 }
 
-/// Toolbar-elem skin-érzékenyen: Minecraftban a rendszer Liquid Glass
+/// Toolbar-elem skin-érzékenyen: Voxelben a rendszer Liquid Glass
 /// kapszulája nélkül, kő-gombbal; Summitban a gyári elem.
 struct SkinToolbarItem<Content: View>: ToolbarContent {
     var placement: ToolbarItemPlacement
     @ViewBuilder var content: () -> Content
 
     var body: some ToolbarContent {
-        ToolbarItem(placement: placement) { content().mcFixedSize().skinToolbarItem() }
-            .sharedBackgroundVisibility(MinecraftTheme.isActive || CyberpunkTheme.isActive ? .hidden : .automatic)
+        ToolbarItem(placement: placement) { content().voxelFixedSize().skinToolbarItem() }
+            .sharedBackgroundVisibility(VoxelTheme.isActive || NeonTheme.isActive ? .hidden : .automatic)
     }
 }
 
 extension View {
-    /// Minecraftban a gomb kő-gomb (kompakt), Summitban a `.plain` stílus —
+    /// Voxelben a gomb kő-gomb (kompakt), Summitban a `.plain` stílus —
     /// a koppintható, saját keret nélküli sorok / csíkok gombjához.
     @ViewBuilder
-    func mcButtonOrPlain(compact: Bool = true) -> some View {
-        if MinecraftTheme.isActive {
-            self.buttonStyle(McButtonStyle(compact: compact))
-        } else if CyberpunkTheme.isActive {
-            self.buttonStyle(CPButtonStyle(kind: .secondary, compact: compact))
+    func voxelButtonOrPlain(compact: Bool = true) -> some View {
+        if VoxelTheme.isActive {
+            self.buttonStyle(VoxelButtonStyle(compact: compact))
+        } else if NeonTheme.isActive {
+            self.buttonStyle(NeonButtonStyle(kind: .secondary, compact: compact))
         } else {
             self.buttonStyle(.plain)
         }
     }
 
     /// Körvonalas kapszula-gomb felirata: Summitban akcentszín + vékony
-    /// kapszula-keret, Minecraftban a kő-gomb adja a keretet (itt nincs
+    /// kapszula-keret, Voxelben a kő-gomb adja a keretet (itt nincs
     /// külön díszítés).
     @ViewBuilder
     func skinOutlinePill(_ accent: Color) -> some View {
-        if MinecraftTheme.isActive {
+        if VoxelTheme.isActive {
             self
-        } else if CyberpunkTheme.isActive {
+        } else if NeonTheme.isActive {
             // HUD-címke: nagybetűs, ritkított, levágott sarkú körvonal.
             self
                 .textCase(.uppercase)
                 .tracking(1)
                 .foregroundStyle(accent)
                 .padding(.horizontal, 12).padding(.vertical, 7)
-                .background(CPChamferShape(cut: 6, corners: [.topLeft, .bottomRight]).fill(accent.opacity(0.08)))
-                .overlay(CPChamferShape(cut: 6, corners: [.topLeft, .bottomRight]).strokeBorder(accent.opacity(0.7), lineWidth: 1))
+                .background(NeonChamferShape(cut: 6, corners: [.topLeft, .bottomRight]).fill(accent.opacity(0.08)))
+                .overlay(NeonChamferShape(cut: 6, corners: [.topLeft, .bottomRight]).strokeBorder(accent.opacity(0.7), lineWidth: 1))
         } else {
             self
                 .foregroundStyle(accent)
@@ -536,74 +536,74 @@ extension View {
         }
     }
 
-    /// Minecraftban a címke nem törik/vágódik (toolbar-gombok szélessége).
+    /// Voxelben a címke nem törik/vágódik (toolbar-gombok szélessége).
     @ViewBuilder
-    func mcFixedSize() -> some View {
-        if MinecraftTheme.isActive { self.fixedSize() } else { self }
+    func voxelFixedSize() -> some View {
+        if VoxelTheme.isActive { self.fixedSize() } else { self }
     }
 
-    /// Lista-sor több soros tartalomhoz: Minecraftban pixel-panel háttér,
+    /// Lista-sor több soros tartalomhoz: Voxelben pixel-panel háttér,
     /// rejtett elválasztó, a `summitRowSurface`-szel egyező kényelmes
     /// margó; Summitban semmi.
     @ViewBuilder
-    func mcListRowComfy(fill: Color) -> some View {
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
-            self.listRowBackground(MinecraftTheme.skinRowBackground(fill))
+    func voxelListRowComfy(fill: Color) -> some View {
+        if VoxelTheme.isActive || NeonTheme.isActive {
+            self.listRowBackground(VoxelTheme.skinRowBackground(fill))
                 .listRowSeparator(.hidden)
-                .listRowInsets(MinecraftTheme.rowInsets(nil))
+                .listRowInsets(VoxelTheme.rowInsets(nil))
         } else {
             self
         }
     }
 
-    /// Akcentszínű felirat: Summitban a megadott előtér-szín, Minecraftban
+    /// Akcentszínű felirat: Summitban a megadott előtér-szín, Voxelben
     /// nem nyúl hozzá (a gomb/panel saját felirat-színe él, nem a kiemelő).
     @ViewBuilder
     func skinAccent(_ color: Color) -> some View {
-        if MinecraftTheme.isActive { self } else { self.foregroundStyle(color) }
+        if VoxelTheme.isActive { self } else { self.foregroundStyle(color) }
     }
 
-    /// Szövegmező Form-sorban: Minecraftban a játék szövegmező-kerete,
+    /// Szövegmező Form-sorban: Voxelben a játék szövegmező-kerete,
     /// Summitban a gyári (keret nélküli) sor.
     @ViewBuilder
-    func mcInput() -> some View {
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive { self.summitInput() } else { self }
+    func voxelInput() -> some View {
+        if VoxelTheme.isActive || NeonTheme.isActive { self.summitInput() } else { self }
     }
 
-    /// Szövegsor-gomb (Mentés, Törlés…) kő-gombként Minecraftban; Summitban
+    /// Szövegsor-gomb (Mentés, Törlés…) kő-gombként Voxelben; Summitban
     /// változatlan marad.
     @ViewBuilder
-    func mcInlineButton(prominent: Bool = false) -> some View {
-        if MinecraftTheme.isActive {
-            self.buttonStyle(McButtonStyle(prominent: prominent, compact: true))
-        } else if CyberpunkTheme.isActive {
-            self.buttonStyle(CPButtonStyle(kind: prominent ? .primary : .secondary, compact: true))
+    func voxelInlineButton(prominent: Bool = false) -> some View {
+        if VoxelTheme.isActive {
+            self.buttonStyle(VoxelButtonStyle(prominent: prominent, compact: true))
+        } else if NeonTheme.isActive {
+            self.buttonStyle(NeonButtonStyle(kind: prominent ? .primary : .secondary, compact: true))
         } else {
             self
         }
     }
 
-    /// Minecraftban a megadott pixelbetű-stílus; Summitban nem nyúl semmihez
+    /// Voxelben a megadott pixelbetű-stílus; Summitban nem nyúl semmihez
     /// (olyan helyre, ahol a gyári betű nincs kifejezetten megadva).
-    func mcFont(_ style: Font.TextStyle) -> some View {
+    func voxelFont(_ style: Font.TextStyle) -> some View {
         self.transformEnvironment(\.font) {
-            if MinecraftTheme.isActive { $0 = MinecraftTheme.font(style) }
-            else if CyberpunkTheme.isActive { $0 = CyberpunkTheme.font(style) }
+            if VoxelTheme.isActive { $0 = VoxelTheme.font(style) }
+            else if NeonTheme.isActive { $0 = NeonTheme.font(style) }
         }
     }
 
     /// Kerek/kapszula háttér helyett: Summitban a kapszula (kitöltés és/vagy
-    /// körvonal), Minecraftban pixel-panel.
+    /// körvonal), Voxelben pixel-panel.
     @ViewBuilder
     func skinPill(fill: Color? = nil, stroke: Color? = nil, lineWidth: CGFloat = 1) -> some View {
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
-            self.padding(MinecraftTheme.px)
+        if VoxelTheme.isActive || NeonTheme.isActive {
+            self.padding(VoxelTheme.px)
                 .background {
-                    if CyberpunkTheme.isActive {
-                        CPChamferShape(cut: 6).fill(fill ?? .clear)
-                            .overlay(CPChamferShape(cut: 6).strokeBorder(stroke ?? .clear, lineWidth: lineWidth))
+                    if NeonTheme.isActive {
+                        NeonChamferShape(cut: 6).fill(fill ?? .clear)
+                            .overlay(NeonChamferShape(cut: 6).strokeBorder(stroke ?? .clear, lineWidth: lineWidth))
                     } else {
-                        McBlockPanel(face: fill ?? .clear, castsShadow: false)
+                        VoxelBlockPanel(face: fill ?? .clear, castsShadow: false)
                     }
                 }
         } else {
@@ -613,24 +613,24 @@ extension View {
         }
     }
 
-    /// Lista-sor kiegészítés a `summitRowSurface` mellé: Minecraftban rejtett
+    /// Lista-sor kiegészítés a `summitRowSurface` mellé: Voxelben rejtett
     /// elválasztó + a panel-behúzásnak megfelelő sor-margó; Summitban semmi.
     @ViewBuilder
-    func mcRowChrome() -> some View {
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
-            self.listRowSeparator(.hidden).listRowInsets(MinecraftTheme.rowInsets(nil))
+    func voxelRowChrome() -> some View {
+        if VoxelTheme.isActive || NeonTheme.isActive {
+            self.listRowSeparator(.hidden).listRowInsets(VoxelTheme.rowInsets(nil))
         } else {
             self
         }
     }
 
-    /// Alap (nem `summitListChrome`-os) lista mögé a Minecraft-égbolt;
+    /// Alap (nem `summitListChrome`-os) lista mögé a Voxel-égbolt;
     /// Summitban nem csinál semmit.
     @ViewBuilder
-    func mcListChrome() -> some View {
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+    func voxelListChrome() -> some View {
+        if VoxelTheme.isActive || NeonTheme.isActive {
             self.scrollContentBackground(.hidden).background {
-                if CyberpunkTheme.isActive { CPBackdrop() } else { MinecraftBackdrop(ground: false) }
+                if NeonTheme.isActive { NeonBackdrop() } else { VoxelBackdrop(ground: false) }
             }
         } else {
             self
@@ -638,12 +638,12 @@ extension View {
     }
 
     /// Kártya-háttér: Summitban a megadott színű lekerekített doboz,
-    /// Minecraftban sötét pixel-panel (a játék sötét dialógusa, a menü-háttéren).
+    /// Voxelben sötét pixel-panel (a játék sötét dialógusa, a menü-háttéren).
     @ViewBuilder
     func skinCard(fill: Color, cornerRadius: CGFloat = 16) -> some View {
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+        if VoxelTheme.isActive || NeonTheme.isActive {
             self.background {
-                if CyberpunkTheme.isActive { CPPanelBackground() } else { McBlockPanel(face: Color(hex: 0x2E2E33)) }
+                if NeonTheme.isActive { NeonPanelBackground() } else { VoxelBlockPanel(face: Color(hex: 0x2E2E33)) }
             }
         } else {
             self.background(fill, in: RoundedRectangle(cornerRadius: cornerRadius))
@@ -654,7 +654,7 @@ extension View {
     /// háttere. Summitban nem csinál semmit.
     @ViewBuilder
     func skinFormChrome() -> some View {
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+        if VoxelTheme.isActive || NeonTheme.isActive {
             self.scrollContentBackground(.hidden).skinSheetBackground()
         } else {
             self
@@ -662,14 +662,14 @@ extension View {
     }
 }
 
-/// Vékony elválasztó: Summitban a gyári `Divider`, Minecraftban 3 pt-os
+/// Vékony elválasztó: Summitban a gyári `Divider`, Voxelben 3 pt-os
 /// sötét csík.
 struct SkinDivider: View {
     var body: some View {
-        if MinecraftTheme.isActive {
-            Rectangle().fill(Color.black.opacity(0.22)).frame(height: MinecraftTheme.px)
-        } else if CyberpunkTheme.isActive {
-            CPDivider(showsTick: false)
+        if VoxelTheme.isActive {
+            Rectangle().fill(Color.black.opacity(0.22)).frame(height: VoxelTheme.px)
+        } else if NeonTheme.isActive {
+            NeonDivider(showsTick: false)
         } else {
             Divider()
         }

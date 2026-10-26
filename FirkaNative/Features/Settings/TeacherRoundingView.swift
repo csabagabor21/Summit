@@ -29,13 +29,13 @@ struct TeacherRoundingView: View {
                                 Spacer()
                                 Text(String(format: "%.2f", thr))
                                     .font(Self.thresholdFont).monospacedDigit()
-                                    .foregroundStyle(theme.isCyberpunk ? AnyShapeStyle(CyberpunkTheme.yellow) : AnyShapeStyle(.secondary))
+                                    .foregroundStyle(theme.isNeon ? AnyShapeStyle(NeonTheme.yellow) : AnyShapeStyle(.secondary))
                             }
                         }
                     }
                 }
             }
-            .mcListRowComfy(fill: colors.surface)
+            .voxelListRowComfy(fill: colors.surface)
 
             Section {
                 Button("Összes visszaállítása (0,50)") {
@@ -47,7 +47,7 @@ struct TeacherRoundingView: View {
             } footer: {
                 Text("Minden tantárgy kerekítését visszaállítja az alapértelmezett 0,50-re.").skinFont(.caption2).foregroundStyle(.secondary)
             }
-            .mcListRowComfy(fill: colors.surface)
+            .voxelListRowComfy(fill: colors.surface)
         }
         .listStyle(.insetGrouped)
         .summitListChrome(colors: colors)
@@ -63,11 +63,11 @@ struct TeacherRoundingView: View {
         .onChange(of: session.selectedId) { _, _ in Task { await loadSubjects(force: true) } }
     }
 
-    /// Tárgysor küszöb-értéke: Summitban/Minecraftban a korábbi
-    /// `skinFont(.caption, weight: .medium)`, Cyberpunkban egyenközű kód.
+    /// Tárgysor küszöb-értéke: Summitban/Voxelben a korábbi
+    /// `skinFont(.caption, weight: .medium)`, Neonban egyenközű kód.
     private static var thresholdFont: Font {
-        MinecraftTheme.isActive ? MinecraftTheme.font(.caption)
-            : CyberpunkTheme.isActive ? CyberpunkTheme.mono(size: 12, relativeTo: .caption)
+        VoxelTheme.isActive ? VoxelTheme.font(.caption)
+            : NeonTheme.isActive ? NeonTheme.mono(size: 12, relativeTo: .caption)
             : Font.system(.caption, weight: .medium)
     }
 
@@ -104,14 +104,14 @@ struct TeacherRoundingView: View {
 }
 
 private extension View {
-    /// „Összes visszaállítása": Cyberpunkban vörös (destruktív) CP-gomb,
-    /// egyébként a meglévő `mcInlineButton`.
+    /// „Összes visszaállítása": Neonban vörös (destruktív) CP-gomb,
+    /// egyébként a meglévő `voxelInlineButton`.
     @ViewBuilder
     func roundingResetAllButton() -> some View {
-        if CyberpunkTheme.isActive {
-            self.buttonStyle(CPButtonStyle(kind: .destructive, compact: true))
+        if NeonTheme.isActive {
+            self.buttonStyle(NeonButtonStyle(kind: .destructive, compact: true))
         } else {
-            self.mcInlineButton()
+            self.voxelInlineButton()
         }
     }
 }

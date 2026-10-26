@@ -69,7 +69,7 @@ struct SchoolEventsSection: View {
                         }
                         .skinFont(.caption, weight: .bold)
                         .disabled(adminBusy || downloading)
-                        .mcInlineButton()
+                        .voxelInlineButton()
                     }
                     if savedLink == admin.calendarURL {
                         Text("Ezt használod.")
@@ -99,7 +99,7 @@ struct SchoolEventsSection: View {
                     }
                     .skinFont(.caption, weight: .bold)
                     .disabled(downloading || linkText.trimmingCharacters(in: .whitespaces).isEmpty)
-                    .mcInlineButton()
+                    .voxelInlineButton()
                 }
                 if savedLink != nil {
                     Button("Frissítés a mentett linkről") {
@@ -107,7 +107,7 @@ struct SchoolEventsSection: View {
                     }
                     .skinFont(.caption, weight: .bold)
                     .disabled(downloading)
-                    .mcInlineButton()
+                    .voxelInlineButton()
                 }
             }
 
@@ -123,15 +123,15 @@ struct SchoolEventsSection: View {
                         Button("Feldolgozás") { importText() }
                             .skinFont(.caption, weight: .bold)
                             .disabled(pastedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                            .mcInlineButton()
+                            .voxelInlineButton()
                         Button("Bezárás") { showPaste = false }
                             .skinFont(.caption, weight: .bold)
-                            .mcInlineButton()
+                            .voxelInlineButton()
                     }
                 } else {
                     Button("Szöveg beillesztése") { showPaste = true }
                         .skinFont(.caption, weight: .bold)
-                        .mcInlineButton()
+                        .voxelInlineButton()
                 }
             }
 
@@ -142,7 +142,7 @@ struct SchoolEventsSection: View {
                 }
                 .skinFont(.caption, weight: .bold)
                 .disabled(importing)
-                .mcInlineButton()
+                .voxelInlineButton()
                 if !events.isEmpty {
                     Button("Törlés", role: .destructive) {
                         // A törlés is terjed: a store-értesítés dirty-zi a
@@ -154,7 +154,7 @@ struct SchoolEventsSection: View {
                     }
                     .skinFont(.caption, weight: .bold)
                     .disabled(importing)
-                    .mcInlineButton()
+                    .voxelInlineButton()
                 }
             }
 
@@ -183,22 +183,22 @@ struct SchoolEventsSection: View {
     }
 
     /// Forrás-alcím (Linkből / Szövegből / Iskolai alapértelmezés):
-    /// Cyberpunkban cián egyenközű HUD-kód, egyébként a szürke felirat.
+    /// Neonban cián egyenközű HUD-kód, egyébként a szürke felirat.
     @ViewBuilder
     private func subHeader(_ title: String) -> some View {
-        if CyberpunkTheme.isActive {
-            CPLabel(title, color: CyberpunkTheme.cyan, bracketed: false, size: 11)
+        if NeonTheme.isActive {
+            NeonLabel(title, color: NeonTheme.cyan, bracketed: false, size: 11)
         } else {
             Text(title).skinFont(.caption, weight: .semibold).foregroundStyle(.secondary)
         }
     }
 
-    /// Beillesztő mező: Summitban a gyári doboz, Minecraftban a játék
-    /// szövegmező-kerete, Cyberpunkban a HUD-mező (cián keret, mély háttér) —
+    /// Beillesztő mező: Summitban a gyári doboz, Voxelben a játék
+    /// szövegmező-kerete, Neonban a HUD-mező (cián keret, mély háttér) —
     /// a TextEditor saját háttere mindkettőben elrejtve.
     @ViewBuilder
     private var pasteEditor: some View {
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+        if VoxelTheme.isActive || NeonTheme.isActive {
             TextEditor(text: $pastedText)
                 .scrollContentBackground(.hidden)
                 .frame(minHeight: 110, maxHeight: 200)

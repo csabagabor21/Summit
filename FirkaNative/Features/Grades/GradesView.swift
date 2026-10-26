@@ -7,27 +7,27 @@ enum GradeTab: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-/// Jegy nélküli tantárgy jelvénye: Summitban üres karika, Minecraftban
-/// üres inventory-slot (a játék szürke rekesze) kötőjellel, Cyberpunkban
+/// Jegy nélküli tantárgy jelvénye: Summitban üres karika, Voxelben
+/// üres inventory-slot (a játék szürke rekesze) kötőjellel, Neonban
 /// szaggatott, levágott sarkú üres HUD-foglalat.
 private struct EmptySubjectBadge: View {
     let scheme: ColorScheme
     var body: some View {
         ZStack {
-            if MinecraftTheme.isActive {
-                McInventorySlot().frame(width: 44, height: 44)
-            } else if CyberpunkTheme.isActive {
-                CPChamferShape(cut: 44 * 0.22, corners: [.topLeft, .bottomRight])
-                    .fill(CyberpunkTheme.bg)
-                    .overlay(CPChamferShape(cut: 44 * 0.22, corners: [.topLeft, .bottomRight])
-                        .strokeBorder(CyberpunkTheme.dim.opacity(0.55), style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+            if VoxelTheme.isActive {
+                VoxelInventorySlot().frame(width: 44, height: 44)
+            } else if NeonTheme.isActive {
+                NeonChamferShape(cut: 44 * 0.22, corners: [.topLeft, .bottomRight])
+                    .fill(NeonTheme.bg)
+                    .overlay(NeonChamferShape(cut: 44 * 0.22, corners: [.topLeft, .bottomRight])
+                        .strokeBorder(NeonTheme.dim.opacity(0.55), style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
                     .frame(width: 44, height: 44)
             } else {
                 Circle().fill(Color.clear)
                     .overlay(Circle().strokeBorder(Color.primary.opacity(scheme == .dark ? 0.14 : 0.10), lineWidth: 1.2))
                     .frame(width: 44, height: 44)
             }
-            Text("—").mcDisplay(18).foregroundStyle(.tertiary)
+            Text("—").voxelDisplay(18).foregroundStyle(.tertiary)
         }.frame(width: 44, height: 44)
     }
 }
@@ -74,35 +74,35 @@ struct GradesView: View {
                 }
 
                 if isLoading {
-                    ForEach(0..<3, id: \.self) { _ in Text("Betöltés…").redacted(reason: .placeholder).mcListRow(fill: colors.surface) }
+                    ForEach(0..<3, id: \.self) { _ in Text("Betöltés…").redacted(reason: .placeholder).voxelListRow(fill: colors.surface) }
                 } else {
                     Group {
                         switch selectedTab {
                     case .evkozi:
                         if displayEvkoziSubjects.isEmpty {
-                            SkinEmptyState(title: "Nincs tantárgy", systemImage: "books.vertical", description: Text("Még nincs felvett tantárgy.")).mcListRow(fill: colors.surface)
+                            SkinEmptyState(title: "Nincs tantárgy", systemImage: "books.vertical", description: Text("Még nincs felvett tantárgy.")).voxelListRow(fill: colors.surface)
                         } else {
                             // Átlag + grafikon — mindig látszik, akkor is ha nincs jegy (üres állapot)
                             Section {
                                 HStack(alignment: .lastTextBaseline, spacing: 16) {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("ÖSSZÁTLAG").gradeSummaryLabel()
-                                        Text(groupedEvkozi.isEmpty ? "—" : String(format: "%.2f", overallEvkozi)).mcDisplay(34).cpHero(CyberpunkTheme.yellow)
+                                        Text(groupedEvkozi.isEmpty ? "—" : String(format: "%.2f", overallEvkozi)).voxelDisplay(34).cpHero(NeonTheme.yellow)
                                     }
                                     Spacer()
                                     VStack(alignment: .trailing, spacing: 2) {
                                         Text("KEREKÍTVE").gradeSummaryLabel()
-                                        Text(groupedEvkozi.isEmpty ? "—" : String(format: "%.2f", overallRoundedEvkozi)).mcDisplay(34).cpHero(CyberpunkTheme.cyanBright, chromatic: false)
+                                        Text(groupedEvkozi.isEmpty ? "—" : String(format: "%.2f", overallRoundedEvkozi)).voxelDisplay(34).cpHero(NeonTheme.cyanBright, chromatic: false)
                                     }
                                 }
-                                .mcSummaryRow(fill: colors.surface)
+                                .voxelSummaryRow(fill: colors.surface)
                             }
                             Section {
                                 GradeChartView(grades: derived.evkoziChart, accent: colors.accent, height: 150, monthly: true, editorial: true)
                                     .listRowBackground(Color.clear)
                                     .listRowSeparator(.hidden)
                                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                            } header: { Text("Átlag alakulása — havi").mcSectionHeader() }
+                            } header: { Text("Átlag alakulása — havi").voxelSectionHeader() }
                             // iPad: két oszlopban, kihasználja a szélességet.
                             // Gomb + path-reset NavigationLink helyett: a link
                             // rendszer-chevronje a kártyán KÍVÜL is megjelent
@@ -127,7 +127,7 @@ struct GradesView: View {
                                                     VStack(alignment: .leading, spacing: 3) { Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1); Text(String(format: "%.2f • %d jegy", raw, items.count)).skinFont(.caption2).foregroundStyle(.secondary).lineLimit(1) }
                                                     Spacer()
                                                     SkinIcon("chevron.right", size: 14).skinFont(.caption2, weight: .semibold).foregroundStyle(.tertiary)
-                                                }.padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 14)).contentShape(Rectangle())
+                                                }.padding(12).background(VoxelCardBackground(fill: colors.surface, cornerRadius: 14)).contentShape(Rectangle())
                                             }.buttonStyle(.skinPlain)
                                         } else {
                                             Button {
@@ -138,7 +138,7 @@ struct GradesView: View {
                                                     VStack(alignment: .leading, spacing: 3) { Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1); Text("Nincs jegy").skinFont(.caption2).foregroundStyle(.tertiary).lineLimit(1) }
                                                     Spacer()
                                                     SkinIcon("chevron.right", size: 14).skinFont(.caption2, weight: .semibold).foregroundStyle(.tertiary)
-                                                }.padding(12).background(McCardBackground(fill: colors.surface, cornerRadius: 14)).contentShape(Rectangle())
+                                                }.padding(12).background(VoxelCardBackground(fill: colors.surface, cornerRadius: 14)).contentShape(Rectangle())
                                             }.buttonStyle(.skinPlain)
                                         }
                                     }
@@ -195,17 +195,17 @@ struct GradesView: View {
                         }
                     case .felevi:
                         if feleviGrades.isEmpty {
-                            SkinEmptyState(title: "Nincs félévi jegy", systemImage: "star.slash", description: Text("Még nem érkezett félévi értékelés.")).mcListRow(fill: colors.surface)
+                            SkinEmptyState(title: "Nincs félévi jegy", systemImage: "star.slash", description: Text("Még nem érkezett félévi értékelés.")).voxelListRow(fill: colors.surface)
                         } else {
                             Section {
                                 HStack(alignment: .firstTextBaseline) {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("FÉLÉVI ÁTLAG").gradeSummaryLabel()
-                                        Text(String(format: "%.2f", overallFelevi)).mcDisplay(34).cpHero(CyberpunkTheme.yellow)
+                                        Text(String(format: "%.2f", overallFelevi)).voxelDisplay(34).cpHero(NeonTheme.yellow)
                                     }
                                     Spacer()
                                 }
-                                .mcSummaryRow(fill: colors.surface)
+                                .voxelSummaryRow(fill: colors.surface)
                             }
                             ForEach(groupedFelevi.keys.sorted(), id: \.self) { subject in
                                 let items = groupedFelevi[subject]!
@@ -220,8 +220,8 @@ struct GradesView: View {
                                     Spacer()
                                 }
                                 .padding(.vertical, 2)
-                                .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
-                                .mcListRow(fill: colors.surface)
+                                .listRowInsets(VoxelTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
+                                .voxelListRow(fill: colors.surface)
                             }
                             Section {
                                 Text("\(feleviGrades.count) jegy • \(groupedFelevi.count) tárgy").gradeFooterText().frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center)
@@ -231,17 +231,17 @@ struct GradesView: View {
                         }
                     case .evvegi:
                         if evvegiGrades.isEmpty {
-                            SkinEmptyState(title: "Nincs év végi jegy", systemImage: "star.slash", description: Text("Még nem érkezett év végi értékelés.")).mcListRow(fill: colors.surface)
+                            SkinEmptyState(title: "Nincs év végi jegy", systemImage: "star.slash", description: Text("Még nem érkezett év végi értékelés.")).voxelListRow(fill: colors.surface)
                         } else {
                             Section {
                                 HStack(alignment: .firstTextBaseline) {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("ÉV VÉGI ÁTLAG").gradeSummaryLabel()
-                                        Text(String(format: "%.2f", overallEvvegi)).mcDisplay(34).cpHero(CyberpunkTheme.yellow)
+                                        Text(String(format: "%.2f", overallEvvegi)).voxelDisplay(34).cpHero(NeonTheme.yellow)
                                     }
                                     Spacer()
                                 }
-                                .mcSummaryRow(fill: colors.surface)
+                                .voxelSummaryRow(fill: colors.surface)
                             }
                             ForEach(groupedEvvegi.keys.sorted(), id: \.self) { subject in
                                 let items = groupedEvvegi[subject]!
@@ -256,8 +256,8 @@ struct GradesView: View {
                                     Spacer()
                                 }
                                 .padding(.vertical, 2)
-                                .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
-                                .mcListRow(fill: colors.surface)
+                                .listRowInsets(VoxelTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
+                                .voxelListRow(fill: colors.surface)
                             }
                         }
                     }
@@ -283,7 +283,7 @@ struct GradesView: View {
                 KretaStoreWatcher(kinds: [.grades, .subjects]) { model.syncFromStore() }
             }
             .navigationDestination(for: String.self) { subject in
-                SubjectDetailView(subject: subject, grades: gradesFor(subject)).mcBackButton()
+                SubjectDetailView(subject: subject, grades: gradesFor(subject)).voxelBackButton()
             }
             .onChange(of: grades) { _, _ in
                 if selectedTab == .felevi && feleviGrades.isEmpty { selectedTab = .evkozi }
@@ -311,13 +311,13 @@ struct GradesView: View {
     }
 
     /// Tantárgy-sor: gomb, ami a `path`-ra tolja a tárgyat — mindkét skinben.
-    /// Korábban `NavigationLink(value:)` volt (Minecraftban egy rejtett,
+    /// Korábban `NavigationLink(value:)` volt (Voxelben egy rejtett,
     /// nulla méretű link a sor alatt): az a lista sor-kiválasztására
     /// támaszkodott, ami a sorra/listára kerülő bármely gesztussal (és
     /// frissítés közbeni újrarajzolással) elnyelődhetett — „többször kell
     /// rányomni, mire megnyílik". A gomb saját, determinisztikus találati
     /// felülettel dolgozik: a margó a címkében van, a `contentShape` a
-    /// teljes sort fedi. Minecraftban a `.skinPlain` adja a kattanást.
+    /// teljes sort fedi. Voxelben a `.skinPlain` adja a kattanást.
     @ViewBuilder
     private func subjectRow<Content: View>(_ subject: String, @ViewBuilder content: () -> Content) -> some View {
         let base = EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)
@@ -330,7 +330,7 @@ struct GradesView: View {
                     .skinFont(.footnote, weight: .semibold)
                     .foregroundStyle(.tertiary)
             }
-            .padding(MinecraftTheme.rowInsets(base) ?? base)
+            .padding(VoxelTheme.rowInsets(base) ?? base)
             .contentShape(Rectangle())
         }
         .buttonStyle(.skinPlain)
@@ -596,12 +596,12 @@ final class GradesModel: ObservableObject {
 private extension View {
     /// Tantárgy-sor chrome: a margó a gomb címkéjében van (lásd
     /// `subjectRow`), így a sor teljes felülete koppintható — a sor-inset
-    /// nulla. Minecraftban blokk-panel, Cyberpunkban HUD-sor háttér
+    /// nulla. Voxelben blokk-panel, Neonban HUD-sor háttér
     /// (`skinRowBackground` mindkettőt tudja), rejtett elválasztó.
     @ViewBuilder
     func subjectRowChrome(fill: Color) -> some View {
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
-            self.listRowBackground(MinecraftTheme.skinRowBackground(fill))
+        if VoxelTheme.isActive || NeonTheme.isActive {
+            self.listRowBackground(VoxelTheme.skinRowBackground(fill))
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets())
         } else {
@@ -610,45 +610,45 @@ private extension View {
     }
 
     /// Átlag-összefoglaló sor: Summitban átlátszó, elválasztó nélküli sor
-    /// (a háttéren lebeg), Minecraftban blokk-panel — az ég előtt a
-    /// szám különben nem lenne olvasható. Cyberpunkban sárga keretes
+    /// (a háttéren lebeg), Voxelben blokk-panel — az ég előtt a
+    /// szám különben nem lenne olvasható. Neonban sárga keretes
     /// HUD-panel akcent-füllel (a képernyő fő adat-blokkja).
     @ViewBuilder
-    func mcSummaryRow(fill: Color) -> some View {
-        if CyberpunkTheme.isActive {
+    func voxelSummaryRow(fill: Color) -> some View {
+        if NeonTheme.isActive {
             self.listRowBackground(
-                CPPanelBackground(accent: CyberpunkTheme.yellow, fill: CyberpunkTheme.panel, cut: 12)
-                    .padding(.horizontal, CyberpunkTheme.rowHorizontalInset)
-                    .padding(.vertical, CyberpunkTheme.rowVerticalInset)
+                NeonPanelBackground(accent: NeonTheme.yellow, fill: NeonTheme.panel, cut: 12)
+                    .padding(.horizontal, NeonTheme.rowHorizontalInset)
+                    .padding(.vertical, NeonTheme.rowVerticalInset)
             )
             .listRowSeparator(.hidden)
-            .listRowInsets(CyberpunkTheme.rowInsets(EdgeInsets(top: 12, leading: 16, bottom: 10, trailing: 16)))
-        } else if MinecraftTheme.isActive {
-            self.mcListRow(fill: fill)
+            .listRowInsets(NeonTheme.rowInsets(EdgeInsets(top: 12, leading: 16, bottom: 10, trailing: 16)))
+        } else if VoxelTheme.isActive {
+            self.voxelListRow(fill: fill)
         } else {
             self.listRowBackground(Color.clear).listRowSeparator(.hidden)
-                .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)))
+                .listRowInsets(VoxelTheme.rowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)))
         }
     }
 
-    /// Átlag-címke („ÖSSZÁTLAG"): Summit/Minecraft a régi lánc, Cyberpunkban
+    /// Átlag-címke („ÖSSZÁTLAG"): Summit/Voxel a régi lánc, Neonban
     /// apró egyenközű, ritkított HUD-kódcímke.
     @ViewBuilder
     func gradeSummaryLabel() -> some View {
-        if CyberpunkTheme.isActive {
-            self.font(CyberpunkTheme.mono(size: 10, relativeTo: .caption2))
+        if NeonTheme.isActive {
+            self.font(NeonTheme.mono(size: 10, relativeTo: .caption2))
                 .tracking(1.6)
-                .foregroundStyle(CyberpunkTheme.dim)
+                .foregroundStyle(NeonTheme.dim)
         } else {
             self.skinFont(.caption2, weight: .semibold).foregroundStyle(.secondary).tracking(1)
         }
     }
 
-    /// Hero-szám Cyberpunkban: HUD-szín + (csak a fő számon) statikus
+    /// Hero-szám Neonban: HUD-szín + (csak a fő számon) statikus
     /// vörös/cián szellemkép. Más skinben változatlan.
     @ViewBuilder
     func cpHero(_ color: Color, chromatic: Bool = true) -> some View {
-        if CyberpunkTheme.isActive {
+        if NeonTheme.isActive {
             // A szellemkép a szín ELŐTT: különben a belső sárga nyerne a
             // vörös/cián másolatokon is.
             self.cpChromatic(chromatic ? 1 : 0).foregroundStyle(color)
@@ -657,15 +657,15 @@ private extension View {
         }
     }
 
-    /// Lábléc-számláló („48 jegy • 9 tárgy"): Cyberpunkban egyenközű,
+    /// Lábléc-számláló („48 jegy • 9 tárgy"): Neonban egyenközű,
     /// nagybetűs adat-sor, egyébként a régi lánc.
     @ViewBuilder
     func gradeFooterText() -> some View {
-        if CyberpunkTheme.isActive {
-            self.font(CyberpunkTheme.mono(size: 11, relativeTo: .footnote))
+        if NeonTheme.isActive {
+            self.font(NeonTheme.mono(size: 11, relativeTo: .footnote))
                 .tracking(1)
                 .textCase(.uppercase)
-                .foregroundStyle(CyberpunkTheme.dim)
+                .foregroundStyle(NeonTheme.dim)
         } else {
             self.skinFont(.subheadline).foregroundStyle(.secondary)
         }

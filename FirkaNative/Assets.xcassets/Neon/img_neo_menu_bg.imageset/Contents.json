@@ -1,0 +1,13 @@
+{
+  "images" : [
+    {
+      "filename" : "img_neo_menu_bg.jpg",
+      "idiom" : "universal",
+      "scale" : "1x"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

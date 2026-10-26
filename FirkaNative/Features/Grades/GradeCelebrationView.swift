@@ -16,7 +16,7 @@ struct GradeCelebrationView: View {
     @State private var pulse = false
     @State private var shownPct = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    // Cyberpunk „breach"-felfedés állapota (a többi skin nem olvassa):
+    // Neon „breach"-felfedés állapota (a többi skin nem olvassa):
     // 0 = sötét, 1 = fejléc-csík, 2 = panel nyitva (dekódol), 3 = kész.
     @State private var cpPhase = 0
     /// Dekódolás közben villogó álszámjegy; nil = a valódi jegy látszik.
@@ -42,10 +42,10 @@ struct GradeCelebrationView: View {
 
     var body: some View {
         Group {
-            if theme.isCyberpunk {
+            if theme.isNeon {
                 cpContent
-            } else if theme.isMinecraft {
-                mcContent
+            } else if theme.isVoxel {
+                voxelContent
             } else {
                 summitContent
             }
@@ -54,23 +54,23 @@ struct GradeCelebrationView: View {
             // Új jegy = ünnepelt kimenet: egyetlen success a konfettival együtt.
             SummitHaptics.success()
             withAnimation(SummitMotion.gentle) { appeared = true }
-            if theme.isMinecraft {
-                // Minecraft: a 5-ös „Kihívás teljesítve", a többi level-up hang
+            if theme.isVoxel {
+                // Voxel: a 5-ös „Kihívás teljesítve", a többi level-up hang
                 // (egyszer; a kihívás-fanfár hosszú, ezért zárásnál leállítjuk).
-                McSound.play(grade.value == 5 ? .challengeComplete : .levelUp)
-            } else if theme.isCyberpunk {
-                // Cyberpunk: a hangok a breach-szekvenciából szólnak (cpRunBreach).
+                VoxelSound.play(grade.value == 5 ? .challengeComplete : .levelUp)
+            } else if theme.isNeon {
+                // Neon: a hangok a breach-szekvenciából szólnak (cpRunBreach).
             } else {
                 withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { pulse = true }
             }
         }
         .onDisappear {
-            McSound.stop(.challengeComplete)
-            McSound.stop(.levelUp)
+            VoxelSound.stop(.challengeComplete)
+            VoxelSound.stop(.levelUp)
         }
         .task {
-            // Cyberpunk breach-felfedés (más skinben azonnal kilép).
-            guard theme.isCyberpunk else { return }
+            // Neon breach-felfedés (más skinben azonnal kilép).
+            guard theme.isNeon else { return }
             await cpRunBreach()
         }
         .task {
@@ -143,7 +143,7 @@ struct GradeCelebrationView: View {
                             .overlay(Circle().strokeBorder(colors.border.opacity(0.9), lineWidth: 1.6))
                             .frame(width: 168, height: 168)
                         Text("\(grade.value)")
-                            .mcDisplay(76)
+                            .voxelDisplay(76)
                             .foregroundStyle(gradeColor)
                             .monospacedDigit()
                     }
@@ -156,7 +156,7 @@ struct GradeCelebrationView: View {
                 // Ha a jegyhez nincs beírva % (a gyakori eset), nincs sor.
                 if percent != nil {
                     Text("\(shownPct)%")
-                        .mcDisplay(52)
+                        .voxelDisplay(52)
                         .foregroundStyle(gradeColor)
                         .monospacedDigit()
                         .contentTransition(.numericText())
@@ -169,7 +169,7 @@ struct GradeCelebrationView: View {
                 // Balra zárt infóblokk: tantárgy + mire kapta
                 VStack(alignment: .leading, spacing: 6) {
                     Text(grade.subject)
-                        .mcDisplay(26)
+                        .voxelDisplay(26)
                         .foregroundStyle(.primary)
                     Text(topicLine)
                         .font(.headline.weight(.semibold))
@@ -212,32 +212,32 @@ struct GradeCelebrationView: View {
         }
     }
 
-    // MARK: Minecraft ág — „Előrelépés elérve!" / „Kihívás teljesítve!"
+    // MARK: Voxel ág — „Előrelépés elérve!" / „Kihívás teljesítve!"
 
     /// A jegyhez tartozó item (toast-ikon): 5 = nether-csillag, 4 = gyémánt,
     /// 3 = smaragd, 2 = aranyrúd, 1 = szén.
-    private var mcItem: String {
+    private var voxelItem: String {
         switch grade.value {
-        case 5: return "mc_item_nether_star"
-        case 4: return "mc_item_diamond"
-        case 3: return "mc_item_emerald"
-        case 2: return "mc_item_gold_ingot"
-        default: return "mc_item_coal"
+        case 5: return "img_blk_item_nether_star"
+        case 4: return "img_blk_item_diamond"
+        case 3: return "img_blk_item_emerald"
+        case 2: return "img_blk_item_gold_ingot"
+        default: return "img_blk_item_coal"
         }
     }
 
     /// A játék szöveg-árnyéka: a szín negyed fényereje (fehér → #3F3F3F).
-    private func mcShadow(_ hex: UInt) -> Color {
+    private func voxelShadow(_ hex: UInt) -> Color {
         Color(hex: ((hex >> 16 & 0xFF) / 4) << 16 | ((hex >> 8 & 0xFF) / 4) << 8 | (hex & 0xFF) / 4)
     }
 
-    private var mcContent: some View {
-        let px = MinecraftTheme.px
+    private var voxelContent: some View {
+        let px = VoxelTheme.px
         // A %-sor és az XP-sáv ugyanazt a számot követi (pörgő százalék);
         // % nélkül a jegy az 5-ös skálán töltött sáv.
         let xp = percent != nil ? Double(shownPct) / 100 : Double(grade.value) / 5
         return ZStack {
-            McMenuBackground()
+            VoxelMenuBackground()
             // A játék menü-sötétítése a háttér fölött.
             Color.black.opacity(0.35).ignoresSafeArea()
             VStack(spacing: 0) {
@@ -248,14 +248,14 @@ struct GradeCelebrationView: View {
                     } label: {
                         SkinIcon("xmark", size: 24)
                     }
-                    .buttonStyle(McButtonStyle(compact: true))
+                    .buttonStyle(VoxelButtonStyle(compact: true))
                     .accessibilityLabel("Bezárás")
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
 
                 // A toast jobbról csúszik be, lineárisan (nincs rugó).
-                McAdvancementToast(icon: mcItem,
+                VoxelAdvancementToast(icon: voxelItem,
                                    title: grade.value == 5 ? "Kihívás teljesítve!" : "Előrelépés elérve!",
                                    message: "Új jegy: \(grade.subject)",
                                    challenge: grade.value == 5)
@@ -265,20 +265,20 @@ struct GradeCelebrationView: View {
                     .animation(.easeOut(duration: 0.35), value: appeared)
 
                 Text(dateText)
-                    .font(MinecraftTheme.font(.caption))
+                    .font(VoxelTheme.font(.caption))
                     .foregroundStyle(Color(hex: 0xAAAAAA))
-                    .shadow(color: mcShadow(0xAAAAAA), radius: 0, x: px / 1.5, y: px / 1.5)
+                    .shadow(color: voxelShadow(0xAAAAAA), radius: 0, x: px / 1.5, y: px / 1.5)
                     .padding(.top, 10)
 
                 Spacer(minLength: 12)
 
                 // Hős: a jegy tömör concrete-blokkon, mint a Jegyek tabon.
                 Text("\(grade.value)")
-                    .mcDisplay(76)
+                    .voxelDisplay(76)
                     .foregroundStyle(.white)
                     .frame(width: 168, height: 168)
                     .background(
-                        McBlockPanel(face: gradeColor, outline: Color(hex: 0x1E1A16),
+                        VoxelBlockPanel(face: gradeColor, outline: Color(hex: 0x1E1A16),
                                      highlight: .white.opacity(0.38), shade: .black.opacity(0.28))
                     )
                     .opacity(appeared ? 1 : 0)
@@ -288,11 +288,11 @@ struct GradeCelebrationView: View {
                 VStack(spacing: 8) {
                     if percent != nil {
                         Text("\(shownPct)%")
-                            .mcDisplay(40)
+                            .voxelDisplay(40)
                             .foregroundStyle(Color(hex: 0x80FF20))
-                            .shadow(color: mcShadow(0x80FF20), radius: 0, x: px / 1.5, y: px / 1.5)
+                            .shadow(color: voxelShadow(0x80FF20), radius: 0, x: px / 1.5, y: px / 1.5)
                     }
-                    McProgressBar(value: xp)
+                    VoxelProgressBar(value: xp)
                         .frame(width: 280)
                 }
                 .padding(.top, 16)
@@ -303,16 +303,16 @@ struct GradeCelebrationView: View {
                 // Balra zárt infóblokk: tantárgy + mire kapta
                 VStack(alignment: .leading, spacing: 6) {
                     Text(grade.subject)
-                        .mcDisplay(26)
+                        .voxelDisplay(26)
                         .foregroundStyle(.white)
                     Text(topicLine)
-                        .font(MinecraftTheme.font(.headline))
+                        .font(VoxelTheme.font(.headline))
                         .foregroundStyle(Color(hex: 0xAAAAAA))
-                        .shadow(color: mcShadow(0xAAAAAA), radius: 0, x: px / 1.5, y: px / 1.5)
+                        .shadow(color: voxelShadow(0xAAAAAA), radius: 0, x: px / 1.5, y: px / 1.5)
                     Text("\(friendlyGradeType(grade.type)) • \(grade.teacher)")
-                        .font(MinecraftTheme.font(.subheadline))
+                        .font(VoxelTheme.font(.subheadline))
                         .foregroundStyle(Color(hex: 0xAAAAAA))
-                        .shadow(color: mcShadow(0xAAAAAA), radius: 0, x: px / 1.5, y: px / 1.5)
+                        .shadow(color: voxelShadow(0xAAAAAA), radius: 0, x: px / 1.5, y: px / 1.5)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 28)
@@ -327,13 +327,13 @@ struct GradeCelebrationView: View {
                     } label: {
                         Text("Megnézem a jegyeim").frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(McButtonStyle(prominent: true))
+                    .buttonStyle(VoxelButtonStyle(prominent: true))
                     Button {
                         NotificationManager.shared.celebrationGrade = nil
                     } label: {
                         Text("Szuper!").frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(McButtonStyle())
+                    .buttonStyle(VoxelButtonStyle())
                 }
                 .padding(.horizontal, 28)
                 .padding(.bottom, 8)
@@ -343,7 +343,7 @@ struct GradeCelebrationView: View {
     }
 }
 
-// MARK: - Cyberpunk ág — „breach protocol" felfedés
+// MARK: - Neon ág — „breach protocol" felfedés
 //
 // ~1,2 mp, koppintással átugorható: sárga fejléc-csík besöpör → a HUD-panel
 // függőlegesen kinyílik, a jegy 6 álszámjegyen át „dekódolódik" → lezár egy
@@ -355,12 +355,12 @@ extension GradeCelebrationView {
     /// A jegy szintje a HUD nyelvén (felirat + szín).
     fileprivate var cpTier: (label: String, color: Color) {
         switch grade.value {
-        case 5: return ("KIVÁLÓ // 5", CyberpunkTheme.cyanBright)
-        case 4: return ("JÓ // 4", CyberpunkTheme.green)
-        case 3: return ("KÖZEPES // 3", CyberpunkTheme.yellow)
-        case 2: return ("ELÉGSÉGES // 2", CyberpunkTheme.orange)
-        case 1: return ("RIASZTÁS // 1", CyberpunkTheme.red)
-        default: return ("JEGY", CyberpunkTheme.dim)
+        case 5: return ("KIVÁLÓ // 5", NeonTheme.cyanBright)
+        case 4: return ("JÓ // 4", NeonTheme.green)
+        case 3: return ("KÖZEPES // 3", NeonTheme.yellow)
+        case 2: return ("ELÉGSÉGES // 2", NeonTheme.orange)
+        case 1: return ("RIASZTÁS // 1", NeonTheme.red)
+        default: return ("JEGY", NeonTheme.dim)
         }
     }
 
@@ -380,7 +380,7 @@ extension GradeCelebrationView {
         if reduceMotion {
             cpLocked = true
             cpPhase = 3
-            CPSound.play(.confirm)
+            NeonSound.play(.confirm)
             return
         }
         /// Alvás; false, ha közben átugrották / bezárták.
@@ -391,7 +391,7 @@ extension GradeCelebrationView {
         guard await nap(60) else { return }
         withAnimation(.easeOut(duration: 0.2)) { cpPhase = 1 }
         guard await nap(200) else { return }
-        CPSound.play(.glitch, volume: 0.6)
+        NeonSound.play(.glitch, volume: 0.6)
         cpDigit = Int.random(in: 1...5)
         withAnimation(.easeOut(duration: 0.18)) { cpPhase = 2 }
         for _ in 0..<6 {
@@ -409,7 +409,7 @@ extension GradeCelebrationView {
         guard !cpLocked else { return }
         cpDigit = nil
         cpLocked = true
-        CPSound.play(.confirm)
+        NeonSound.play(.confirm)
     }
 
     /// Koppintás a háttérre: azonnal a kész állapot.
@@ -425,7 +425,7 @@ extension GradeCelebrationView {
         let tier = cpTier
         let xp = percent != nil ? Double(cpPct) / 100 : Double(grade.value) / 5
         return ZStack {
-            CPBackdrop()
+            NeonBackdrop()
             // Halvány jegyszínű derengés felül (statikus).
             LinearGradient(colors: [tint.opacity(0.16), .clear], startPoint: .top, endPoint: .center)
                 .ignoresSafeArea()
@@ -433,14 +433,14 @@ extension GradeCelebrationView {
 
             VStack(spacing: 0) {
                 HStack(spacing: 8) {
-                    CPLabel("SUMMIT // KRÉTA.NET", bracketed: false)
+                    NeonLabel("SUMMIT // KRÉTA.NET", bracketed: false)
                     Spacer()
                     Button {
                         NotificationManager.shared.celebrationGrade = nil
                     } label: {
                         Image(systemName: "xmark").font(.system(size: 14, weight: .bold))
                     }
-                    .buttonStyle(CPButtonStyle(kind: .secondary, compact: true))
+                    .buttonStyle(NeonButtonStyle(kind: .secondary, compact: true))
                     .accessibilityLabel("Bezárás")
                 }
                 .padding(.horizontal, 20)
@@ -449,17 +449,17 @@ extension GradeCelebrationView {
                 // Fejléc-csík: balról besöpör (a játék breach-fejléce).
                 HStack(spacing: 8) {
                     Text("ÚJ JEGY")
-                        .font(CyberpunkTheme.font(.headline, weight: .bold))
+                        .font(NeonTheme.font(.headline, weight: .bold))
                         .tracking(2)
                     Spacer(minLength: 8)
                     Text("BREACH // \(cpCode)")
-                        .font(CyberpunkTheme.mono(size: 11, relativeTo: .caption2))
+                        .font(NeonTheme.mono(size: 11, relativeTo: .caption2))
                         .lineLimit(1)
                 }
                 .foregroundStyle(Color.black)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
-                .background(CPChamferShape(cut: 10, corners: [.topLeft, .bottomRight]).fill(CyberpunkTheme.yellow))
+                .background(NeonChamferShape(cut: 10, corners: [.topLeft, .bottomRight]).fill(NeonTheme.yellow))
                 .scaleEffect(x: cpPhase >= 1 ? 1 : 0.02, y: 1, anchor: .leading)
                 .opacity(cpPhase >= 1 ? 1 : 0)
                 .padding(.horizontal, 20)
@@ -467,8 +467,8 @@ extension GradeCelebrationView {
                 .accessibilityElement(children: .combine)
 
                 Text("KRÉTA › \(grade.subject.uppercased()) › \(dateText.uppercased())")
-                    .font(CyberpunkTheme.mono(size: 11, relativeTo: .caption2))
-                    .foregroundStyle(CyberpunkTheme.dim)
+                    .font(NeonTheme.mono(size: 11, relativeTo: .caption2))
+                    .foregroundStyle(NeonTheme.dim)
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -480,11 +480,11 @@ extension GradeCelebrationView {
 
                 // Hős-panel: függőlegesen nyílik, benne a dekódolódó jegy.
                 VStack(spacing: 10) {
-                    CPLabel(tier.label, color: tier.color, size: 11)
+                    NeonLabel(tier.label, color: tier.color, size: 11)
                     Text("\(cpDigit ?? grade.value)")
-                        .font(CyberpunkTheme.display(size: 104, weight: .bold, relativeTo: .largeTitle))
+                        .font(NeonTheme.display(size: 104, weight: .bold, relativeTo: .largeTitle))
                         .monospacedDigit()
-                        .foregroundStyle(cpDigit == nil ? tint : CyberpunkTheme.text.opacity(0.55))
+                        .foregroundStyle(cpDigit == nil ? tint : NeonTheme.text.opacity(0.55))
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
                         .cpChromatic(cpLocked ? 1.2 : 0)
@@ -493,23 +493,23 @@ extension GradeCelebrationView {
                         .accessibilityLabel("\(grade.value)-es jegy")
                     if percent != nil {
                         Text("\(cpPct)%")
-                            .font(CyberpunkTheme.display(size: 34, weight: .semibold, relativeTo: .title))
+                            .font(NeonTheme.display(size: 34, weight: .semibold, relativeTo: .title))
                             .monospacedDigit()
                             .foregroundStyle(tint)
                             .contentTransition(.numericText())
                     }
-                    CPProgressBar(value: cpLocked ? xp : 0, tint: tint, segments: 20, height: 8)
+                    NeonProgressBar(value: cpLocked ? xp : 0, tint: tint, segments: 20, height: 8)
                         .animation(reduceMotion ? nil : .easeOut(duration: 0.45), value: cpLocked)
                     HStack {
-                        CPLabel("SÚLY \(grade.weight)%", bracketed: false)
+                        NeonLabel("SÚLY \(grade.weight)%", bracketed: false)
                         Spacer()
-                        CPLabel(percent != nil ? "PONTSZÁM" : "SZINT \(grade.value)/5", bracketed: false)
+                        NeonLabel(percent != nil ? "PONTSZÁM" : "SZINT \(grade.value)/5", bracketed: false)
                     }
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 18)
                 .frame(minWidth: 240, maxWidth: 300)
-                .background(CPPanelBackground(accent: tint, fill: CyberpunkTheme.panel, corners: .diagonal, cut: 18))
+                .background(NeonPanelBackground(accent: tint, fill: NeonTheme.panel, corners: .diagonal, cut: 18))
                 .scaleEffect(x: 1, y: cpPhase >= 2 ? 1 : 0.04, anchor: .center)
                 .opacity(cpPhase >= 2 ? 1 : 0)
 
@@ -518,20 +518,20 @@ extension GradeCelebrationView {
                 // Infóblokk: tantárgy + téma, alatta kód-címkék.
                 VStack(alignment: .leading, spacing: 6) {
                     Text(grade.subject)
-                        .font(CyberpunkTheme.display(size: 26, weight: .bold, relativeTo: .title2))
-                        .foregroundStyle(CyberpunkTheme.text)
+                        .font(NeonTheme.display(size: 26, weight: .bold, relativeTo: .title2))
+                        .foregroundStyle(NeonTheme.text)
                         .lineLimit(2)
                         .minimumScaleFactor(0.7)
                     Text(topicLine)
-                        .font(CyberpunkTheme.font(.headline, weight: .semibold))
-                        .foregroundStyle(CyberpunkTheme.dim)
+                        .font(NeonTheme.font(.headline, weight: .semibold))
+                        .foregroundStyle(NeonTheme.dim)
                         .lineLimit(3)
-                    CPDivider(color: tint)
+                    NeonDivider(color: tint)
                         .padding(.vertical, 4)
                     Text("\(friendlyGradeType(grade.type)) · \(grade.teacher)".uppercased())
-                        .font(CyberpunkTheme.mono(size: 11, relativeTo: .caption))
+                        .font(NeonTheme.mono(size: 11, relativeTo: .caption))
                         .tracking(0.6)
-                        .foregroundStyle(CyberpunkTheme.dim)
+                        .foregroundStyle(NeonTheme.dim)
                         .lineLimit(2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -548,13 +548,13 @@ extension GradeCelebrationView {
                     } label: {
                         Text("Megnézem a jegyeim")
                     }
-                    .buttonStyle(CPButtonStyle(kind: .primary, fullWidth: true))
+                    .buttonStyle(NeonButtonStyle(kind: .primary, fullWidth: true))
                     Button {
                         NotificationManager.shared.celebrationGrade = nil
                     } label: {
                         Text("Szuper!")
                     }
-                    .buttonStyle(CPButtonStyle(kind: .secondary, fullWidth: true))
+                    .buttonStyle(NeonButtonStyle(kind: .secondary, fullWidth: true))
                 }
                 .padding(.horizontal, 28)
                 .padding(.bottom, 8)

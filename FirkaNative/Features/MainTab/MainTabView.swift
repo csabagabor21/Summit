@@ -50,32 +50,33 @@ struct MainTabView: View {
     }
 
     var body: some View {
-        // A Minecraft-talaj és a hotbar MINDIG overlay-ként van jelen (üres,
+        // A Voxel-talaj és a hotbar MINDIG overlay-ként van jelen (üres,
         // ha nem kell), nem `if useCustomHotbar { … } else { tabContent }`
         // ágban: az ág-váltás (skinváltás, vagy Max/Plus iPhone elforgatása
         // → széles elrendezés) új identitást adott a teljes tab-fának —
         // minden NavigationStack és a kiválasztott tab elveszett, a user a
         // Főoldal gyökerére esett vissza.
         //
-        // Minecraft keskeny kijelzőn: a dock (talaj + hotbar) az oldal
+        // Voxel minden méretosztályban: a dock (talaj + hotbar) az oldal
         // alja, nem a képernyő alja — a tab-tartalom kerete a fű tetejénél
         // véget ér (alsó padding, csak érték vált, a nézet-fa azonos
         // marad), így görgetéskor és az alsó rugózásnál (túlhúzás →
-        // visszaugrás) sem csúszik semmi a föld mögé: a lista a fűnél
-        // áll meg, fölötte nyílik az ég-rés. A tabok alsó safe area-ja
-        // (`mcTabChrome`) már csak a talajból kilógó virágokat kerüli ki.
-        // A hotbar a földön ül. Szélesen (iPad/Mac sidebar) a natív sáv
-        // marad. Külön ég nincs a tab-tartalom mögött (a lista saját ege
-        // tölti ki a képet).
+        // visszaugrás) sem csúszik semmi a föld mögé iPaden/Macen sem: a
+        // lista a fűnél áll meg, fölötte nyílik az ég-rés. A tabok alsó
+        // safe area-ja (`voxelTabChrome`) már csak a talajból kilógó
+        // virágokat kerüli ki. A hotbar a földön ül, témahűen középre
+        // igazítva; a talaj teljes szélességben fut ki. Csak a
+        // Summit-alaptémában marad szélesen a natív sidebar. Külön ég
+        // nincs a tab-tartalom mögött (a lista saját ege tölti ki a képet).
         tabContent
-            .padding(.bottom, useCustomHotbar ? Self.mcFooterHeight : useCPBar ? CPTabBar.height : 0)
+            .padding(.bottom, useCustomHotbar ? Self.voxelFooterHeight : useCPBar ? NeonTabBar.height : 0)
             .overlay(alignment: .bottom) {
                 if useCustomHotbar {
                     // Díszlet: nem nyel érintést. Eddig a teljes 148 pt-os
                     // talaj-sáv elnyelte a koppintást ÉS a görgetés indítását
                     // minden tab alján (a lista alulról felhúzva nem mozdult,
                     // a fű mögé csúszó sorok halottak voltak).
-                    McGrassBlockFooter(height: Self.mcFooterHeight)
+                    VoxelGrassBlockFooter(height: Self.voxelFooterHeight)
                         .allowsHitTesting(false)
                 }
             }
@@ -83,30 +84,31 @@ struct MainTabView: View {
                 if useCustomHotbar {
                     // Csak maga a hotbar (a slot-gombok egymás mellett, rés
                     // nélkül) fogad érintést; körülötte a görgetés indulhat.
-                    mcHotbar.padding(.bottom, 6)
+                    voxelHotbar.padding(.bottom, 6)
                 }
             }
             .overlay(alignment: .bottom) {
-                // Cyberpunk keskeny kijelzőn: saját HUD-sáv (a rendszer-
+                // Neon minden méretosztályban: saját HUD-sáv (a rendszer-
                 // tabsáv rejtve, a tartalom alja a sáv fölött áll meg —
-                // `mcTabChrome(inset:)`). Szélesen a natív sidebar marad.
+                // `voxelTabChrome(inset:)`), iPaden/Macen is teljes
+                // szélességben az oldal alján.
                 // Szintén mindig jelen lévő overlay, hogy a skinváltás ne
                 // adjon új identitást a tab-fának.
                 if useCPBar { cpTabBar }
             }
-        .tint(theme.isMinecraft ? MinecraftTheme.grass : colors.accent)
+        .tint(theme.isVoxel ? VoxelTheme.grass : colors.accent)
         // Chrome-betűk a látható sávokra is (az init-kori beállítás
         // a már élő sávokon nem mindig fog meg).
         .onAppear {
             theme.skin.applyChromeAppearance()
-            McSound.warmUp()
-            CPSound.warmUp()
+            VoxelSound.warmUp()
+            NeonSound.warmUp()
         }
-        .onChange(of: theme.isMinecraft) { _, mc in
-            if mc { McSound.warmUp() }
+        .onChange(of: theme.isVoxel) { _, mc in
+            if mc { VoxelSound.warmUp() }
         }
-        .onChange(of: theme.isCyberpunk) { _, cp in
-            if cp { CPSound.warmUp() }
+        .onChange(of: theme.isNeon) { _, cp in
+            if cp { NeonSound.warmUp() }
         }
         // NINCS withAnimation(.spring) — a rendszer Liquid Glass morphja animál.
         // Custom spring felülírná a natív görbét és "cooked"-nak hat.
@@ -161,9 +163,10 @@ struct MainTabView: View {
             if !wide, selected == 3 { selected = 5 }
         }
         .onChange(of: selected) { _, tab in
-            // Széles elrendezés (rendszer-tabsáv): itt nincs hotbar-callback.
-            if theme.isMinecraft, !useCustomHotbar { McSound.play(.tab) }
-            if theme.isCyberpunk, !useCPBar { CPSound.play(.tab) }
+            // Programozott tabváltásnál (deep-link, Handoff) nincs
+            // dock-callback — a hangot itt pótoljuk, ha nincs custom dock.
+            if theme.isVoxel, !useCustomHotbar { VoxelSound.play(.tab) }
+            if theme.isNeon, !useCPBar { NeonSound.play(.tab) }
             // Minden tabváltást hirdetünk — a másik eszköz dockjában
             // ettől jön fel a Summit ikon az aktuális hellyel.
             HandoffCenter.shared.setTab(tab)
@@ -203,25 +206,30 @@ struct MainTabView: View {
     // - iPhone: bottom TabBar (Liquid Glass — floating, rendszer rajzolja)
     // - iPad nagy: Liquid Glass sidebar — a divider drag-gal méretezhető (rendszer)
     // - iPad Stage Manager / Split View szűk: automatikusan visszaugrik TabBar-ra
+    // - Témázott (Voxel/Neon) skinben a `.tabBar` toolbar minden
+    //   méretosztályban rejtett (`voxelTabChrome(hidden:)`): sem az iPad
+    //   felső tabsáv, sem a sidebar nem jön át, a custom dock veszi át
+    //   a helyét az oldal alján. A `.sidebarAdaptable` stílus ilyenkor
+    //   csak a Summit-alaptéma széles sávját adja.
     // - Sem toolbar(removing:), sem listRowBackground(accentSoft), sem .balanced hack
     //   — mind rendszer. A tint adja az accentet, a többit a glass.
     @available(iOS 18.0, *)
     private var nativeSidebar: some View {
         TabView(selection: $selected) {
             Tab(value: 0) {
-                HomeView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).id(mcRootTokens[0, default: 0])
+                HomeView().voxelTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).id(voxelRootTokens[0, default: 0])
             } label: { tabLabel(0) }
             Tab(value: 1) {
-                GradesView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).id(mcRootTokens[1, default: 0])
+                GradesView().voxelTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).id(voxelRootTokens[1, default: 0])
             } label: { tabLabel(1) }
             Tab(value: 2) {
-                TimetableView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).id(mcRootTokens[2, default: 0])
+                TimetableView().voxelTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).id(voxelRootTokens[2, default: 0])
             } label: { tabLabel(2) }
             Tab(value: 5) {
-                NotesView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).id(mcRootTokens[5, default: 0])
+                NotesView().voxelTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).id(voxelRootTokens[5, default: 0])
             } label: { tabLabel(5) }
             Tab(value: 4) {
-                AbsencesView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).id(mcRootTokens[4, default: 0])
+                AbsencesView().voxelTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).id(voxelRootTokens[4, default: 0])
             } label: { tabLabel(4) }
             // Watch-tab CSAK széles elrendezésen (iPad / Mac sidebar) —
             // iPhone-on nincs (ott a Feladatok bal felső toolbar-gombja
@@ -238,22 +246,22 @@ struct MainTabView: View {
         // Content glass tilos — "glass can't sample other glass".
     }
 
-    /// Tab-címke: Summitban a gyári `Label(cím, systemImage:)`, Minecraftban
+    /// Tab-címke: Summitban a gyári `Label(cím, systemImage:)`, Voxelben
     /// az eredeti item-textúra (előre, élesen felnagyítva — a tab-sáv
     /// maga simítaná a 16 px-es képet) a széles elrendezés sávjában.
     @ViewBuilder
     private func tabLabel(_ tab: Int) -> some View {
-        if theme.isMinecraft, let ui = MinecraftTheme.tabBarImage(for: tab) {
+        if theme.isVoxel, let ui = VoxelTheme.tabBarImage(for: tab) {
             Label { Text(tabTitle(tab)) } icon: { Image(uiImage: ui) }
         } else {
             Label(tabTitle(tab), systemImage: tabIcon(tab))
         }
     }
 
-    /// Minecraft-skinben blokkos ikonok + címek, különben a gyáriak.
+    /// Voxel-skinben blokkos ikonok + címek, különben a gyáriak.
     private func tabIcon(_ tab: Int) -> String {
-        if theme.isCyberpunk { return Self.cpTabIcon(tab) }
-        guard theme.isMinecraft else {
+        if theme.isNeon { return Self.cpTabIcon(tab) }
+        guard theme.isVoxel else {
             switch tab {
             case 0: return "house.fill"
             case 1: return "star.fill"
@@ -264,24 +272,30 @@ struct MainTabView: View {
             default: return "circle.fill"
             }
         }
-        return MinecraftTheme.tabIcon(for: tab).1
+        return VoxelTheme.tabIcon(for: tab).1
     }
-    /// Minecraft keskeny kijelzőn: a rendszer-tabsáv rejtve — helyette
-    /// saját hotbar jön a fűblokkra. Máshol a natív sáv marad.
-    private var useCustomHotbar: Bool { theme.isMinecraft && !isWide }
-    /// Cyberpunk keskeny kijelzőn: saját HUD-tabsáv (lásd `CPTabBar`).
-    private var useCPBar: Bool { theme.isCyberpunk && !isWide }
+    /// Voxel-skinben a rendszer-tabsáv MINDEN méretosztályban rejtve —
+    /// helyette saját hotbar jön a fűblokkra iPaden és Macen (Catalyst)
+    /// is. Korábban a `!isWide` kapu miatt széles kijelzőn a natív
+    /// `.sidebarAdaptable` sáv (iPad felső tabsáv / sidebar) maradt, és
+    /// a custom dock egyáltalán nem jelent meg — a user ezt látta úgy,
+    /// hogy „átjön a normál iPad dock". A Summit-alaptémában nincs
+    /// custom dock, ott a natív széles sáv továbbra is marad.
+    private var useCustomHotbar: Bool { theme.isVoxel }
+    /// Neon-skinben saját HUD-tabsáv (lásd `NeonTabBar`) minden
+    /// méretosztályban, iPaden/Macen is — lásd `useCustomHotbar`.
+    private var useCPBar: Bool { theme.isNeon }
     /// Rejtett-e a rendszer-tabsáv (saját sáv van helyette).
     private var hidesSystemTabBar: Bool { useCustomHotbar || useCPBar }
-    /// A tab-tartalom alsó tartaléka a saját sáv fölött: Minecraftban a
-    /// talajból a tartalom elé kilógó virágok magassága, Cyberpunkban egy
+    /// A tab-tartalom alsó tartaléka a saját sáv fölött: Voxelben a
+    /// talajból a tartalom elé kilógó virágok magassága, Neonban egy
     /// kis levegő — a sávokat magát a `body` alsó paddingje már kivette
     /// a tartalom keretéből (a dock az oldal alja, nem a képernyő alja).
     private var customBarInset: CGFloat {
-        useCPBar ? 8 : McFlora.maxHeight
+        useCPBar ? 8 : VoxelFlora.maxHeight
     }
 
-    /// Cyberpunk-tabikonok: körvonalas (nem kitöltött) SF-szimbólumok —
+    /// Neon-tabikonok: körvonalas (nem kitöltött) SF-szimbólumok —
     /// vékony HUD-rajzolat.
     static func cpTabIcon(_ tab: Int) -> String {
         switch tab {
@@ -295,30 +309,41 @@ struct MainTabView: View {
         }
     }
 
-    /// Cyberpunk-dock ikonjai: a játék hub-atlaszának (`hub_atlas_1080p`)
-    /// eredeti fül-ikonjai, tartalmi leképezéssel (lásd `CPTabBar`).
+    /// Neon-dock ikonjai: a játék hub-atlaszának (`hub_atlas_1080p`)
+    /// eredeti fül-ikonjai, tartalmi leképezéssel (lásd `NeonTabBar`).
     static func cpTabAsset(_ tab: Int) -> String {
         switch tab {
-        case 0: return "cp_tab_home"
-        case 1: return "cp_tab_grades"
-        case 2: return "cp_tab_timetable"
-        case 5: return "cp_tab_tasks"
-        case 4: return "cp_tab_absences"
-        default: return "cp_tab_home"
+        case 0: return "img_neo_tab_home"
+        case 1: return "img_neo_tab_grades"
+        case 2: return "img_neo_tab_timetable"
+        case 5: return "img_neo_tab_tasks"
+        case 4: return "img_neo_tab_absences"
+        default: return "img_neo_tab_home"
         }
     }
 
-    /// Saját Cyberpunk HUD-tabsáv. Újrakoppintás az aktív fülre: a tab
+    /// Saját Neon HUD-tabsáv. Újrakoppintás az aktív fülre: a tab
     /// verme a gyökérre ugrik (mint a hotbaron / rendszer-sávon).
+    /// Dock-elemek: az öt fő tab, plusz széles elrendezésen a Watch —
+    /// ott eddig a natív sidebar vitte, a custom dockban is elérhető
+    /// kell legyen (játék-atlasz ikonja nincs, SF-szimbólumot kap).
+    private var neonDockItems: [NeonTabBar.Item] {
+        var items = [0, 1, 2, 5, 4].map { NeonTabBar.Item(tab: $0, icon: Self.cpTabAsset($0), title: tabTitle($0)) }
+        if watchTabVisible {
+            items.append(NeonTabBar.Item(tab: 3, icon: "", title: tabTitle(3), systemIcon: "applewatch"))
+        }
+        return items
+    }
+
     private var cpTabBar: some View {
-        CPTabBar(
-            items: [0, 1, 2, 5, 4].map { CPTabBar.Item(tab: $0, icon: Self.cpTabAsset($0), title: tabTitle($0)) },
+        NeonTabBar(
+            items: neonDockItems,
             selected: selected
         ) { tab in
             SummitHaptics.selection()
-            CPSound.play(.tab)
+            NeonSound.play(.tab)
             if tab == selected {
-                mcRootTokens[tab, default: 0] += 1
+                voxelRootTokens[tab, default: 0] += 1
             } else {
                 selected = tab
             }
@@ -327,30 +352,34 @@ struct MainTabView: View {
     /// Hotbar-újrakoppintás: az aktív slotra koppintva a tab navigációs
     /// verme a gyökérre ugrik (mint a rendszer-tabsávon) — az új azonosító
     /// újraépíti a tab NavigationStackjét.
-    @State private var mcRootTokens: [Int: Int] = [:]
+    @State private var voxelRootTokens: [Int: Int] = [:]
     /// A fűblokk-talaj magassága a home-jelző fölött.
-    static let mcFooterHeight: CGFloat = 148
+    static let voxelFooterHeight: CGFloat = 148
 
-    /// Hotbar-slotok: (tab, eredeti item-sprite, cím).
-    private var mcTabs: [(Int, String, String)] {
-        [(0, "mc_grass_side", "Főoldal"), (1, "mc_item_diamond", "Jegyek"),
-         (2, "mc_item_clock", "Órarend"), (5, "mc_item_writable_book", "Feladatok"),
-         (4, "mc_item_barrier", "Hiányzások")]
+    /// Hotbar-slotok: (tab, eredeti item-sprite, cím). Széles
+    /// elrendezésen a Watch is slotot kap (iránytű-sprite), különben
+    /// iPaden/Macen a custom dockból nem lenne elérhető.
+    private var voxelTabs: [(Int, String, String)] {
+        var tabs = [(0, "img_blk_grass_side", "Főoldal"), (1, "img_blk_item_diamond", "Jegyek"),
+                    (2, "img_blk_item_clock", "Órarend"), (5, "img_blk_item_writable_book", "Feladatok"),
+                    (4, "img_blk_item_barrier", "Hiányzások")]
+        if watchTabVisible { tabs.append((3, "img_blk_item_compass", "Watch")) }
+        return tabs
     }
 
-    /// Saját minecraft-hotbar (lásd `McHotbar`): a kijelölt slot neve a
+    /// Saját voxel-hotbar (lásd `VoxelHotbar`): a kijelölt slot neve a
     /// sáv fölött, a játékbeli szöveg-árnyékkal.
-    private var mcHotbar: some View {
-        McHotbar(
-            slots: mcTabs.map { McHotbar.Slot(tab: $0.0, sprite: $0.1, title: $0.2) },
+    private var voxelHotbar: some View {
+        VoxelHotbar(
+            slots: voxelTabs.map { VoxelHotbar.Slot(tab: $0.0, sprite: $0.1, title: $0.2) },
             selected: selected
         ) { tab in
             SummitHaptics.selection()
             // A hotbar-slot kattan, mint a játékban (csak MC-skinben szól) —
             // a tabsáv a legerősebb kattanás, a sima gomboké halkabb.
-            McSound.play(.tab)
+            VoxelSound.play(.tab)
             if tab == selected {
-                mcRootTokens[tab, default: 0] += 1
+                voxelRootTokens[tab, default: 0] += 1
             } else {
                 selected = tab
             }
@@ -358,7 +387,7 @@ struct MainTabView: View {
     }
 
     private func tabTitle(_ tab: Int) -> String {
-        guard theme.isMinecraft else {
+        guard theme.isVoxel else {
             switch tab {
             case 0: return "Főoldal"
             case 1: return "Jegyek"
@@ -369,17 +398,17 @@ struct MainTabView: View {
             default: return ""
             }
         }
-        return MinecraftTheme.tabIcon(for: tab).0
+        return VoxelTheme.tabIcon(for: tab).0
     }
 
     // MARK: - iOS 17 fallback (Summit target régebbi OS-en) — natív TabView
     private var phoneTabsLegacy: some View {
         TabView(selection: $selected) {
-            HomeView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).tabItem { tabLabel(0) }.tag(0)
-            GradesView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).tabItem { tabLabel(1) }.tag(1)
-            TimetableView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).tabItem { tabLabel(2) }.tag(2)
-            NotesView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).tabItem { tabLabel(5) }.tag(5)
-            AbsencesView().mcTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).tabItem { tabLabel(4) }.tag(4)
+            HomeView().voxelTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).tabItem { tabLabel(0) }.tag(0)
+            GradesView().voxelTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).tabItem { tabLabel(1) }.tag(1)
+            TimetableView().voxelTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).tabItem { tabLabel(2) }.tag(2)
+            NotesView().voxelTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).tabItem { tabLabel(5) }.tag(5)
+            AbsencesView().voxelTabChrome(hidden: hidesSystemTabBar, inset: customBarInset).tabItem { tabLabel(4) }.tag(4)
             if watchTabVisible {
                 CheatView().tabItem { tabLabel(3) }.tag(3)
             }
@@ -387,16 +416,17 @@ struct MainTabView: View {
     }
 }
 
-/// Minecraft-tabrejtés: keskeny kijelzőn Minecraft-skinben elrejti a
-/// rendszer-tabsávot (helyette a saját hotbar látszik a fűblokkon).
+/// Tabrejtés: témázott skinben minden méretosztályban elrejti a
+/// rendszer-tabsávot (iPaden a felső sávot/sidebart is — helyette a
+/// saját dock látszik az oldal alján).
 private extension View {
     /// Egyetlen, ág nélküli lánc (a `hidden` és az `inset` csak értékeket
     /// vált): skinváltáskor a tab gyökere — és vele a NavigationStack —
     /// megmarad.
-    func mcTabChrome(hidden: Bool, inset: CGFloat) -> some View {
+    func voxelTabChrome(hidden: Bool, inset: CGFloat) -> some View {
         self.toolbar(hidden ? .hidden : .automatic, for: .tabBar)
-            // Alsó tartalék a saját sáv fölött: Minecraftban a talajból
-            // kilógó növények, Cyberpunkban egy kis levegő (a sávok a
+            // Alsó tartalék a saját sáv fölött: Voxelben a talajból
+            // kilógó növények, Neonban egy kis levegő (a sávok a
             // tartalom keretén kívül vannak, lásd `body`) — a lista vége
             // ennyivel a sáv fölött áll meg.
             .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -407,14 +437,14 @@ private extension View {
     }
 }
 
-/// Minecraft Java/Bedrock hotbar, pixelrácsra rajzolva: 1 játék-pixel =
+/// Voxel Java/Bedrock hotbar, pixelrácsra rajzolva: 1 játék-pixel =
 /// `px` pt, minden él egész számú játék-pixelre esik, nincs lekerekítés.
 /// A slotok 20×20 px-esek (1 px sötét keret, 1 px letört él, 16×16 px
 /// belső tér az itemnek), a kijelölést a vanilla `hotbar_selection`
 /// mintájú, slotonként 2 px-szel túlnyúló fehér keret jelzi. A kijelölt
-/// item neve a sáv fölött áll fehér Minecraft-betűvel, 1 px-es
+/// item neve a sáv fölött áll fehér Voxel-betűvel, 1 px-es
 /// (#3F3F3F) szövegárnyékkal.
-private struct McHotbar: View {
+private struct VoxelHotbar: View {
     struct Slot: Identifiable {
         let tab: Int
         let sprite: String
@@ -441,7 +471,7 @@ private struct McHotbar: View {
             ZStack(alignment: .topLeading) {
                 barArt
                 ForEach(Array(slots.enumerated()), id: \.element.id) { index, slot in
-                    MinecraftTheme.mcPixelImage(slot.sprite, size: 16 * px)
+                    VoxelTheme.voxelPixelImage(slot.sprite, size: 16 * px)
                         .offset(x: CGFloat(1 + index * slotPx + 2) * px,
                                 y: 3 * px)
                         .allowsHitTesting(false)
@@ -467,7 +497,7 @@ private struct McHotbar: View {
     /// A kijelölt item neve: fehér szöveg + sötétszürke árnyék 1 px-szel
     /// jobbra-le, váltáskor áttűnéssel (mint a játékban).
     private var itemName: some View {
-        let font = MinecraftFontLoader.font(size: 8 * px)
+        let font = VoxelFontLoader.font(size: 8 * px)
         return ZStack(alignment: .topLeading) {
             Text(selectedTitle)
                 .font(font)
@@ -547,12 +577,12 @@ private struct McHotbar: View {
     }
 }
 
-/// Cyberpunk 2077 hub-fülsor alsó dockként: a játékban nincs alsó
+/// Neon hub-fülsor alsó dockként: a játékban nincs alsó
 /// tabsáv, a legközelebbi rokon a hub-menü felső fül-sora (ikon +
 /// nagybetűs felirat, a kiválasztott alatt vörös jelölés). Az ikonok a
 /// játék eredeti `hub_atlas_1080p.xbm` atlaszának darabjai (WolvenKit
 /// unbundle + BC7-dekódolás, az `.inkatlas` UV-rectjei alapján vágva,
-/// fehér sablonként színezve — `cp_tab_*` imagesetek):
+/// fehér sablonként színezve — `img_neo_tab_*` imagesetek):
 /// Főoldal = `ico_inventory_hub` (hátizsák), Jegyek = `ico_stats_hub`
 /// (STATS), Órarend = `ico_data_hub` (DATA-lista), Feladatok =
 /// `ico_journal_hub` (TASKS-napló), Hiányzások = `ico_character_hub`
@@ -560,15 +590,17 @@ private struct McHotbar: View {
 /// `button_big2_bg_tab` fül-formája mélyvörösre festve, alatta a
 /// `button_big2_bg_tab_line` vörös jelölővonala — ahogy a játék
 /// hub-fülénél. A sáv alapja a menük sötét alapja, halvány eredeti
-/// `cp_pattern` mintával. Működés változatlan: 60 pt magasság,
+/// `tex_neo_pattern` mintával. Működés változatlan: 60 pt magasság,
 /// koppintás + újrakoppintásra gyökérre ugrás a hívóban.
 /// Statikus, olcsó nézet: nincs animáció, nincs üveg.
-struct CPTabBar: View {
+struct NeonTabBar: View {
     struct Item: Identifiable {
         let tab: Int
-        /// Eredeti játék-ikon assetneve (`cp_tab_*`).
+        /// Eredeti játék-ikon assetneve (`img_neo_tab_*`).
         let icon: String
         let title: String
+        /// SF-szimbólum, ha a tabhoz nincs játék-atlasz ikon (Watch).
+        var systemIcon: String? = nil
         var id: Int { tab }
     }
     var items: [Item]
@@ -581,8 +613,8 @@ struct CPTabBar: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack(alignment: .leading) {
-                Rectangle().fill(CyberpunkTheme.red.opacity(0.5)).frame(height: 1)
-                Rectangle().fill(CyberpunkTheme.red).frame(width: 56, height: 2)
+                Rectangle().fill(NeonTheme.red.opacity(0.5)).frame(height: 1)
+                Rectangle().fill(NeonTheme.red).frame(width: 56, height: 2)
             }
             .frame(height: 2)
             HStack(spacing: 4) {
@@ -600,11 +632,15 @@ struct CPTabBar: View {
             .padding(.top, 6)
             .padding(.bottom, 4)
         }
+        // Teljes szélesség minden méretosztályban: iPaden/Macen az
+        // overlay csak a tartalom szélességét ajánlaná fel, a sávnak
+        // viszont az oldal alját végig ki kell töltenie.
+        .frame(maxWidth: .infinity)
         .frame(height: Self.height, alignment: .top)
         .background {
             ZStack {
-                CyberpunkTheme.bg.opacity(0.96)
-                CPGamePattern(opacity: 0.05)
+                NeonTheme.bg.opacity(0.96)
+                NeonGamePattern(opacity: 0.05)
             }
             .ignoresSafeArea(edges: .bottom)
         }
@@ -612,37 +648,43 @@ struct CPTabBar: View {
 
     private func cell(_ item: Item, on: Bool) -> some View {
         VStack(spacing: 3) {
-            Image(item.icon)
-                .renderingMode(.template)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 24, height: 24)
+            if let systemIcon = item.systemIcon {
+                Image(systemName: systemIcon)
+                    .font(.system(size: 20, weight: .regular))
+                    .frame(width: 24, height: 24)
+            } else {
+                Image(item.icon)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 24, height: 24)
+            }
             Text(item.title.uppercased())
-                .font(CyberpunkTheme.mono(size: 9, relativeTo: .caption2))
+                .font(NeonTheme.mono(size: 9, relativeTo: .caption2))
                 .tracking(0.6)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }
-        .foregroundStyle(on ? Color.black : CyberpunkTheme.text.opacity(0.62))
+        .foregroundStyle(on ? Color.black : NeonTheme.text.opacity(0.62))
         .frame(maxWidth: .infinity, minHeight: 48)
         .background {
             if on {
                 // A hub-fül eredeti formája (`button_big2_bg_tab`),
                 // a tompított paletta mélyvörösére festve.
-                Image("cp_tab_selbg")
+                Image("img_neo_tab_selbg")
                     .renderingMode(.template)
                     .resizable()
-                    .foregroundStyle(CyberpunkTheme.red)
+                    .foregroundStyle(NeonTheme.red)
             }
         }
         .overlay(alignment: .bottom) {
             if on {
                 // A játék fül-jelölővonala (`button_big2_bg_tab_line`).
-                Image("cp_tab_selline")
+                Image("img_neo_tab_selline")
                     .renderingMode(.template)
                     .resizable()
                     .frame(height: 2)
-                    .foregroundStyle(CyberpunkTheme.coral)
+                    .foregroundStyle(NeonTheme.coral)
                     .accessibilityHidden(true)
             }
         }

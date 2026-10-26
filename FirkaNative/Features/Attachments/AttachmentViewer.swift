@@ -50,9 +50,9 @@ struct AttachmentRow: View {
     @ObservedObject var store: AttachmentStore
     @EnvironmentObject var kreta: KretaClient
     @Environment(\.colorScheme) var scheme
-    private var cp: Bool { CyberpunkTheme.isActive }
+    private var cp: Bool { NeonTheme.isActive }
 
-    /// Fájltípus-kód a kiterjesztésből (`PDF`, `IMG`, `DOC`…) a Cyberpunk-sorhoz.
+    /// Fájltípus-kód a kiterjesztésből (`PDF`, `IMG`, `DOC`…) a Neon-sorhoz.
     static func cpTypeCode(_ name: String) -> String {
         let ext = (name as NSString).pathExtension.lowercased()
         switch ext {
@@ -66,7 +66,7 @@ struct AttachmentRow: View {
     }
 
     var body: some View {
-        if MinecraftTheme.isActive {
+        if VoxelTheme.isActive {
             // Kő-gomb a kapszula helyett (a felirat fehér, árnyékkal).
             Button {
                 Task { await store.open(att, ownerId: ownerId, kreta: kreta) }
@@ -82,11 +82,11 @@ struct AttachmentRow: View {
                         Text(s).skinFont(.caption2).monospacedDigit().opacity(0.7)
                     }
                     Spacer(minLength: 4)
-                    McGlyph(kind: .chevronRight, size: 14)
+                    VoxelGlyph(kind: .chevronRight, size: 14)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .buttonStyle(McButtonStyle(compact: true))
+            .buttonStyle(VoxelButtonStyle(compact: true))
         } else {
             Button {
                 Task { await store.open(att, ownerId: ownerId, kreta: kreta) }
@@ -97,15 +97,15 @@ struct AttachmentRow: View {
                     } else {
                         SkinIcon(att.symbol)
                             .skinFont(.caption, weight: .semibold)
-                            .foregroundStyle(cp ? AnyShapeStyle(CyberpunkTheme.cyan) : AnyShapeStyle(.secondary))
+                            .foregroundStyle(cp ? AnyShapeStyle(NeonTheme.cyan) : AnyShapeStyle(.secondary))
                             .frame(width: 20)
                     }
                     Text(att.name)
                         .skinFont(.caption, weight: .medium)
-                        .foregroundStyle(cp ? AnyShapeStyle(CyberpunkTheme.text) : AnyShapeStyle(.primary))
+                        .foregroundStyle(cp ? AnyShapeStyle(NeonTheme.text) : AnyShapeStyle(.primary))
                         .lineLimit(1)
                     if cp {
-                        CPLabel(Self.cpTypeCode(att.name), color: CyberpunkTheme.cyan)
+                        NeonLabel(Self.cpTypeCode(att.name), color: NeonTheme.cyan)
                     }
                     if let s = att.sizeText {
                         Text(s).cpgSizeFont().foregroundStyle(.tertiary).monospacedDigit()
@@ -113,16 +113,16 @@ struct AttachmentRow: View {
                     Spacer(minLength: 4)
                     SkinIcon("chevron.right")
                         .skinFont(.caption2, weight: .semibold)
-                        .foregroundStyle(cp ? AnyShapeStyle(CyberpunkTheme.cyan) : AnyShapeStyle(.tertiary))
+                        .foregroundStyle(cp ? AnyShapeStyle(NeonTheme.cyan) : AnyShapeStyle(.tertiary))
                 }
                 .padding(.horizontal, 10).padding(.vertical, 8)
                 .background {
                     if cp {
-                        // Cyberpunk: levágott sarkú adat-csík, 1 px-es cián kerettel.
-                        CPChamferShape(cut: 8, corners: [.topLeft, .bottomRight])
-                            .fill(CyberpunkTheme.cyan.opacity(0.06))
-                            .overlay(CPChamferShape(cut: 8, corners: [.topLeft, .bottomRight])
-                                .strokeBorder(CyberpunkTheme.cyan.opacity(0.55), lineWidth: 1))
+                        // Neon: levágott sarkú adat-csík, 1 px-es cián kerettel.
+                        NeonChamferShape(cut: 8, corners: [.topLeft, .bottomRight])
+                            .fill(NeonTheme.cyan.opacity(0.06))
+                            .overlay(NeonChamferShape(cut: 8, corners: [.topLeft, .bottomRight])
+                                .strokeBorder(NeonTheme.cyan.opacity(0.55), lineWidth: 1))
                     } else {
                         Capsule()
                             .fill(Color.primary.opacity(scheme == .dark ? 0.08 : 0.05))
@@ -136,12 +136,12 @@ struct AttachmentRow: View {
 }
 
 private extension View {
-    /// Méret-felirat: Cyberpunkban egyenközű HUD-betű, máshol a korábbi
+    /// Méret-felirat: Neonban egyenközű HUD-betű, máshol a korábbi
     /// `skinFont(.caption2)`.
     @ViewBuilder
     func cpgSizeFont() -> some View {
-        if CyberpunkTheme.isActive {
-            self.font(CyberpunkTheme.mono(size: 10, relativeTo: .caption2))
+        if NeonTheme.isActive {
+            self.font(NeonTheme.mono(size: 10, relativeTo: .caption2))
         } else {
             self.skinFont(.caption2)
         }
@@ -159,13 +159,13 @@ struct AttachmentsBlock: View {
         if !attachments.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
                 Text(attachments.count == 1 ? "Csatolmány" : "\(attachments.count) csatolmány")
-                    .mcSectionHeader()
+                    .voxelSectionHeader()
                 ForEach(attachments) { att in
                     AttachmentRow(att: att, ownerId: ownerId, store: store)
                 }
                 if let err = store.errorText {
                     SkinLabel(err, systemImage: "exclamationmark.triangle.fill")
-                        .skinFont(.caption).foregroundStyle(CyberpunkTheme.isActive ? CyberpunkTheme.red : Color.orange)
+                        .skinFont(.caption).foregroundStyle(NeonTheme.isActive ? NeonTheme.red : Color.orange)
                 }
             }
             .sheet(isPresented: $store.isPreviewing) {

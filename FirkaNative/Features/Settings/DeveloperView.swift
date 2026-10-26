@@ -65,7 +65,7 @@ struct DeveloperView: View {
                                 }
                                 Button("Vissza élő időre") { withAnimation { isPreviewActive = false } }
                                     .skinFont(.caption, weight: .semibold).tint(colors.accent)
-                                    .mcInlineButton()
+                                    .voxelInlineButton()
                                 SkinLabel("A csúszka a Főoldalt, az Órarendet és a Live Activity-t is mozgatja", systemImage: "livephoto")
                                     .skinFont(.caption2).foregroundStyle(.tertiary)
                             }
@@ -84,7 +84,7 @@ struct DeveloperView: View {
                             }
                             Button("Előrepörgetés most") { Task { await jumpToLessonEnd() } }
                                 .skinFont(.caption, weight: .semibold).tint(colors.accent)
-                                .mcInlineButton()
+                                .voxelInlineButton()
                             if let jumpInfo {
                                 Text(jumpInfo).skinFont(.caption2).foregroundStyle(.tertiary)
                             }
@@ -108,7 +108,7 @@ struct DeveloperView: View {
                                 notifStatus = NotificationManager.shared.permissionStatus
                             } }
                             .skinFont(.caption, weight: .semibold).tint(colors.accent)
-                            .mcInlineButton()
+                            .voxelInlineButton()
                         }
                     }
                     settingsDivider
@@ -118,7 +118,7 @@ struct DeveloperView: View {
                             notifStatus = NotificationManager.shared.permissionStatus
                         } }
                         .tint(colors.accent)
-                        .mcInlineButton()
+                        .voxelInlineButton()
                     }
                     settingsDivider
                     row {
@@ -127,7 +127,7 @@ struct DeveloperView: View {
                             // A fullscreen ünneplő kártya magától felpattan — ez a tesztje.
                         } }
                         .tint(colors.accent)
-                        .mcInlineButton()
+                        .voxelInlineButton()
                     }
                     settingsDivider
                     row {
@@ -137,7 +137,7 @@ struct DeveloperView: View {
                             showSimAlert = true
                         }
                         .tint(.red)
-                        .mcInlineButton()
+                        .voxelInlineButton()
                     }
                 }
 
@@ -164,13 +164,13 @@ struct DeveloperView: View {
                                 Task { await liveManager.startDemoTestNow(userId: session.selectedUser?.id ?? "", accentHex: theme.accentHex) }
                             }
                             .skinFont(.caption, weight: .semibold).tint(colors.accent)
-                            .mcInlineButton()
+                            .voxelInlineButton()
                             #if !targetEnvironment(macCatalyst)
                             Button("Leállítás") {
                                 Task { await liveManager.endAll(dismissalPolicy: .immediate) }
                             }
                             .skinFont(.caption, weight: .semibold).tint(.red)
-                            .mcInlineButton()
+                            .voxelInlineButton()
                             #endif
                         }
                     }
@@ -181,7 +181,7 @@ struct DeveloperView: View {
                                 Task { await restartPushNow() }
                             }
                             .skinFont(.caption, weight: .semibold).tint(colors.accent)
-                            .mcInlineButton()
+                            .voxelInlineButton()
                             if let pushRestartInfo {
                                 Text(pushRestartInfo).skinFont(.caption2).foregroundStyle(.secondary)
                             } else {
@@ -198,7 +198,7 @@ struct DeveloperView: View {
                                 Task { await uploadPushPlanNow() }
                             }
                             .skinFont(.caption, weight: .semibold).tint(colors.accent)
-                            .mcInlineButton()
+                            .voxelInlineButton()
                             if let pushUploadInfo {
                                 Text(pushUploadInfo).skinFont(.caption2).foregroundStyle(.secondary)
                             } else {
@@ -248,10 +248,10 @@ struct DeveloperView: View {
             .frame(maxWidth: .infinity)
         }
         .background {
-            if theme.isCyberpunk {
-                CPBackdrop()
-            } else if theme.isMinecraft {
-                MinecraftBackdrop(mountain: true)
+            if theme.isNeon {
+                NeonBackdrop()
+            } else if theme.isVoxel {
+                VoxelBackdrop(mountain: true)
             } else {
                 SummitBackdrop(imageName: "DevPeak")
             }
@@ -261,7 +261,7 @@ struct DeveloperView: View {
         .navigationBarTitleDisplayMode(.inline)
         .alert("Fejlesztői eszközök", isPresented: $showSimAlert) {
             Button("OK", role: .cancel) {}
-            .mcInlineButton()
+            .voxelInlineButton()
         } message: {
             Text(simMessage ?? "")
         }
@@ -432,7 +432,7 @@ struct DeveloperView: View {
     private func island<Content: View>(header: String? = nil, @ViewBuilder content: () -> Content, footer: () -> String? = { nil }) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             if let header {
-                Text(header).mcSectionHeader()
+                Text(header).voxelSectionHeader()
                     .padding(.horizontal, 4)
             }
             VStack(alignment: .leading, spacing: 0) {
@@ -455,10 +455,10 @@ struct DeveloperView: View {
 
     @ViewBuilder
     private var settingsDivider: some View {
-        if theme.isCyberpunk {
-            Rectangle().fill(CyberpunkTheme.line).frame(height: 1).padding(.leading, 16)
-        } else if theme.isMinecraft {
-            Rectangle().fill(Color.black.opacity(0.22)).frame(height: MinecraftTheme.px)
+        if theme.isNeon {
+            Rectangle().fill(NeonTheme.line).frame(height: 1).padding(.leading, 16)
+        } else if theme.isVoxel {
+            Rectangle().fill(Color.black.opacity(0.22)).frame(height: VoxelTheme.px)
         } else {
             Divider().padding(.leading, 16)
         }

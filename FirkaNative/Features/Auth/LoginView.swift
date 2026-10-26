@@ -15,28 +15,28 @@ struct LoginView: View {
     @Environment(\.horizontalSizeClass) private var hSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var bgZoom = false
-    /// Cyberpunk: a „jack in" cím egyszeri glitch-rándulásának kioldója.
+    /// Neon: a „jack in" cím egyszeri glitch-rándulásának kioldója.
     @State private var cpBoot = 0
     private var isPad: Bool { hSize == .regular }
     var colors: AppColors { theme.colors(for: scheme) }
 
-    /// Cím: Summitban nagy lágy-árnyékos felirat, Minecraftban a főmenü
-    /// logó-szerű, kemény (3 pixeles) árnyékú pixelbetűs címe; Cyberpunkban
+    /// Cím: Summitban nagy lágy-árnyékos felirat, Voxelben a főmenü
+    /// logó-szerű, kemény (3 pixeles) árnyékú pixelbetűs címe; Neonban
     /// a HUD boot-képernyő sárga, kromatikus címe kód-sorokkal.
     @ViewBuilder
     private var titleText: some View {
-        if theme.isCyberpunk {
-            CPLoginTitle(boot: cpBoot)
-        } else if theme.isMinecraft {
+        if theme.isNeon {
+            NeonLoginTitle(boot: cpBoot)
+        } else if theme.isVoxel {
             Text("Summit")
-                .font(MinecraftTheme.headerFont(size: 64))
+                .font(VoxelTheme.headerFont(size: 64))
                 .foregroundStyle(Color(hex: 0xE0E0E0))
-                .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: 2 * MinecraftTheme.px, y: 2 * MinecraftTheme.px)
+                .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: 2 * VoxelTheme.px, y: 2 * VoxelTheme.px)
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
         } else {
             Text("Summit")
-                .mcDisplay(64)
+                .voxelDisplay(64)
                 .tracking(-1.5)
                 .foregroundStyle(.white)
                 .shadow(color: .black.opacity(0.4), radius: 8, y: 2)
@@ -45,17 +45,17 @@ struct LoginView: View {
 
     @ViewBuilder
     private func errorText(_ e: String) -> some View {
-        if theme.isCyberpunk {
+        if theme.isNeon {
             VStack(alignment: .leading, spacing: 6) {
-                CPLabel("Hiba // belépés", color: CyberpunkTheme.red, bracketed: false, size: 10)
-                Text(e).skinFont(.footnote).foregroundStyle(CyberpunkTheme.text)
+                NeonLabel("Hiba // belépés", color: NeonTheme.red, bracketed: false, size: 10)
+                Text(e).skinFont(.footnote).foregroundStyle(NeonTheme.text)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .cpPanel(accent: CyberpunkTheme.red, padding: 12)
+            .cpPanel(accent: NeonTheme.red, padding: 12)
             .padding(.bottom, 12)
-        } else if theme.isMinecraft {
+        } else if theme.isVoxel {
             Text(e).skinFont(.footnote).foregroundStyle(Color(hex: 0xFF5555)).multilineTextAlignment(.center).padding(.bottom, 12)
-                .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: MinecraftTheme.px / 1.5, y: MinecraftTheme.px / 1.5)
+                .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: VoxelTheme.px / 1.5, y: VoxelTheme.px / 1.5)
         } else {
             Text(e).skinFont(.footnote).foregroundStyle(.white).multilineTextAlignment(.center).padding(.bottom, 12).shadow(color: .black.opacity(0.5), radius: 4)
         }
@@ -66,12 +66,12 @@ struct LoginView: View {
             // Gleccser háttérkép (asset katalógus) — sötét átmenettel az olvashatóságért.
             // Alig észrevehető, lassú közelítés (ken-burns): életet ad a belépésnek,
             // de nem mozog "önmagáért". Reduce Motion mellett áll.
-            // Minecraft-skin: a játék főmenüje — föld-csempe háttér, kő-gombok.
-            // Cyberpunk-skin: statikus HUD-háttér (rács, scanline), zoom nélkül.
-            if theme.isCyberpunk {
-                CPBackdrop()
-            } else if theme.isMinecraft {
-                McMenuBackground()
+            // Voxel-skin: a játék főmenüje — föld-csempe háttér, kő-gombok.
+            // Neon-skin: statikus HUD-háttér (rács, scanline), zoom nélkül.
+            if theme.isNeon {
+                NeonBackdrop()
+            } else if theme.isVoxel {
+                VoxelMenuBackground()
             } else {
                 Image("Glacier")
                     .resizable()
@@ -91,8 +91,8 @@ struct LoginView: View {
                     .summitEntrance(delay: 0.05)
                 Spacer()
                 if vm.isLoading {
-                    if theme.isCyberpunk {
-                        CPLoginLoading().padding(.bottom, 12)
+                    if theme.isNeon {
+                        NeonLoginLoading().padding(.bottom, 12)
                     } else {
                         SkinProgress(color: .white).tint(.white).padding(.bottom, 12)
                     }
@@ -108,12 +108,12 @@ struct LoginView: View {
         .tint(colors.accent)
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 10) {
-                if theme.isCyberpunk {
-                    CPLabel("Azonosítás // e-KRÉTA", color: CyberpunkTheme.dim, size: 10)
+                if theme.isNeon {
+                    NeonLabel("Azonosítás // e-KRÉTA", color: NeonTheme.dim, size: 10)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 Button { webError = nil; showWeb = true } label: {
-                    if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+                    if VoxelTheme.isActive || NeonTheme.isActive {
                         Text("Bejelentkezés E.KRÉTÁVAL")
                             .frame(maxWidth: .infinity)
                     } else {
@@ -127,10 +127,10 @@ struct LoginView: View {
                 }
                 .cpLoginButton(.primary)
                 Button { reviewerError = nil; showReviewer = true } label: {
-                    if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+                    if VoxelTheme.isActive || NeonTheme.isActive {
                         Text("Bejelentkezés felhasználónévvel és jelszóval")
                             .multilineTextAlignment(.center)
-                            .modifier(CPTwoLineLabel())
+                            .modifier(NeonTwoLineLabel())
                             .frame(maxWidth: .infinity)
                     } else {
                         Text("Bejelentkezés felhasználónévvel és jelszóval")
@@ -190,7 +190,7 @@ struct LoginView: View {
                         .textContentType(.password)
                         .summitInput()
                     if let err = reviewerError {
-                        Text(err).skinFont(.footnote).foregroundStyle(theme.isCyberpunk ? CyberpunkTheme.red : .red)
+                        Text(err).skinFont(.footnote).foregroundStyle(theme.isNeon ? NeonTheme.red : .red)
                     }
                     Button {
                         if vm.loginReviewer(username: reviewerUser, password: reviewerPass, session: session) {
@@ -203,7 +203,7 @@ struct LoginView: View {
                         Text("Bejelentkezés")
                             .skinFont(.headline, weight: .semibold)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, theme.isCyberpunk ? 2 : 14)
+                            .padding(.vertical, theme.isNeon ? 2 : 14)
                     }
                     .skinBorderedButton(prominent: true)
                     .disabled(reviewerUser.isEmpty || reviewerPass.isEmpty)
@@ -220,45 +220,45 @@ struct LoginView: View {
 }
 
 /// A web-bejelentkezés hibasávjának háttere: Summitban a vékony anyag,
-/// Minecraftban a játék dialógus-panelje, Cyberpunkban vörös keretes HUD-panel.
+/// Voxelben a játék dialógus-panelje, Neonban vörös keretes HUD-panel.
 private struct WebErrorSurface: ViewModifier {
     func body(content: Content) -> some View {
-        if CyberpunkTheme.isActive {
-            content.background { CPPanelBackground(accent: CyberpunkTheme.red, corners: .none, showsTab: true) }
-        } else if MinecraftTheme.isActive {
-            content.background { McBlockPanel(face: MinecraftTheme.panelFace, castsShadow: false) }
+        if NeonTheme.isActive {
+            content.background { NeonPanelBackground(accent: NeonTheme.red, corners: .none, showsTab: true) }
+        } else if VoxelTheme.isActive {
+            content.background { VoxelBlockPanel(face: VoxelTheme.panelFace, castsShadow: false) }
         } else {
             content.background(.thinMaterial)
         }
     }
 }
 
-// MARK: - Cyberpunk belépés ("jack in")
+// MARK: - Neon belépés ("jack in")
 
 /// A boot-képernyő címblokkja: cián rendszer-kód, nagy sárga SUMMIT
 /// statikus kromatikus szellemképpel, alatta vékony HUD-vonal és állapot-kód.
 /// A glitch csak egyszer, megjelenéskor fut (Reduce Motion mellett sosem).
-private struct CPLoginTitle: View {
+private struct NeonLoginTitle: View {
     var boot: Int
 
     var body: some View {
         VStack(spacing: 12) {
-            CPLabel("Summit//OS · e-KRÉTA kliens", color: CyberpunkTheme.cyan, size: 11)
+            NeonLabel("Summit//OS · e-KRÉTA kliens", color: NeonTheme.cyan, size: 11)
             Text("SUMMIT")
-                .font(CyberpunkTheme.display(size: 76, weight: .bold, relativeTo: .largeTitle))
+                .font(NeonTheme.display(size: 76, weight: .bold, relativeTo: .largeTitle))
                 .tracking(8)
-                .foregroundStyle(CyberpunkTheme.yellow)
+                .foregroundStyle(NeonTheme.yellow)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 .cpChromatic(1.5)
                 .cpGlitch(trigger: boot)
                 .accessibilityLabel("Summit")
             HStack(spacing: 8) {
-                Rectangle().fill(CyberpunkTheme.yellow).frame(width: 22, height: 2)
-                Rectangle().fill(CyberpunkTheme.yellow.opacity(0.35)).frame(height: 1)
+                Rectangle().fill(NeonTheme.yellow).frame(width: 22, height: 2)
+                Rectangle().fill(NeonTheme.yellow.opacity(0.35)).frame(height: 1)
                 Text("NEURAL LINK // KÉSZ")
-                    .font(CyberpunkTheme.mono(size: 10, relativeTo: .caption2))
-                    .foregroundStyle(CyberpunkTheme.dim)
+                    .font(NeonTheme.mono(size: 10, relativeTo: .caption2))
+                    .foregroundStyle(NeonTheme.dim)
                     .lineLimit(1)
                     .fixedSize()
             }
@@ -269,23 +269,23 @@ private struct CPLoginTitle: View {
 }
 
 /// Belépés közbeni állapotsor: pörgő + egyenközű „kapcsolódás" kód.
-private struct CPLoginLoading: View {
+private struct NeonLoginLoading: View {
     var body: some View {
         HStack(spacing: 10) {
-            SkinProgress(color: CyberpunkTheme.cyan).tint(CyberpunkTheme.cyan)
+            SkinProgress(color: NeonTheme.cyan).tint(NeonTheme.cyan)
             Text("> KAPCSOLÓDÁS A KRÉTÁHOZ…")
-                .font(CyberpunkTheme.mono(size: 11, relativeTo: .caption))
-                .foregroundStyle(CyberpunkTheme.cyan)
+                .font(NeonTheme.mono(size: 11, relativeTo: .caption))
+                .foregroundStyle(NeonTheme.cyan)
         }
         .accessibilityElement(children: .combine)
     }
 }
 
-/// Cyberpunkban a hosszú gombfelirat két sorba törhet (a CP-gomb alapból
+/// Neonban a hosszú gombfelirat két sorba törhet (a CP-gomb alapból
 /// egysoros); a többi skinben nem nyúl semmihez.
-private struct CPTwoLineLabel: ViewModifier {
+private struct NeonTwoLineLabel: ViewModifier {
     func body(content: Content) -> some View {
-        if CyberpunkTheme.isActive {
+        if NeonTheme.isActive {
             content.lineLimit(2).minimumScaleFactor(0.85)
         } else {
             content
@@ -294,14 +294,14 @@ private struct CPTwoLineLabel: ViewModifier {
 }
 
 private extension View {
-    /// Belépő-gomb stílusa: Cyberpunkban teljes szélességű CP-gomb (sárga
+    /// Belépő-gomb stílusa: Neonban teljes szélességű CP-gomb (sárga
     /// fő / cián másodlagos), egyébként a meglévő kő-gomb vagy sima gomb.
     @ViewBuilder
-    func cpLoginButton(_ kind: CPButtonStyle.Kind) -> some View {
-        if CyberpunkTheme.isActive {
-            self.buttonStyle(CPButtonStyle(kind: kind, fullWidth: true))
+    func cpLoginButton(_ kind: NeonButtonStyle.Kind) -> some View {
+        if NeonTheme.isActive {
+            self.buttonStyle(NeonButtonStyle(kind: kind, fullWidth: true))
         } else {
-            self.mcButtonOrPlain(compact: false)
+            self.voxelButtonOrPlain(compact: false)
         }
     }
 }

@@ -44,27 +44,27 @@ struct CheatView: View {
                                 .skinFont(.subheadline, weight: .semibold)
                                 .skinAccent(colors.accent)
                         }
-                        .mcInlineButton()
+                        .voxelInlineButton()
                         if showKeyField {
                             SecureField("Meta AI API-kulcs", text: $apiKeyDraft, prompt: skinPrompt("Meta AI API-kulcs"))
                                 .textContentType(.password)
                                 .autocorrectionDisabled()
                                 .textInputAutocapitalization(.never)
-                                .mcInput()
+                                .voxelInput()
                             Button("Kulcs mentése") {
                                 MetaAIKeyStore.save(apiKeyDraft)
                                 apiKeyDraft = ""
                                 showKeyField = false
                             }
                             .disabled(apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                            .mcInlineButton(prominent: theme.isCyberpunk)
+                            .voxelInlineButton(prominent: theme.isNeon)
                         } else {
                             Text("Saját kulcs nélkül is megy: a közös ingyenes Gemini (gyenge) készíti a jegyzetet — saját kulccsal jobb minőség.")
                                 .skinFont(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .mcListRowComfy(fill: colors.surface)
+                    .voxelListRowComfy(fill: colors.surface)
                 }
                 if isLoading {
                     ForEach(0..<3, id: \.self) { _ in
@@ -96,10 +96,10 @@ struct CheatView: View {
                                             .cpgShardTitle()
                                         Spacer()
                                         if sheet.topics.isEmpty {
-                                            Text(theme.isCyberpunk ? cpgCount(sheet.materials.count, "anyag") : "\(sheet.materials.count) anyag")
+                                            Text(theme.isNeon ? cpgCount(sheet.materials.count, "anyag") : "\(sheet.materials.count) anyag")
                                                 .cpgMono(.caption2, size: 10).foregroundStyle(.secondary)
                                         } else {
-                                            Text(theme.isCyberpunk ? cpgCount(sheet.topics.count, "téma") : "\(sheet.topics.count) téma")
+                                            Text(theme.isNeon ? cpgCount(sheet.topics.count, "téma") : "\(sheet.topics.count) téma")
                                                 .cpgMono(.caption2, size: 10).foregroundStyle(.secondary)
                                         }
                                     }
@@ -108,7 +108,7 @@ struct CheatView: View {
                                         .lineLimit(2)
                                     if let examTitle = linkedExamTitle(for: sheet) {
                                         SkinLabel(examTitle, systemImage: "doc.text")
-                                            .skinFont(.caption).skinAccent(theme.isCyberpunk ? CyberpunkTheme.cyan : colors.accent)
+                                            .skinFont(.caption).skinAccent(theme.isNeon ? NeonTheme.cyan : colors.accent)
                                             .lineLimit(1)
                                     }
                                 }
@@ -121,13 +121,13 @@ struct CheatView: View {
                             CheatStore.save(all)
                         }
                     } header: {
-                        if theme.isCyberpunk {
-                            CPSectionHeader("Jegyzetlapok", code: "\(sheets.count) db")
+                        if theme.isNeon {
+                            NeonSectionHeader("Jegyzetlapok", code: "\(sheets.count) db")
                         } else {
                             Text("Jegyzetlapok • \(sheets.count) db")
                         }
                     }
-                    .mcListRowComfy(fill: colors.surface)
+                    .voxelListRowComfy(fill: colors.surface)
                 }
             }
             .listStyle(.insetGrouped)
@@ -236,12 +236,12 @@ private struct AddCheatSheetView: View {
             Form {
                 Section {
                     TextField("Cím (pl. Babits Mihály)", text: $title, prompt: skinPrompt("Cím (pl. Babits Mihály)"))
-                        .mcInput()
+                        .voxelInput()
                     if subjectOptions.isEmpty {
                         // Nincs még tantárgylista (friss belépés, offline):
                         // kézzel beírható, különben a lap fel sem vehető.
                         TextField("Tantárgy (pl. Irodalom)", text: $subject, prompt: skinPrompt("Tantárgy (pl. Irodalom)"))
-                            .mcInput()
+                            .voxelInput()
                     } else {
                         SkinMenuPicker(
                             title: "Tantárgy",
@@ -259,7 +259,7 @@ private struct AddCheatSheetView: View {
                         Text("A mentéshez cím és tantárgy kell.")
                     }
                 }
-                .mcListRowComfy(fill: colors.surface)
+                .voxelListRowComfy(fill: colors.surface)
                 Section {
                     SkinMenuPicker(
                         title: "Kapcsolt dolgozat",
@@ -271,7 +271,7 @@ private struct AddCheatSheetView: View {
                 } header: {
                     cpgSectionHeader("Dolgozat (opcionális)", code: "02")
                 }
-                .mcListRowComfy(fill: colors.surface)
+                .voxelListRowComfy(fill: colors.surface)
                 .onChange(of: examID) { _, id in
                     // Dolgozat választásakor a tárgy magától kitöltődik,
                     // ha még nincs megadva.
@@ -311,9 +311,9 @@ private struct AddCheatSheetView: View {
     }
 }
 
-// MARK: - Cyberpunk-részletek (Journal / adat-shard hangulat)
+// MARK: - Neon-részletek (Journal / adat-shard hangulat)
 //
-// Egyszintű kapcsolók: Summitban és Minecraftban az eredeti lánc fut
+// Egyszintű kapcsolók: Summitban és Voxelben az eredeti lánc fut
 // változatlanul (a `cpgMono` ott a régi `skinFont`).
 
 /// `[03] TÉMA` — HUD-darabszám a shard-sor jobb szélére.
@@ -321,12 +321,12 @@ private func cpgCount(_ n: Int, _ unit: String) -> String {
     String(format: "[%02d] ", n) + unit.uppercased()
 }
 
-/// Form-szekció fejléce: Cyberpunkban `CPSectionHeader` kóddal, máshol a
+/// Form-szekció fejléce: Neonban `NeonSectionHeader` kóddal, máshol a
 /// korábbi `Section("…")` fejléc-szövege.
 @ViewBuilder
 private func cpgSectionHeader(_ title: String, code: String) -> some View {
-    if CyberpunkTheme.isActive {
-        CPSectionHeader(title, code: code)
+    if NeonTheme.isActive {
+        NeonSectionHeader(title, code: code)
     } else {
         Text(LocalizedStringKey(title))
     }
@@ -335,8 +335,8 @@ private func cpgSectionHeader(_ title: String, code: String) -> some View {
 private extension View {
     @ViewBuilder
     func cpgMono(_ style: Font.TextStyle, size: CGFloat) -> some View {
-        if CyberpunkTheme.isActive {
-            self.font(CyberpunkTheme.mono(size: size, relativeTo: style)).tracking(0.6)
+        if NeonTheme.isActive {
+            self.font(NeonTheme.mono(size: size, relativeTo: style)).tracking(0.6)
         } else {
             self.skinFont(style)
         }
@@ -345,17 +345,17 @@ private extension View {
     /// Shard-cím: nagybetűs, ritkított, jellegzetes sárga.
     @ViewBuilder
     func cpgShardTitle() -> some View {
-        if CyberpunkTheme.isActive {
-            self.textCase(.uppercase).tracking(1).foregroundStyle(CyberpunkTheme.yellow)
+        if NeonTheme.isActive {
+            self.textCase(.uppercase).tracking(1).foregroundStyle(NeonTheme.yellow)
         } else {
             self
         }
     }
 
-    /// Betöltés-váz sora Cyberpunkban a HUD-sor margóival (Summit és
-    /// Minecraft változatlan).
+    /// Betöltés-váz sora Neonban a HUD-sor margóival (Summit és
+    /// Voxel változatlan).
     @ViewBuilder
     func cpgRowChrome() -> some View {
-        if CyberpunkTheme.isActive { self.mcRowChrome() } else { self }
+        if NeonTheme.isActive { self.voxelRowChrome() } else { self }
     }
 }

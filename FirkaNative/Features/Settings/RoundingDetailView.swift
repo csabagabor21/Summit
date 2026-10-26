@@ -27,10 +27,10 @@ struct RoundingDetailView: View {
                     }
                 }
                 .padding(.vertical, 4)
-            } header: { Text("Kerekítés").mcSectionHeader() } footer: { Text("0.50 = 3.50-től 4-es, 0.80 = csak 3.80-tól 4-es. Súlyozott átlagra alkalmazva.").skinFont(.caption2).foregroundStyle(.secondary) }
-            .mcListRowComfy(fill: colors.surface)
+            } header: { Text("Kerekítés").voxelSectionHeader() } footer: { Text("0.50 = 3.50-től 4-es, 0.80 = csak 3.80-tól 4-es. Súlyozott átlagra alkalmazva.").skinFont(.caption2).foregroundStyle(.secondary) }
+            .voxelListRowComfy(fill: colors.surface)
 
-            Section(header: Text("Felmentés").mcSectionHeader(),
+            Section(header: Text("Felmentés").voxelSectionHeader(),
                     footer: Text("Ha fel vagy mentve, az órarendben zöld háttérrel és „Felmentett” felirattal jelenik meg — mintha elmaradna.").skinFont(.caption2).foregroundStyle(.secondary)) {
                 Toggle(isOn: $isExempted) {
                     SkinLabel(isExempted ? "Felmentve" : "Felmentett", systemImage: isExempted ? "checkmark.shield.fill" : "shield")
@@ -40,16 +40,16 @@ struct RoundingDetailView: View {
                 .skinToggleStyle()
                 .onChange(of: isExempted) { _, v in ExemptedStore.setExempted(subject, v) }
             }
-            .mcListRowComfy(fill: colors.surface)
+            .voxelListRowComfy(fill: colors.surface)
 
             Section {
                 Button("Visszaállítás alapra (0.50)") {
                     threshold = GradingLogic.defaultThreshold
                     GradingLogic.setThreshold(threshold, for: subject)
                 }
-                .mcInlineButton()
+                .voxelInlineButton()
             }
-            .mcListRowComfy(fill: colors.surface)
+            .voxelListRowComfy(fill: colors.surface)
         }
         .listStyle(.insetGrouped)
         .summitListChrome(colors: colors)
@@ -63,18 +63,18 @@ struct RoundingDetailView: View {
     }
 }
 
-/// Betűk a kerekítés-nézethez. Summitban és Minecraftban pontosan azt adja,
-/// amit eddig a `skinFont` (title3 bold / caption semibold); Cyberpunkban a
+/// Betűk a kerekítés-nézethez. Summitban és Voxelben pontosan azt adja,
+/// amit eddig a `skinFont` (title3 bold / caption semibold); Neonban a
 /// küszöb nagy Rajdhani HUD-kijelző, a példasor egyenközű kód.
 private enum RoundingSkinFont {
     static var readout: Font {
-        MinecraftTheme.isActive ? MinecraftTheme.font(.title3)
-            : CyberpunkTheme.isActive ? CyberpunkTheme.display(size: 30, weight: .bold, relativeTo: .title3)
+        VoxelTheme.isActive ? VoxelTheme.font(.title3)
+            : NeonTheme.isActive ? NeonTheme.display(size: 30, weight: .bold, relativeTo: .title3)
             : Font.system(.title3, weight: .bold)
     }
     static var example: Font {
-        MinecraftTheme.isActive ? MinecraftTheme.font(.caption)
-            : CyberpunkTheme.isActive ? CyberpunkTheme.mono(size: 11, relativeTo: .caption)
+        VoxelTheme.isActive ? VoxelTheme.font(.caption)
+            : NeonTheme.isActive ? NeonTheme.mono(size: 11, relativeTo: .caption)
             : Font.system(.caption, weight: .semibold)
     }
 }

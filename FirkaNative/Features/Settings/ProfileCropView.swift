@@ -80,15 +80,15 @@ struct ProfileCropView: View {
                         p.addLine(to: CGPoint(x: square.maxX, y: y))
                     }
                 }
-                .stroke(CyberpunkTheme.isActive ? CyberpunkTheme.cyan.opacity(0.5) : Color.white.opacity(0.65), lineWidth: 1)
+                .stroke(NeonTheme.isActive ? NeonTheme.cyan.opacity(0.5) : Color.white.opacity(0.65), lineWidth: 1)
                 .allowsHitTesting(false)
                 Rectangle()
                     .path(in: square)
-                    .stroke(CyberpunkTheme.isActive ? CyberpunkTheme.yellow : Color.white, lineWidth: 2)
+                    .stroke(NeonTheme.isActive ? NeonTheme.yellow : Color.white, lineWidth: 2)
                     .allowsHitTesting(false)
-                // Cyberpunk: HUD-célzó sarokjelek a kivágás négy sarkán.
-                if CyberpunkTheme.isActive {
-                    CPCropTicks(square: square)
+                // Neon: HUD-célzó sarokjelek a kivágás négy sarkán.
+                if NeonTheme.isActive {
+                    NeonCropTicks(square: square)
                 }
 
                 VStack {
@@ -96,9 +96,9 @@ struct ProfileCropView: View {
                         Button("Mégse") { onCancel() }
                             .skinFont(.body, weight: .medium)
                             .foregroundStyle(.white)
-                            .mcInlineButton()
+                            .voxelInlineButton()
                         Spacer()
-                        Text(CyberpunkTheme.isActive ? "KIVÁGÁS" : "Kivágás")
+                        Text(NeonTheme.isActive ? "KIVÁGÁS" : "Kivágás")
                             .skinFont(.headline, weight: .semibold)
                             .foregroundStyle(.white)
                         Spacer()
@@ -111,7 +111,7 @@ struct ProfileCropView: View {
                         }
                         .skinFont(.body, weight: .bold)
                         .foregroundStyle(.white)
-                        .mcInlineButton(prominent: CyberpunkTheme.isActive)
+                        .voxelInlineButton(prominent: NeonTheme.isActive)
                     }
                     .padding(.horizontal, 20)
                     // fullScreenCover a notch / óra alá is benyúlik —
@@ -168,8 +168,8 @@ struct ProfileCropView: View {
 }
 
 /// A kivágó-négyzet sarkain kifelé álló, vastag sárga L-jelek
-/// (Cyberpunk-célzó); statikus Path, gesztusokat nem fog meg.
-private struct CPCropTicks: View {
+/// (Neon-célzó); statikus Path, gesztusokat nem fog meg.
+private struct NeonCropTicks: View {
     var square: CGRect
 
     var body: some View {
@@ -181,7 +181,7 @@ private struct CPCropTicks: View {
             p.move(to: CGPoint(x: r.maxX, y: r.maxY - l)); p.addLine(to: CGPoint(x: r.maxX, y: r.maxY)); p.addLine(to: CGPoint(x: r.maxX - l, y: r.maxY))
             p.move(to: CGPoint(x: r.minX + l, y: r.maxY)); p.addLine(to: CGPoint(x: r.minX, y: r.maxY)); p.addLine(to: CGPoint(x: r.minX, y: r.maxY - l))
         }
-        .stroke(CyberpunkTheme.yellow, lineWidth: 3)
+        .stroke(NeonTheme.yellow, lineWidth: 3)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }

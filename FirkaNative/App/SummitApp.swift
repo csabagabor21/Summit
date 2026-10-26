@@ -17,14 +17,16 @@ struct SummitApp: App {
         // munkát végzi — a végén átvesszük, így az első képkocka már a
         // mentett órarendet / jegyeket rajzolja (lásd KretaStore).
         KretaStore.shared.beginLaunchBootstrap()
-        // Minecraft-skin pixelbetűje (Monocraft, OFL) — bundle-ből, plist-
-        // módosítás nélkül, CSAK ha a mentett skin Minecraft (Summit skinben
+        // Voxel-skin pixelbetűje (Monocraft, OFL) — bundle-ből, plist-
+        // módosítás nélkül, CSAK ha a mentett skin Voxel (Summit skinben
         // a regisztráció fölösleges indítási munka; skinváltáskor az első
-        // pixelbetű-kérés regisztrál, lásd MinecraftFontLoader.font).
-        let savedSkin = VisualSkin(rawValue: UserDefaults.standard.string(forKey: "ui.skin") ?? "") ?? .summit
-        if savedSkin == .minecraft { MinecraftFontLoader.registerOnce() }
-        // Cyberpunk-skin betűi (Rajdhani + IBM Plex Mono, OFL) ugyanígy lustán.
-        if savedSkin == .cyberpunk { CyberpunkFontLoader.registerOnce() }
+        // pixelbetű-kérés regisztrál, lásd VoxelFontLoader.font).
+        let savedSkin = VisualSkin.fromStored(UserDefaults.standard.string(forKey: "ui.skin"))
+        // Régi rawValue egyszeri átírása az újra (migráció lezárása).
+        if let old = UserDefaults.standard.string(forKey: "ui.skin"), old != savedSkin.rawValue { UserDefaults.standard.set(savedSkin.rawValue, forKey: "ui.skin") }
+        if savedSkin == .voxel { VoxelFontLoader.registerOnce() }
+        // Neon-skin betűi (Rajdhani + IBM Plex Mono, OFL) ugyanígy lustán.
+        if savedSkin == .neon { NeonFontLoader.registerOnce() }
         // Nav/tab-sávok betűje a mentett skin szerint.
         savedSkin.applyChromeAppearance()
         // Régi per-típus értesítéskapcsolók összevonása a főkapcsolóba
@@ -112,11 +114,11 @@ struct SummitApp: App {
                 // triggerek sosem változnak, így ott némák maradnak.
                 .sensoryFeedback(.alignment, trigger: HapticRelay.shared.selectionTick)
                 .sensoryFeedback(.levelChange, trigger: HapticRelay.shared.commitTick)
-                .tint(theme.isMinecraft ? MinecraftTheme.grass : theme.isCyberpunk ? CyberpunkTheme.yellow : theme.accent)
-                // Minecraftban minden stílus nélküli gomb halkan kattan,
-                // Cyberpunkban blippel (a másik skinben mindkettő néma).
-                .buttonStyle(CPClickButtonStyle())
-                // Cyberpunkban kényszerített sötét séma (Night City mindig éjszaka).
+                .tint(theme.isVoxel ? VoxelTheme.grass : theme.isNeon ? NeonTheme.yellow : theme.accent)
+                // Voxelben minden stílus nélküli gomb halkan kattan,
+                // Neonban blippel (a másik skinben mindkettő néma).
+                .buttonStyle(NeonClickButtonStyle())
+                // Neonban kényszerített sötét séma (a neon felület mindig éjszaka).
                 .preferredColorScheme(theme.effectiveScheme)
                 .onAppear {
                     // Macen (iPad-app Macen) ne tudjon pici ablakba zsugorodni

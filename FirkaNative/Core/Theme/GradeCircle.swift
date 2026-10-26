@@ -8,11 +8,11 @@ struct GradeCircle: View {
     var colors: AppColors { theme.colors(for: scheme) }
 
     var body: some View {
-        if theme.isMinecraft {
-            // Minecraft: tömör concrete-blokk, bevel-lel és kemény árnyékkal.
-            McGradeBlock(value: value, size: size)
-        } else if theme.isCyberpunk {
-            // Cyberpunk: levágott sarkú HUD-jelvény a jegy színében,
+        if theme.isVoxel {
+            // Voxel: tömör concrete-blokk, bevel-lel és kemény árnyékkal.
+            VoxelGradeBlock(value: value, size: size)
+        } else if theme.isNeon {
+            // Neon: levágott sarkú HUD-jelvény a jegy színében,
             // szint-csíkkal (lásd `CpGradeChip`).
             CpGradeChip(value: value, size: size)
         } else {
@@ -32,10 +32,10 @@ struct GradeCircle: View {
     }
 }
 
-/// Jegy-blokk Minecraftban: a jegy színű concrete-kocka lépcsős sarkokkal,
+/// Jegy-blokk Voxelben: a jegy színű concrete-kocka lépcsős sarkokkal,
 /// bevel-lel és kemény árnyékkal, benne Monocraft számmal. A `GradeCircle`
 /// és a tantárgy-részlet kis jegykarikái is ezt használják.
-struct McGradeBlock: View {
+struct VoxelGradeBlock: View {
     let value: Int
     var size: CGFloat = 44
     /// nil = a méretből: nagy blokkon 18, kicsin 13 pont.
@@ -43,7 +43,7 @@ struct McGradeBlock: View {
 
     var body: some View {
         Text("\(value)")
-            .font(MinecraftTheme.headerFont(size: fontSize ?? (size > 32 ? 18 : 13)))
+            .font(VoxelTheme.headerFont(size: fontSize ?? (size > 32 ? 18 : 13)))
             .foregroundStyle(.white)
             .shadow(color: .black.opacity(0.6), radius: 0, x: 1, y: 2)
             .monospacedDigit()
@@ -51,7 +51,7 @@ struct McGradeBlock: View {
             .background(
                 // Pixel-blokk: lépcsős sarok, bevel, kemény árnyék — ugyanaz
                 // a rács, mint a kártyáké, így a kocka sosem lekerekített.
-                McBlockPanel(face: MinecraftTheme.gradeColor(for: value),
+                VoxelBlockPanel(face: VoxelTheme.gradeColor(for: value),
                              outline: Color(hex: 0x1E1A16),
                              highlight: .white.opacity(0.38),
                              shade: .black.opacity(0.28))
@@ -60,7 +60,7 @@ struct McGradeBlock: View {
     }
 }
 
-/// Jegy-jelvény Cyberpunkban: a kit `CPGradeBadge`-e (levágott sarkú,
+/// Jegy-jelvény Neonban: a kit `NeonGradeBadge`-e (levágott sarkú,
 /// 1 px-es neon keret a jegy színében) kiegészítve, hogy a jegy szín
 /// nélkül is azonnal olvasható legyen:
 /// - alul 5 szegmenses szint-csík, ahány a jegy, annyi világít (a játék
@@ -70,8 +70,8 @@ struct McGradeBlock: View {
 /// Mindig opak, majdnem fekete alapon ül, így bármilyen felületen
 /// (Főoldal, lista-sor, tantárgy-részlet) ugyanúgy néz ki. Statikus:
 /// se animáció, se glitch (listában tucatszám van belőle).
-/// A `GradeCircle` Cyberpunk-ága ezt használja; a tantárgy-részletező
-/// közvetlenül is hívhatja (mint Minecraftban a `McGradeBlock`-ot).
+/// A `GradeCircle` Neon-ága ezt használja; a tantárgy-részletező
+/// közvetlenül is hívhatja (mint Voxelben a `VoxelGradeBlock`-ot).
 struct CpGradeChip: View {
     let value: Int
     var size: CGFloat = 44
@@ -80,13 +80,13 @@ struct CpGradeChip: View {
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        let color = CyberpunkTheme.gradeColor(for: value)
+        let color = NeonTheme.gradeColor(for: value)
         let isGrade = (1...5).contains(value)
         let alert = value == 1
         // Nagyon nagy betűméretnél a szám a csíkra csúszna — ott a szám nyer.
         let level = showsLevel && isGrade && size >= 28 && typeSize <= .xxLarge
-        CPGradeBadge(value: value, size: size, filled: alert)
-            .background(CPChamferShape(cut: size * 0.22, corners: [.topLeft, .bottomRight]).fill(CyberpunkTheme.bg))
+        NeonGradeBadge(value: value, size: size, filled: alert)
+            .background(NeonChamferShape(cut: size * 0.22, corners: [.topLeft, .bottomRight]).fill(NeonTheme.bg))
             .overlay(alignment: .bottom) {
                 if level {
                     CpGradeLevelBar(value: value, color: alert ? .black : color, width: size * 0.56)
@@ -96,7 +96,7 @@ struct CpGradeChip: View {
             .overlay(alignment: .topTrailing) {
                 if value == 5 {
                     CpCornerMark()
-                        .fill(CyberpunkTheme.cyanBright)
+                        .fill(NeonTheme.cyanBright)
                         .frame(width: size * 0.2, height: size * 0.2)
                         .padding(2)
                 }

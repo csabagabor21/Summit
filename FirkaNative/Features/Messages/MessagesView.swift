@@ -37,7 +37,7 @@ struct MessagesView: View {
     var body: some View {
         List {
                 Section {
-                    if theme.isCyberpunk {
+                    if theme.isNeon {
                         cpStatusLine
                             .listRowBackground(Color.clear)
                             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 0, trailing: 16))
@@ -76,7 +76,7 @@ struct MessagesView: View {
                         ForEach(0..<3, id: \.self) { _ in
                             HStack { Text("Betöltés…").redacted(reason: .placeholder) }
                                 .summitRowSurface(colors: colors)
-                                .mcRowChrome()
+                                .voxelRowChrome()
                         }
                     } else if messages.isEmpty {
                         Section {
@@ -105,11 +105,11 @@ struct MessagesView: View {
                                                 .cpgContact(unread: !m.isRead)
                                             Text(m.subject).skinFont(.caption).foregroundStyle(.secondary).lineLimit(2)
                                             HStack(spacing: 6) {
-                                                Text(theme.isCyberpunk ? cpStamp(m.date) : m.date.formatted(date: .abbreviated, time: .omitted))
+                                                Text(theme.isNeon ? cpStamp(m.date) : m.date.formatted(date: .abbreviated, time: .omitted))
                                                     .cpgMono(.caption2, size: 10).foregroundStyle(.tertiary)
                                                 if !m.attachments.isEmpty {
-                                                    if theme.isCyberpunk {
-                                                        CPLabel("ATT \(m.attachments.count)", color: CyberpunkTheme.cyan)
+                                                    if theme.isNeon {
+                                                        NeonLabel("ATT \(m.attachments.count)", color: NeonTheme.cyan)
                                                     } else {
                                                         SkinLabel("\(m.attachments.count)", systemImage: "paperclip")
                                                             .skinFont(.caption2, weight: .medium).foregroundStyle(.secondary)
@@ -119,7 +119,7 @@ struct MessagesView: View {
                                         }
                                         Spacer(minLength: 4)
                                         if !m.isRead {
-                                            if theme.isCyberpunk { CPLabel("NEW", color: CyberpunkTheme.yellow) }
+                                            if theme.isNeon { NeonLabel("NEW", color: NeonTheme.yellow) }
                                             SkinDot(color: colors.accent, size: 8)
                                         }
                                     }
@@ -127,14 +127,14 @@ struct MessagesView: View {
                                 .cpgThreadRow(unread: !m.isRead)
                             }
                         }
-                        .mcListRowComfy(fill: colors.surface)
+                        .voxelListRowComfy(fill: colors.surface)
                     }
                 } else {
                     if isLoadingNotes {
                         ForEach(0..<3, id: \.self) { _ in
                             HStack { Text("Betöltés…").redacted(reason: .placeholder) }
                                 .summitRowSurface(colors: colors)
-                                .mcRowChrome()
+                                .voxelRowChrome()
                         }
                     } else if notes.isEmpty {
                         Section {
@@ -191,10 +191,10 @@ struct MessagesView: View {
             .onTapGesture { toggleNote(n.id, expanded: expanded) }
             HStack(spacing: 6) {
                 Text(n.displayType).cpgMono(.caption2, size: 10, weight: .semibold)
-                    .cpgTag(CyberpunkTheme.coral)
+                    .cpgTag(NeonTheme.coral)
                     .padding(.horizontal, 8).padding(.vertical, 3)
-                    .skinPill(fill: theme.isCyberpunk ? CyberpunkTheme.coral.opacity(0.10) : colors.accent.opacity(0.14),
-                              stroke: theme.isCyberpunk ? CyberpunkTheme.coral.opacity(0.7) : nil)
+                    .skinPill(fill: theme.isNeon ? NeonTheme.coral.opacity(0.10) : colors.accent.opacity(0.14),
+                              stroke: theme.isNeon ? NeonTheme.coral.opacity(0.7) : nil)
                 if !n.teacher.isEmpty {
                     Text(n.teacher).skinFont(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
@@ -222,7 +222,7 @@ struct MessagesView: View {
         .contentShape(Rectangle())
         .onTapGesture { if !expanded { toggleNote(n.id, expanded: expanded) } }
         .summitRowSurface(colors: colors)
-        .mcRowChrome()
+        .voxelRowChrome()
     }
 
     // Magyar dátum — az eszköz nyelve angol is lehet (a szimulátoron is),
@@ -233,7 +233,7 @@ struct MessagesView: View {
         return f.string(from: d)
     }
 
-    // MARK: Cyberpunk — a játékbeli telefon MESSAGES-appjának fejléce
+    // MARK: Neon — a játékbeli telefon MESSAGES-appjának fejléce
 
     /// Apró HUD-státuszsor a szegmensek fölött: rendszer-kód balra, a
     /// darabszámok egyenközű betűvel jobbra. Tabváltáskor egyszer rándul
@@ -244,11 +244,11 @@ struct MessagesView: View {
             ? "\(messages.count) MSG · \(unread) NEW"
             : "\(notes.count) NOTES"
         return HStack(spacing: 8) {
-            CPLabel(topTab == 0 ? "// MESSAGES.SYS" : "// NOTICES.SYS",
-                    color: CyberpunkTheme.yellow, bracketed: false)
+            NeonLabel(topTab == 0 ? "// MESSAGES.SYS" : "// NOTICES.SYS",
+                    color: NeonTheme.yellow, bracketed: false)
                 .cpGlitch(trigger: topTab)
-            Rectangle().fill(CyberpunkTheme.red.opacity(0.35)).frame(height: 1)
-            CPLabel(count, color: CyberpunkTheme.dim, bracketed: false)
+            Rectangle().fill(NeonTheme.red.opacity(0.35)).frame(height: 1)
+            NeonLabel(count, color: NeonTheme.dim, bracketed: false)
                 .fixedSize()
         }
         .accessibilityElement(children: .ignore)
@@ -323,8 +323,8 @@ private struct MessageDetailView: View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
-                    if theme.isCyberpunk {
-                        CPLabel("INCOMING // SECURE CHANNEL", color: CyberpunkTheme.cyan, bracketed: false)
+                    if theme.isNeon {
+                        NeonLabel("INCOMING // SECURE CHANNEL", color: NeonTheme.cyan, bracketed: false)
                     }
                     Text(shown.subject)
                         .skinFont(.headline)
@@ -350,7 +350,7 @@ private struct MessageDetailView: View {
                 }
                 .padding(.vertical, 4)
             }
-            .mcListRowComfy(fill: colors.surface)
+            .voxelListRowComfy(fill: colors.surface)
             if !shown.attachments.isEmpty {
                 Section {
                     ForEach(shown.attachments) { att in
@@ -358,16 +358,16 @@ private struct MessageDetailView: View {
                     }
                     if let err = attStore.errorText {
                         SkinLabel(err, systemImage: "exclamationmark.triangle.fill")
-                            .skinFont(.caption).foregroundStyle(theme.isCyberpunk ? CyberpunkTheme.red : Color.orange)
+                            .skinFont(.caption).foregroundStyle(theme.isNeon ? NeonTheme.red : Color.orange)
                     }
                 } header: {
-                    if theme.isCyberpunk {
-                        CPSectionHeader("Csatolmányok", code: String(format: "%02d", shown.attachments.count), accent: CyberpunkTheme.cyan)
+                    if theme.isNeon {
+                        NeonSectionHeader("Csatolmányok", code: String(format: "%02d", shown.attachments.count), accent: NeonTheme.cyan)
                     } else {
                         Text("Csatolmányok (\(shown.attachments.count))")
                     }
                 }
-                .mcListRowComfy(fill: colors.surface)
+                .voxelListRowComfy(fill: colors.surface)
             }
         }
         .listStyle(.insetGrouped)
@@ -399,18 +399,18 @@ private struct MessageDetailView: View {
     }
 }
 
-// MARK: - Cyberpunk-részletek (csak Cyberpunk-skinben hatnak)
+// MARK: - Neon-részletek (csak Neon-skinben hatnak)
 //
-// Egyszintű kapcsolók: Summitban és Minecraftban a modifier az eredeti
+// Egyszintű kapcsolók: Summitban és Voxelben a modifier az eredeti
 // láncot adja vissza változatlanul (a `cpgMono` ott a régi `skinFont`).
 
 private extension View {
-    /// Egyenközű HUD-betű (dátum, kód, darabszám) Cyberpunkban; máshol a
+    /// Egyenközű HUD-betű (dátum, kód, darabszám) Neonban; máshol a
     /// korábbi `skinFont(style, weight:)`.
     @ViewBuilder
     func cpgMono(_ style: Font.TextStyle, size: CGFloat, weight: Font.Weight? = nil) -> some View {
-        if CyberpunkTheme.isActive {
-            self.font(CyberpunkTheme.mono(size: size, relativeTo: style)).tracking(0.6)
+        if NeonTheme.isActive {
+            self.font(NeonTheme.mono(size: size, relativeTo: style)).tracking(0.6)
         } else {
             self.skinFont(style, weight: weight)
         }
@@ -420,18 +420,18 @@ private extension View {
     /// jellegzetes sárga, olvasottnál a sima HUD-szövegszín.
     @ViewBuilder
     func cpgContact(unread: Bool) -> some View {
-        if CyberpunkTheme.isActive {
+        if NeonTheme.isActive {
             self.textCase(.uppercase).tracking(1)
-                .foregroundStyle(unread ? CyberpunkTheme.yellow : CyberpunkTheme.text)
+                .foregroundStyle(unread ? NeonTheme.yellow : NeonTheme.text)
         } else {
             self
         }
     }
 
-    /// Kis címke-szöveg színe + nagybetű (pl. feljegyzés-típus) Cyberpunkban.
+    /// Kis címke-szöveg színe + nagybetű (pl. feljegyzés-típus) Neonban.
     @ViewBuilder
     func cpgTag(_ color: Color) -> some View {
-        if CyberpunkTheme.isActive {
+        if NeonTheme.isActive {
             self.textCase(.uppercase).foregroundStyle(color)
         } else {
             self
@@ -442,10 +442,10 @@ private extension View {
     /// sárga, olvasott halvány. Overlay, így a sor elrendezése nem változik.
     @ViewBuilder
     func cpgThreadRow(unread: Bool) -> some View {
-        if CyberpunkTheme.isActive {
+        if NeonTheme.isActive {
             self.overlay(alignment: .leading) {
                 Rectangle()
-                    .fill(unread ? CyberpunkTheme.yellow : CyberpunkTheme.dim.opacity(0.35))
+                    .fill(unread ? NeonTheme.yellow : NeonTheme.dim.opacity(0.35))
                     .frame(width: 2)
                     .padding(.vertical, 2)
                     .offset(x: -12)
@@ -460,13 +460,13 @@ private extension View {
     /// — mint a játék telefonjának beszélgetés-nézete.
     @ViewBuilder
     func cpgBubble() -> some View {
-        if CyberpunkTheme.isActive {
-            let shape = CPChamferShape(cut: 10, corners: [.topLeft, .bottomRight])
+        if NeonTheme.isActive {
+            let shape = NeonChamferShape(cut: 10, corners: [.topLeft, .bottomRight])
             self.padding(.leading, 14).padding(.trailing, 12).padding(.vertical, 12)
-                .background(shape.fill(CyberpunkTheme.bgDeep))
-                .overlay(shape.strokeBorder(CyberpunkTheme.cyan.opacity(0.35), lineWidth: 1))
+                .background(shape.fill(NeonTheme.bgDeep))
+                .overlay(shape.strokeBorder(NeonTheme.cyan.opacity(0.35), lineWidth: 1))
                 .overlay(alignment: .leading) {
-                    Rectangle().fill(CyberpunkTheme.cyan).frame(width: 2).padding(.vertical, 10)
+                    Rectangle().fill(NeonTheme.cyan).frame(width: 2).padding(.vertical, 10)
                         .accessibilityHidden(true)
                 }
         } else {

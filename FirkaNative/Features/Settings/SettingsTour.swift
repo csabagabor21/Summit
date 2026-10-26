@@ -51,17 +51,17 @@ private struct TourHighlightModifier: ViewModifier {
         content
             .overlay {
                 if active {
-                    if CyberpunkTheme.isActive {
+                    if NeonTheme.isActive {
                         // HUD-célkereszt: levágott sarkú 1,5 px-es sárga keret,
                         // a két ép sarkon rövid konzol-jelekkel; pulzálás nélkül.
-                        CPChamferShape(cut: 14, corners: .diagonal)
-                            .strokeBorder(CyberpunkTheme.yellow, lineWidth: 1.5)
-                            .overlay(CPTourBrackets())
+                        NeonChamferShape(cut: 14, corners: .diagonal)
+                            .strokeBorder(NeonTheme.yellow, lineWidth: 1.5)
+                            .overlay(NeonTourBrackets())
                             .allowsHitTesting(false)
-                    } else if MinecraftTheme.isActive {
+                    } else if VoxelTheme.isActive {
                         // Pixel-keret (a játék kijelölés-sárgája), puha ragyogás nélkül.
-                        McPixelShape(steps: 2)
-                            .strokeBorder(Color(hex: 0xFFFF55), lineWidth: MinecraftTheme.px)
+                        VoxelPixelShape(steps: 2)
+                            .strokeBorder(Color(hex: 0xFFFF55), lineWidth: VoxelTheme.px)
                             .allowsHitTesting(false)
                     } else {
                         RoundedRectangle(cornerRadius: 20)
@@ -102,7 +102,7 @@ struct SettingsTourCard: View {
                     Spacer()
                     Button("Kihagyás") { step = nil; onFinish() }
                         .skinFont(.caption, weight: .semibold)
-                        .mcInlineButton()
+                        .voxelInlineButton()
                 }
                 Text(s.title).skinFont(.headline)
                 Text(s.body).skinFont(.subheadline).foregroundStyle(.secondary)
@@ -111,16 +111,16 @@ struct SettingsTourCard: View {
                     Button("Vissza") { step = max(0, i - 1) }
                         .skinFont(.subheadline, weight: .semibold)
                         .disabled(i == 0)
-                        .mcInlineButton()
+                        .voxelInlineButton()
                     Spacer()
                     if i < SettingsTour.steps.count - 1 {
                         Button("Tovább") { step = i + 1 }
                             .skinFont(.subheadline, weight: .bold)
-                            .mcInlineButton(prominent: CyberpunkTheme.isActive)
+                            .voxelInlineButton(prominent: NeonTheme.isActive)
                     } else {
                         Button("Kész") { step = nil; onFinish() }
                             .skinFont(.subheadline, weight: .bold)
-                            .mcInlineButton(prominent: CyberpunkTheme.isActive)
+                            .voxelInlineButton(prominent: NeonTheme.isActive)
                     }
                 }
                 .tint(accent)
@@ -133,13 +133,13 @@ struct SettingsTourCard: View {
         }
     }
 
-    /// Lépésszámláló: Cyberpunkban sárga HUD-kód (`TÚRA // 03/09`),
+    /// Lépésszámláló: Neonban sárga HUD-kód (`TÚRA // 03/09`),
     /// egyébként a meglévő szürke felirat.
     @ViewBuilder
     private func tourCounter(_ i: Int) -> some View {
-        if CyberpunkTheme.isActive {
-            CPLabel(String(format: "Túra // %02d/%02d", i + 1, SettingsTour.steps.count),
-                    color: CyberpunkTheme.yellow, bracketed: false, size: 10)
+        if NeonTheme.isActive {
+            NeonLabel(String(format: "Túra // %02d/%02d", i + 1, SettingsTour.steps.count),
+                    color: NeonTheme.yellow, bracketed: false, size: 10)
                 .accessibilityLabel("Beállítások túra, \(i + 1). lépés a \(SettingsTour.steps.count)-ból")
         } else {
             Text("Beállítások túra • \(i + 1)/\(SettingsTour.steps.count)")
@@ -149,23 +149,23 @@ struct SettingsTourCard: View {
 }
 
 /// A túra-kártya felülete: Summitban az átlátszó anyag + akcentkeret,
-/// Minecraftban a játék dialógus-panelje kemény árnyékkal.
+/// Voxelben a játék dialógus-panelje kemény árnyékkal.
 private struct TourCardSurface: ViewModifier {
     var accent: Color
 
     func body(content: Content) -> some View {
-        if CyberpunkTheme.isActive {
+        if NeonTheme.isActive {
             // Emelt HUD-panel sárga akcenttel + bal oldali sárga jelzősáv.
             content
-                .background { CPPanelBackground(accent: CyberpunkTheme.yellow, fill: CyberpunkTheme.panelRaised) }
+                .background { NeonPanelBackground(accent: NeonTheme.yellow, fill: NeonTheme.panelRaised) }
                 .overlay(alignment: .leading) {
-                    Rectangle().fill(CyberpunkTheme.yellow).frame(width: 3).padding(.vertical, 16)
+                    Rectangle().fill(NeonTheme.yellow).frame(width: 3).padding(.vertical, 16)
                         .accessibilityHidden(true)
                 }
-        } else if MinecraftTheme.isActive {
+        } else if VoxelTheme.isActive {
             content
-                .padding(MinecraftTheme.px)
-                .background { McBlockPanel(face: MinecraftTheme.panelFace) }
+                .padding(VoxelTheme.px)
+                .background { VoxelBlockPanel(face: VoxelTheme.panelFace) }
         } else {
             content
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
@@ -177,7 +177,7 @@ private struct TourCardSurface: ViewModifier {
 
 /// A túra-kiemelés konzol-jelei a keret két ép (jobb felső, bal alsó)
 /// sarkán — statikus, olcsó Path.
-private struct CPTourBrackets: View {
+private struct NeonTourBrackets: View {
     var body: some View {
         GeometryReader { geo in
             let w = geo.size.width, h = geo.size.height, l: CGFloat = 14
@@ -185,7 +185,7 @@ private struct CPTourBrackets: View {
                 p.move(to: CGPoint(x: w - l, y: -3)); p.addLine(to: CGPoint(x: w + 3, y: -3)); p.addLine(to: CGPoint(x: w + 3, y: l))
                 p.move(to: CGPoint(x: -3, y: h - l)); p.addLine(to: CGPoint(x: -3, y: h + 3)); p.addLine(to: CGPoint(x: l, y: h + 3))
             }
-            .stroke(CyberpunkTheme.yellow, lineWidth: 2)
+            .stroke(NeonTheme.yellow, lineWidth: 2)
         }
         .accessibilityHidden(true)
     }

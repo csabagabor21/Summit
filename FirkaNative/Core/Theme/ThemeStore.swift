@@ -1,24 +1,44 @@
 import SwiftUI
 
-/// Felület-skin: Summit (gyári Liquid Glass) vagy Minecraft (modern,
+/// Felület-skin: Summit (gyári Liquid Glass) vagy Voxel (modern,
 /// 1.20+ Trails & Tales íz + shader-hangulat: BSL/Complementary-szerű
 /// telített fűzöld, meleg napfény, puha mélység-árnyék — nem a régi,
 /// fakó alfa-stílus).
 enum VisualSkin: String, CaseIterable, Identifiable {
-    case summit, minecraft, cyberpunk
+    case summit, voxel, neon
     var id: String { rawValue }
+
+    /// Mentett érték feloldása migrációval: a régi rawValue-k
+    /// („minecraft”/„cyberpunk”) az új absztrakt skinekre képeződnek,
+    /// így a meglévő userek témája nem resetelődik Summitra.
+    static func fromStored(_ raw: String?) -> VisualSkin {
+        switch raw {
+        case "minecraft": return .voxel
+        case "cyberpunk": return .neon
+        default: return VisualSkin(rawValue: raw ?? "") ?? .summit
+        }
+    }
+
+    /// Téma-választó csempe képe (a felirat a képbe van renderelve).
+    var tileAsset: String {
+        switch self {
+        case .summit: return "img_tile_summit"
+        case .voxel: return "img_tile_voxel"
+        case .neon: return "img_tile_neon"
+        }
+    }
     var title: String {
         switch self {
         case .summit: return "Summit"
-        case .minecraft: return "Minecraft"
-        case .cyberpunk: return "Cyberpunk"
+        case .voxel: return "Voxel"
+        case .neon: return "Neon"
         }
     }
     var icon: String {
         switch self {
         case .summit: return "mountain.2.fill"
-        case .minecraft: return "cube.fill"
-        case .cyberpunk: return "bolt.horizontal.fill"
+        case .voxel: return "cube.fill"
+        case .neon: return "bolt.horizontal.fill"
         }
     }
 
@@ -26,12 +46,12 @@ enum VisualSkin: String, CaseIterable, Identifiable {
     /// kikapcsolandó skin áll vissza, utána kapcsol be az aktív — így a két
     /// skin appearance-e nem írja felül egymást.
     func applyChromeAppearance() {
-        if self == .cyberpunk {
-            MinecraftTheme.applyChromeAppearance(minecraft: false)
-            CyberpunkTheme.applyChromeAppearance(active: true)
+        if self == .neon {
+            VoxelTheme.applyChromeAppearance(voxel: false)
+            NeonTheme.applyChromeAppearance(active: true)
         } else {
-            CyberpunkTheme.applyChromeAppearance(active: false)
-            MinecraftTheme.applyChromeAppearance(minecraft: self == .minecraft)
+            NeonTheme.applyChromeAppearance(active: false)
+            VoxelTheme.applyChromeAppearance(voxel: self == .voxel)
         }
     }
 }
@@ -72,15 +92,15 @@ final class ThemeStore: ObservableObject {
         didSet { objectWillChange.send() }
     }
     var skin: VisualSkin {
-        get { VisualSkin(rawValue: skinRaw) ?? .summit }
+        get { VisualSkin.fromStored(skinRaw) }
         set { skinRaw = newValue.rawValue }
     }
-    var isMinecraft: Bool { skin == .minecraft }
-    /// Cyberpunk 2077 HUD-skin (mindig sötét séma, sárga akcentus).
-    var isCyberpunk: Bool { skin == .cyberpunk }
-    /// Az app tényleges színsémája: Cyberpunkban kényszerített sötét
-    /// (Night City mindig éjszaka), különben a user választása.
-    var effectiveScheme: ColorScheme? { isCyberpunk ? .dark : mode.scheme }
+    var isVoxel: Bool { skin == .voxel }
+    /// Neon HUD-skin (mindig sötét séma, sárga akcentus).
+    var isNeon: Bool { skin == .neon }
+    /// Az app tényleges színsémája: Neonban kényszerített sötét
+    /// (a neon felület mindig éjszaka), különben a user választása.
+    var effectiveScheme: ColorScheme? { isNeon ? .dark : mode.scheme }
     // Szövegméret-felülírás ("system" = rendszer). Macen (iPad-app Macen)
     // alapból nagyobb, hogy ne legyen apró az egész felület.
     // (A SwiftUI-s ContentSizeCategory nem String-rawValue-s, ezért saját kulcs.)
@@ -140,11 +160,11 @@ final class ThemeStore: ObservableObject {
         case .light: base = AppColors.lightRevamped
         @unknown default: base = AppColors.darkRevamped
         }
-        // Minecraft-skin: teljes paletta-átfestés (a saját kiemelőszín
+        // Voxel-skin: teljes paletta-átfestés (a saját kiemelőszín
         // ilyenkor nem él — a skiné a fűzöld).
-        if skin == .minecraft { return MinecraftTheme.reskin(base, scheme: scheme) }
-        // Cyberpunk-skin: mindig sötét HUD-paletta, sárga akcentus.
-        if skin == .cyberpunk { return CyberpunkTheme.reskin(base, scheme: scheme) }
+        if skin == .voxel { return VoxelTheme.reskin(base, scheme: scheme) }
+        // Neon-skin: mindig sötét HUD-paletta, sárga akcentus.
+        if skin == .neon { return NeonTheme.reskin(base, scheme: scheme) }
         // Apply custom accent
         return base.withAccent(accent)
     }

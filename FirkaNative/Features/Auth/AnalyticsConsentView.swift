@@ -15,11 +15,11 @@ struct AnalyticsConsentView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     VStack(alignment: .leading, spacing: 8) {
-                        if theme.isCyberpunk {
-                            CPLabel("Adatvédelem // hozzájárulás", color: CyberpunkTheme.cyan, size: 10)
+                        if theme.isNeon {
+                            NeonLabel("Adatvédelem // hozzájárulás", color: NeonTheme.cyan, size: 10)
                         }
                         Text("Használati statisztika")
-                            .mcDisplay(32)
+                            .voxelDisplay(32)
                             .tracking(-0.5)
                         Text("Segít látnunk, hányan és melyik iskolákban használják a Summitot — hogy tudjuk, mire érdemes fejleszteni.")
                             .skinFont(.body)
@@ -42,7 +42,7 @@ struct AnalyticsConsentView: View {
                 .padding(.bottom, 24)
             }
             .background {
-                if theme.isCyberpunk { CPBackdrop() } else if theme.isMinecraft { McMenuBackground() }
+                if theme.isNeon { NeonBackdrop() } else if theme.isVoxel { VoxelMenuBackground() }
             }
             .summitSheetBackground()
             .navigationBarTitleDisplayMode(.inline)
@@ -53,7 +53,7 @@ struct AnalyticsConsentView: View {
                         Text("Bekapcsolom")
                             .skinFont(.headline, weight: .semibold)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, theme.isCyberpunk ? 2 : 15)
+                            .padding(.vertical, theme.isNeon ? 2 : 15)
                     }
                     .skinBorderedButton(prominent: true)
                     .tint(.blue)
@@ -61,7 +61,7 @@ struct AnalyticsConsentView: View {
                         Text("Kikapcsolva folytatom")
                             .skinFont(.headline, weight: .semibold)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, theme.isCyberpunk ? 2 : 15)
+                            .padding(.vertical, theme.isNeon ? 2 : 15)
                     }
                     .skinBorderedButton()
                     .tint(.primary)
@@ -73,23 +73,23 @@ struct AnalyticsConsentView: View {
             }
         }
         .summitSheetBackground()
-        // Minecraft / Cyberpunk: a háttér sötét, ezért a képernyő sötét
+        // Voxel / Neon: a háttér sötét, ezért a képernyő sötét
         // sémában fut (világos szöveg); Summitban a kapott séma marad.
-        .environment(\.colorScheme, (theme.isMinecraft || theme.isCyberpunk) ? .dark : scheme)
+        .environment(\.colorScheme, (theme.isVoxel || theme.isNeon) ? .dark : scheme)
         .interactiveDismissDisabled(true)
     }
 
-    /// Alsó gombsáv háttere: Summitban a rendszer-háttér, Minecraftban a
-    /// játék menü-lábléce (föld-csempe + lábléc-elválasztó), Cyberpunkban
+    /// Alsó gombsáv háttere: Summitban a rendszer-háttér, Voxelben a
+    /// játék menü-lábléce (föld-csempe + lábléc-elválasztó), Neonban
     /// majdnem fekete sáv vékony sárga HUD-vonallal a tetején.
     @ViewBuilder
     private var consentBarBackground: some View {
-        if theme.isCyberpunk {
-            CyberpunkTheme.bgDeep
+        if theme.isNeon {
+            NeonTheme.bgDeep
                 .ignoresSafeArea(edges: .bottom)
-                .overlay(alignment: .top) { CPDivider(color: CyberpunkTheme.yellow) }
-        } else if theme.isMinecraft {
-            McMenuBackground().overlay(alignment: .top) { McSeparator(footer: true) }
+                .overlay(alignment: .top) { NeonDivider(color: NeonTheme.yellow) }
+        } else if theme.isVoxel {
+            VoxelMenuBackground().overlay(alignment: .top) { VoxelSeparator(footer: true) }
         } else {
             Color(.systemBackground)
         }
@@ -97,35 +97,35 @@ struct AnalyticsConsentView: View {
 
     private var collectsCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            cardHeader("EZT GYŰJTI, HA BEKAPCSOLOD", code: "DATA.TX", accent: CyberpunkTheme.cyan)
-            row("chart.bar.fill", "Iskolád neve", "A KRÉTA-beli intézmény neve — számlálásra elég, beazonosításra nem.", cpTint: CyberpunkTheme.cyan)
-            row("iphone", "Véletlen telepítés-azonosító", "A telefonon generált UUID — nem eszköz-ID, törléssel megújul.", cpTint: CyberpunkTheme.cyan)
-            row("app.badge.fill", "App-verzió és rendszer", "Pl. 1.0 (10), iOS 26 — hogy lássuk,min kell javítani.", cpTint: CyberpunkTheme.cyan)
+            cardHeader("EZT GYŰJTI, HA BEKAPCSOLOD", code: "DATA.TX", accent: NeonTheme.cyan)
+            row("chart.bar.fill", "Iskolád neve", "A KRÉTA-beli intézmény neve — számlálásra elég, beazonosításra nem.", cpTint: NeonTheme.cyan)
+            row("iphone", "Véletlen telepítés-azonosító", "A telefonon generált UUID — nem eszköz-ID, törléssel megújul.", cpTint: NeonTheme.cyan)
+            row("app.badge.fill", "App-verzió és rendszer", "Pl. 1.0 (10), iOS 26 — hogy lássuk,min kell javítani.", cpTint: NeonTheme.cyan)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .consentCard(fill: Color.primary.opacity(0.04), cpAccent: CyberpunkTheme.cyan)
+        .consentCard(fill: Color.primary.opacity(0.04), cpAccent: NeonTheme.cyan)
     }
 
     private var notCollectsCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            cardHeader("EZT SOSEM GYŰJTI", code: "BLOCKED", accent: CyberpunkTheme.green)
-            row("person.slash.fill", "Neved, jegyeid, órarended", "A KRÉTA-adataid a telefonodon maradnak.", cpTint: CyberpunkTheme.green)
-            row("key.slash.fill", "Jelszavad, tokened", "Belépési adatot sosem töltünk fel sehova.", cpTint: CyberpunkTheme.green)
-            row("location.slash.fill", "Helyzeted, eszköz-ID-d", "Nincs GPS, nincs fingerprint, nincs IP-naplózás.", cpTint: CyberpunkTheme.green)
+            cardHeader("EZT SOSEM GYŰJTI", code: "BLOCKED", accent: NeonTheme.green)
+            row("person.slash.fill", "Neved, jegyeid, órarended", "A KRÉTA-adataid a telefonodon maradnak.", cpTint: NeonTheme.green)
+            row("key.slash.fill", "Jelszavad, tokened", "Belépési adatot sosem töltünk fel sehova.", cpTint: NeonTheme.green)
+            row("location.slash.fill", "Helyzeted, eszköz-ID-d", "Nincs GPS, nincs fingerprint, nincs IP-naplózás.", cpTint: NeonTheme.green)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .consentCard(fill: Color.green.opacity(0.08), cpAccent: CyberpunkTheme.green)
+        .consentCard(fill: Color.green.opacity(0.08), cpAccent: NeonTheme.green)
     }
 
     private var whyCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            cardHeader("MIRE HASZNÁLJUK AZ ADATOKAT?", code: "PURPOSE", accent: CyberpunkTheme.yellow)
+            cardHeader("MIRE HASZNÁLJUK AZ ADATOKAT?", code: "PURPOSE", accent: NeonTheme.yellow)
             HStack(alignment: .top, spacing: 12) {
                 SkinIcon("mountain.2.fill")
                     .skinFont(.body, weight: .semibold)
-                    .foregroundStyle(theme.isCyberpunk ? CyberpunkTheme.yellow : .blue)
+                    .foregroundStyle(theme.isNeon ? NeonTheme.yellow : .blue)
                     .frame(width: 24)
                 Text("Kíváncsiak vagyunk, mennyien vagytok a hegy tetején.")
                     .skinFont(.subheadline, weight: .semibold)
@@ -136,21 +136,21 @@ struct AnalyticsConsentView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .consentCard(fill: Color.blue.opacity(0.08), cpAccent: CyberpunkTheme.yellow)
+        .consentCard(fill: Color.blue.opacity(0.08), cpAccent: NeonTheme.yellow)
     }
 
-    /// Kártya-fejléc: Summitban/Minecraftban a szürke nagybetűs felirat,
-    /// Cyberpunkban akcentszínű cím + jobbra igazított egyenközű kód.
+    /// Kártya-fejléc: Summitban/Voxelben a szürke nagybetűs felirat,
+    /// Neonban akcentszínű cím + jobbra igazított egyenközű kód.
     @ViewBuilder
     private func cardHeader(_ title: String, code: String, accent: Color) -> some View {
-        if theme.isCyberpunk {
+        if theme.isNeon {
             HStack(spacing: 8) {
                 Text(title)
                     .skinFont(.caption, weight: .bold)
                     .tracking(1.2)
                     .foregroundStyle(accent)
                 Spacer(minLength: 6)
-                CPLabel(code, color: CyberpunkTheme.dim, bracketed: false, size: 9)
+                NeonLabel(code, color: NeonTheme.dim, bracketed: false, size: 9)
                     .accessibilityHidden(true)
             }
         } else {
@@ -160,11 +160,11 @@ struct AnalyticsConsentView: View {
         }
     }
 
-    private func row(_ icon: String, _ title: String, _ sub: String, cpTint: Color = CyberpunkTheme.cyan) -> some View {
+    private func row(_ icon: String, _ title: String, _ sub: String, cpTint: Color = NeonTheme.cyan) -> some View {
         HStack(alignment: .top, spacing: 12) {
             SkinIcon(icon)
                 .skinFont(.body, weight: .semibold)
-                .foregroundStyle(theme.isCyberpunk ? cpTint : .blue)
+                .foregroundStyle(theme.isNeon ? cpTint : .blue)
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).skinFont(.subheadline, weight: .semibold)
@@ -175,13 +175,13 @@ struct AnalyticsConsentView: View {
 }
 
 private extension View {
-    /// Hozzájárulás-kártya felülete: Cyberpunkban kártyánként más akcentű
+    /// Hozzájárulás-kártya felülete: Neonban kártyánként más akcentű
     /// (cián = gyűjtött, zöld = soha, sárga = cél) HUD-panel; egyébként a
     /// meglévő `skinCard`.
     @ViewBuilder
     func consentCard(fill: Color, cpAccent: Color) -> some View {
-        if CyberpunkTheme.isActive {
-            self.background { CPPanelBackground(accent: cpAccent) }
+        if NeonTheme.isActive {
+            self.background { NeonPanelBackground(accent: cpAccent) }
         } else {
             self.skinCard(fill: fill)
         }

@@ -87,7 +87,7 @@ struct SubjectDetailView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .center, spacing: 12) {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(subject).mcDisplay(22).lineLimit(2)
+                            Text(subject).voxelDisplay(22).lineLimit(2)
                             Text(allGrades.isEmpty ? "Még nincs jegy ebből a tárgyból" : String(format: "Nyers átlag %.2f → kerekítve %d-es", rawAvg, rounded))
                                 .skinFont(.caption, weight: .medium)
                                 .foregroundStyle(.secondary)
@@ -99,16 +99,16 @@ struct SubjectDetailView: View {
                         if allGrades.isEmpty {
                             // Jegy nélkül nincs átlag: nem „0-s" / „1-es" kör.
                             Text("—")
-                                .mcDisplay(22)
+                                .voxelDisplay(22)
                                 .foregroundStyle(.tertiary)
                                 .frame(width: 50, height: 50)
-                        } else if CyberpunkTheme.isActive {
-                            CPGradeBadge(value: rounded, size: 50)
-                        } else if MinecraftTheme.isActive {
-                            McGradeBlock(value: rounded, size: 50, fontSize: 22)
+                        } else if NeonTheme.isActive {
+                            NeonGradeBadge(value: rounded, size: 50)
+                        } else if VoxelTheme.isActive {
+                            VoxelGradeBlock(value: rounded, size: 50, fontSize: 22)
                         } else {
                             Text("\(rounded)")
-                                .mcDisplay(22)
+                                .voxelDisplay(22)
                                 .foregroundStyle(colors.gradeColor(for: rounded))
                                 .frame(width: 50, height: 50)
                                 .background {
@@ -119,7 +119,7 @@ struct SubjectDetailView: View {
                         }
                     }
 
-                    if CyberpunkTheme.isActive { CPDivider() } else if MinecraftTheme.isActive { McSeparator(footer: true) } else { Divider().opacity(0.45) }
+                    if NeonTheme.isActive { NeonDivider() } else if VoxelTheme.isActive { VoxelSeparator(footer: true) } else { Divider().opacity(0.45) }
 
                     // Szűrő — Home Tab stílusú, compact
                     SkinSegmentedPicker(selection: $graphRange, options: GraphRange.allCases.map { ($0, $0.title) })
@@ -130,7 +130,7 @@ struct SubjectDetailView: View {
 
                     // Lábjegyzet — Home LiveCard ihletésű, finom progress jelleg
                     HStack(spacing: 6) {
-                        MinecraftTheme.dot.fill(colors.accent).frame(width: 6, height: 6)
+                        VoxelTheme.dot.fill(colors.accent).frame(width: 6, height: 6)
                         Text(allGrades.isEmpty ? "Nincs átlag" : String(format: "Jelenlegi átlag %.2f", rawAvg))
                             .skinFont(.caption, weight: .semibold)
                             .foregroundStyle(.secondary)
@@ -138,7 +138,7 @@ struct SubjectDetailView: View {
                         if let d = deltaText {
                             Text(d.text).skinFontDigits(.caption2, weight: .bold).foregroundStyle(d.color)
                                 .padding(.horizontal, 7).padding(.vertical, 3)
-                                .background(MinecraftTheme.capsule.fill(d.color.opacity(0.12)))
+                                .background(VoxelTheme.capsule.fill(d.color.opacity(0.12)))
                         } else {
                             Text("stabil").skinFont(.caption2, weight: .medium).foregroundStyle(.tertiary)
                         }
@@ -147,7 +147,7 @@ struct SubjectDetailView: View {
                         HStack(spacing: 6) {
                             Text("FANTOM ELŐNÉZET").skinFont(.caption2, weight: .bold).foregroundStyle(.orange)
                                 .padding(.horizontal, 7).padding(.vertical, 3)
-                                .background(MinecraftTheme.capsule.fill(Color.orange.opacity(0.14)))
+                                .background(VoxelTheme.capsule.fill(Color.orange.opacity(0.14)))
                             Text(String(format: "eredeti %.2f → most %.2f", baseRaw, rawAvg))
                                 .skinFont(.caption2, weight: .medium).foregroundStyle(.secondary)
                             Spacer()
@@ -156,9 +156,9 @@ struct SubjectDetailView: View {
                 }
                 .padding(.vertical, 4)
                 .summitRowSurface(colors: colors)
-                .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 14, leading: 16, bottom: 14, trailing: 16)))
+                .listRowInsets(VoxelTheme.rowInsets(EdgeInsets(top: 14, leading: 16, bottom: 14, trailing: 16)))
             } header: {
-                Text("Átlag és grafikon").mcSectionHeader()
+                Text("Átlag és grafikon").voxelSectionHeader()
             }
 
             Section {
@@ -168,16 +168,16 @@ struct SubjectDetailView: View {
                         .skinFont(.subheadline)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
-                        .mcListRow(fill: colors.surface)
+                        .voxelListRow(fill: colors.surface)
                 }
                 ForEach(allGrades.sorted(by: { $0.date > $1.date })) { g in
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 10) {
-                            if CyberpunkTheme.isActive {
-                                CPGradeBadge(value: g.value, size: 30)
+                            if NeonTheme.isActive {
+                                NeonGradeBadge(value: g.value, size: 30)
                                     .opacity(g.id.hasPrefix("phantom") ? 0.6 : 1)
-                            } else if MinecraftTheme.isActive {
-                                McGradeBlock(value: g.value, size: 30, fontSize: 12)
+                            } else if VoxelTheme.isActive {
+                                VoxelGradeBlock(value: g.value, size: 30, fontSize: 12)
                                     .opacity(g.id.hasPrefix("phantom") ? 0.6 : 1)
                             } else {
                             Text("\(g.value)").skinFontDigits(.caption, weight: .bold).foregroundStyle(colors.gradeColor(for: g.value))
@@ -196,7 +196,7 @@ struct SubjectDetailView: View {
                             }
                             Spacer()
                             if g.id.hasPrefix("phantom") {
-                                Text("fantom").skinFont(.caption2, weight: .bold).foregroundStyle(.orange).padding(.horizontal, 6).padding(.vertical, 2).background(MinecraftTheme.capsule.fill(Color.orange.opacity(0.14)))
+                                Text("fantom").skinFont(.caption2, weight: .bold).foregroundStyle(.orange).padding(.horizontal, 6).padding(.vertical, 2).background(VoxelTheme.capsule.fill(Color.orange.opacity(0.14)))
                             }
                         }
                         if !g.plainTopic.isEmpty {
@@ -205,7 +205,7 @@ struct SubjectDetailView: View {
                         }
                     }
                     .padding(.vertical, 2)
-                    .mcListRow(fill: colors.surface)
+                    .voxelListRow(fill: colors.surface)
                     // Fantom-vezérlés kizárólag swipe-pal: valódi jegyen a
                     // csere, fantomon az elvetés — kis x gomb nincs.
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -227,7 +227,7 @@ struct SubjectDetailView: View {
                         }
                     }
                 }
-            } header: { Text("Jegyek").mcSectionHeader() }
+            } header: { Text("Jegyek").voxelSectionHeader() }
         }
         .listStyle(.insetGrouped)
         .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1000, mac: 1150) : .infinity)
@@ -250,7 +250,7 @@ struct SubjectDetailView: View {
                 Form {
                     SkinFormSection(title: "Érték", fill: colors.surface) { SkinSegmentedPicker(selection: $addValue, options: (1...5).map { ($0, "\($0)") }, accessibilityTitle: "Jegy").summitSelectionHaptic(trigger: addValue) }
                     SkinFormSection(title: "Súly", fill: colors.surface) { SkinSegmentedPicker(selection: $addWeight, options: [(100, "100%"), (200, "200%"), (50, "50%")], accessibilityTitle: "Súly").summitSelectionHaptic(trigger: addWeight) }
-                    Section { Text("Előnézet átlag: \(String(format: "%.2f", GradingLogic.weightedAverage(allGrades + [GradeItem(id: "phantom-\(UUID())", subject: subject, value: addValue, valueText: "\(addValue)", date: Date(), teacher: "", type: "Fantom", weight: addWeight, topic: "")])))").skinFont(.callout).foregroundStyle(.secondary).mcListRow(fill: colors.surface) }
+                    Section { Text("Előnézet átlag: \(String(format: "%.2f", GradingLogic.weightedAverage(allGrades + [GradeItem(id: "phantom-\(UUID())", subject: subject, value: addValue, valueText: "\(addValue)", date: Date(), teacher: "", type: "Fantom", weight: addWeight, topic: "")])))").skinFont(.callout).foregroundStyle(.secondary).voxelListRow(fill: colors.surface) }
                 }
                 .skinFormBackground()
                 .navigationTitle("Fantom jegy")
@@ -362,12 +362,12 @@ enum GraphRange: String, CaseIterable, Identifiable {
     var title: String { rawValue }
 }
 
-private extension MinecraftTheme {
-    /// Kis pont-jelző: Summitban kör, Minecraftban négyzet (pixel),
-    /// Cyberpunkban kis rombusz (HUD-jelölő).
+private extension VoxelTheme {
+    /// Kis pont-jelző: Summitban kör, Voxelben négyzet (pixel),
+    /// Neonban kis rombusz (HUD-jelölő).
     static var dot: AnyShape {
         if isActive { return AnyShape(Rectangle()) }
-        if CyberpunkTheme.isActive { return AnyShape(CPChamferShape(cut: 3, corners: .all)) }
+        if NeonTheme.isActive { return AnyShape(NeonChamferShape(cut: 3, corners: .all)) }
         return AnyShape(Circle())
     }
 }

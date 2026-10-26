@@ -1,5 +1,0 @@
-{
-  "images" : [ { "filename" : "mc_item_iron_boots.png", "idiom" : "universal" } ],
-  "info" : { "author" : "xcode", "version" : 1 },
-  "properties" : { "preserves-vector-representation" : false, "template-rendering-intent" : "original" }
-}

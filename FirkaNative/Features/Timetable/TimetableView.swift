@@ -379,10 +379,10 @@ struct TimetableView: View {
                     Section {
                         SkinLabel(err, systemImage: "wifi.exclamationmark")
                             .skinFont(.subheadline, weight: .medium)
-                            .foregroundStyle(CyberpunkTheme.isActive ? CyberpunkTheme.coral : .orange)
+                            .foregroundStyle(NeonTheme.isActive ? NeonTheme.coral : .orange)
                             .fixedSize(horizontal: false, vertical: true)
-                            .listRowBackground(MinecraftTheme.skinRowBackground(Color.orange.opacity(scheme == .dark ? 0.12 : 0.08)))
-                            .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
+                            .listRowBackground(VoxelTheme.skinRowBackground(Color.orange.opacity(scheme == .dark ? 0.12 : 0.08)))
+                            .listRowInsets(VoxelTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
                             .listRowSeparator(.hidden)
                     }
                 }
@@ -396,17 +396,17 @@ struct TimetableView: View {
                     Section {
                         ForEach(0..<5, id: \.self) { _ in
                             HStack(spacing: 14) {
-                                MinecraftTheme.circle.fill(Color.primary.opacity(0.08)).frame(width: 38, height: 38)
+                                VoxelTheme.circle.fill(Color.primary.opacity(0.08)).frame(width: 38, height: 38)
                                 VStack(alignment: .leading, spacing: 6) {
-                                    MinecraftTheme.shape(cornerRadius: 6, continuous: false).fill(Color.primary.opacity(0.08)).frame(height: 14).frame(maxWidth: 140)
-                                    MinecraftTheme.shape(cornerRadius: 6, continuous: false).fill(Color.primary.opacity(0.06)).frame(height: 10).frame(maxWidth: 90)
+                                    VoxelTheme.shape(cornerRadius: 6, continuous: false).fill(Color.primary.opacity(0.08)).frame(height: 14).frame(maxWidth: 140)
+                                    VoxelTheme.shape(cornerRadius: 6, continuous: false).fill(Color.primary.opacity(0.06)).frame(height: 10).frame(maxWidth: 90)
                                 }
                                 Spacer()
                             }
                             .padding(.vertical, 10)
                             .redacted(reason: .placeholder)
                             .summitRowSurface(colors: colors)
-                            .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
+                            .listRowInsets(VoxelTheme.rowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)))
                         }
                     }
                     }
@@ -434,20 +434,20 @@ struct TimetableView: View {
                     }
                     Section {
                         TimetableEmptyState(title: emptyDayTitle, icon: emptyDayIcon, detail: emptyDayDetail)
-                            // Minecraftban a talaj a lista alsó része fölé lóg: a
+                            // Voxelben a talaj a lista alsó része fölé lóg: a
                             // magas, középre igazított üres-állapot szövege a fű
                             // mögé csúszna, ezért ott a fejléc alá tapad.
-                            .frame(maxWidth: .infinity, minHeight: MinecraftTheme.isActive ? nil : 220)
-                            .padding(.vertical, MinecraftTheme.isActive ? 0 : 16)
+                            .frame(maxWidth: .infinity, minHeight: VoxelTheme.isActive ? nil : 220)
+                            .padding(.vertical, VoxelTheme.isActive ? 0 : 16)
                             // Óra nélküli napon eddig nem volt mit húzni: a
                             // napváltó swipe csak az óra-idővonalon élt.
                             .contentShape(Rectangle())
                             .simultaneousGesture(daySwipeGesture)
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets(top: MinecraftTheme.isActive ? 8 : 24, leading: 16, bottom: 24, trailing: 16))
+                            .listRowInsets(EdgeInsets(top: VoxelTheme.isActive ? 8 : 24, leading: 16, bottom: 24, trailing: 16))
                     }
-                    .listSectionSpacing(MinecraftTheme.isActive ? .custom(0) : .default)
+                    .listSectionSpacing(VoxelTheme.isActive ? .custom(0) : .default)
                 } else {
                     // MARK: Nap-fejléc — "Péntek, október 23." + "6 óra · 8:00 – 13:35"
                     // Az óraszám és az idősáv a záró felmentett órák nélkül értendő
@@ -603,7 +603,7 @@ struct TimetableView: View {
                     colors: colors,
                     scheme: scheme
                 )
-                // Minecraftban a játék menü-háttere a lap mögött.
+                // Voxelben a játék menü-háttere a lap mögött.
                 .skinSheetBackground()
             }
             // Live Activity sync EGYKEZES: csak a HomeView írja (ugyanaz az AppStorage kulcs!).
@@ -843,24 +843,24 @@ struct TimetableView: View {
     /// szülő-glass modifierje — a külső margó az üvegen KÍVÜL van),
     /// (2) a kijelölő korong üvege a sáv mögött (`weekDiscLayer`), (3) a
     /// szövegek. A szöveg SOHA nem kerül GlassEffectContainerbe: a konténer
-    /// a tartalmat is az üveg-passzba rántaná, és elmosná. Minecraft
+    /// a tartalmat is az üveg-passzba rántaná, és elmosná. Voxel
     /// skinben nincs üveg: blokk-kártya és tömör korong.
     private var weekBar: some View {
         Group {
-            if MinecraftTheme.isActive {
+            if VoxelTheme.isActive {
                 weekCard
                     .padding(.horizontal, 8)
                     .padding(.vertical, 8)
                     // Háttérként: a blokk-kártya kemény árnyéka ne a szövegekre kerüljön.
-                    .background { Color.clear.minecraftCard(cornerRadius: 6) }
-            } else if CyberpunkTheme.isActive {
-                // Cyberpunk: opak HUD-panel levágott sarokkal, 1 px-es sárga
+                    .background { Color.clear.voxelCard(cornerRadius: 6) }
+            } else if NeonTheme.isActive {
+                // Neon: opak HUD-panel levágott sarokkal, 1 px-es sárga
                 // kerettel (üveg nincs — a skin sosem áttetsző).
                 weekCard
                     .padding(.horizontal, 8)
                     .padding(.vertical, 8)
                     .background {
-                        CPPanelBackground(accent: CyberpunkTheme.yellow, fill: CyberpunkTheme.panel,
+                        NeonPanelBackground(accent: NeonTheme.yellow, fill: NeonTheme.panel,
                                           corners: .diagonal, cut: 14)
                     }
             } else {
@@ -917,7 +917,7 @@ struct TimetableView: View {
                     Text(weekMonthTitle)
                         .cpOnly { $0.textCase(.uppercase).tracking(1.6) }
                         .skinFont(.subheadline, weight: .semibold)
-                        .foregroundStyle(CyberpunkTheme.isActive ? AnyShapeStyle(CyberpunkTheme.yellow) : AnyShapeStyle(.primary))
+                        .foregroundStyle(NeonTheme.isActive ? AnyShapeStyle(NeonTheme.yellow) : AnyShapeStyle(.primary))
                         .lineLimit(1).minimumScaleFactor(0.8)
                     // Hét-viszony + frissítés-állapot („Ez a hét · Frissítés…");
                     // ha nem fér ki, az állapot nyer (a hónap-cím és a dátumok
@@ -935,7 +935,7 @@ struct TimetableView: View {
                     // lapozva is, nem csak más héten).
                     guard weekOffset != 0 || userHasNavigated else { return }
                     // Nem Button, ezért a kattanás kézzel (csak MC-ben szól).
-                    McSound.play(.click)
+                    VoxelSound.play(.click)
                     goToSmartToday()
                 }
 
@@ -943,13 +943,13 @@ struct TimetableView: View {
                     Button { pageWeek(-1) } label: {
                         SkinIcon("chevron.left", size: 18)
                             .font(.system(size: 15, weight: .semibold))
-                            // Cyberpunkban a HUD-gomb adja a színt (lenyomva invertál).
+                            // Neonban a HUD-gomb adja a színt (lenyomva invertál).
                             .unlessCP { $0.foregroundStyle(.primary) }
-                            .frame(width: MinecraftTheme.isActive ? 24 : CyberpunkTheme.isActive ? 18 : 40,
-                                   height: MinecraftTheme.isActive ? 24 : CyberpunkTheme.isActive ? 22 : 36)
+                            .frame(width: VoxelTheme.isActive ? 24 : NeonTheme.isActive ? 18 : 40,
+                                   height: VoxelTheme.isActive ? 24 : NeonTheme.isActive ? 22 : 36)
                             .contentShape(Rectangle())
                     }
-                    .mcCompactOrPlainButton()
+                    .voxelCompactOrPlainButton()
                     .disabled(weekOffset <= -8)
                     .accessibilityLabel("Előző hét")
 
@@ -961,7 +961,7 @@ struct TimetableView: View {
                     if weekOffset != 0 || userHasNavigated {
                         Button("Ma") { goToSmartToday() }
                         .skinFont(.subheadline, weight: .semibold)
-                        .mcCompactButtonIfActive()
+                        .voxelCompactButtonIfActive()
                         .tint(colors.accent)
                         .padding(.trailing, 4)
                     }
@@ -970,11 +970,11 @@ struct TimetableView: View {
                         SkinIcon("chevron.right", size: 18)
                             .font(.system(size: 15, weight: .semibold))
                             .unlessCP { $0.foregroundStyle(.primary) }
-                            .frame(width: MinecraftTheme.isActive ? 24 : CyberpunkTheme.isActive ? 18 : 40,
-                                   height: MinecraftTheme.isActive ? 24 : CyberpunkTheme.isActive ? 22 : 36)
+                            .frame(width: VoxelTheme.isActive ? 24 : NeonTheme.isActive ? 18 : 40,
+                                   height: VoxelTheme.isActive ? 24 : NeonTheme.isActive ? 22 : 36)
                             .contentShape(Rectangle())
                     }
-                    .mcCompactOrPlainButton()
+                    .voxelCompactOrPlainButton()
                     .disabled(weekOffset >= 8)
                     .accessibilityLabel("Következő hét")
                 }
@@ -1012,7 +1012,7 @@ struct TimetableView: View {
             }
         }
         // Az üveg-korong a szövegek ALATT (lásd weekBar).
-        .background { if !MinecraftTheme.isActive && !CyberpunkTheme.isActive { weekDiscLayer } }
+        .background { if !VoxelTheme.isActive && !NeonTheme.isActive { weekDiscLayer } }
         .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         .contentShape(Rectangle())
         // Swipe a sávon: hetet lapoz (a napi tartalom swipe-ja napot).
@@ -1023,17 +1023,17 @@ struct TimetableView: View {
         let isSel = tag == selectedDay
         let weekday = Calendar.current.component(.weekday, from: date)
         // Üveg-korong (accent tint) → a kijelölt szám mindig fehér; ma = accent
-        // szám, tanítás nélküli nap = halvány szám. Minecraftban tömör korong
+        // szám, tanítás nélküli nap = halvány szám. Voxelben tömör korong
         // (ma = accent, egyébként fekete/fehér).
-        // Cyberpunkban a játék menü-cellája (`cell_bg`/`cell_fg`):
+        // Neonban a játék menü-cellája (`cell_bg`/`cell_fg`):
         // kijelölve mélyvörös kitöltés fekete számmal (a játék
         // `ButtonPause` Hover-kitöltése), ma = sárga szám + aláhúzás
         // (a sárga a játék hover/akcent színe, nem kijelölés-kitöltés).
-        let mc = MinecraftTheme.isActive
-        let cp = CyberpunkTheme.isActive
+        let mc = VoxelTheme.isActive
+        let cp = NeonTheme.isActive
         let number: AnyShapeStyle = isSel
             ? AnyShapeStyle(cp ? Color.black : Color.white)
-            : isToday ? AnyShapeStyle(mc ? MinecraftTheme.grassDeep : cp ? CyberpunkTheme.yellow : colors.accent)
+            : isToday ? AnyShapeStyle(mc ? VoxelTheme.grassDeep : cp ? NeonTheme.yellow : colors.accent)
             : isEmpty ? AnyShapeStyle(.tertiary)
             : AnyShapeStyle(.primary)
         var label = dayTitle(for: tag)
@@ -1051,7 +1051,7 @@ struct TimetableView: View {
                     .cpOnly { $0.textCase(.uppercase).tracking(1) }
                     .cpMono(10)
                     .skinFont(.caption2, weight: .semibold)
-                    .foregroundStyle(cp ? AnyShapeStyle(isSel ? CyberpunkTheme.red : isToday ? CyberpunkTheme.yellow : CyberpunkTheme.dim) : AnyShapeStyle(.secondary))
+                    .foregroundStyle(cp ? AnyShapeStyle(isSel ? NeonTheme.red : isToday ? NeonTheme.yellow : NeonTheme.dim) : AnyShapeStyle(.secondary))
                     .lineLimit(1)
                 ZStack {
                     if isSel {
@@ -1059,12 +1059,12 @@ struct TimetableView: View {
                             // A hotbar kijelölése: fehér keretes kő-slot (a
                             // vanilla kiemelt gomb), ma = fűzöld arc alatta.
                             ZStack {
-                                (isToday ? MinecraftTheme.grassDeep : Color(hex: 0x6B6B70))
-                                McNineSlice("mc_widget_button_hi", border: 3)
+                                (isToday ? VoxelTheme.grassDeep : Color(hex: 0x6B6B70))
+                                VoxelNineSlice("img_blk_widget_button_hi", border: 3)
                             }
                             .matchedGeometryEffect(id: "weekDisc", in: weekDiscNS)
                         } else if cp {
-                            CPGameCellBackground(fill: CyberpunkTheme.red, frame: CyberpunkTheme.red)
+                            NeonGameCellBackground(fill: NeonTheme.red, frame: NeonTheme.red)
                                 .matchedGeometryEffect(id: "weekDisc", in: weekDiscNS)
                         }
                     }
@@ -1077,16 +1077,16 @@ struct TimetableView: View {
                 .overlay(alignment: .bottom) {
                     if cp && isToday && !isSel {
                         Rectangle()
-                            .fill(CyberpunkTheme.yellow)
+                            .fill(NeonTheme.yellow)
                             .frame(height: 2)
                             .padding(.horizontal, 6)
                     }
                 }
                 // Dolgozat-pötty: a magassága minden oszlopban foglalt,
                 // hogy semmi ne ugorjon.
-                MinecraftTheme.circle
-                    .fill(examRolled == true ? (cp ? CyberpunkTheme.red : Color.red)
-                          : (cp ? CyberpunkTheme.yellow : Color.orange))
+                VoxelTheme.circle
+                    .fill(examRolled == true ? (cp ? NeonTheme.red : Color.red)
+                          : (cp ? NeonTheme.yellow : Color.orange))
                     .frame(width: mc ? 6 : 5, height: mc ? 6 : 5)
                     .opacity(examRolled == nil ? 0 : 1)
             }
@@ -1100,44 +1100,44 @@ struct TimetableView: View {
     }
 
     /// Nap-fejléc: "Péntek, október 23." + (teli napon) "6 óra · 8:00 – 13:35".
-    /// A cím `mcDisplay` — Minecraft skinben a pixelbetű.
+    /// A cím `voxelDisplay` — Voxel skinben a pixelbetű.
     private func dayHeader(showsSummary: Bool) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(dayTitle(for: selectedDay))
-                // Cyberpunk: nagybetűs HUD-cím, napváltáskor egy rövid
+                // Neon: nagybetűs HUD-cím, napváltáskor egy rövid
                 // glitch-rándulás (Reduce Motion mellett a kit kikapcsolja).
                 .cpOnly { $0.textCase(.uppercase).tracking(1.2) }
-                .mcDisplay(24)
+                .voxelDisplay(24)
                 .foregroundStyle(.primary)
                 .lineLimit(1).minimumScaleFactor(0.6)
                 .cpOnly { $0.cpGlitch(trigger: "\(weekOffset)-\(selectedDay)") }
                 .accessibilityAddTraits(.isHeader)
             if showsSummary {
                 let items = effectiveFiltered
-                let cp = CyberpunkTheme.isActive
+                let cp = NeonTheme.isActive
                 let count = cp ? String(format: "%02d ÓRA", items.count) : "\(items.count) óra"
                 if let first = items.first, let last = items.last {
                     let span = "\(first.start.formatted(date: .omitted, time: .shortened)) – \(last.end.formatted(date: .omitted, time: .shortened))"
                     Text(cp ? "\(count) // \(span)" : "\(count) · \(span)")
                         .cpOnly {
-                            $0.cpMono(12, relativeTo: .subheadline).foregroundStyle(CyberpunkTheme.cyan)
+                            $0.cpMono(12, relativeTo: .subheadline).foregroundStyle(NeonTheme.cyan)
                                 .accessibilityLabel("\(items.count) óra, \(span)")
                         }
                         .skinFontDigits(.subheadline)
                         .skinSecondaryOnSky()
                 } else {
                     Text(count)
-                        .cpOnly { $0.cpMono(12, relativeTo: .subheadline).foregroundStyle(CyberpunkTheme.cyan) }
+                        .cpOnly { $0.cpMono(12, relativeTo: .subheadline).foregroundStyle(NeonTheme.cyan) }
                         .skinFontDigits(.subheadline)
                         .skinSecondaryOnSky()
                 }
             }
-            if CyberpunkTheme.isActive {
-                CPDivider(color: CyberpunkTheme.yellow)
+            if NeonTheme.isActive {
+                NeonDivider(color: NeonTheme.yellow)
                     .padding(.top, 6)
             }
         }
-        // A cím fix méretű (mcDisplay) — az alsó sor se szaladjon el tőle.
+        // A cím fix méretű (voxelDisplay) — az alsó sor se szaladjon el tőle.
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -1469,11 +1469,11 @@ private struct TimetableWeekSubtitle: View {
                 }
             }
         }
-        // Cyberpunk: apró nagybetűs cián adat-sor („EZ A HÉT").
+        // Neon: apró nagybetűs cián adat-sor („EZ A HÉT").
         .cpOnly { $0.textCase(.uppercase).tracking(1) }
         .cpMono(10)
         .skinFont(.caption2, weight: .medium)
-        .foregroundStyle(CyberpunkTheme.isActive ? AnyShapeStyle(CyberpunkTheme.cyan.opacity(0.85)) : AnyShapeStyle(.secondary))
+        .foregroundStyle(NeonTheme.isActive ? AnyShapeStyle(NeonTheme.cyan.opacity(0.85)) : AnyShapeStyle(.secondary))
         .lineLimit(1)
         .animation(SummitMotion.gentle, value: status)
     }
@@ -1489,14 +1489,14 @@ private struct SchoolEventCard: View {
         HStack(alignment: .top, spacing: 10) {
             SkinIcon("calendar.badge.clock", size: 32)
                 .skinFont(size: 16, weight: .semibold)
-                .foregroundStyle(CyberpunkTheme.isActive ? CyberpunkTheme.cyan : colors.accent)
+                .foregroundStyle(NeonTheme.isActive ? NeonTheme.cyan : colors.accent)
                 .padding(.top, 3)
             VStack(alignment: .leading, spacing: 3) {
-                Text(CyberpunkTheme.isActive ? "[ ISKOLAI ESEMÉNY ]" : "ISKOLAI ESEMÉNY")
+                Text(NeonTheme.isActive ? "[ ISKOLAI ESEMÉNY ]" : "ISKOLAI ESEMÉNY")
                     .cpMono(10)
                     .skinFont(.caption2, weight: .bold)
-                    .tracking(CyberpunkTheme.isActive ? 1 : 0.6)
-                    .foregroundStyle(CyberpunkTheme.isActive ? AnyShapeStyle(CyberpunkTheme.cyan) : AnyShapeStyle(.secondary))
+                    .tracking(NeonTheme.isActive ? 1 : 0.6)
+                    .foregroundStyle(NeonTheme.isActive ? AnyShapeStyle(NeonTheme.cyan) : AnyShapeStyle(.secondary))
                     .cpOnly { $0.accessibilityLabel("Iskolai esemény") }
                 Text(event.title)
                     .skinFont(size: 17, weight: .semibold, design: .rounded)
@@ -1513,10 +1513,10 @@ private struct SchoolEventCard: View {
         }
         .padding(14)
         .background {
-            if MinecraftTheme.isActive {
-                McBlockPanel(face: colors.surfaceElevated)
-            } else if CyberpunkTheme.isActive {
-                CPPanelBackground(accent: CyberpunkTheme.cyan, fill: CyberpunkTheme.panel)
+            if VoxelTheme.isActive {
+                VoxelBlockPanel(face: colors.surfaceElevated)
+            } else if NeonTheme.isActive {
+                NeonPanelBackground(accent: NeonTheme.cyan, fill: NeonTheme.panel)
             } else {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(colors.accent.opacity(scheme == .dark ? 0.14 : 0.08))
@@ -1575,7 +1575,7 @@ private struct TimetableRow: View {
         if hasAssignment { return scheme == .dark ? Color.white.opacity(0.22) : Color.black.opacity(0.07) }
         return colors.surface
     }
-    /// Minecraftban a sor állapot-színe a tömör panelre rétegezve
+    /// Voxelben a sor állapot-színe a tömör panelre rétegezve
     /// (a kártya sosem áttetsző); nil = sima felület.
     private var rowTint: Color? {
         if isExempted { return Color.green.opacity(0.28) }
@@ -1585,18 +1585,18 @@ private struct TimetableRow: View {
         if hasAssignment { return scheme == .dark ? Color.white.opacity(0.14) : Color.black.opacity(0.07) }
         return nil
     }
-    /// Cyberpunk állapot-szín (HUD-paletta): felmentett = zöld, elmarad =
+    /// Neon állapot-szín (HUD-paletta): felmentett = zöld, elmarad =
     /// HUD-vörös, helyettesítés = sárga, most = cián, feladat = törtfehér.
     private var cpTint: Color? {
-        if isExempted { return CyberpunkTheme.green }
-        if isCancelled { return CyberpunkTheme.red }
-        if isSubstituted { return CyberpunkTheme.yellow }
-        if isCurrent { return CyberpunkTheme.cyan }
-        if hasAssignment { return CyberpunkTheme.text }
+        if isExempted { return NeonTheme.green }
+        if isCancelled { return NeonTheme.red }
+        if isSubstituted { return NeonTheme.yellow }
+        if isCurrent { return NeonTheme.cyan }
+        if hasAssignment { return NeonTheme.text }
         return nil
     }
     private var numberColor: Color {
-        if CyberpunkTheme.isActive { return cpTint ?? CyberpunkTheme.dim }
+        if NeonTheme.isActive { return cpTint ?? NeonTheme.dim }
         if isExempted { return Color.green }
         if isCancelled { return Color.red }
         if isSubstituted { return Color.orange }
@@ -1609,10 +1609,10 @@ private struct TimetableRow: View {
         return lesson.substitutionLabel
     }
     private var badgeColor: Color {
-        if CyberpunkTheme.isActive {
-            if isExempted { return CyberpunkTheme.green }
-            if isCancelled { return CyberpunkTheme.red }
-            return CyberpunkTheme.yellow
+        if NeonTheme.isActive {
+            if isExempted { return NeonTheme.green }
+            if isCancelled { return NeonTheme.red }
+            return NeonTheme.yellow
         }
         if isExempted { return Color.green }
         if isCancelled { return Color.red }
@@ -1625,7 +1625,7 @@ private struct TimetableRow: View {
             // gyári glass-gomboknál): testvér-ZStackben az üveg-passz a számot takarná.
             VStack(spacing: 0) {
                 Text(lesson.index)
-                    .mcDisplay(15)
+                    .voxelDisplay(15)
                     .monospacedDigit()
                     .foregroundStyle(numberColor)
                     .contentTransition(.numericText())
@@ -1633,12 +1633,12 @@ private struct TimetableRow: View {
                     .frame(width: 38, height: 38)
                     .background {
                         Group {
-                            if MinecraftTheme.isActive {
+                            if VoxelTheme.isActive {
                                 // Az állapot (most / elmarad / helyettesítés) a tömör
                                 // panelre rétegzett színnel látszik, nem üveg-tintként.
-                                McTintedPanel(base: colors.surface, tint: ringTint?.opacity(0.32), castsShadow: false)
-                            } else if CyberpunkTheme.isActive {
-                                CPLessonNumberTile(tint: cpTint)
+                                VoxelTintedPanel(base: colors.surface, tint: ringTint?.opacity(0.32), castsShadow: false)
+                            } else if NeonTheme.isActive {
+                                NeonLessonNumberTile(tint: cpTint)
                             } else if #available(iOS 26.0, *) {
                                 Circle()
                                     .fill(Color.clear)
@@ -1655,16 +1655,16 @@ private struct TimetableRow: View {
                             }
                         }
                     }
-                    .shadow(color: MinecraftTheme.isActive || CyberpunkTheme.isActive ? Color.clear : (ringTint ?? Color.clear).opacity(isTintedGlass ? (scheme == .dark ? 0.14 : 0.08) : 0), radius: MinecraftTheme.isActive ? 0 : 6, y: MinecraftTheme.isActive ? 0 : 2)
+                    .shadow(color: VoxelTheme.isActive || NeonTheme.isActive ? Color.clear : (ringTint ?? Color.clear).opacity(isTintedGlass ? (scheme == .dark ? 0.14 : 0.08) : 0), radius: VoxelTheme.isActive ? 0 : 6, y: VoxelTheme.isActive ? 0 : 2)
 
                 // Spine — vékony editorial vonal a következő körig
-                // (Minecraftban 1 játék-pixel vastag, kemény vonal).
+                // (Voxelben 1 játék-pixel vastag, kemény vonal).
                 if !isLast {
                     Rectangle()
-                        .fill(MinecraftTheme.isActive ? Color(hex: 0x555555)
-                              : CyberpunkTheme.isActive ? CyberpunkTheme.yellow.opacity(0.3)
+                        .fill(VoxelTheme.isActive ? Color(hex: 0x555555)
+                              : NeonTheme.isActive ? NeonTheme.yellow.opacity(0.3)
                               : Color.primary.opacity(scheme == .dark ? 0.09 : 0.07))
-                        .frame(width: MinecraftTheme.isActive ? MinecraftTheme.px : CyberpunkTheme.isActive ? 1 : 1.2)
+                        .frame(width: VoxelTheme.isActive ? VoxelTheme.px : NeonTheme.isActive ? 1 : 1.2)
                         .frame(height: 22)
                         .padding(.top, 6)
                         .padding(.bottom, 2)
@@ -1689,19 +1689,19 @@ private struct TimetableRow: View {
                                     Text(lbl.uppercased())
                                         .cpMono(10)
                                         .skinFont(.caption2, weight: .bold)
-                                        .tracking(CyberpunkTheme.isActive ? 1 : 0.5)
-                                        .foregroundStyle(CyberpunkTheme.isActive ? Color.black : .white)
+                                        .tracking(NeonTheme.isActive ? 1 : 0.5)
+                                        .foregroundStyle(NeonTheme.isActive ? Color.black : .white)
                                         .padding(.horizontal, 7).padding(.vertical, 3.5)
-                                        .background(MinecraftTheme.capsule.fill(badgeColor))
+                                        .background(VoxelTheme.capsule.fill(badgeColor))
                                 }
                                 if let change {
                                     Text(change.markerTitle.uppercased())
                                         .cpMono(10)
                                         .skinFont(.caption2, weight: .bold)
-                                        .tracking(CyberpunkTheme.isActive ? 1 : 0.5)
-                                        .foregroundStyle(CyberpunkTheme.isActive ? Color.black : .white)
+                                        .tracking(NeonTheme.isActive ? 1 : 0.5)
+                                        .foregroundStyle(NeonTheme.isActive ? Color.black : .white)
                                         .padding(.horizontal, 7).padding(.vertical, 3.5)
-                                        .background(MinecraftTheme.capsule.fill(CyberpunkTheme.isActive ? CyberpunkTheme.cyan : Color.blue))
+                                        .background(VoxelTheme.capsule.fill(NeonTheme.isActive ? NeonTheme.cyan : Color.blue))
                                         .accessibilityLabel("Változás: \(change.markerTitle)")
                                 }
                             }
@@ -1717,7 +1717,7 @@ private struct TimetableRow: View {
                             // Room — kis kocka, ikon nélkül, csak a terem neve
                             TimetableRoomChip(room: lesson.room, scheme: scheme)
 
-                            Text(CyberpunkTheme.isActive ? "//" : "•").cpMono(10).skinFont(.caption2).foregroundStyle(.tertiary)
+                            Text(NeonTheme.isActive ? "//" : "•").cpMono(10).skinFont(.caption2).foregroundStyle(.tertiary)
                             Text(lesson.teacher)
                                 .skinFont(.caption, weight: .medium)
                                 .foregroundStyle(.secondary)
@@ -1731,8 +1731,8 @@ private struct TimetableRow: View {
                         Text(lesson.start.formatted(date: .omitted, time: .shortened))
                             .cpMono(13, relativeTo: .footnote)
                             .skinFontDigits(size: 13, weight: .semibold, design: .rounded)
-                            .foregroundStyle(isCurrent ? (CyberpunkTheme.isActive ? CyberpunkTheme.cyan : Color.blue)
-                                             : (CyberpunkTheme.isActive ? CyberpunkTheme.yellow : .primary))
+                            .foregroundStyle(isCurrent ? (NeonTheme.isActive ? NeonTheme.cyan : Color.blue)
+                                             : (NeonTheme.isActive ? NeonTheme.yellow : .primary))
                         Text(lesson.end.formatted(date: .omitted, time: .shortened))
                             .cpMono(10)
                             .skinFontDigits(.caption2, weight: .medium)
@@ -1749,7 +1749,7 @@ private struct TimetableRow: View {
                 // Feladat pill — a fejléc alatt, tap → Feladatok tab
                 if let hw = homework {
                     Button {
-                        McSound.play(.click)
+                        VoxelSound.play(.click)
                         NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ["flash": hw.id])
                     } label: {
                         HStack(spacing: 4) {
@@ -1760,14 +1760,14 @@ private struct TimetableRow: View {
                                 .lineLimit(1)
                         }
                         .foregroundStyle(scheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.72))
-                        .padding(.horizontal, MinecraftTheme.isActive ? 10 : 8).padding(.vertical, MinecraftTheme.isActive ? 8 : 5)
+                        .padding(.horizontal, VoxelTheme.isActive ? 10 : 8).padding(.vertical, VoxelTheme.isActive ? 8 : 5)
                         .background {
-                            if MinecraftTheme.isActive {
-                                McTintedPanel(base: colors.surface, tint: nil, castsShadow: false)
-                            } else if CyberpunkTheme.isActive {
-                                CPChamferShape(cut: 6, corners: .diagonal).fill(CyberpunkTheme.panelRaised)
-                                    .overlay(CPChamferShape(cut: 6, corners: .diagonal)
-                                        .strokeBorder(CyberpunkTheme.cyan.opacity(0.55), lineWidth: 1))
+                            if VoxelTheme.isActive {
+                                VoxelTintedPanel(base: colors.surface, tint: nil, castsShadow: false)
+                            } else if NeonTheme.isActive {
+                                NeonChamferShape(cut: 6, corners: .diagonal).fill(NeonTheme.panelRaised)
+                                    .overlay(NeonChamferShape(cut: 6, corners: .diagonal)
+                                        .strokeBorder(NeonTheme.cyan.opacity(0.55), lineWidth: 1))
                             } else {
                                 Capsule()
                                     .fill(scheme == .dark ? Color.white.opacity(0.14) : Color.black.opacity(0.06))
@@ -1782,7 +1782,7 @@ private struct TimetableRow: View {
                 // Dolgozat pill — tap → Feladatok/Dolgozatok tab
                 if let ex = exam {
                     Button {
-                        McSound.play(.click)
+                        VoxelSound.play(.click)
                         NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ["segment": "exams", "flash": ex.id])
                     } label: {
                         HStack(spacing: 4) {
@@ -1793,15 +1793,15 @@ private struct TimetableRow: View {
                                 .lineLimit(1)
                         }
                         .foregroundStyle(scheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.72))
-                        .padding(.horizontal, MinecraftTheme.isActive ? 10 : 8).padding(.vertical, MinecraftTheme.isActive ? 8 : 5)
+                        .padding(.horizontal, VoxelTheme.isActive ? 10 : 8).padding(.vertical, VoxelTheme.isActive ? 8 : 5)
                         .background {
-                            if MinecraftTheme.isActive {
-                                McTintedPanel(base: colors.surface, tint: (examRolled ? Color.red : Color.orange).opacity(0.30), castsShadow: false)
-                            } else if CyberpunkTheme.isActive {
-                                let c = examRolled ? CyberpunkTheme.red : CyberpunkTheme.yellow
-                                CPChamferShape(cut: 6, corners: .diagonal).fill(CyberpunkTheme.panelRaised)
-                                    .overlay(CPChamferShape(cut: 6, corners: .diagonal).fill(c.opacity(0.10)))
-                                    .overlay(CPChamferShape(cut: 6, corners: .diagonal).strokeBorder(c.opacity(0.75), lineWidth: 1))
+                            if VoxelTheme.isActive {
+                                VoxelTintedPanel(base: colors.surface, tint: (examRolled ? Color.red : Color.orange).opacity(0.30), castsShadow: false)
+                            } else if NeonTheme.isActive {
+                                let c = examRolled ? NeonTheme.red : NeonTheme.yellow
+                                NeonChamferShape(cut: 6, corners: .diagonal).fill(NeonTheme.panelRaised)
+                                    .overlay(NeonChamferShape(cut: 6, corners: .diagonal).fill(c.opacity(0.10)))
+                                    .overlay(NeonChamferShape(cut: 6, corners: .diagonal).strokeBorder(c.opacity(0.75), lineWidth: 1))
                             } else {
                                 Capsule()
                                     .fill((examRolled ? Color.red : Color.orange).opacity(scheme == .dark ? 0.22 : 0.14))
@@ -1818,7 +1818,7 @@ private struct TimetableRow: View {
                 if isCurrent {
                     TimetableLiquidProgress(
                         progress: progress,
-                        tint: CyberpunkTheme.isActive ? (cpTint ?? CyberpunkTheme.cyan)
+                        tint: NeonTheme.isActive ? (cpTint ?? NeonTheme.cyan)
                             : isCancelled ? Color.red : isSubstituted ? Color.orange : colors.accent,
                         remainingText: remainingText,
                         scheme: scheme,
@@ -1829,10 +1829,10 @@ private struct TimetableRow: View {
             }
             .padding(14)
             .background {
-                if MinecraftTheme.isActive {
-                    McTintedPanel(base: colors.surface, tint: rowTint)
-                } else if CyberpunkTheme.isActive {
-                    CPLessonCardBackground(tint: cpTint, isCurrent: isCurrent)
+                if VoxelTheme.isActive {
+                    VoxelTintedPanel(base: colors.surface, tint: rowTint)
+                } else if NeonTheme.isActive {
+                    NeonLessonCardBackground(tint: cpTint, isCurrent: isCurrent)
                 } else {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .fill(rowBackground)
@@ -1844,33 +1844,33 @@ private struct TimetableRow: View {
                 }
             }
             .overlay {
-                if MinecraftTheme.isActive {
+                if VoxelTheme.isActive {
                     // Deeplink-villanás: sárga, kemény pixelkeret (a játék kijelölés-sárgája).
-                    McPixelShape(steps: 2)
-                        .strokeBorder(Color(hex: 0xFFFF55).opacity(isFlashing ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlashing ? MinecraftTheme.px : 0)
-                } else if CyberpunkTheme.isActive {
+                    VoxelPixelShape(steps: 2)
+                        .strokeBorder(Color(hex: 0xFFFF55).opacity(isFlashing ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlashing ? VoxelTheme.px : 0)
+                } else if NeonTheme.isActive {
                     // Deeplink-villanás: sárga HUD-keret pulzál (nagyítás nélkül).
-                    CPChamferShape(cut: 12, corners: .diagonal)
-                        .strokeBorder(CyberpunkTheme.yellow.opacity(isFlashing ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlashing ? 2 : 0)
+                    NeonChamferShape(cut: 12, corners: .diagonal)
+                        .strokeBorder(NeonTheme.yellow.opacity(isFlashing ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlashing ? 2 : 0)
                 } else {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .strokeBorder(colors.accent.opacity(isFlashing ? (flashPulse ? 0.95 : 0.22) : 0), lineWidth: isFlashing ? 2.2 : 0)
                 }
             }
             .background {
-                if MinecraftTheme.isActive {
-                    McPixelShape(steps: 2)
+                if VoxelTheme.isActive {
+                    VoxelPixelShape(steps: 2)
                         .fill(Color(hex: 0xFFFF55).opacity(isFlashing ? (flashPulse ? 0.18 : 0.04) : 0))
-                } else if CyberpunkTheme.isActive {
-                    CPChamferShape(cut: 12, corners: .diagonal)
-                        .fill(CyberpunkTheme.yellow.opacity(isFlashing ? (flashPulse ? 0.14 : 0.03) : 0))
+                } else if NeonTheme.isActive {
+                    NeonChamferShape(cut: 12, corners: .diagonal)
+                        .fill(NeonTheme.yellow.opacity(isFlashing ? (flashPulse ? 0.14 : 0.03) : 0))
                 } else {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .fill(colors.accent.opacity(isFlashing ? (flashPulse ? 0.18 : 0.04) : 0))
                 }
             }
-            // Minecraftban nincs sima nagyítás (a pixelek nem skálázódnak törtre).
-            .scaleEffect(isFlashing && flashPulse && !MinecraftTheme.isActive && !CyberpunkTheme.isActive ? 1.02 : 1.0)
+            // Voxelben nincs sima nagyítás (a pixelek nem skálázódnak törtre).
+            .scaleEffect(isFlashing && flashPulse && !VoxelTheme.isActive && !NeonTheme.isActive ? 1.02 : 1.0)
             .animation(isFlashing ? .easeInOut(duration: 0.45) : .default, value: flashPulse)
             // bal csík nincs — kompakt
             .padding(.leading, 0)
@@ -1886,9 +1886,9 @@ private struct TimetableRow: View {
     }
 
     /// Részletező megnyitása (fejléc-gomb és a kártya többi felülete).
-    /// A gomb `.plain`, így a Minecraft-kattanás innen jön (egy forrás).
+    /// A gomb `.plain`, így a Voxel-kattanás innen jön (egy forrás).
     private func openDetail() {
-        McSound.play(.click)
+        VoxelSound.play(.click)
         onSelect()
     }
 
@@ -1968,12 +1968,12 @@ private struct LessonDetailSheet: View {
     private var isCurrent: Bool { lesson.start <= Date() && Date() <= lesson.end }
 
     private var heroBase: Color {
-        if CyberpunkTheme.isActive {
-            if isExempted { return CyberpunkTheme.green }
-            if isCancelled { return CyberpunkTheme.red }
-            if isSubstituted { return CyberpunkTheme.yellow }
-            if isCurrent { return CyberpunkTheme.cyan }
-            return CyberpunkTheme.yellow
+        if NeonTheme.isActive {
+            if isExempted { return NeonTheme.green }
+            if isCancelled { return NeonTheme.red }
+            if isSubstituted { return NeonTheme.yellow }
+            if isCurrent { return NeonTheme.cyan }
+            return NeonTheme.yellow
         }
         if isExempted { return .green }
         if isCancelled { return .red }
@@ -1983,11 +1983,11 @@ private struct LessonDetailSheet: View {
     }
 
     private var statusBadge: (text: String, color: Color)? {
-        if CyberpunkTheme.isActive {
-            if isExempted { return ("Felmentett", CyberpunkTheme.green) }
-            if isCancelled { return ("Elmarad", CyberpunkTheme.red) }
-            if isSubstituted { return ("Helyettesítés", CyberpunkTheme.yellow) }
-            if isCurrent { return ("Most", CyberpunkTheme.cyan) }
+        if NeonTheme.isActive {
+            if isExempted { return ("Felmentett", NeonTheme.green) }
+            if isCancelled { return ("Elmarad", NeonTheme.red) }
+            if isSubstituted { return ("Helyettesítés", NeonTheme.yellow) }
+            if isCurrent { return ("Most", NeonTheme.cyan) }
             return nil
         }
         if isExempted { return ("Felmentett", .green) }
@@ -2006,7 +2006,7 @@ private struct LessonDetailSheet: View {
         return "\(t.string(from: lesson.start)) – \(t.string(from: lesson.end)) • \(lesson.index). óra"
     }
 
-    /// Cyberpunk kód-sor a hero alatt: „[ CSÜTÖRTÖK // OKT 23. ]".
+    /// Neon kód-sor a hero alatt: „[ CSÜTÖRTÖK // OKT 23. ]".
     private var cpDayCode: String {
         let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "EEEE // MMM d."
         return "[ \(f.string(from: lesson.start).uppercased()) ]"
@@ -2025,17 +2025,17 @@ private struct LessonDetailSheet: View {
                     VStack(spacing: 12) {
                         SkinIcon(LessonSubjectIcon.symbol(for: lesson.subject), size: 64)
                             .skinFont(size: 44, weight: .semibold)
-                            .foregroundStyle(CyberpunkTheme.isActive ? heroBase : .white)
+                            .foregroundStyle(NeonTheme.isActive ? heroBase : .white)
                             .frame(width: 104, height: 104)
                             .background {
-                                if MinecraftTheme.isActive {
+                                if VoxelTheme.isActive {
                                     // Inventory-rekesz, az óra állapotának színével átitatva.
-                                    McTintedPanel(base: Color(hex: 0x8B8B8B), tint: heroBase.opacity(0.40), slot: true, castsShadow: false)
-                                } else if CyberpunkTheme.isActive {
+                                    VoxelTintedPanel(base: Color(hex: 0x8B8B8B), tint: heroBase.opacity(0.40), slot: true, castsShadow: false)
+                                } else if NeonTheme.isActive {
                                     // HUD-lapka az óra állapot-színében (statikus).
-                                    CPChamferShape(cut: 18, corners: .diagonal).fill(CyberpunkTheme.panel)
-                                        .overlay(CPChamferShape(cut: 18, corners: .diagonal).fill(heroBase.opacity(0.14)))
-                                        .overlay(CPChamferShape(cut: 18, corners: .diagonal).strokeBorder(heroBase, lineWidth: 1))
+                                    NeonChamferShape(cut: 18, corners: .diagonal).fill(NeonTheme.panel)
+                                        .overlay(NeonChamferShape(cut: 18, corners: .diagonal).fill(heroBase.opacity(0.14)))
+                                        .overlay(NeonChamferShape(cut: 18, corners: .diagonal).strokeBorder(heroBase, lineWidth: 1))
                                 } else {
                                     Circle()
                                         .fill(
@@ -2048,30 +2048,30 @@ private struct LessonDetailSheet: View {
                                 }
                             }
                         Text(lesson.subject)
-                            .mcDisplay(26)
+                            .voxelDisplay(26)
                             .foregroundStyle((isCancelled || isExempted) ? .secondary : .primary)
                             .strikethrough(isCancelled || isExempted, color: .secondary)
                             .multilineTextAlignment(.center)
                             // Kiemelt cím: halvány, statikus kromatikus szellemkép.
                             .cpOnly { $0.cpChromatic(1) }
-                        Text(CyberpunkTheme.isActive ? cpDayCode : dayLine)
+                        Text(NeonTheme.isActive ? cpDayCode : dayLine)
                             .cpMono(12, relativeTo: .subheadline)
                             .skinFont(.subheadline, weight: .semibold)
-                            .foregroundStyle(CyberpunkTheme.isActive ? AnyShapeStyle(CyberpunkTheme.cyan) : AnyShapeStyle(.secondary))
+                            .foregroundStyle(NeonTheme.isActive ? AnyShapeStyle(NeonTheme.cyan) : AnyShapeStyle(.secondary))
                             .cpOnly { $0.accessibilityLabel(dayLine) }
-                        Text(CyberpunkTheme.isActive ? cpTimeCode : timeLine)
+                        Text(NeonTheme.isActive ? cpTimeCode : timeLine)
                             .cpMono(12, relativeTo: .subheadline)
                             .skinFontDigits(.subheadline, weight: .medium)
-                            .foregroundStyle(CyberpunkTheme.isActive ? AnyShapeStyle(CyberpunkTheme.dim) : AnyShapeStyle(.secondary))
+                            .foregroundStyle(NeonTheme.isActive ? AnyShapeStyle(NeonTheme.dim) : AnyShapeStyle(.secondary))
                             .cpOnly { $0.accessibilityLabel(timeLine) }
                         if let badge = statusBadge {
                             Text(badge.text.uppercased())
                                 .cpMono(11)
                                 .skinFont(.caption2, weight: .bold)
-                                .tracking(CyberpunkTheme.isActive ? 1.2 : 0.5)
-                                .foregroundStyle(CyberpunkTheme.isActive ? Color.black : .white)
+                                .tracking(NeonTheme.isActive ? 1.2 : 0.5)
+                                .foregroundStyle(NeonTheme.isActive ? Color.black : .white)
                                 .padding(.horizontal, 10).padding(.vertical, 5)
-                                .background(MinecraftTheme.capsule.fill(badge.color))
+                                .background(VoxelTheme.capsule.fill(badge.color))
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -2083,20 +2083,20 @@ private struct LessonDetailSheet: View {
                 // ÓRA ADATAI
                 Section {
                     detailRow(icon: "person.fill", title: "Tanár", value: lesson.teacher.isEmpty ? "—" : lesson.teacher)
-                        .mcListRow(fill: colors.surface)
+                        .voxelListRow(fill: colors.surface)
                     if isSubstituted, let orig = lesson.originalTeacher, !orig.isEmpty {
                         detailRow(icon: "person.fill.badge.plus", title: "Eredeti tanár", value: orig)
-                            .mcListRow(fill: colors.surface)
+                            .voxelListRow(fill: colors.surface)
                     }
                     detailRow(icon: "door.left.hand.open", title: "Terem", value: lesson.room.isEmpty ? "—" : lesson.room)
-                        .mcListRow(fill: colors.surface)
+                        .voxelListRow(fill: colors.surface)
                     if let change {
                         detailRow(icon: "arrow.triangle.2.circlepath", title: "Változás",
                                   value: change.kind == .added ? change.markerTitle : change.detail)
-                            .mcListRow(fill: colors.surface)
+                            .voxelListRow(fill: colors.surface)
                     }
                     detailRow(icon: "clock.fill", title: "Időpont", value: timeLine)
-                        .mcListRow(fill: colors.surface)
+                        .voxelListRow(fill: colors.surface)
                 } header: { sectionTitle("Óra adatai", code: "01") }
 
                 // HÁZI
@@ -2113,15 +2113,15 @@ private struct LessonDetailSheet: View {
                             Button { openTasks(flash: hw.id) } label: {
                                 TimetableOpenLabel(title: "Megnyitás a Feladatokban", icon: "checklist", colors: colors)
                             }
-                            .mcButtonOrPlain(compact: false)
+                            .voxelButtonOrPlain(compact: false)
                             .padding(.top, 2)
                         }
                         .padding(.vertical, 4)
-                        .mcListRow(fill: colors.surface)
+                        .voxelListRow(fill: colors.surface)
                     } else {
                         SkinLabel("Ehhez az órához nincs házi", systemImage: "checklist")
                             .skinFont(.callout).foregroundStyle(.secondary)
-                            .mcListRow(fill: colors.surface)
+                            .voxelListRow(fill: colors.surface)
                     }
                 } header: { sectionTitle("Házi feladat", code: "02") }
 
@@ -2132,9 +2132,9 @@ private struct LessonDetailSheet: View {
                             HStack(spacing: 6) {
                                 Text(ex.mode).skinFont(.callout, weight: .semibold)
                                 if examRolled {
-                                    Text("Pótló").skinFont(.caption2, weight: .bold).foregroundStyle(CyberpunkTheme.isActive ? CyberpunkTheme.red : .red)
+                                    Text("Pótló").skinFont(.caption2, weight: .bold).foregroundStyle(NeonTheme.isActive ? NeonTheme.red : .red)
                                         .padding(.horizontal, 8).padding(.vertical, 4)
-                                        .background(MinecraftTheme.capsule.fill(Color.red.opacity(0.12)))
+                                        .background(VoxelTheme.capsule.fill(Color.red.opacity(0.12)))
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -2150,15 +2150,15 @@ private struct LessonDetailSheet: View {
                             Button { openTasks(segment: "exams", flash: ex.id) } label: {
                                 TimetableOpenLabel(title: "Megnyitás a Dolgozatokban", icon: "doc.text.fill", colors: colors)
                             }
-                            .mcButtonOrPlain(compact: false)
+                            .voxelButtonOrPlain(compact: false)
                             .padding(.top, 2)
                         }
                         .padding(.vertical, 4)
-                        .mcListRow(fill: colors.surface)
+                        .voxelListRow(fill: colors.surface)
                     } else {
                         SkinLabel("Ehhez az órához nincs dolgozat", systemImage: "doc.text")
                             .skinFont(.callout).foregroundStyle(.secondary)
-                            .mcListRow(fill: colors.surface)
+                            .voxelListRow(fill: colors.surface)
                     }
                 } header: { sectionTitle("Dolgozat", code: "03") }
             }
@@ -2182,14 +2182,14 @@ private struct LessonDetailSheet: View {
         .tint(colors.accent)
     }
 
-    /// Szekció-fejléc: Summitban a gyári `Section("…")` felirat, Minecraftban pixelbetű.
+    /// Szekció-fejléc: Summitban a gyári `Section("…")` felirat, Voxelben pixelbetű.
     @ViewBuilder
     private func sectionTitle(_ text: String, code: String? = nil) -> some View {
-        if MinecraftTheme.isActive {
-            Text(text).mcSectionHeader()
-        } else if CyberpunkTheme.isActive {
+        if VoxelTheme.isActive {
+            Text(text).voxelSectionHeader()
+        } else if NeonTheme.isActive {
             // HUD-szekciófej: akcent-négyzet + cím + vonal + „// 01".
-            CPSectionHeader(text, code: code, accent: CyberpunkTheme.yellow)
+            NeonSectionHeader(text, code: code, accent: NeonTheme.yellow)
         } else {
             Text(text)
         }
@@ -2199,13 +2199,13 @@ private struct LessonDetailSheet: View {
         HStack(spacing: 10) {
             SkinIcon(icon, size: 32)
                 .skinFont(size: 14, weight: .semibold)
-                .foregroundStyle(CyberpunkTheme.isActive ? CyberpunkTheme.cyan : colors.accent)
-                .frame(width: MinecraftTheme.isActive ? 32 : 24)
+                .foregroundStyle(NeonTheme.isActive ? NeonTheme.cyan : colors.accent)
+                .frame(width: VoxelTheme.isActive ? 32 : 24)
             Text(title)
                 .cpOnly { $0.textCase(.uppercase).tracking(1) }
                 .cpMono(11, relativeTo: .callout)
                 .skinFont(.callout)
-                .foregroundStyle(CyberpunkTheme.isActive ? AnyShapeStyle(CyberpunkTheme.dim) : AnyShapeStyle(.secondary))
+                .foregroundStyle(NeonTheme.isActive ? AnyShapeStyle(NeonTheme.dim) : AnyShapeStyle(.secondary))
             Spacer(minLength: 8)
             Text(value)
                 .skinFont(.callout, weight: .semibold)
@@ -2228,12 +2228,12 @@ private struct LessonDetailSheet: View {
 }
 
 
-// MARK: - Minecraft-segédek (az órarendi nézetekhez)
+// MARK: - Voxel-segédek (az órarendi nézetekhez)
 
 /// Tömör panel az állapot-színnel átitatva: az alap (felület) opak marad,
-/// a szín rá van rétegezve — a McBlockPanel áttetsző `face`-e különben
+/// a szín rá van rétegezve — a VoxelBlockPanel áttetsző `face`-e különben
 /// átengedné a mögötte lévő égboltot a tintelt kártyán.
-private struct McTintedPanel: View {
+private struct VoxelTintedPanel: View {
     var base: Color
     var tint: Color?
     /// Inventory-rekesz (fordított bevel) a sima panel helyett.
@@ -2252,37 +2252,37 @@ private struct McTintedPanel: View {
     @ViewBuilder
     private func panel(face: Color, casts: Bool) -> some View {
         if slot {
-            McBlockPanel(face: face, outline: Color(hex: 0x373737),
+            VoxelBlockPanel(face: face, outline: Color(hex: 0x373737),
                          highlight: .black.opacity(0.28), shade: .white.opacity(0.55), castsShadow: casts)
         } else {
-            McBlockPanel(face: face, castsShadow: casts)
+            VoxelBlockPanel(face: face, castsShadow: casts)
         }
     }
 }
 
-/// Terem-címke: Summitban a halvány lekerekített kocka, Minecraftban
+/// Terem-címke: Summitban a halvány lekerekített kocka, Voxelben
 /// inventory-rekesz fehér, árnyékolt Monocraft felirattal.
 private struct TimetableRoomChip: View {
     let room: String
     let scheme: ColorScheme
 
     var body: some View {
-        if MinecraftTheme.isActive {
+        if VoxelTheme.isActive {
             Text(room)
                 .skinFontDigits(.caption2, weight: .bold)
                 .foregroundStyle(.white)
-                .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: MinecraftTheme.px / 1.5, y: MinecraftTheme.px / 1.5)
+                .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: VoxelTheme.px / 1.5, y: VoxelTheme.px / 1.5)
                 .padding(.horizontal, 10).padding(.vertical, 7)
-                .background(McInventorySlot())
+                .background(VoxelInventorySlot())
                 .lineLimit(1)
-        } else if CyberpunkTheme.isActive {
-            // Cyberpunk: egyenközű cián terem-kód, levágott sarkú vékony keretben.
+        } else if NeonTheme.isActive {
+            // Neon: egyenközű cián terem-kód, levágott sarkú vékony keretben.
             Text(room)
-                .font(CyberpunkTheme.mono(size: 11, relativeTo: .caption2))
-                .foregroundStyle(CyberpunkTheme.cyan)
+                .font(NeonTheme.mono(size: 11, relativeTo: .caption2))
+                .foregroundStyle(NeonTheme.cyan)
                 .padding(.horizontal, 6).padding(.vertical, 3)
-                .background(CPChamferShape(cut: 4, corners: .diagonal).fill(CyberpunkTheme.cyan.opacity(0.06)))
-                .overlay(CPChamferShape(cut: 4, corners: .diagonal).strokeBorder(CyberpunkTheme.cyan.opacity(0.55), lineWidth: 1))
+                .background(NeonChamferShape(cut: 4, corners: .diagonal).fill(NeonTheme.cyan.opacity(0.06)))
+                .overlay(NeonChamferShape(cut: 4, corners: .diagonal).strokeBorder(NeonTheme.cyan.opacity(0.55), lineWidth: 1))
                 .lineLimit(1)
         } else {
             Text(room)
@@ -2300,31 +2300,31 @@ private struct TimetableRoomChip: View {
 }
 
 /// „Megnyitás a …ban" gomb felirata: Summitban az accent-körvonalas
-/// kapszula, Minecraftban a sima felirat (a gombot a McButtonStyle rajzolja).
+/// kapszula, Voxelben a sima felirat (a gombot a VoxelButtonStyle rajzolja).
 private struct TimetableOpenLabel: View {
     let title: String
     let icon: String
     let colors: AppColors
 
     var body: some View {
-        if MinecraftTheme.isActive {
+        if VoxelTheme.isActive {
             SkinLabel(title, systemImage: icon)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-        } else if CyberpunkTheme.isActive {
-            // Cyberpunk: cián, levágott sarkú HUD-gomb-felirat (a gomb maga
+        } else if NeonTheme.isActive {
+            // Neon: cián, levágott sarkú HUD-gomb-felirat (a gomb maga
             // `.skinPlain`, az kattan).
             Label(title, systemImage: icon)
-                .font(CyberpunkTheme.font(.subheadline, weight: .bold))
+                .font(NeonTheme.font(.subheadline, weight: .bold))
                 .textCase(.uppercase)
                 .tracking(1)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-                .foregroundStyle(CyberpunkTheme.cyan)
+                .foregroundStyle(NeonTheme.cyan)
                 .padding(.horizontal, 12).padding(.vertical, 8)
-                .background(CPChamferShape(cut: 6, corners: .diagonal).fill(CyberpunkTheme.cyan.opacity(0.06)))
-                .overlay(CPChamferShape(cut: 6, corners: .diagonal).strokeBorder(CyberpunkTheme.cyan.opacity(0.85), lineWidth: 1))
-                .contentShape(CPChamferShape(cut: 6, corners: .diagonal))
+                .background(NeonChamferShape(cut: 6, corners: .diagonal).fill(NeonTheme.cyan.opacity(0.06)))
+                .overlay(NeonChamferShape(cut: 6, corners: .diagonal).strokeBorder(NeonTheme.cyan.opacity(0.85), lineWidth: 1))
+                .contentShape(NeonChamferShape(cut: 6, corners: .diagonal))
         } else {
             Label(title, systemImage: icon)
                 .font(.caption.weight(.semibold))
@@ -2335,7 +2335,7 @@ private struct TimetableOpenLabel: View {
     }
 }
 
-/// Üres nap: Summitban a gyári `ContentUnavailableView`, Minecraftban
+/// Üres nap: Summitban a gyári `ContentUnavailableView`, Voxelben
 /// item-ikon + Monocraft cím és leírás (a rendszer-nézet SF-ikont és
 /// rendszerbetűt rajzolna).
 private struct TimetableEmptyState: View {
@@ -2344,34 +2344,34 @@ private struct TimetableEmptyState: View {
     let detail: String
 
     var body: some View {
-        if MinecraftTheme.isActive {
+        if VoxelTheme.isActive {
             VStack(spacing: 12) {
                 SkinIcon(icon, size: 64)
                 Text(title)
-                    .font(MinecraftTheme.font(.title3))
+                    .font(VoxelTheme.font(.title3))
                     .multilineTextAlignment(.center)
                 Text(detail)
-                    .font(MinecraftTheme.font(.subheadline))
+                    .font(VoxelTheme.font(.subheadline))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
             .accessibilityElement(children: .combine)
-        } else if CyberpunkTheme.isActive {
-            // Cyberpunk: HUD-„nincs adat" blokk — kód-címke, nagybetűs cím,
+        } else if NeonTheme.isActive {
+            // Neon: HUD-„nincs adat" blokk — kód-címke, nagybetűs cím,
             // halvány leírás, rövid sárga vonal.
             VStack(spacing: 10) {
-                CPLabel("NO_DATA // NAP", color: CyberpunkTheme.yellow)
+                NeonLabel("NO_DATA // NAP", color: NeonTheme.yellow)
                 Text(title)
-                    .font(CyberpunkTheme.font(.title3))
+                    .font(NeonTheme.font(.title3))
                     .textCase(.uppercase)
                     .tracking(1.4)
-                    .foregroundStyle(CyberpunkTheme.text)
+                    .foregroundStyle(NeonTheme.text)
                     .multilineTextAlignment(.center)
                 Text(detail)
-                    .font(CyberpunkTheme.font(.subheadline, weight: .medium))
-                    .foregroundStyle(CyberpunkTheme.dim)
+                    .font(NeonTheme.font(.subheadline, weight: .medium))
+                    .foregroundStyle(NeonTheme.dim)
                     .multilineTextAlignment(.center)
-                Rectangle().fill(CyberpunkTheme.yellow).frame(width: 28, height: 2)
+                Rectangle().fill(NeonTheme.yellow).frame(width: 28, height: 2)
                     .accessibilityHidden(true)
             }
             .accessibilityElement(children: .combine)
@@ -2382,90 +2382,90 @@ private struct TimetableEmptyState: View {
 }
 
 private extension View {
-    /// Heti lapozó gombjai: Summitban `.plain`, Minecraftban kompakt kő-gomb.
+    /// Heti lapozó gombjai: Summitban `.plain`, Voxelben kompakt kő-gomb.
     @ViewBuilder
-    func mcCompactOrPlainButton() -> some View {
-        if MinecraftTheme.isActive {
-            self.buttonStyle(McButtonStyle(compact: true))
-        } else if CyberpunkTheme.isActive {
-            // Cyberpunk: kompakt, cián körvonalas HUD-gomb.
-            self.buttonStyle(CPButtonStyle(kind: .secondary, compact: true))
+    func voxelCompactOrPlainButton() -> some View {
+        if VoxelTheme.isActive {
+            self.buttonStyle(VoxelButtonStyle(compact: true))
+        } else if NeonTheme.isActive {
+            // Neon: kompakt, cián körvonalas HUD-gomb.
+            self.buttonStyle(NeonButtonStyle(kind: .secondary, compact: true))
         } else {
             self.buttonStyle(.plain)
         }
     }
 
-    /// Csak Minecraftban kő-gomb stílus (Summitban a gombnak nincs explicit stílusa).
+    /// Csak Voxelben kő-gomb stílus (Summitban a gombnak nincs explicit stílusa).
     @ViewBuilder
-    func mcCompactButtonIfActive() -> some View {
-        if MinecraftTheme.isActive {
-            self.buttonStyle(McButtonStyle(compact: true))
-        } else if CyberpunkTheme.isActive {
-            // Cyberpunk: kompakt sárga fő HUD-gomb („MA").
-            self.buttonStyle(CPButtonStyle(kind: .primary, compact: true))
+    func voxelCompactButtonIfActive() -> some View {
+        if VoxelTheme.isActive {
+            self.buttonStyle(VoxelButtonStyle(compact: true))
+        } else if NeonTheme.isActive {
+            // Neon: kompakt sárga fő HUD-gomb („MA").
+            self.buttonStyle(NeonButtonStyle(kind: .primary, compact: true))
         } else {
             self
         }
     }
 }
 
-// MARK: - Cyberpunk-segédek (az órarendi nézetekhez)
+// MARK: - Neon-segédek (az órarendi nézetekhez)
 
 private extension View {
-    /// Csak Cyberpunk-skinben alkalmazott módosítás (Summit/Minecraft
+    /// Csak Neon-skinben alkalmazott módosítás (Summit/Voxel
     /// alatt a nézet érintetlen). Egyetlen if-szint — mély elágazás-lánc
     /// helyett (lásd dcfe1eb: túl mély nézet-típus a készüléken).
     @ViewBuilder
     func cpOnly<V: View>(_ transform: (Self) -> V) -> some View {
-        if CyberpunkTheme.isActive { transform(self) } else { self }
+        if NeonTheme.isActive { transform(self) } else { self }
     }
 
-    /// Csak Cyberpunkon KÍVÜL alkalmazott módosítás (pl. a HUD-gomb
+    /// Csak Neonon KÍVÜL alkalmazott módosítás (pl. a HUD-gomb
     /// saját színét ne írja felül a felirat explicit színe).
     @ViewBuilder
     func unlessCP<V: View>(_ transform: (Self) -> V) -> some View {
-        if CyberpunkTheme.isActive { self } else { transform(self) }
+        if NeonTheme.isActive { self } else { transform(self) }
     }
 
-    /// Cyberpunkban apró egyenközű HUD-betű (IBM Plex Mono), máshol
-    /// semmi. A KÜLSŐ `skinFont`/`mcDisplay` elé (belülre) kell tenni:
-    /// a környezeti betűt alakítja át, így Summitban/Minecraftban a
+    /// Neonban apró egyenközű HUD-betű (IBM Plex Mono), máshol
+    /// semmi. A KÜLSŐ `skinFont`/`voxelDisplay` elé (belülre) kell tenni:
+    /// a környezeti betűt alakítja át, így Summitban/Voxelben a
     /// külső betű változatlanul érvényes.
     func cpMono(_ size: CGFloat, relativeTo style: Font.TextStyle = .caption2) -> some View {
         transformEnvironment(\.font) { font in
-            if CyberpunkTheme.isActive { font = CyberpunkTheme.mono(size: size, relativeTo: style) }
+            if NeonTheme.isActive { font = NeonTheme.mono(size: size, relativeTo: style) }
         }
     }
 }
 
-/// Cyberpunk óra-szám lapka: levágott sarkú opak négyzet, az állapot
+/// Neon óra-szám lapka: levágott sarkú opak négyzet, az állapot
 /// színében halvány töltés + 1 px-es keret (nil = halvány semleges).
-private struct CPLessonNumberTile: View {
+private struct NeonLessonNumberTile: View {
     var tint: Color?
     @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
-        let shape = CPChamferShape(cut: 7, corners: .diagonal)
-        let edge = tint ?? CyberpunkTheme.text.opacity(0.22)
-        shape.fill(CyberpunkTheme.panel)
+        let shape = NeonChamferShape(cut: 7, corners: .diagonal)
+        let edge = tint ?? NeonTheme.text.opacity(0.22)
+        shape.fill(NeonTheme.panel)
             .overlay(shape.fill((tint ?? .clear).opacity(0.14)))
             .overlay(shape.strokeBorder(edge.opacity(contrast == .increased ? 1 : 0.8), lineWidth: 1))
     }
 }
 
-/// Cyberpunk órakártya-háttér: opak panel levágott sarokkal, 1 px-es
+/// Neon órakártya-háttér: opak panel levágott sarokkal, 1 px-es
 /// keret az állapot színében, aktív állapotnál 3 pt-os bal akcent-csík
 /// és halvány színes töltés. Statikus (nincs per-frame rajzolás).
-private struct CPLessonCardBackground: View {
+private struct NeonLessonCardBackground: View {
     var tint: Color?
     var isCurrent: Bool
     @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
-        let shape = CPChamferShape(cut: 12, corners: .diagonal)
+        let shape = NeonChamferShape(cut: 12, corners: .diagonal)
         let hi = contrast == .increased
-        let edge = tint ?? CyberpunkTheme.text.opacity(0.16)
-        shape.fill(isCurrent ? CyberpunkTheme.panelRaised : CyberpunkTheme.panel)
+        let edge = tint ?? NeonTheme.text.opacity(0.16)
+        shape.fill(isCurrent ? NeonTheme.panelRaised : NeonTheme.panel)
             .overlay(shape.fill((tint ?? .clear).opacity(0.07)))
             .overlay(alignment: .leading) {
                 if let tint {

@@ -75,8 +75,8 @@ extension View {
     // Keep only for primary floating CTA if needed — otherwise use .buttonStyle(.glass) native
     @ViewBuilder
     func functionalGlass(cornerRadius: CGFloat = 20, tint: Color? = nil) -> some View {
-        // Minecraft-skinben a kártya pixel-blokk, nem üveg.
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+        // Voxel-skinben a kártya pixel-blokk, nem üveg.
+        if VoxelTheme.isActive || NeonTheme.isActive {
             self
         } else if #available(iOS 26.0, *) {
             if let t = tint { self.glassEffect(.regular.tint(t).interactive(), in: .rect(cornerRadius: cornerRadius)) }
@@ -95,8 +95,8 @@ extension View {
 
     @ViewBuilder
     func glassEffectIfAvailable(in circle: Circle = Circle(), tint: Color? = nil) -> some View {
-        // Minecraftban nincs üveg: a hívó saját pixel-háttere marad.
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+        // Voxelben nincs üveg: a hívó saját pixel-háttere marad.
+        if VoxelTheme.isActive || NeonTheme.isActive {
             self
         } else if #available(iOS 26.0, *) {
             if let t = tint { self.glassEffect(.regular.tint(t).interactive(), in: circle) }
@@ -108,7 +108,7 @@ extension View {
 
     @ViewBuilder
     func glassEffectIfAvailable(in rect: RoundedRectangle, tint: Color? = nil) -> some View {
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+        if VoxelTheme.isActive || NeonTheme.isActive {
             self
         } else if #available(iOS 26.0, *) {
             if let t = tint { self.glassEffect(.regular.tint(t).interactive(), in: rect) }
@@ -127,9 +127,9 @@ extension View {
     /// Világos és sötét módban is olvasható, kontrasztot nem tör meg.
     @ViewBuilder
     func summitInput() -> some View {
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
-            // A McTextFieldFrame Cyberpunkban HUD-mezőt (cpInput) ad.
-            self.modifier(McTextFieldFrame())
+        if VoxelTheme.isActive || NeonTheme.isActive {
+            // A VoxelTextFieldFrame Neonban HUD-mezőt (cpInput) ad.
+            self.modifier(VoxelTextFieldFrame())
         } else {
             summitInputBox()
         }
@@ -151,14 +151,14 @@ extension View {
     /// tinted) magától követi — NE tegyél rá kézi opacity-réteget, az harcolna vele.
     @ViewBuilder
     func summitGlassRow(cornerRadius: CGFloat = 16) -> some View {
-        // Minecraft-skin: üveg helyett blokk — ez az EGY pont az összes
+        // Voxel-skin: üveg helyett blokk — ez az EGY pont az összes
         // lista-szigetet (Beállítások, Főoldal, Jegyek, órarend-sorok)
         // blokk-stílusúra váltja, a Summit-ág változatlan marad.
         // (UserDefaults-olvasás: nincs Environment-függés, preview-ban
         // az alapértelmezett Summit-ág fut.)
-        // Cyberpunkban ugyanez a lánc HUD-panelt ad (McPanelStyle belül ágazik).
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
-            self.minecraftCard(cornerRadius: 6)
+        // Neonban ugyanez a lánc HUD-panelt ad (VoxelPanelStyle belül ágazik).
+        if VoxelTheme.isActive || NeonTheme.isActive {
+            self.voxelCard(cornerRadius: 6)
         } else if #available(iOS 26.0, *) {
             // NEM `.interactive()`: ez egy sziget-háttér (több sor
             // tárolója), nem gomb — az interaktív üveg az egész szigetet
@@ -176,14 +176,14 @@ extension View {
     /// sidebar + toolbar. Semmi kézi blur/opacity: a rendszer rajzol.
     @ViewBuilder
     func summitListChrome(colors: AppColors) -> some View {
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
-            // Minecraft: élő égbolt minden lista mögött (napos dolog a
+        if VoxelTheme.isActive || NeonTheme.isActive {
+            // Voxel: élő égbolt minden lista mögött (napos dolog a
             // Főoldalon is) — a sorok blokk-háttere takar, a közökben
-            // átlátszik az ég. Cyberpunk: Night City-háttér (CPBackdrop).
+            // átlátszik az ég. Neon: a neon felület-háttér (NeonBackdrop).
             self
                 .scrollContentBackground(.hidden)
                 .background {
-                    if CyberpunkTheme.isActive { CPBackdrop() } else { MinecraftBackdrop(ground: false) }
+                    if NeonTheme.isActive { NeonBackdrop() } else { VoxelBackdrop(ground: false) }
                 }
         } else if MacSupport.isNativeMac {
             self
@@ -200,9 +200,9 @@ extension View {
     /// nincs felülírás — a rendszer rajzolja az átlátszó Liquid Glass bart.
     @ViewBuilder
     func summitToolbarBackground() -> some View {
-        // Minecraft: a nav-sáv a játék menü-fejléce (földcsempe), a tetején
+        // Voxel: a nav-sáv a játék menü-fejléce (földcsempe), a tetején
         // átlátszó — a kényszerített rendszer-sáv helyett az appearance dönt.
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive || MacSupport.isNativeMac {
+        if VoxelTheme.isActive || NeonTheme.isActive || MacSupport.isNativeMac {
             self
         } else {
             self.toolbarBackground(.visible, for: .navigationBar)
@@ -214,9 +214,9 @@ extension View {
     /// az áttetsző ablakon.
     @ViewBuilder
     func summitRowSurface(colors: AppColors) -> some View {
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
-            // Cyberpunkban a skinRowBackground HUD-panelt ad.
-            self.listRowBackground(MinecraftTheme.skinRowBackground(colors.surface))
+        if VoxelTheme.isActive || NeonTheme.isActive {
+            // Neonban a skinRowBackground HUD-panelt ad.
+            self.listRowBackground(VoxelTheme.skinRowBackground(colors.surface))
         } else if MacSupport.isNativeMac {
             self.listRowBackground(Color.clear)
         } else {
@@ -228,9 +228,9 @@ extension View {
     /// natív Mac-ablakban átlátszó — a mögöttes tartalom áttűnik.
     @ViewBuilder
     func summitSheetBackground() -> some View {
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+        if VoxelTheme.isActive || NeonTheme.isActive {
             self.background {
-                if CyberpunkTheme.isActive { CPBackdrop() } else { McMenuBackground() }
+                if NeonTheme.isActive { NeonBackdrop() } else { VoxelMenuBackground() }
             }
         } else if MacSupport.isNativeMac {
             self.background(Color.clear)

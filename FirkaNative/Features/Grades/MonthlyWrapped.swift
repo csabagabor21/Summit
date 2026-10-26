@@ -195,10 +195,10 @@ struct MonthlyWrappedCard: View {
 
     var body: some View {
         Group {
-            if CyberpunkTheme.isActive {
+            if NeonTheme.isActive {
                 cpBody
-            } else if MinecraftTheme.isActive {
-                mcBody
+            } else if VoxelTheme.isActive {
+                voxelBody
             } else {
                 summitBody
             }
@@ -212,8 +212,8 @@ struct MonthlyWrappedCard: View {
                 WrappedStarStore.bumpOpen(monthId: month.id)
             }
             withAnimation(SummitMotion.gentle) { appeared = true }
-            // Minecraft: a kártya „toast-ként" érkezik (csak MC-skinben szól).
-            McSound.play(.toastIn)
+            // Voxel: a kártya „toast-ként" érkezik (csak MC-skinben szól).
+            VoxelSound.play(.toastIn)
         }
         // Csillag-változás (ezen az eszközön vagy syncről): új kép/ikon.
         .onReceive(NotificationCenter.default.publisher(for: WrappedStarStore.changedNotification)) { _ in
@@ -287,7 +287,7 @@ struct MonthlyWrappedCard: View {
                     // Hős: hónap + átlag — fotó fölött fehér, tömörnél színes
                     VStack(alignment: .leading, spacing: 2) {
                         Text(month.title)
-                            .mcDisplay(32)
+                            .voxelDisplay(32)
                             .foregroundStyle(photo ? .white : .primary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
@@ -300,7 +300,7 @@ struct MonthlyWrappedCard: View {
                     .stagger(appeared, 0)
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(String(format: "%.1f", stats.avg))
-                            .mcDisplay(80)
+                            .voxelDisplay(80)
                             .foregroundStyle(photo ? .white : avgColor)
                             .monospacedDigit()
                             .lineLimit(1)
@@ -396,26 +396,26 @@ struct MonthlyWrappedCard: View {
         }
     }
 
-    // MARK: Minecraft ág — az advancements-képernyő hangulata
+    // MARK: Voxel ág — az advancements-képernyő hangulata
 
     /// A hónap statisztikája a játék nyelvén: menü-háttér, sötét pala-panelek,
     /// advancement-keretes item-ikonok, toast-fejléc, XP-sáv.
-    private var mcBody: some View {
+    private var voxelBody: some View {
         ZStack {
-            McMenuBackground()
+            VoxelMenuBackground()
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(alignment: .center, spacing: 8) {
                             Text(month.wrappedTitle.uppercased())
-                                .mcInk(0xAAAAAA, .caption2)
+                                .voxelInk(0xAAAAAA, .caption2)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
                             Spacer()
                             Button(action: toggleStar) {
                                 SkinIcon("star", size: 24).opacity(isStarred ? 1 : 0.45)
                             }
-                            .buttonStyle(McButtonStyle(compact: true))
+                            .buttonStyle(VoxelButtonStyle(compact: true))
                             .accessibilityLabel(isStarred ? "Csillag levétele (a kép újra forog)" : "Kép rögzítése erre a hónapra")
                             Button {
                                 SummitHaptics.selection()
@@ -423,12 +423,12 @@ struct MonthlyWrappedCard: View {
                             } label: {
                                 SkinIcon("square.and.arrow.up", size: 24)
                             }
-                            .buttonStyle(McButtonStyle(compact: true))
+                            .buttonStyle(VoxelButtonStyle(compact: true))
                             .accessibilityLabel("Megosztás")
                             Button(action: onClose) {
                                 SkinIcon("xmark", size: 24)
                             }
-                            .buttonStyle(McButtonStyle(compact: true))
+                            .buttonStyle(VoxelButtonStyle(compact: true))
                             .accessibilityLabel("Bezárás")
                         }
                         .padding(.top, 8)
@@ -437,45 +437,45 @@ struct MonthlyWrappedCard: View {
                         // XP-szintként, alatta az 1–5 skálán töltött sávval.
                         VStack(alignment: .leading, spacing: 10) {
                             HStack(spacing: 12) {
-                                McSprite(name: "mc_item_nether_star", size: 16 * MinecraftTheme.px)
+                                VoxelSprite(name: "img_blk_item_nether_star", size: 16 * VoxelTheme.px)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("Előrelépés elérve!")
-                                        .mcInk(0xFFFF00, .subheadline)
+                                        .voxelInk(0xFFFF00, .subheadline)
                                     Text(month.title)
-                                        .mcInk(0xFFFFFF, .title3)
+                                        .voxelInk(0xFFFFFF, .title3)
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.6)
                                     Text("\(stats.count) jegy • \(stats.exams) dolgozat")
-                                        .mcInk(0xAAAAAA, .footnote)
+                                        .voxelInk(0xAAAAAA, .footnote)
                                 }
                                 Spacer(minLength: 0)
                             }
                             HStack(alignment: .firstTextBaseline, spacing: 8) {
                                 Text(String(format: "%.1f", stats.avg))
-                                    .mcDisplay(64)
+                                    .voxelDisplay(64)
                                     .foregroundStyle(Color(hex: 0x80FF20))
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.6)
-                                Text("átlag").mcInk(0xAAAAAA, .subheadline)
+                                Text("átlag").voxelInk(0xAAAAAA, .subheadline)
                             }
-                            McProgressBar(value: stats.avg / 5)
+                            VoxelProgressBar(value: stats.avg / 5)
                         }
-                        .padding(.horizontal, 8 * MinecraftTheme.px)
-                        .padding(.vertical, 8 * MinecraftTheme.px)
+                        .padding(.horizontal, 8 * VoxelTheme.px)
+                        .padding(.vertical, 8 * VoxelTheme.px)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(McNineSlice("mc_toast_advancement", top: 2, left: 2, bottom: 0, right: 2))
+                        .background(VoxelNineSlice("img_blk_toast_advancement", top: 2, left: 2, bottom: 0, right: 2))
                         .padding(.top, 14)
                         .stagger(appeared, 0)
 
                         // Csempék: egy-egy advancement-keret az itemmel
                         LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 12) {
-                            mcTile(item: "mc_item_nether_star", frame: "mc_adv_task_frame", value: "\(stats.fives)",
+                            voxelTile(item: "img_blk_item_nether_star", frame: "img_blk_adv_task_frame", value: "\(stats.fives)",
                                    label: "ötös", sub: "\(stats.count) jegyből")
-                            mcTile(item: "mc_item_clock", frame: "mc_adv_task_frame", value: "\(stats.absences)",
+                            voxelTile(item: "img_blk_item_clock", frame: "img_blk_adv_task_frame", value: "\(stats.absences)",
                                    label: "hiányzás", sub: stats.unjustified == 0 ? "mind igazolt" : "\(stats.unjustified) igazolatlan")
-                            mcTile(item: "mc_item_bell", frame: "mc_adv_task_frame", value: "\(stats.lateCount)",
+                            voxelTile(item: "img_blk_item_bell", frame: "img_blk_adv_task_frame", value: "\(stats.lateCount)",
                                    label: "késés", sub: stats.lateCount == 0 ? "egyszer sem" : "\(stats.lateMinutes) perc")
-                            mcTile(item: "mc_item_paper", frame: "mc_adv_task_frame", value: "\(stats.exams)",
+                            voxelTile(item: "img_blk_item_paper", frame: "img_blk_adv_task_frame", value: "\(stats.exams)",
                                    label: "dolgozat", sub: "e hónapban")
                         }
                         .padding(.top, 20)
@@ -484,34 +484,34 @@ struct MonthlyWrappedCard: View {
                         // Legjobb + legtöbbet javult: goal / challenge keretes sorok
                         VStack(spacing: 0) {
                             if let best = stats.bestSubject {
-                                mcRow(item: "mc_item_diamond", frame: "mc_adv_goal_frame",
+                                voxelRow(item: "img_blk_item_diamond", frame: "img_blk_adv_goal_frame",
                                       title: "Legjobb tárgyad",
                                       value: "\(best.name) • \(String(format: "%.1f", best.avg))")
                                 if stats.mostImproved != nil {
-                                    Rectangle().fill(Color.black.opacity(0.55)).frame(height: MinecraftTheme.px)
+                                    Rectangle().fill(Color.black.opacity(0.55)).frame(height: VoxelTheme.px)
                                 }
                             }
                             if let imp = stats.mostImproved {
-                                mcRow(item: "mc_item_experience_bottle", frame: "mc_adv_challenge_frame",
+                                voxelRow(item: "img_blk_item_experience_bottle", frame: "img_blk_adv_challenge_frame",
                                       title: "Legtöbbet javultál",
                                       value: "\(imp.name) • +\(String(format: "%.1f", imp.delta))")
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, 6)
-                        .background(McWrappedPanel())
+                        .background(VoxelWrappedPanel())
                         .padding(.top, 12)
                         .stagger(appeared, 0.24)
 
                         // Eloszlás: jegyszínű blokk-sáv + darabszámok
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("ELOSZLÁS").mcInk(0xAAAAAA, .caption2)
+                            Text("ELOSZLÁS").voxelInk(0xAAAAAA, .caption2)
                             WrappedDistBar(distribution: stats.distribution, colors: distColors)
                             HStack(spacing: 10) {
                                 ForEach([5, 4, 3, 2, 1], id: \.self) { v in
                                     HStack(spacing: 4) {
-                                        Text("\(v)").mcInk(0xFFFFFF, .caption)
-                                        Text("×\(stats.distribution[v] ?? 0)").mcInk(0xAAAAAA, .caption2)
+                                        Text("\(v)").voxelInk(0xFFFFFF, .caption)
+                                        Text("×\(stats.distribution[v] ?? 0)").voxelInk(0xAAAAAA, .caption2)
                                     }
                                 }
                                 Spacer(minLength: 0)
@@ -519,7 +519,7 @@ struct MonthlyWrappedCard: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
-                        .background(McWrappedPanel())
+                        .background(VoxelWrappedPanel())
                         .padding(.top, 12)
                         .padding(.bottom, 24)
                         .stagger(appeared, 0.32)
@@ -528,7 +528,7 @@ struct MonthlyWrappedCard: View {
                 }
                 // Lábléc: a diák Wrappedje (fotó nincs, így fotós sem).
                 Text(personTitle.uppercased())
-                    .mcInk(0x7E7E7E, .caption2)
+                    .voxelInk(0x7E7E7E, .caption2)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .padding(.bottom, 18)
@@ -538,40 +538,40 @@ struct MonthlyWrappedCard: View {
 
     /// Advancement-keretes item: a 26×26-os keret 2×-es nagyításban, a
     /// 16×16-os item a közepén (a játék a kereten belül 5 px-re rajzolja).
-    private func mcFrameIcon(item: String, frame: String) -> some View {
+    private func voxelFrameIcon(item: String, frame: String) -> some View {
         ZStack {
-            McSprite(name: frame, size: 52)
-            McSprite(name: item, size: 32)
+            VoxelSprite(name: frame, size: 52)
+            VoxelSprite(name: item, size: 32)
         }
         .frame(width: 52, height: 52)
         .accessibilityHidden(true)
     }
 
-    private func mcTile(item: String, frame: String, value: String, label: String, sub: String) -> some View {
+    private func voxelTile(item: String, frame: String, value: String, label: String, sub: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                mcFrameIcon(item: item, frame: frame)
+                voxelFrameIcon(item: item, frame: frame)
                 Text(value)
-                    .mcDisplay(28)
+                    .voxelDisplay(28)
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
             }
-            Text(label).mcInk(0xFFFFFF, .caption).lineLimit(1)
-            Text(sub).mcInk(0xAAAAAA, .caption2).lineLimit(1).minimumScaleFactor(0.7)
+            Text(label).voxelInk(0xFFFFFF, .caption).lineLimit(1)
+            Text(sub).voxelInk(0xAAAAAA, .caption2).lineLimit(1).minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(McWrappedPanel())
+        .background(VoxelWrappedPanel())
         .accessibilityElement(children: .combine)
     }
 
-    private func mcRow(item: String, frame: String, title: String, value: String) -> some View {
+    private func voxelRow(item: String, frame: String, title: String, value: String) -> some View {
         HStack(spacing: 12) {
-            mcFrameIcon(item: item, frame: frame)
+            voxelFrameIcon(item: item, frame: frame)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).mcInk(0xAAAAAA, .caption)
-                Text(value).mcInk(0xFFFFFF, .subheadline).lineLimit(1).minimumScaleFactor(0.7)
+                Text(title).voxelInk(0xAAAAAA, .caption)
+                Text(value).voxelInk(0xFFFFFF, .subheadline).lineLimit(1).minimumScaleFactor(0.7)
             }
             Spacer(minLength: 0)
         }
@@ -591,7 +591,7 @@ struct MonthlyWrappedCard: View {
                     .foregroundStyle(photo ? .white.opacity(0.85) : .secondary)
             }
             Text(value)
-                .mcDisplay(28)
+                .voxelDisplay(28)
                 .foregroundStyle(photo ? .white : .primary)
                 .monospacedDigit()
                 .lineLimit(1)
@@ -625,25 +625,25 @@ struct MonthlyWrappedCard: View {
         .padding(.vertical, 10)
     }
 
-    // MARK: Cyberpunk ág — havi „contract debrief" HUD
+    // MARK: Neon ág — havi „contract debrief" HUD
 
     /// A hónap a játék stat-képernyőjének nyelvén: sárga hős-panel az
     /// átlaggal és szegmentált sávval, kódcímkés csempék, vékony vonalak.
     private var cpBody: some View {
         ZStack {
-            CPBackdrop()
+            NeonBackdrop()
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(alignment: .center, spacing: 8) {
-                            CPLabel(month.wrappedTitle, color: CyberpunkTheme.dim, size: 11)
+                            NeonLabel(month.wrappedTitle, color: NeonTheme.dim, size: 11)
                                 .minimumScaleFactor(0.7)
                             Spacer()
                             Button(action: toggleStar) {
                                 Image(systemName: isStarred ? "star.fill" : "star")
                                     .font(.system(size: 14, weight: .bold))
                             }
-                            .buttonStyle(CPButtonStyle(kind: isStarred ? .primary : .secondary, compact: true))
+                            .buttonStyle(NeonButtonStyle(kind: isStarred ? .primary : .secondary, compact: true))
                             .accessibilityLabel(isStarred ? "Csillag levétele (a kép újra forog)" : "Kép rögzítése erre a hónapra")
                             Button {
                                 SummitHaptics.selection()
@@ -652,13 +652,13 @@ struct MonthlyWrappedCard: View {
                                 Image(systemName: "square.and.arrow.up")
                                     .font(.system(size: 14, weight: .bold))
                             }
-                            .buttonStyle(CPButtonStyle(kind: .secondary, compact: true))
+                            .buttonStyle(NeonButtonStyle(kind: .secondary, compact: true))
                             .accessibilityLabel("Megosztás")
                             Button(action: onClose) {
                                 Image(systemName: "xmark")
                                     .font(.system(size: 14, weight: .bold))
                             }
-                            .buttonStyle(CPButtonStyle(kind: .secondary, compact: true))
+                            .buttonStyle(NeonButtonStyle(kind: .secondary, compact: true))
                             .accessibilityLabel("Bezárás")
                         }
                         .padding(.top, 8)
@@ -666,51 +666,51 @@ struct MonthlyWrappedCard: View {
                         // Hős: havi összesítő — átlag sárgán, 1–5 skálás sáv.
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 8) {
-                                CPLabel("HAVI ÖSSZESÍTŐ", color: CyberpunkTheme.yellow, bracketed: false, size: 11)
+                                NeonLabel("HAVI ÖSSZESÍTŐ", color: NeonTheme.yellow, bracketed: false, size: 11)
                                 Spacer(minLength: 0)
-                                CPLabel("ID \(month.id)", bracketed: false)
+                                NeonLabel("ID \(month.id)", bracketed: false)
                             }
                             Text(month.title.uppercased())
-                                .font(CyberpunkTheme.display(size: 28, weight: .bold, relativeTo: .title2))
+                                .font(NeonTheme.display(size: 28, weight: .bold, relativeTo: .title2))
                                 .tracking(1)
-                                .foregroundStyle(CyberpunkTheme.text)
+                                .foregroundStyle(NeonTheme.text)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.6)
                             Text("\(stats.count) jegy • \(stats.exams) dolgozat")
-                                .cpInk(CyberpunkTheme.dim, .subheadline)
+                                .cpInk(NeonTheme.dim, .subheadline)
                             HStack(alignment: .firstTextBaseline, spacing: 8) {
                                 Text(String(format: "%.1f", stats.avg))
-                                    .font(CyberpunkTheme.display(size: 72, weight: .bold, relativeTo: .largeTitle))
+                                    .font(NeonTheme.display(size: 72, weight: .bold, relativeTo: .largeTitle))
                                     .monospacedDigit()
-                                    .foregroundStyle(CyberpunkTheme.yellow)
+                                    .foregroundStyle(NeonTheme.yellow)
                                     .cpChromatic(1)
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.6)
-                                CPLabel("ÁTLAG", bracketed: false, size: 11)
+                                NeonLabel("ÁTLAG", bracketed: false, size: 11)
                             }
-                            CPProgressBar(value: stats.avg / 5, tint: CyberpunkTheme.yellow, segments: 25, height: 8)
+                            NeonProgressBar(value: stats.avg / 5, tint: NeonTheme.yellow, segments: 25, height: 8)
                             HStack {
-                                CPLabel("1.0", bracketed: false, size: 9)
+                                NeonLabel("1.0", bracketed: false, size: 9)
                                 Spacer()
-                                CPLabel("5.0", bracketed: false, size: 9)
+                                NeonLabel("5.0", bracketed: false, size: 9)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .cpPanel(accent: CyberpunkTheme.yellow, cut: 16, padding: 16)
+                        .cpPanel(accent: NeonTheme.yellow, cut: 16, padding: 16)
                         .padding(.top, 14)
                         .stagger(appeared, 0)
 
                         // Csempék: kódcímke + nagy érték + leírás.
                         LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 12) {
-                            cpTile(code: "01", value: "\(stats.fives)", valueColor: CyberpunkTheme.gradeColor(for: 5),
+                            cpTile(code: "01", value: "\(stats.fives)", valueColor: NeonTheme.gradeColor(for: 5),
                                    label: "ötös", sub: "\(stats.count) jegyből")
                             cpTile(code: "02", value: "\(stats.absences)",
-                                   valueColor: stats.unjustified == 0 ? CyberpunkTheme.text : CyberpunkTheme.red,
+                                   valueColor: stats.unjustified == 0 ? NeonTheme.text : NeonTheme.red,
                                    label: "hiányzás", sub: stats.unjustified == 0 ? "mind igazolt" : "\(stats.unjustified) igazolatlan")
                             cpTile(code: "03", value: "\(stats.lateCount)",
-                                   valueColor: stats.lateCount == 0 ? CyberpunkTheme.text : CyberpunkTheme.orange,
+                                   valueColor: stats.lateCount == 0 ? NeonTheme.text : NeonTheme.orange,
                                    label: "késés", sub: stats.lateCount == 0 ? "egyszer sem" : "\(stats.lateMinutes) perc")
-                            cpTile(code: "04", value: "\(stats.exams)", valueColor: CyberpunkTheme.text,
+                            cpTile(code: "04", value: "\(stats.exams)", valueColor: NeonTheme.text,
                                    label: "dolgozat", sub: "e hónapban")
                         }
                         .padding(.top, 16)
@@ -721,25 +721,25 @@ struct MonthlyWrappedCard: View {
                             VStack(spacing: 10) {
                                 if let best = stats.bestSubject {
                                     cpRow(code: "MAX", title: "Legjobb tárgyad", value: best.name,
-                                          figure: String(format: "%.1f", best.avg), accent: CyberpunkTheme.cyan)
+                                          figure: String(format: "%.1f", best.avg), accent: NeonTheme.cyan)
                                     if stats.mostImproved != nil {
-                                        CPDivider(color: CyberpunkTheme.red, showsTick: false)
+                                        NeonDivider(color: NeonTheme.red, showsTick: false)
                                     }
                                 }
                                 if let imp = stats.mostImproved {
                                     cpRow(code: "UP", title: "Legtöbbet javultál", value: imp.name,
-                                          figure: "+" + String(format: "%.1f", imp.delta), accent: CyberpunkTheme.green)
+                                          figure: "+" + String(format: "%.1f", imp.delta), accent: NeonTheme.green)
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .cpPanel(accent: CyberpunkTheme.cyan, padding: 14)
+                            .cpPanel(accent: NeonTheme.cyan, padding: 14)
                             .padding(.top, 12)
                             .stagger(appeared, 0.24)
                         }
 
                         // Eloszlás.
                         VStack(alignment: .leading, spacing: 10) {
-                            CPSectionHeader("Eloszlás", code: "\(stats.count) jegy")
+                            NeonSectionHeader("Eloszlás", code: "\(stats.count) jegy")
                             WrappedDistBar(distribution: stats.distribution, colors: distColors)
                             cpDistCounts(stats.distribution)
                         }
@@ -751,7 +751,7 @@ struct MonthlyWrappedCard: View {
                     }
                     .padding(.horizontal, 20)
                 }
-                CPLabel(personTitle, size: 10)
+                NeonLabel(personTitle, size: 10)
                     .padding(.bottom, 18)
             }
         }
@@ -759,15 +759,15 @@ struct MonthlyWrappedCard: View {
 
     private func cpTile(code: String, value: String, valueColor: Color, label: String, sub: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            CPLabel(code, size: 9)
+            NeonLabel(code, size: 9)
             Text(value)
-                .font(CyberpunkTheme.display(size: 34, weight: .bold, relativeTo: .title))
+                .font(NeonTheme.display(size: 34, weight: .bold, relativeTo: .title))
                 .monospacedDigit()
                 .foregroundStyle(valueColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-            Text(label.uppercased()).cpInk(CyberpunkTheme.text, .caption).tracking(1).lineLimit(1)
-            Text(sub).cpInk(CyberpunkTheme.dim, .caption2).lineLimit(1).minimumScaleFactor(0.7)
+            Text(label.uppercased()).cpInk(NeonTheme.text, .caption).tracking(1).lineLimit(1)
+            Text(sub).cpInk(NeonTheme.dim, .caption2).lineLimit(1).minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cpPanel(cut: 10, padding: 12)
@@ -778,12 +778,12 @@ struct MonthlyWrappedCard: View {
         HStack(alignment: .center, spacing: 12) {
             Rectangle().fill(accent).frame(width: 2, height: 34)
             VStack(alignment: .leading, spacing: 2) {
-                CPLabel("\(code) // \(title)", color: CyberpunkTheme.dim, bracketed: false, size: 10)
-                Text(value).cpInk(CyberpunkTheme.text, .headline).lineLimit(1).minimumScaleFactor(0.7)
+                NeonLabel("\(code) // \(title)", color: NeonTheme.dim, bracketed: false, size: 10)
+                Text(value).cpInk(NeonTheme.text, .headline).lineLimit(1).minimumScaleFactor(0.7)
             }
             Spacer(minLength: 8)
             Text(figure)
-                .font(CyberpunkTheme.display(size: 24, weight: .bold, relativeTo: .title3))
+                .font(NeonTheme.display(size: 24, weight: .bold, relativeTo: .title3))
                 .monospacedDigit()
                 .foregroundStyle(accent)
         }
@@ -799,12 +799,12 @@ struct MonthlyWrappedCard: View {
     }
 }
 
-/// Wrapped-panel Minecraftban: sötét pala-blokk fekete körvonallal, lépcsős
+/// Wrapped-panel Voxelben: sötét pala-blokk fekete körvonallal, lépcsős
 /// sarokkal. Az árnyalatok explicitek (nem a színsémából jönnek), így a
 /// képernyő és a megosztott kép (ImageRenderer, mindig világos séma) ugyanaz.
-private struct McWrappedPanel: View {
+private struct VoxelWrappedPanel: View {
     var body: some View {
-        McBlockPanel(face: Color(hex: 0x2E2E33), outline: .black,
+        VoxelBlockPanel(face: Color(hex: 0x2E2E33), outline: .black,
                      highlight: .white.opacity(0.10), shade: .black.opacity(0.35))
     }
 }
@@ -812,33 +812,33 @@ private struct McWrappedPanel: View {
 private extension View {
     /// Játékbeli szöveg: Monocraft + a szín negyed fényerejű, 1 px-es kemény
     /// árnyéka (fehér → #3F3F3F, mint a gombfeliratoknál).
-    func mcInk(_ hex: UInt, _ style: Font.TextStyle) -> some View {
+    func voxelInk(_ hex: UInt, _ style: Font.TextStyle) -> some View {
         let shadow = ((hex >> 16 & 0xFF) / 4) << 16 | ((hex >> 8 & 0xFF) / 4) << 8 | (hex & 0xFF) / 4
         return self
-            .font(MinecraftTheme.font(style))
+            .font(VoxelTheme.font(style))
             .foregroundStyle(Color(hex: hex))
-            .shadow(color: Color(hex: shadow), radius: 0, x: MinecraftTheme.px / 1.5, y: MinecraftTheme.px / 1.5)
+            .shadow(color: Color(hex: shadow), radius: 0, x: VoxelTheme.px / 1.5, y: VoxelTheme.px / 1.5)
     }
 }
 
 private extension View {
-    /// Cyberpunk-szöveg: Rajdhani (Dynamic Type) + HUD-szín.
+    /// Neon-szöveg: Rajdhani (Dynamic Type) + HUD-szín.
     func cpInk(_ color: Color, _ style: Font.TextStyle) -> some View {
-        self.font(CyberpunkTheme.font(style)).foregroundStyle(color)
+        self.font(NeonTheme.font(style)).foregroundStyle(color)
     }
 }
 
-/// Cyberpunk eloszlás-számok: jegyszínű számjegy + halvány darabszám (mono).
+/// Neon eloszlás-számok: jegyszínű számjegy + halvány darabszám (mono).
 private func cpDistCounts(_ distribution: [Int: Int]) -> some View {
     HStack(spacing: 12) {
         ForEach([5, 4, 3, 2, 1], id: \.self) { v in
             HStack(spacing: 3) {
                 Text("\(v)")
-                    .font(CyberpunkTheme.display(size: 15, weight: .bold, relativeTo: .caption))
-                    .foregroundStyle(CyberpunkTheme.gradeColor(for: v))
+                    .font(NeonTheme.display(size: 15, weight: .bold, relativeTo: .caption))
+                    .foregroundStyle(NeonTheme.gradeColor(for: v))
                 Text("×\(distribution[v] ?? 0)")
-                    .font(CyberpunkTheme.mono(size: 11, relativeTo: .caption2))
-                    .foregroundStyle(CyberpunkTheme.dim)
+                    .font(NeonTheme.mono(size: 11, relativeTo: .caption2))
+                    .foregroundStyle(NeonTheme.dim)
             }
         }
         Spacer(minLength: 0)
@@ -880,16 +880,16 @@ struct WrappedDistBar: View {
     var distribution: [Int: Int]
     var colors: [Int: Color]
     var body: some View {
-        if CyberpunkTheme.isActive {
+        if NeonTheme.isActive {
             cpBar
-        } else if MinecraftTheme.isActive {
-            mcBar
+        } else if VoxelTheme.isActive {
+            voxelBar
         } else {
             summitBar
         }
     }
 
-    /// Cyberpunk: ~30 kemény élű szegmens (mint a RAM-sáv) a jegyszínekkel,
+    /// Neon: ~30 kemény élű szegmens (mint a RAM-sáv) a jegyszínekkel,
     /// 2 pt-os résekkel, vékony halvány keretben. Minden előforduló jegy
     /// legalább egy szegmenst kap.
     private var cpCells: [Int] {
@@ -910,21 +910,21 @@ struct WrappedDistBar: View {
             HStack(spacing: gap) {
                 ForEach(Array(cells.enumerated()), id: \.offset) { _, v in
                     Rectangle()
-                        .fill(v == 0 ? CyberpunkTheme.dim.opacity(0.18) : (colors[v] ?? CyberpunkTheme.dim))
+                        .fill(v == 0 ? NeonTheme.dim.opacity(0.18) : (colors[v] ?? NeonTheme.dim))
                         .frame(width: w)
                 }
             }
         }
         .frame(height: 10)
         .padding(3)
-        .overlay(Rectangle().strokeBorder(CyberpunkTheme.dim.opacity(0.4), lineWidth: 1))
+        .overlay(Rectangle().strokeBorder(NeonTheme.dim.opacity(0.4), lineWidth: 1))
         .accessibilityHidden(true)
     }
 
-    /// Minecraft: fekete keretes sáv, a jegyszínű szakaszok kemény élű
+    /// Voxel: fekete keretes sáv, a jegyszínű szakaszok kemény élű
     /// blokkok 1 px-es világos felső éllel, köztük 1 px-es fekete osztás.
-    private var mcBar: some View {
-        let u = MinecraftTheme.px
+    private var voxelBar: some View {
+        let u = VoxelTheme.px
         return GeometryReader { geo in
             let total = max(1, distribution.values.reduce(0, +))
             let live = [5, 4, 3, 2, 1].filter { (distribution[$0] ?? 0) > 0 }
@@ -1175,59 +1175,59 @@ struct WrappedPeakPage: View {
     }
 
     var body: some View {
-        if CyberpunkTheme.isActive {
+        if NeonTheme.isActive {
             cpBody
-        } else if MinecraftTheme.isActive {
-            mcBody
+        } else if VoxelTheme.isActive {
+            voxelBody
         } else {
             summitBody
         }
     }
 
-    /// Cyberpunk: HUD-háttér, tömör levágott sarkú panelek, sárga hős-átlag.
+    /// Neon: HUD-háttér, tömör levágott sarkú panelek, sárga hős-átlag.
     /// Fotó és üveg nélkül, így a megosztott kép (ImageRenderer) ugyanaz,
     /// mint a képernyő — a render-példánynak nincs külön ága.
     private var cpBody: some View {
         ZStack {
-            CPBackdrop()
+            NeonBackdrop()
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
                     Text(personTitle.uppercased())
-                        .font(CyberpunkTheme.font(.footnote, weight: .bold))
+                        .font(NeonTheme.font(.footnote, weight: .bold))
                         .tracking(1.5)
-                        .foregroundStyle(CyberpunkTheme.yellow)
+                        .foregroundStyle(NeonTheme.yellow)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                     Spacer(minLength: 8)
-                    CPLabel("SUMMIT.NET", bracketed: false)
+                    NeonLabel("SUMMIT.NET", bracketed: false)
                 }
                 .padding(.top, 8)
-                CPDivider(color: CyberpunkTheme.yellow)
+                NeonDivider(color: NeonTheme.yellow)
                     .padding(.top, 6)
                 Spacer(minLength: 8)
                 VStack(alignment: .leading, spacing: 8) {
-                    CPLabel("\(stats.count) jegy • \(stats.exams) dolgozat", color: CyberpunkTheme.dim, size: 11)
+                    NeonLabel("\(stats.count) jegy • \(stats.exams) dolgozat", color: NeonTheme.dim, size: 11)
                     Text(String(format: "%.1f", stats.avg))
-                        .font(CyberpunkTheme.display(size: 88, weight: .bold, relativeTo: .largeTitle))
+                        .font(NeonTheme.display(size: 88, weight: .bold, relativeTo: .largeTitle))
                         .monospacedDigit()
-                        .foregroundStyle(CyberpunkTheme.yellow)
+                        .foregroundStyle(NeonTheme.yellow)
                         .cpChromatic(1.2)
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
-                    CPProgressBar(value: stats.avg / 5, tint: CyberpunkTheme.yellow, segments: 25, height: 8)
+                    NeonProgressBar(value: stats.avg / 5, tint: NeonTheme.yellow, segments: 25, height: 8)
                     if let best = stats.bestSubject {
                         Text("Legjobb: \(best.name) • \(String(format: "%.1f", best.avg))")
-                            .cpInk(CyberpunkTheme.text, .subheadline)
+                            .cpInk(NeonTheme.text, .subheadline)
                             .lineLimit(2)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .cpPanel(accent: CyberpunkTheme.yellow, cut: 18, padding: 18)
+                .cpPanel(accent: NeonTheme.yellow, cut: 18, padding: 18)
                 Spacer(minLength: 10)
                 HStack(spacing: 10) {
-                    cpMini(code: "01", value: "\(stats.fives)", valueColor: CyberpunkTheme.gradeColor(for: 5), label: "ötös", sub: "\(stats.count) jegyből")
-                    cpMini(code: "02", value: "\(stats.absences)", valueColor: stats.unjustified == 0 ? CyberpunkTheme.text : CyberpunkTheme.red, label: "hiányzás", sub: absenceSub)
-                    cpMini(code: "03", value: "\(stats.lateCount)", valueColor: stats.lateCount == 0 ? CyberpunkTheme.text : CyberpunkTheme.orange, label: lateLabel)
+                    cpMini(code: "01", value: "\(stats.fives)", valueColor: NeonTheme.gradeColor(for: 5), label: "ötös", sub: "\(stats.count) jegyből")
+                    cpMini(code: "02", value: "\(stats.absences)", valueColor: stats.unjustified == 0 ? NeonTheme.text : NeonTheme.red, label: "hiányzás", sub: absenceSub)
+                    cpMini(code: "03", value: "\(stats.lateCount)", valueColor: stats.lateCount == 0 ? NeonTheme.text : NeonTheme.orange, label: lateLabel)
                 }
                 VStack(alignment: .leading, spacing: 10) {
                     WrappedDistBar(distribution: stats.distribution, colors: distColors)
@@ -1237,7 +1237,7 @@ struct WrappedPeakPage: View {
                 .cpPanel(padding: 14)
                 .padding(.top, 10)
                 Spacer(minLength: 10)
-                CPLabel("SUMMIT", size: 11)
+                NeonLabel("SUMMIT", size: 11)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.bottom, 4)
             }
@@ -1249,16 +1249,16 @@ struct WrappedPeakPage: View {
 
     private func cpMini(code: String, value: String, valueColor: Color, label: String, sub: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            CPLabel(code, size: 9)
+            NeonLabel(code, size: 9)
             Text(value)
-                .font(CyberpunkTheme.display(size: 28, weight: .bold, relativeTo: .title2))
+                .font(NeonTheme.display(size: 28, weight: .bold, relativeTo: .title2))
                 .monospacedDigit()
                 .foregroundStyle(valueColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-            Text(label.uppercased()).cpInk(CyberpunkTheme.text, .caption).lineLimit(1).minimumScaleFactor(0.6)
+            Text(label.uppercased()).cpInk(NeonTheme.text, .caption).lineLimit(1).minimumScaleFactor(0.6)
             Text(sub ?? " ")
-                .cpInk(CyberpunkTheme.dim, .caption2)
+                .cpInk(NeonTheme.dim, .caption2)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .opacity(sub == nil ? 0 : 1)
@@ -1267,55 +1267,55 @@ struct WrappedPeakPage: View {
         .cpPanel(cut: 10, padding: 12)
     }
 
-    /// Minecraft: menü-háttér, pala-panelek, advancement-keretes ikonok —
+    /// Voxel: menü-háttér, pala-panelek, advancement-keretes ikonok —
     /// fotó és üveg nélkül (a megosztott képen is ugyanez, ezért a render-
     /// példánynak sincs külön ága: a panelek eleve tömörek).
-    private var mcBody: some View {
+    private var voxelBody: some View {
         ZStack {
-            McMenuBackground()
+            VoxelMenuBackground()
             VStack(alignment: .leading, spacing: 0) {
                 Text(personTitle.uppercased())
-                    .mcInk(0xFFFF00, .footnote)
+                    .voxelInk(0xFFFF00, .footnote)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .padding(.top, 8)
                 Spacer(minLength: 8)
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 10) {
-                        McSprite(name: "mc_item_nether_star", size: 16 * MinecraftTheme.px)
+                        VoxelSprite(name: "img_blk_item_nether_star", size: 16 * VoxelTheme.px)
                         Text("\(stats.count) jegy • \(stats.exams) dolgozat")
-                            .mcInk(0xAAAAAA, .subheadline)
+                            .voxelInk(0xAAAAAA, .subheadline)
                             .lineLimit(2)
                         Spacer(minLength: 0)
                     }
                     Text(String(format: "%.1f", stats.avg))
-                        .mcDisplay(84)
+                        .voxelDisplay(84)
                         .foregroundStyle(Color(hex: 0x80FF20))
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
-                    McProgressBar(value: stats.avg / 5)
+                    VoxelProgressBar(value: stats.avg / 5)
                     if let best = stats.bestSubject {
                         Text("Legjobb: \(best.name) • \(String(format: "%.1f", best.avg))")
-                            .mcInk(0xFFFFFF, .subheadline)
+                            .voxelInk(0xFFFFFF, .subheadline)
                             .lineLimit(2)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(18)
-                .background(McNineSlice("mc_toast_advancement", top: 2, left: 2, bottom: 0, right: 2))
+                .background(VoxelNineSlice("img_blk_toast_advancement", top: 2, left: 2, bottom: 0, right: 2))
                 Spacer(minLength: 10)
                 HStack(spacing: 10) {
-                    mcMini(item: "mc_item_nether_star", value: "\(stats.fives)", label: "ötös", sub: "\(stats.count) jegyből")
-                    mcMini(item: "mc_item_clock", value: "\(stats.absences)", label: "hiányzás", sub: absenceSub)
-                    mcMini(item: "mc_item_bell", value: "\(stats.lateCount)", label: lateLabel)
+                    voxelMini(item: "img_blk_item_nether_star", value: "\(stats.fives)", label: "ötös", sub: "\(stats.count) jegyből")
+                    voxelMini(item: "img_blk_item_clock", value: "\(stats.absences)", label: "hiányzás", sub: absenceSub)
+                    voxelMini(item: "img_blk_item_bell", value: "\(stats.lateCount)", label: lateLabel)
                 }
                 VStack(alignment: .leading, spacing: 10) {
                     WrappedDistBar(distribution: stats.distribution, colors: distColors)
                     HStack(spacing: 10) {
                         ForEach([5, 4, 3, 2, 1], id: \.self) { v in
                             HStack(spacing: 3) {
-                                Text("\(v)").mcInk(0xFFFFFF, .caption)
-                                Text("×\(stats.distribution[v] ?? 0)").mcInk(0xAAAAAA, .caption2)
+                                Text("\(v)").voxelInk(0xFFFFFF, .caption)
+                                Text("×\(stats.distribution[v] ?? 0)").voxelInk(0xAAAAAA, .caption2)
                             }
                         }
                         Spacer()
@@ -1323,11 +1323,11 @@ struct WrappedPeakPage: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(14)
-                .background(McWrappedPanel())
+                .background(VoxelWrappedPanel())
                 .padding(.top, 10)
                 Spacer(minLength: 10)
                 Text("SUMMIT")
-                    .mcInk(0x7E7E7E, .caption)
+                    .voxelInk(0x7E7E7E, .caption)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.bottom, 4)
             }
@@ -1337,24 +1337,24 @@ struct WrappedPeakPage: View {
         }
     }
 
-    private func mcMini(item: String, value: String, label: String, sub: String? = nil) -> some View {
+    private func voxelMini(item: String, value: String, label: String, sub: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            McSprite(name: item, size: 24)
+            VoxelSprite(name: item, size: 24)
             Text(value)
-                .mcDisplay(26)
+                .voxelDisplay(26)
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-            Text(label).mcInk(0xFFFFFF, .caption).lineLimit(1).minimumScaleFactor(0.6)
+            Text(label).voxelInk(0xFFFFFF, .caption).lineLimit(1).minimumScaleFactor(0.6)
             Text(sub ?? " ")
-                .mcInk(0xAAAAAA, .caption2)
+                .voxelInk(0xAAAAAA, .caption2)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .opacity(sub == nil ? 0 : 1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(McWrappedPanel())
+        .background(VoxelWrappedPanel())
     }
 
     private var summitBody: some View {
@@ -1426,7 +1426,7 @@ struct WrappedPeakPage: View {
     private var heroTile: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(String(format: "%.1f", stats.avg))
-                .mcDisplay(84)
+                .voxelDisplay(84)
                 .foregroundStyle(.white)
                 .monospacedDigit()
                 .lineLimit(1)
@@ -1473,7 +1473,7 @@ struct WrappedPeakPage: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.85))
             Text(value)
-                .mcDisplay(26)
+                .voxelDisplay(26)
                 .foregroundStyle(.white)
                 .monospacedDigit()
                 .lineLimit(1)
@@ -1539,15 +1539,15 @@ struct WrappedSharePicker: View {
             VStack {
                 HStack {
                     Spacer()
-                    if CyberpunkTheme.isActive {
+                    if NeonTheme.isActive {
                         Button { dismiss() } label: {
                             Image(systemName: "xmark").font(.system(size: 14, weight: .bold))
                         }
-                        .buttonStyle(CPButtonStyle(kind: .secondary, compact: true))
+                        .buttonStyle(NeonButtonStyle(kind: .secondary, compact: true))
                         .accessibilityLabel("Bezárás")
-                    } else if MinecraftTheme.isActive {
+                    } else if VoxelTheme.isActive {
                         Button { dismiss() } label: { SkinIcon("xmark", size: 24) }
-                            .buttonStyle(McButtonStyle(compact: true))
+                            .buttonStyle(VoxelButtonStyle(compact: true))
                             .accessibilityLabel("Bezárás")
                     } else {
                     Button { dismiss() } label: {
@@ -1564,17 +1564,17 @@ struct WrappedSharePicker: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 10)
                 Spacer()
-                if CyberpunkTheme.isActive {
+                if NeonTheme.isActive {
                     Button {
                         SummitHaptics.selection()
                         Task { await renderAndShare() }
                     } label: {
                         Label("Megosztás", systemImage: "square.and.arrow.up")
                     }
-                    .buttonStyle(CPButtonStyle(kind: .primary, fullWidth: true))
+                    .buttonStyle(NeonButtonStyle(kind: .primary, fullWidth: true))
                     .padding(.horizontal, 20)
                     .padding(.bottom, 20)
-                } else if MinecraftTheme.isActive {
+                } else if VoxelTheme.isActive {
                     Button {
                         SummitHaptics.selection()
                         Task { await renderAndShare() }
@@ -1582,7 +1582,7 @@ struct WrappedSharePicker: View {
                         SkinLabel("Megosztás", systemImage: "square.and.arrow.up")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(McButtonStyle(prominent: true))
+                    .buttonStyle(VoxelButtonStyle(prominent: true))
                     .padding(.horizontal, 20)
                     .padding(.bottom, 20)
                 } else {
@@ -1629,11 +1629,11 @@ struct WrappedSharePicker: View {
 }
 
 private extension View {
-    /// Minecraftban az égbolt-háttér a lista mögött (mint a többi
+    /// Voxelben az égbolt-háttér a lista mögött (mint a többi
     /// lista-képernyőn); Summitban semmi nem változik.
     @ViewBuilder
-    func mcArchiveChrome(colors: AppColors) -> some View {
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+    func voxelArchiveChrome(colors: AppColors) -> some View {
+        if VoxelTheme.isActive || NeonTheme.isActive {
             self.summitListChrome(colors: colors)
         } else {
             self
@@ -1687,7 +1687,7 @@ struct MonthlyArchiveView: View {
             if grades.isEmpty {
                 Text("Még nincs jegy — az első hónap után itt lesz a Wrapped.")
                     .skinFont(.subheadline).foregroundStyle(.secondary)
-                    .mcListRow(fill: colors.surface)
+                    .voxelListRow(fill: colors.surface)
             } else {
                 ForEach(MonthlyWrapped.months(grades: grades), id: \.id) { m in
                     let st = MonthlyWrapped.stats(grades: grades, month: m, exams: exams, absences: absences)
@@ -1697,7 +1697,7 @@ struct MonthlyArchiveView: View {
                     } label: {
                         HStack(spacing: 12) {
                             Text(String(format: "%.1f", st.avg))
-                                .mcDisplay(20)
+                                .voxelDisplay(20)
                                 .foregroundStyle(colors.gradeColor(for: Int(st.avg.rounded())))
                                 .monospacedDigit()
                                 .frame(width: 52)
@@ -1715,11 +1715,11 @@ struct MonthlyArchiveView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.skinPlain)
-                    .mcListRow(fill: colors.surface)
+                    .voxelListRow(fill: colors.surface)
                 }
             }
         }
-        .mcArchiveChrome(colors: colors)
+        .voxelArchiveChrome(colors: colors)
         .navigationTitle("Havi összefoglalók")
         .navigationBarTitleDisplayMode(.inline)
         .summitToolbarBackground()

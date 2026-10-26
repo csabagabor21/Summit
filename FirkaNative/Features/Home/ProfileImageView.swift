@@ -18,35 +18,35 @@ struct ProfileImageView: View {
                         .resizable().scaledToFill()
                         .frame(width: size, height: size)
                         .skinClip(Circle())
-                        // Minecraftban a fej keretezett, négyzetes (mint az inventory-slot).
-                        // Cyberpunkban levágott sarkú, sárga 1 px-es neon kerettel.
+                        // Voxelben a fej keretezett, négyzetes (mint az inventory-slot).
+                        // Neonban levágott sarkú, sárga 1 px-es neon kerettel.
                         .overlay {
-                            if MinecraftTheme.isActive {
-                                McSlotFrame()
-                            } else if CyberpunkTheme.isActive {
-                                CPChamferShape(cut: 8).strokeBorder(CyberpunkTheme.yellow, lineWidth: 1)
+                            if VoxelTheme.isActive {
+                                VoxelSlotFrame()
+                            } else if NeonTheme.isActive {
+                                NeonChamferShape(cut: 8).strokeBorder(NeonTheme.yellow, lineWidth: 1)
                             }
                         }
-                } else if CyberpunkTheme.isActive {
-                    // Cyberpunk: majdnem fekete HUD-lap, sárga monogram és keret
+                } else if NeonTheme.isActive {
+                    // Neon: majdnem fekete HUD-lap, sárga monogram és keret
                     // (a sárga kitöltés fehér betűvel olvashatatlan lenne).
                     Text(initials)
-                        .font(CyberpunkTheme.display(size: (size * 0.46).rounded(), weight: .bold, relativeTo: .caption))
+                        .font(NeonTheme.display(size: (size * 0.46).rounded(), weight: .bold, relativeTo: .caption))
                         .tracking(0.5)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
-                        .foregroundStyle(CyberpunkTheme.yellow)
+                        .foregroundStyle(NeonTheme.yellow)
                         .frame(width: size, height: size)
-                        .background(CPChamferShape(cut: 8).fill(CyberpunkTheme.panel))
-                        .overlay(CPChamferShape(cut: 8).strokeBorder(CyberpunkTheme.yellow, lineWidth: 1))
-                } else if MinecraftTheme.isActive {
-                    // Minecraft: akcent-színű pixel-blokk, Monocraft monogrammal.
+                        .background(NeonChamferShape(cut: 8).fill(NeonTheme.panel))
+                        .overlay(NeonChamferShape(cut: 8).strokeBorder(NeonTheme.yellow, lineWidth: 1))
+                } else if VoxelTheme.isActive {
+                    // Voxel: akcent-színű pixel-blokk, Monocraft monogrammal.
                     Text(initials)
-                        .font(MinecraftFontLoader.font(size: (size * 0.38).rounded()))
+                        .font(VoxelFontLoader.font(size: (size * 0.38).rounded()))
                         .foregroundStyle(.white)
-                        .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: MinecraftTheme.px / 1.5, y: MinecraftTheme.px / 1.5)
+                        .shadow(color: Color(hex: 0x3F3F3F), radius: 0, x: VoxelTheme.px / 1.5, y: VoxelTheme.px / 1.5)
                         .frame(width: size, height: size)
-                        .background(McBlockPanel(face: colors.accent, castsShadow: false))
+                        .background(VoxelBlockPanel(face: colors.accent, castsShadow: false))
                 } else {
                     Circle()
                         .fill(colors.accent)
@@ -59,14 +59,14 @@ struct ProfileImageView: View {
                 }
             }
             if badge {
-                if CyberpunkTheme.isActive {
+                if NeonTheme.isActive {
                     // HUD-jelvény: levágott sarkú vörös négyzet, sötét kerettel.
-                    CPChamferShape(cut: 3).fill(CyberpunkTheme.red).frame(width: 10, height: 10)
-                        .overlay(CPChamferShape(cut: 3).strokeBorder(CyberpunkTheme.bg, lineWidth: 1.5))
+                    NeonChamferShape(cut: 3).fill(NeonTheme.red).frame(width: 10, height: 10)
+                        .overlay(NeonChamferShape(cut: 3).strokeBorder(NeonTheme.bg, lineWidth: 1.5))
                         .offset(x: 2, y: -2)
-                } else if MinecraftTheme.isActive {
+                } else if VoxelTheme.isActive {
                     Rectangle().fill(Color.red).frame(width: 10, height: 10)
-                        .overlay(Rectangle().strokeBorder(.white, lineWidth: MinecraftTheme.px / 2))
+                        .overlay(Rectangle().strokeBorder(.white, lineWidth: VoxelTheme.px / 2))
                         .offset(x: 2, y: -2)
                 } else {
                     Circle().fill(Color.red).frame(width: 10, height: 10)

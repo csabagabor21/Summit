@@ -40,25 +40,25 @@ struct CheatSheetView: View {
                 List {
                     if let ex = exams.first(where: { $0.id == s.examId }) {
                         Section {
-                            if theme.isCyberpunk {
-                                CPLabel("Kapcsolt dolgozat", color: CyberpunkTheme.coral)
+                            if theme.isNeon {
+                                NeonLabel("Kapcsolt dolgozat", color: NeonTheme.coral)
                             }
                             SkinLabel("\(ex.subject) • \(ex.mode)", systemImage: "doc.text")
                                 .skinFont(.subheadline, weight: .semibold)
-                                .skinAccent(theme.isCyberpunk ? CyberpunkTheme.coral : colors.accent)
+                                .skinAccent(theme.isNeon ? NeonTheme.coral : colors.accent)
                             if !ex.plainDescription.isEmpty {
                                 Text(ex.plainDescription)
                                     .skinFont(.caption).foregroundStyle(.secondary)
                             }
                         }
-                        .mcListRowComfy(fill: colors.surface)
+                        .voxelListRowComfy(fill: colors.surface)
                     }
                     Section {
                         ForEach(s.materials) { m in
                             SkinNavLink {
                                 MaterialTextView(material: m)
                             } label: {
-                                if theme.isCyberpunk {
+                                if theme.isNeon {
                                     cpgMaterialLabel(m)
                                 } else {
                                     SkinLabel("\(m.name) • \(m.isImage ? "kép" : "\(m.text.count) kar.\(m.isPDF ? " + teljes pdf" : "")")", systemImage: m.isImage ? "photo.fill" : "doc.fill")
@@ -78,31 +78,31 @@ struct CheatSheetView: View {
                             SkinLabel("Anyag feltöltése", systemImage: "square.and.arrow.down")
                                 .skinAccent(colors.accent)
                         }
-                        .mcInlineButton()
+                        .voxelInlineButton()
                         if let err = importError {
-                            Text(theme.isCyberpunk ? "ERR // \(err)" : err).cpgMono(.caption, size: 11)
-                                .foregroundStyle(theme.isCyberpunk ? CyberpunkTheme.red : Color.red)
+                            Text(theme.isNeon ? "ERR // \(err)" : err).cpgMono(.caption, size: 11)
+                                .foregroundStyle(theme.isNeon ? NeonTheme.red : Color.red)
                         }
                     } header: {
-                        if theme.isCyberpunk {
-                            CPSectionHeader("Feltöltött anyagok", code: "\(s.materials.count) db", accent: CyberpunkTheme.cyan)
+                        if theme.isNeon {
+                            NeonSectionHeader("Feltöltött anyagok", code: "\(s.materials.count) db", accent: NeonTheme.cyan)
                         } else {
                             Text("Feltöltött anyagok • \(s.materials.count) db")
                         }
                     }
-                    .mcListRowComfy(fill: colors.surface)
+                    .voxelListRowComfy(fill: colors.surface)
                     Section {
                         Button {
                             Task { await generate() }
                         } label: {
                             HStack {
                                 if generating { SkinProgress().scaleEffect(0.8) }
-                                SkinLabel(generating ? (theme.isCyberpunk ? "Feldolgozás…" : "Készül…") : "Jegyzet készítése AI-jal",
+                                SkinLabel(generating ? (theme.isNeon ? "Feldolgozás…" : "Készül…") : "Jegyzet készítése AI-jal",
                                       systemImage: "sparkles")
                                     .skinAccent(colors.accent)
                             }
                         }
-                        .mcInlineButton(prominent: theme.isCyberpunk)
+                        .voxelInlineButton(prominent: theme.isNeon)
                         .disabled(generating || s.materials.isEmpty)
                         if !MetaAIKeyStore.hasKey {
                             Text("Saját kulcs nélkül a közös, ingyenes Gemini készíti (gyenge!) — saját Meta AI-kulccsal jobb. Kulcs a Watch-tab tetején adható meg.")
@@ -112,22 +112,22 @@ struct CheatSheetView: View {
                                 .skinFont(.caption).foregroundStyle(.secondary)
                         }
                         if let err = genError {
-                            Text(theme.isCyberpunk ? "ERR // \(err)" : err).cpgMono(.caption, size: 11)
-                                .foregroundStyle(theme.isCyberpunk ? CyberpunkTheme.red : Color.red)
+                            Text(theme.isNeon ? "ERR // \(err)" : err).cpgMono(.caption, size: 11)
+                                .foregroundStyle(theme.isNeon ? NeonTheme.red : Color.red)
                         }
                         Button { showingAddTopic = true } label: {
                             SkinLabel("Téma kézi felvétele", systemImage: "plus")
                                 .skinAccent(colors.accent)
                         }
-                        .mcInlineButton()
+                        .voxelInlineButton()
                     } header: {
-                        if theme.isCyberpunk {
-                            CPSectionHeader("Témák", code: "\(s.topics.count) db", accent: CyberpunkTheme.yellow)
+                        if theme.isNeon {
+                            NeonSectionHeader("Témák", code: "\(s.topics.count) db", accent: NeonTheme.yellow)
                         } else {
                             Text("Témák • \(s.topics.count) db")
                         }
                     }
-                    .mcListRowComfy(fill: colors.surface)
+                    .voxelListRowComfy(fill: colors.surface)
                     if !s.topics.isEmpty {
                         Section {
                             ForEach(s.topics) { t in
@@ -135,8 +135,8 @@ struct CheatSheetView: View {
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(t.title)
                                             .skinFont(.subheadline, weight: .semibold)
-                                            .foregroundStyle(theme.isCyberpunk ? AnyShapeStyle(CyberpunkTheme.yellow) : AnyShapeStyle(.primary))
-                                            .textCase(theme.isCyberpunk ? .uppercase : nil)
+                                            .foregroundStyle(theme.isNeon ? AnyShapeStyle(NeonTheme.yellow) : AnyShapeStyle(.primary))
+                                            .textCase(theme.isNeon ? .uppercase : nil)
                                             .frame(maxWidth: .infinity, alignment: .leading)
                                         if t.body.isEmpty {
                                             Text("(üres — koppints a szerkesztéshez)")
@@ -157,10 +157,10 @@ struct CheatSheetView: View {
                                 persist(c)
                             }
                         }
-                        .mcListRowComfy(fill: colors.surface)
+                        .voxelListRowComfy(fill: colors.surface)
                     }
                 }
-                .mcListChrome()
+                .voxelListChrome()
                 .navigationTitle(s.title)
                 .navigationBarTitleDisplayMode(.large)
                 .fileImporter(isPresented: $importing,
@@ -322,17 +322,17 @@ private struct TopicEditView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Téma címe", text: $title, prompt: skinPrompt("Téma címe")).mcInput()
+                    TextField("Téma címe", text: $title, prompt: skinPrompt("Téma címe")).voxelInput()
                 } header: {
                     cpgSectionHeader("Cím", code: "01")
                 }
-                .mcListRowComfy(fill: colors.surface)
+                .voxelListRowComfy(fill: colors.surface)
                 Section {
                     topicEditor
                 } header: {
                     cpgSectionHeader("Jegyzet", code: "02")
                 }
-                .mcListRowComfy(fill: colors.surface)
+                .voxelListRowComfy(fill: colors.surface)
             }
             .skinFormChrome()
             .navigationTitle("Téma szerkesztése")
@@ -354,10 +354,10 @@ private struct TopicEditView: View {
 }
 
 extension TopicEditView {
-    /// Jegyzet-szerkesztő: Minecraftban a játék szövegmező-kerete.
+    /// Jegyzet-szerkesztő: Voxelben a játék szövegmező-kerete.
     @ViewBuilder
     fileprivate var topicEditor: some View {
-        if MinecraftTheme.isActive || CyberpunkTheme.isActive {
+        if VoxelTheme.isActive || NeonTheme.isActive {
             TextEditor(text: $noteBody)
                 .scrollContentBackground(.hidden)
                 .frame(minHeight: 220)
@@ -389,12 +389,12 @@ private struct MaterialTextView: View {
                     .skinFont(.callout)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    .mcMaterialPanel()
+                    .voxelMaterialPanel()
             }
         }
         .background {
-            if theme.isMinecraft { MinecraftBackdrop(ground: false) }
-            else if theme.isCyberpunk { CPBackdrop() }
+            if theme.isVoxel { VoxelBackdrop(ground: false) }
+            else if theme.isNeon { NeonBackdrop() }
         }
         .navigationTitle(material.name)
         .navigationBarTitleDisplayMode(.inline)
@@ -402,67 +402,67 @@ private struct MaterialTextView: View {
 }
 
 private extension View {
-    /// Minecraftban az olvasott szöveg pixel-panelen ül (a háttér égbolt);
+    /// Voxelben az olvasott szöveg pixel-panelen ül (a háttér égbolt);
     /// Summitban semmi.
     @ViewBuilder
-    func mcMaterialPanel() -> some View {
-        if MinecraftTheme.isActive { self.minecraftCard().padding(.horizontal, 16) }
-        else if CyberpunkTheme.isActive { self.cpPanel(accent: CyberpunkTheme.cyan, padding: nil).padding(.horizontal, 16) }
+    func voxelMaterialPanel() -> some View {
+        if VoxelTheme.isActive { self.voxelCard().padding(.horizontal, 16) }
+        else if NeonTheme.isActive { self.cpPanel(accent: NeonTheme.cyan, padding: nil).padding(.horizontal, 16) }
         else { self }
     }
 
     @ViewBuilder
     func cpgMono(_ style: Font.TextStyle, size: CGFloat) -> some View {
-        if CyberpunkTheme.isActive {
-            self.font(CyberpunkTheme.mono(size: size, relativeTo: style)).tracking(0.6)
+        if NeonTheme.isActive {
+            self.font(NeonTheme.mono(size: size, relativeTo: style)).tracking(0.6)
         } else {
             self.skinFont(style)
         }
     }
 
-    /// Kép-anyag Cyberpunkban: vékony cián, levágott sarkú keret + sarok-
+    /// Kép-anyag Neonban: vékony cián, levágott sarkú keret + sarok-
     /// konzolok, mint a játék scanner-nézetében. Máshol semmi.
     @ViewBuilder
     func cpgImageFrame() -> some View {
-        if CyberpunkTheme.isActive {
+        if NeonTheme.isActive {
             self.padding(6)
-                .overlay(CPChamferShape(cut: 10, corners: [.topLeft, .bottomRight])
-                    .strokeBorder(CyberpunkTheme.cyan.opacity(0.6), lineWidth: 1))
-                .overlay(alignment: .topTrailing) { CPLabel("SCAN", color: CyberpunkTheme.cyan).padding(8) }
+                .overlay(NeonChamferShape(cut: 10, corners: [.topLeft, .bottomRight])
+                    .strokeBorder(NeonTheme.cyan.opacity(0.6), lineWidth: 1))
+                .overlay(alignment: .topTrailing) { NeonLabel("SCAN", color: NeonTheme.cyan).padding(8) }
         } else {
             self
         }
     }
 }
 
-// MARK: - Cyberpunk-részletek
+// MARK: - Neon-részletek
 
-/// Form-szekció fejléce: Cyberpunkban `CPSectionHeader` kóddal, máshol a
+/// Form-szekció fejléce: Neonban `NeonSectionHeader` kóddal, máshol a
 /// korábbi `Section("…")` fejléc-szövege.
 @ViewBuilder
 private func cpgSectionHeader(_ title: String, code: String) -> some View {
-    if CyberpunkTheme.isActive {
-        CPSectionHeader(title, code: code)
+    if NeonTheme.isActive {
+        NeonSectionHeader(title, code: code)
     } else {
         Text(LocalizedStringKey(title))
     }
 }
 
-/// Feltöltött anyag sora Cyberpunkban: fájltípus-kód (`[PDF]`, `[IMG]`,
+/// Feltöltött anyag sora Neonban: fájltípus-kód (`[PDF]`, `[IMG]`,
 /// `[TXT]`), név, jobbra egyenközű méret — mint egy adat-shard listája.
 @ViewBuilder
 private func cpgMaterialLabel(_ m: CheatMaterial) -> some View {
     HStack(spacing: 8) {
-        CPLabel(m.isImage ? "IMG" : m.isPDF ? "PDF" : "TXT", color: CyberpunkTheme.cyan)
+        NeonLabel(m.isImage ? "IMG" : m.isPDF ? "PDF" : "TXT", color: NeonTheme.cyan)
         Text(m.name)
-            .font(CyberpunkTheme.font(.subheadline, weight: .semibold))
-            .foregroundStyle(CyberpunkTheme.text)
+            .font(NeonTheme.font(.subheadline, weight: .semibold))
+            .foregroundStyle(NeonTheme.text)
             .lineLimit(1)
         Spacer(minLength: 4)
         if !m.isImage {
             Text("\(m.text.count) CHR")
-                .font(CyberpunkTheme.mono(size: 10, relativeTo: .caption2))
-                .foregroundStyle(CyberpunkTheme.dim)
+                .font(NeonTheme.mono(size: 10, relativeTo: .caption2))
+                .foregroundStyle(NeonTheme.dim)
                 .lineLimit(1)
                 .fixedSize()
         }

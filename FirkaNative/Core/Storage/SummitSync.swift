@@ -981,8 +981,9 @@ final class SummitSync: ObservableObject {
         }
         // Felület-skin: `nil` = régi doc, a helyi marad. Ismeretlen
         // érték (jövőbeli skin) szintén nem ír felül.
-        if newer(.skin), let raw = p.skinRaw, let s = VisualSkin(rawValue: raw) {
-            theme.skin = s
+        if newer(.skin), let raw = p.skinRaw,
+           ["summit", "voxel", "neon", "minecraft", "cyberpunk"].contains(raw) {
+            theme.skin = VisualSkin.fromStored(raw)
             applied.append(.skin)
         }
         if newer(.photo), !p.photoDecodeFailed {

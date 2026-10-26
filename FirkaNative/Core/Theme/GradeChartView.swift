@@ -82,14 +82,14 @@ struct GradeChartView: View {
     @Environment(\.colorScheme) var scheme
 
     var body: some View {
-        // Minecraft: mindkét mód ugyanaz a pixel-rácsra rajzolt grafikon
+        // Voxel: mindkét mód ugyanaz a pixel-rácsra rajzolt grafikon
         // (a Charts-tengelyfeliratok nem kaphatnak pixelbetűt).
-        // Cyberpunk: mindkét mód ugyanaz a HUD-grafikon (szögletes
+        // Neon: mindkét mód ugyanaz a HUD-grafikon (szögletes
         // sárga vonal, jegy-színű rombusz-pontok, célkereszt az utolsón).
-        if CyberpunkTheme.isActive {
+        if NeonTheme.isActive {
             cpBody
-        } else if MinecraftTheme.isActive {
-            mcBody
+        } else if VoxelTheme.isActive {
+            voxelBody
         } else
         // Jegyek fő képernyő: monthly+editorial → régi jól bevált Charts, nem nyúlunk hozzá
         if monthly && editorial {
@@ -212,36 +212,36 @@ struct GradeChartView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
-    // MARK: Minecraft — pixel-grafikon
+    // MARK: Voxel — pixel-grafikon
 
     /// A grafikon adatai 0…1-re normálva (x: dátum a `xDomain`-ban, y: jegy
     /// a MC-skála szerint), hogy a rajzoló nézet ne ismerjen modellt.
     @ViewBuilder
-    private var mcBody: some View {
+    private var voxelBody: some View {
         if displayGrades.count < 2 {
             SkinEmptyState(title: "Nincs elég adat", systemImage: "chart.line.flattrend.xyaxis", description: Text("Adj hozzá jegyet"))
                 .frame(height: height)
         } else {
-            mcChart
+            voxelChart
         }
     }
 
-    private var mcChart: some View {
+    private var voxelChart: some View {
         let dom = xDomain
         let span = max(1, dom.upperBound.timeIntervalSince(dom.lowerBound))
         func nx(_ d: Date) -> Double { min(1, max(0, d.timeIntervalSince(dom.lowerBound) / span)) }
-        let dots: [McPixelChart.Dot] = displayGrades.count <= 12
-            ? displayGrades.map { McPixelChart.Dot(x: nx($0.date), value: Double($0.value), heavy: $0.weight >= 200, phantom: $0.id.hasPrefix("phantom")) }
+        let dots: [VoxelPixelChart.Dot] = displayGrades.count <= 12
+            ? displayGrades.map { VoxelPixelChart.Dot(x: nx($0.date), value: Double($0.value), heavy: $0.weight >= 200, phantom: $0.id.hasPrefix("phantom")) }
             : []
-        return McPixelChart(
-            line: displayPoints.map { McPixelChart.Point(x: nx($0.date), value: $0.avg) },
+        return VoxelPixelChart(
+            line: displayPoints.map { VoxelPixelChart.Point(x: nx($0.date), value: $0.avg) },
             dots: dots,
-            ticks: xTickDates.map { McPixelChart.Tick(x: nx($0), label: xTickLabel(for: $0)) },
+            ticks: xTickDates.map { VoxelPixelChart.Tick(x: nx($0), label: xTickLabel(for: $0)) },
             height: height
         )
     }
 
-    // MARK: Cyberpunk — HUD-grafikon
+    // MARK: Neon — HUD-grafikon
 
     @ViewBuilder
     private var cpBody: some View {
@@ -257,13 +257,13 @@ struct GradeChartView: View {
         let dom = xDomain
         let span = max(1, dom.upperBound.timeIntervalSince(dom.lowerBound))
         func nx(_ d: Date) -> Double { min(1, max(0, d.timeIntervalSince(dom.lowerBound) / span)) }
-        let dots: [CPHudChart.Dot] = displayGrades.count <= 12
-            ? displayGrades.map { CPHudChart.Dot(x: nx($0.date), value: $0.value, heavy: $0.weight >= 200, phantom: $0.id.hasPrefix("phantom")) }
+        let dots: [NeonHudChart.Dot] = displayGrades.count <= 12
+            ? displayGrades.map { NeonHudChart.Dot(x: nx($0.date), value: $0.value, heavy: $0.weight >= 200, phantom: $0.id.hasPrefix("phantom")) }
             : []
-        return CPHudChart(
-            line: displayPoints.map { CPHudChart.Point(x: nx($0.date), value: $0.avg) },
+        return NeonHudChart(
+            line: displayPoints.map { NeonHudChart.Point(x: nx($0.date), value: $0.avg) },
             dots: dots,
-            ticks: xTickDates.map { CPHudChart.Tick(x: nx($0), label: xTickLabel(for: $0).uppercased()) },
+            ticks: xTickDates.map { NeonHudChart.Tick(x: nx($0), label: xTickLabel(for: $0).uppercased()) },
             code: monthly ? "AVG.TREND // HAVI" : "AVG.TREND // FUTÓ",
             height: height
         )
@@ -423,13 +423,13 @@ extension GradeChartView {
 }
 
 
-// MARK: - Minecraft pixel-grafikon
+// MARK: - Voxel pixel-grafikon
 
 /// Pixel-rácsra (3 pt) rajzolt vonaldiagram sötét, inventory-szerű
 /// panelben: Bresenham-vonal 1 px vastagon, négyzet-pontok, szaggatott
 /// pixel-rácsvonalak, Monocraft tengelyfeliratok. Se görbe, se átmenet,
 /// se lágy árnyék — minden él a rácsra esik.
-private struct McPixelChart: View {
+private struct VoxelPixelChart: View {
     struct Point { var x: Double; var value: Double }
     struct Dot { var x: Double; var value: Double; var heavy: Bool; var phantom: Bool }
     struct Tick { var x: Double; var label: String }
@@ -443,7 +443,7 @@ private struct McPixelChart: View {
     /// pontok ne a keretre üljenek.
     private let yLo = 0.6
     private let yHi = 5.4
-    private let u = MinecraftTheme.px
+    private let u = VoxelTheme.px
     private let left: CGFloat = 27
     private let right: CGFloat = 12
     private let top: CGFloat = 12
@@ -459,14 +459,14 @@ private struct McPixelChart: View {
                 Canvas { ctx, _ in draw(&ctx, plot: plot) }
                 ForEach(1...5, id: \.self) { v in
                     Text("\(v)")
-                        .font(MinecraftFontLoader.font(size: 11))
+                        .font(VoxelFontLoader.font(size: 11))
                         .foregroundStyle(Color(hex: 0xE0E0E0))
                         .frame(width: left - u, alignment: .trailing)
                         .position(x: (left - u) / 2 + 3, y: snapY(Double(v), plot: plot))
                 }
                 ForEach(Array(ticks.enumerated()), id: \.offset) { _, t in
                     Text(t.label)
-                        .font(MinecraftFontLoader.font(size: 10))
+                        .font(VoxelFontLoader.font(size: 10))
                         .foregroundStyle(Color(hex: 0xA0A0A0))
                         .fixedSize()
                         .position(x: min(geo.size.width - 18, max(left + 18, plot.minX + plot.width * t.x)),
@@ -475,7 +475,7 @@ private struct McPixelChart: View {
             }
         }
         .frame(height: height)
-        .background(McBlockPanel(face: Color(hex: 0x1D1D21), outline: .black, highlight: .clear, shade: .clear, castsShadow: false))
+        .background(VoxelBlockPanel(face: Color(hex: 0x1D1D21), outline: .black, highlight: .clear, shade: .clear, castsShadow: false))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Átlag alakulása grafikon")
         .accessibilityValue(line.last.map { String(format: "utolsó érték %.2f", $0.value) } ?? "")
@@ -546,15 +546,15 @@ private struct McPixelChart: View {
 }
 
 
-// MARK: - Cyberpunk HUD-grafikon
+// MARK: - Neon HUD-grafikon
 
-/// CP2077-HUD vonaldiagram levágott sarkú panelben: szaggatott cián
+/// Neon-HUD vonaldiagram levágott sarkú panelben: szaggatott cián
 /// rácsvonalak, a jegy színére festett 1…5 tengelyfeliratok, szögletes
 /// (nem simított) sárga átlag-vonal halvány sárga területtel, a jegyek
 /// rombusz-pontként a saját színükben (fantom: üres körvonal), az utolsó
 /// ponton célkereszt-sarkok + érték. A rács egyetlen statikus Canvas; csak
 /// megjelenéskor fut egy rövid kirajzolódás (Reduce Motion mellett az sem).
-private struct CPHudChart: View {
+private struct NeonHudChart: View {
     struct Point { var x: Double; var value: Double }
     struct Dot { var x: Double; var value: Int; var heavy: Bool; var phantom: Bool }
     struct Tick { var x: Double; var label: String }
@@ -583,13 +583,13 @@ private struct CPHudChart: View {
             ZStack(alignment: .topLeading) {
                 Canvas { ctx, _ in drawGrid(&ctx, plot: plot) }
                 // Terület az átlag-vonal alatt (halvány sárga → semmi).
-                CPPolyArea(points: pts, baseline: plot.maxY)
-                    .fill(LinearGradient(colors: [CyberpunkTheme.yellow.opacity(0.16), CyberpunkTheme.yellow.opacity(0)],
+                NeonPolyArea(points: pts, baseline: plot.maxY)
+                    .fill(LinearGradient(colors: [NeonTheme.yellow.opacity(0.16), NeonTheme.yellow.opacity(0)],
                                          startPoint: .top, endPoint: .bottom))
                     .opacity(Double(progress))
-                CPPolyline(points: pts)
+                NeonPolyline(points: pts)
                     .trim(from: 0, to: progress)
-                    .stroke(CyberpunkTheme.yellow, style: StrokeStyle(lineWidth: 1.5, lineCap: .square, lineJoin: .miter))
+                    .stroke(NeonTheme.yellow, style: StrokeStyle(lineWidth: 1.5, lineCap: .square, lineJoin: .miter))
                 ForEach(Array(dots.enumerated()), id: \.offset) { _, d in
                     dotView(d).position(x: px(d.x, plot), y: py(Double(d.value), plot))
                 }
@@ -601,27 +601,27 @@ private struct CPHudChart: View {
                 // Tengelyfeliratok: 1…5 a jegy színében.
                 ForEach(1...5, id: \.self) { v in
                     Text("\(v)")
-                        .font(CyberpunkTheme.mono(size: 10, relativeTo: .caption2))
-                        .foregroundStyle(CyberpunkTheme.gradeColor(for: v).opacity(0.85))
+                        .font(NeonTheme.mono(size: 10, relativeTo: .caption2))
+                        .foregroundStyle(NeonTheme.gradeColor(for: v).opacity(0.85))
                         .frame(width: left - 8, alignment: .trailing)
                         .position(x: (left - 8) / 2 + 2, y: py(Double(v), plot))
                 }
                 ForEach(Array(ticks.enumerated()), id: \.offset) { _, t in
                     Text(t.label)
-                        .font(CyberpunkTheme.mono(size: 9, relativeTo: .caption2))
+                        .font(NeonTheme.mono(size: 9, relativeTo: .caption2))
                         .tracking(0.6)
-                        .foregroundStyle(CyberpunkTheme.dim)
+                        .foregroundStyle(NeonTheme.dim)
                         .fixedSize()
                         .position(x: min(geo.size.width - 20, max(left + 18, px(t.x, plot))), y: geo.size.height - 11)
                 }
-                CPLabel(code, color: CyberpunkTheme.dim, size: 9)
+                NeonLabel(code, color: NeonTheme.dim, size: 9)
                     .padding(.leading, 16)
                     .padding(.top, 8)
             }
             .dynamicTypeSize(...DynamicTypeSize.xLarge)
         }
         .frame(height: height)
-        .background(CPPanelBackground(accent: CyberpunkTheme.yellow, fill: CyberpunkTheme.panel, cut: 12))
+        .background(NeonPanelBackground(accent: NeonTheme.yellow, fill: NeonTheme.panel, cut: 12))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Átlag alakulása grafikon")
         .accessibilityValue(line.last.map { String(format: "utolsó érték %.2f", $0.value) } ?? "")
@@ -644,23 +644,23 @@ private struct CPHudChart: View {
         for v in 1...5 {
             let y = py(Double(v), plot).rounded() + 0.5
             var p = Path(); p.move(to: CGPoint(x: plot.minX, y: y)); p.addLine(to: CGPoint(x: plot.maxX, y: y))
-            ctx.stroke(p, with: .color(CyberpunkTheme.cyan.opacity(v == 3 ? 0.22 : 0.12)), style: StrokeStyle(lineWidth: 1, dash: [2, 4]))
+            ctx.stroke(p, with: .color(NeonTheme.cyan.opacity(v == 3 ? 0.22 : 0.12)), style: StrokeStyle(lineWidth: 1, dash: [2, 4]))
         }
         // Bal tengely: vékony vörös vonal, alul rövid fényes szakasszal.
         let x0 = plot.minX.rounded() - 3.5
         var axis = Path(); axis.move(to: CGPoint(x: x0, y: plot.minY - 4)); axis.addLine(to: CGPoint(x: x0, y: plot.maxY + 4))
-        ctx.stroke(axis, with: .color(CyberpunkTheme.red.opacity(0.35)), lineWidth: 1)
-        ctx.fill(Path(CGRect(x: x0 - 0.5, y: plot.maxY - 10, width: 2, height: 14)), with: .color(CyberpunkTheme.red))
+        ctx.stroke(axis, with: .color(NeonTheme.red.opacity(0.35)), lineWidth: 1)
+        ctx.fill(Path(CGRect(x: x0 - 0.5, y: plot.maxY - 10, width: 2, height: 14)), with: .color(NeonTheme.red))
     }
 
     /// Rombusz-pont a jegy színében; nehéz (≥200%) nagyobb, fantom üres.
     @ViewBuilder
     private func dotView(_ d: Dot) -> some View {
         let side: CGFloat = d.heavy ? 10 : 7
-        let color = CyberpunkTheme.gradeColor(for: d.value)
-        CPDiamond()
-            .fill(d.phantom ? CyberpunkTheme.panel : color)
-            .overlay(CPDiamond().stroke(d.phantom ? color : CyberpunkTheme.bg, lineWidth: d.phantom ? 1 : 1.5))
+        let color = NeonTheme.gradeColor(for: d.value)
+        NeonDiamond()
+            .fill(d.phantom ? NeonTheme.panel : color)
+            .overlay(NeonDiamond().stroke(d.phantom ? color : NeonTheme.bg, lineWidth: d.phantom ? 1 : 1.5))
             .frame(width: side, height: side)
     }
 
@@ -669,16 +669,16 @@ private struct CPHudChart: View {
         let r: CGFloat = 8
         let labelLeft = p.x > plot.midX
         return ZStack {
-            CPReticle(arm: 3.5)
-                .stroke(CyberpunkTheme.yellow, lineWidth: 1)
+            NeonReticle(arm: 3.5)
+                .stroke(NeonTheme.yellow, lineWidth: 1)
                 .frame(width: r * 2, height: r * 2)
                 .position(p)
             Text(String(format: "%.2f", value))
-                .font(CyberpunkTheme.mono(size: 10, relativeTo: .caption2))
-                .foregroundStyle(CyberpunkTheme.bg)
+                .font(NeonTheme.mono(size: 10, relativeTo: .caption2))
+                .foregroundStyle(NeonTheme.bg)
                 .padding(.horizontal, 4)
                 .padding(.vertical, 1)
-                .background(CyberpunkTheme.yellow)
+                .background(NeonTheme.yellow)
                 .fixedSize()
                 .position(x: labelLeft ? p.x - r - 22 : p.x + r + 22,
                           y: p.y < plot.minY + 12 ? p.y + 12 : p.y - 12)
@@ -687,7 +687,7 @@ private struct CPHudChart: View {
 }
 
 /// Szögletes (töréspontos) vonal a megadott pontokon — trim-elhető.
-private struct CPPolyline: Shape {
+private struct NeonPolyline: Shape {
     var points: [CGPoint]
     func path(in rect: CGRect) -> Path {
         var p = Path()
@@ -699,7 +699,7 @@ private struct CPPolyline: Shape {
 }
 
 /// A vonal alatti terület az alapvonalig.
-private struct CPPolyArea: Shape {
+private struct NeonPolyArea: Shape {
     var points: [CGPoint]
     var baseline: CGFloat
     func path(in rect: CGRect) -> Path {
@@ -713,7 +713,7 @@ private struct CPPolyArea: Shape {
     }
 }
 
-private struct CPDiamond: Shape {
+private struct NeonDiamond: Shape {
     func path(in rect: CGRect) -> Path {
         var p = Path()
         p.move(to: CGPoint(x: rect.midX, y: rect.minY))
@@ -726,7 +726,7 @@ private struct CPDiamond: Shape {
 }
 
 /// Négy sarok-szögletből álló célkereszt (a játék lock-on jele).
-private struct CPReticle: Shape {
+private struct NeonReticle: Shape {
     var arm: CGFloat
     func path(in rect: CGRect) -> Path {
         var p = Path()

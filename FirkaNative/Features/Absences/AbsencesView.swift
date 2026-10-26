@@ -68,55 +68,55 @@ struct AbsencesView: View {
     private var unjustifiedItems: [AbsenceItem] { absences.filter { !$0.isJustified }.sorted { $0.date > $1.date } }
     private var justifiedItems: [AbsenceItem] { absences.filter { $0.isJustified }.sorted { $0.date > $1.date } }
 
-    /// Cyberpunk: a skin HUD-vöröse / ok-cián helyett Summitban a régi
+    /// Neon: a skin HUD-vöröse / ok-cián helyett Summitban a régi
     /// rendszer-piros / -zöld marad (az értékek ágaznak, nem a nézet).
-    private var hudRed: Color { theme.isCyberpunk ? CyberpunkTheme.red : Color.red }
-    private var okGreen: Color { theme.isCyberpunk ? CyberpunkTheme.cyan : Color.green }
-    /// Szekció-fejléc darabszáma: Summitban „Igazolt • 3", Cyberpunkban
+    private var hudRed: Color { theme.isNeon ? NeonTheme.red : Color.red }
+    private var okGreen: Color { theme.isNeon ? NeonTheme.cyan : Color.green }
+    /// Szekció-fejléc darabszáma: Summitban „Igazolt • 3", Neonban
     /// HUD-kód „IGAZOLT // 03".
-    private var countSeparator: String { theme.isCyberpunk ? "//" : "•" }
-    private func countText(_ n: Int) -> String { theme.isCyberpunk ? String(format: "%02d", n) : "\(n)" }
+    private var countSeparator: String { theme.isNeon ? "//" : "•" }
+    private func countText(_ n: Int) -> String { theme.isNeon ? String(format: "%02d", n) : "\(n)" }
 
-    /// Cyberpunk késés-mérő: nagy sárga szám + `/45` kód, alatta 9 cellás
+    /// Neon késés-mérő: nagy sárga szám + `/45` kód, alatta 9 cellás
     /// HUD-sáv (cellánként 5 perc). 55%-tól narancs, 85%-tól / beszámított
     /// órától HUD-vörös; teljes ciklusnál statikus vörös/cián szellemkép
     /// (Reduce Transparency mellett a kit kikapcsolja).
     private var cpDelayGauge: some View {
         let hot = ringProgress >= 0.85 || hoursFromDelay > 0
-        let tint = hot ? CyberpunkTheme.red : ringProgress >= 0.55 ? CyberpunkTheme.orange : CyberpunkTheme.yellow
+        let tint = hot ? NeonTheme.red : ringProgress >= 0.55 ? NeonTheme.orange : NeonTheme.yellow
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("\(displayedDelay)")
-                    .font(CyberpunkTheme.display(size: 34, weight: .bold, relativeTo: .title))
+                    .font(NeonTheme.display(size: 34, weight: .bold, relativeTo: .title))
                     .monospacedDigit()
-                    .foregroundStyle(isFullCycle ? CyberpunkTheme.red : CyberpunkTheme.yellow)
+                    .foregroundStyle(isFullCycle ? NeonTheme.red : NeonTheme.yellow)
                     .contentTransition(.numericText())
                     .cpChromatic(isFullCycle ? 1 : 0)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
                 Text("/45")
-                    .font(CyberpunkTheme.mono(size: 11, relativeTo: .caption2))
-                    .foregroundStyle(CyberpunkTheme.dim)
+                    .font(NeonTheme.mono(size: 11, relativeTo: .caption2))
+                    .foregroundStyle(NeonTheme.dim)
             }
-            CPProgressBar(value: ringProgress, tint: tint, segments: 9, height: 8)
+            NeonProgressBar(value: ringProgress, tint: tint, segments: 9, height: 8)
         }
         .frame(minHeight: 78)
         .accessibilityElement(children: .combine)
     }
 
-    /// Késés-mérő: Summitban gyűrű, Minecraftban a szám + igazi XP-sáv
-    /// (a 45 perces ciklus töltöttsége), Cyberpunkban HUD-sáv.
+    /// Késés-mérő: Summitban gyűrű, Voxelben a szám + igazi XP-sáv
+    /// (a 45 perces ciklus töltöttsége), Neonban HUD-sáv.
     @ViewBuilder
     private var delayGauge: some View {
-        if theme.isCyberpunk {
+        if theme.isNeon {
             cpDelayGauge
-        } else if MinecraftTheme.isActive {
+        } else if VoxelTheme.isActive {
             VStack(spacing: 8) {
                 Text("\(displayedDelay)")
-                    .mcDisplay(26)
+                    .voxelDisplay(26)
                     .monospacedDigit()
                     .foregroundStyle(isFullCycle ? Color.red : .primary)
-                McProgressBar(value: ringProgress)
+                VoxelProgressBar(value: ringProgress)
             }
             .frame(minHeight: 78)
         } else {
@@ -142,7 +142,7 @@ struct AbsencesView: View {
                     return colors.accent
                 }().opacity(scheme == .dark ? 0.08 : 0.06)).padding(9)
                 Text("\(displayedDelay)")
-                    .mcDisplay(26)
+                    .voxelDisplay(26)
                     .monospacedDigit()
                     .foregroundStyle(isFullCycle ? Color.red : .primary)
                     .contentTransition(.numericText())
@@ -168,9 +168,9 @@ struct AbsencesView: View {
                                 Spacer(minLength: 4)
                                 if hoursFromDelay > 0 {
                                     Text("+\(hoursFromDelay) óra")
-                                        .cpOnly { $0.font(CyberpunkTheme.mono(size: 10, relativeTo: .caption2)).textCase(.uppercase) }
+                                        .cpOnly { $0.font(NeonTheme.mono(size: 10, relativeTo: .caption2)).textCase(.uppercase) }
                                         .skinFont(.caption2, weight: .bold)
-                                        .foregroundStyle(theme.isCyberpunk ? Color.black : .white)
+                                        .foregroundStyle(theme.isNeon ? Color.black : .white)
                                         .padding(.horizontal, 6).padding(.vertical, 3)
                                         .skinPill(fill: hudRed)
                                         .lineLimit(1)
@@ -188,7 +188,7 @@ struct AbsencesView: View {
 
                         // Középső Apple elválasztó — a két fél között
                         Rectangle()
-                            .fill(theme.isCyberpunk ? CyberpunkTheme.yellow.opacity(0.32) : Color.primary.opacity(scheme == .dark ? 0.10 : 0.08))
+                            .fill(theme.isNeon ? NeonTheme.yellow.opacity(0.32) : Color.primary.opacity(scheme == .dark ? 0.10 : 0.08))
                             .frame(width: 1)
                             .padding(.vertical, 8)
                             .padding(.horizontal, 12)
@@ -203,14 +203,14 @@ struct AbsencesView: View {
                                     .tracking(0.4)
                                     .lineLimit(1)
                                 Spacer(minLength: 2)
-                                if theme.isCyberpunk {
-                                    CPLabel("ABS", bracketed: false, size: 9)
+                                if theme.isNeon {
+                                    NeonLabel("ABS", bracketed: false, size: 9)
                                 }
                             }
                             VStack(spacing: 0) {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("\(absences.count - unjustifiedCount)")
-                                        .mcDisplay(30)
+                                        .voxelDisplay(30)
                                         .monospacedDigit()
                                         .foregroundStyle(.primary)
                                         .contentTransition(.numericText())
@@ -223,12 +223,12 @@ struct AbsencesView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.vertical, 4)
                                 Rectangle()
-                                    .fill(theme.isCyberpunk ? CyberpunkTheme.yellow.opacity(0.24) : Color.primary.opacity(scheme == .dark ? 0.08 : 0.06))
+                                    .fill(theme.isNeon ? NeonTheme.yellow.opacity(0.24) : Color.primary.opacity(scheme == .dark ? 0.08 : 0.06))
                                     .frame(height: 1)
                                     .padding(.vertical, 8)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("\(unjustifiedCount)")
-                                        .mcDisplay(30)
+                                        .voxelDisplay(30)
                                         .monospacedDigit()
                                         .foregroundStyle(unjustifiedCount > 0 ? colors.red : okGreen)
                                         .contentTransition(.numericText())
@@ -246,10 +246,10 @@ struct AbsencesView: View {
                     }
                     .padding(16)
                     .background {
-                        if MinecraftTheme.isActive {
-                            McBlockPanel(face: colors.surface)
-                        } else if theme.isCyberpunk {
-                            CPPanelBackground(accent: CyberpunkTheme.red, fill: CyberpunkTheme.panel)
+                        if VoxelTheme.isActive {
+                            VoxelBlockPanel(face: colors.surface)
+                        } else if theme.isNeon {
+                            NeonPanelBackground(accent: NeonTheme.red, fill: NeonTheme.panel)
                         } else {
                             RoundedRectangle(cornerRadius: 20, style: .continuous)
                                 .fill(scheme == .dark ? Color.white.opacity(0.06) : Color.white)
@@ -271,7 +271,7 @@ struct AbsencesView: View {
                     ForEach(0..<3, id: \.self) { _ in
                         HStack { Text("Betöltés…").redacted(reason: .placeholder) }
                             .summitRowSurface(colors: colors)
-                            .mcRowChrome()
+                            .voxelRowChrome()
                     }
                 } else if absences.isEmpty {
                     Section {
@@ -294,7 +294,7 @@ struct AbsencesView: View {
                                 Spacer()
                             }
                             .summitRowSurface(colors: colors)
-                            .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
+                            .listRowInsets(VoxelTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
                         } else {
                             ForEach(unjustifiedItems.prefix(unjustifiedExpanded ? 100 : 3)) { a in
                                 let isDelay = a.delay != nil && (a.type.lowercased().contains("késés") || a.type.lowercased().contains("keses"))
@@ -318,7 +318,7 @@ struct AbsencesView: View {
                                     .contentShape(Rectangle())
                                 }
                                 .summitRowSurface(colors: colors)
-                                .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
+                                .listRowInsets(VoxelTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
                             }
                         }
                     } header: {
@@ -329,7 +329,7 @@ struct AbsencesView: View {
                                 .foregroundStyle(colors.red)
                                 .textCase(.uppercase)
                                 .cpCaps()
-                            if theme.isCyberpunk { HUDHeaderRule(color: colors.red) }
+                            if theme.isNeon { HUDHeaderRule(color: colors.red) }
                             Spacer()
                             if unjustifiedItems.count > 3 {
                                 SkinIcon(unjustifiedExpanded ? "chevron.up" : "chevron.down")
@@ -357,7 +357,7 @@ struct AbsencesView: View {
                                 Spacer()
                             }
                             .summitRowSurface(colors: colors)
-                            .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
+                            .listRowInsets(VoxelTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
                         } else {
                             ForEach(justifiedItems.prefix(justifiedExpanded ? 100 : 3)) { a in
                                 let isDelay = a.delay != nil && (a.type.lowercased().contains("késés") || a.type.lowercased().contains("keses"))
@@ -381,7 +381,7 @@ struct AbsencesView: View {
                                     .contentShape(Rectangle())
                                 }
                                 .summitRowSurface(colors: colors)
-                                .listRowInsets(MinecraftTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
+                                .listRowInsets(VoxelTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
                             }
                         }
                     } header: {
@@ -389,10 +389,10 @@ struct AbsencesView: View {
                             SkinDot(color: okGreen)
                             Text(justifiedItems.isEmpty ? "Igazolt" : "Igazolt \(countSeparator) \(countText(justifiedItems.count))")
                                 .skinFont(.caption, weight: .semibold)
-                                .foregroundStyle(theme.isCyberpunk ? AnyShapeStyle(CyberpunkTheme.cyan) : AnyShapeStyle(.secondary))
+                                .foregroundStyle(theme.isNeon ? AnyShapeStyle(NeonTheme.cyan) : AnyShapeStyle(.secondary))
                                 .textCase(.uppercase)
                                 .cpCaps()
-                            if theme.isCyberpunk { HUDHeaderRule(color: CyberpunkTheme.cyan) }
+                            if theme.isNeon { HUDHeaderRule(color: NeonTheme.cyan) }
                             Spacer()
                             if justifiedItems.count > 3 {
                                 SkinIcon(justifiedExpanded ? "chevron.up" : "chevron.down")
@@ -499,7 +499,7 @@ private struct DelayRingWidget: View {
                     .animation(.spring(response: 0.9, dampingFraction: 0.82), value: progress)
                 Circle().fill(ringColor.opacity(scheme == .dark ? 0.08 : 0.06)).padding(11)
                 Text("\(displayed)")
-                    .mcDisplay(32)
+                    .voxelDisplay(32)
                     .monospacedDigit()
                     .foregroundStyle(isFull ? Color.red : .primary)
                     .contentTransition(.numericText())
@@ -517,10 +517,10 @@ private struct DelayRingWidget: View {
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 210, alignment: .top)
         .background {
-            if MinecraftTheme.isActive {
-                McBlockPanel(face: colors.surface)
-            } else if CyberpunkTheme.isActive {
-                CPPanelBackground()
+            if VoxelTheme.isActive {
+                VoxelBlockPanel(face: colors.surface)
+            } else if NeonTheme.isActive {
+                NeonPanelBackground()
             } else {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(scheme == .dark ? Color.white.opacity(0.06) : Color.white)
@@ -564,14 +564,14 @@ private struct HeroStatsCard: View {
                 // összes — bal oldal
                 VStack(alignment: .center, spacing: 4) {
                     Text("\(total)")
-                        .mcDisplay(38)
+                        .voxelDisplay(38)
                         .monospacedDigit()
                         .foregroundStyle(.primary)
                         .contentTransition(.numericText())
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
                     Text("óra összesen")
-                        .mcSectionHeader()
+                        .voxelSectionHeader()
                         .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity)
@@ -586,14 +586,14 @@ private struct HeroStatsCard: View {
                 // igazolatlan — jobb oldal
                 VStack(alignment: .center, spacing: 4) {
                     Text("\(unjustified)")
-                        .mcDisplay(38)
+                        .voxelDisplay(38)
                         .monospacedDigit()
                         .foregroundStyle(unjustified > 0 ? colors.red : Color.green)
                         .contentTransition(.numericText())
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
                     Text("igazolatlan")
-                        .mcSectionHeader()
+                        .voxelSectionHeader()
                         .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity)
@@ -604,10 +604,10 @@ private struct HeroStatsCard: View {
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity)
         .background {
-            if MinecraftTheme.isActive {
-                McBlockPanel(face: colors.surface)
-            } else if CyberpunkTheme.isActive {
-                CPPanelBackground()
+            if VoxelTheme.isActive {
+                VoxelBlockPanel(face: colors.surface)
+            } else if NeonTheme.isActive {
+                NeonPanelBackground()
             } else {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(scheme == .dark ? Color.white.opacity(0.06) : Color.white)
@@ -637,16 +637,16 @@ private struct AbsenceRow: View {
                     Text(item.subject).skinFont(.subheadline, weight: .semibold).lineLimit(1)
                     if let d = item.delay, d > 0 {
                         Text("\(d) perc")
-                            .cpOnly { $0.font(CyberpunkTheme.mono(size: 10, relativeTo: .caption2)).textCase(.uppercase) }
+                            .cpOnly { $0.font(NeonTheme.mono(size: 10, relativeTo: .caption2)).textCase(.uppercase) }
                             .skinFont(.caption2, weight: .bold).monospacedDigit()
                             .foregroundStyle(cp ? Color.black : .white)
                             .padding(.horizontal, 6).padding(.vertical, 2)
-                            .skinPill(fill: cp ? CyberpunkTheme.yellow : colors.orange)
+                            .skinPill(fill: cp ? NeonTheme.yellow : colors.orange)
                     }
                 }
                 HStack(spacing: 6) {
                     Text(cp ? Self.hudDate(item.date) : item.date.formatted(date: .abbreviated, time: .omitted))
-                        .cpOnly { $0.font(CyberpunkTheme.mono(size: 10, relativeTo: .caption2)) }
+                        .cpOnly { $0.font(NeonTheme.mono(size: 10, relativeTo: .caption2)) }
                         .skinFont(.caption2, weight: .medium)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 7).padding(.vertical, 3)
@@ -655,7 +655,7 @@ private struct AbsenceRow: View {
                         Text(friendlyAbsenceType(item.type))
                             .skinFont(.caption2, weight: .semibold)
                             .cpCaps()
-                            .foregroundStyle(isUnjustified ? colors.red : cp ? CyberpunkTheme.cyan : Color.green)
+                            .foregroundStyle(isUnjustified ? colors.red : cp ? NeonTheme.cyan : Color.green)
                             .lineLimit(1)
                     }
                 }
@@ -663,13 +663,13 @@ private struct AbsenceRow: View {
             Spacer()
         }
         .listRowBackground(AbsenceRowBackground(fill: rowBackground, stripe: dotIconColor))
-        .listRowInsets(MinecraftTheme.rowInsets(nil))
-        .listRowSeparator(MinecraftTheme.isActive || cp ? .hidden : .automatic)
+        .listRowInsets(VoxelTheme.rowInsets(nil))
+        .listRowSeparator(VoxelTheme.isActive || cp ? .hidden : .automatic)
         .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] + 16 }
         .contentShape(Rectangle())
     }
 
-    private var cp: Bool { CyberpunkTheme.isActive }
+    private var cp: Bool { NeonTheme.isActive }
 
     /// HUD-dátum: egyenközű „2026.10.24" (a skin adat-címkéi így írnak).
     private static let hudDateFormatter: DateFormatter = {
@@ -687,8 +687,8 @@ private struct AbsenceRow: View {
     }
     private var dotIconColor: Color {
         if isUnjustified { return colors.red }
-        if isDelay { return cp ? CyberpunkTheme.yellow : colors.orange }
-        return cp ? CyberpunkTheme.cyan : Color.green
+        if isDelay { return cp ? NeonTheme.yellow : colors.orange }
+        return cp ? NeonTheme.cyan : Color.green
     }
     private var rowBackground: Color {
         if isUnjustified { return colors.red.opacity(scheme == .dark ? 0.10 : 0.06) }
@@ -700,15 +700,15 @@ private struct AbsenceRow: View {
 // MARK: - Statikus (nem interaktív) kártya-üveg
 
 /// Liquid Glass akció nélküli kártyára: valódi `.regular` üveg, de
-/// `.interactive()` nélkül (az csak koppintható elemre való). Minecraftban
-/// és Cyberpunkban nincs üveg, a kártya saját panelje marad (Cyberpunkban
+/// `.interactive()` nélkül (az csak koppintható elemre való). Voxelben
+/// és Neonban nincs üveg, a kártya saját panelje marad (Neonban
 /// az üveg lekerekített sarka kilógott a levágott sarkú HUD-panel mögül).
 private struct StaticCardGlass: ViewModifier {
     var enabled: Bool
     var cornerRadius: CGFloat
 
     func body(content: Content) -> some View {
-        if enabled && !MinecraftTheme.isActive && !CyberpunkTheme.isActive {
+        if enabled && !VoxelTheme.isActive && !NeonTheme.isActive {
             content.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
         } else {
             content
@@ -716,7 +716,7 @@ private struct StaticCardGlass: ViewModifier {
     }
 }
 
-// MARK: - Kerek ikon-jelvény (Summit) / inventory-slot (Minecraft)
+// MARK: - Kerek ikon-jelvény (Summit) / inventory-slot (Voxel)
 
 private struct AbsenceBadge: View {
     let icon: String
@@ -727,13 +727,13 @@ private struct AbsenceBadge: View {
     let colors: AppColors
 
     var body: some View {
-        if MinecraftTheme.isActive {
+        if VoxelTheme.isActive {
             SkinIcon(icon, size: side * 0.6)
                 .frame(width: side, height: side)
-                .background { McInventorySlot() }
-        } else if CyberpunkTheme.isActive {
+                .background { VoxelInventorySlot() }
+        } else if NeonTheme.isActive {
             // Levágott sarkú HUD-cella: halvány állapot-arc + 1 px-es keret.
-            let cell = CPChamferShape(cut: 6, corners: .diagonal)
+            let cell = NeonChamferShape(cut: 6, corners: .diagonal)
             SkinIcon(icon)
                 .font(.system(size: fontSize, weight: weight))
                 .foregroundStyle(tint)
@@ -754,35 +754,35 @@ private struct AbsenceBadge: View {
     }
 }
 
-// MARK: - Cyberpunk-segédek (csak ebben a fájlban)
+// MARK: - Neon-segédek (csak ebben a fájlban)
 
-/// Hiányzás-sor háttere: Cyberpunkban HUD-sor panel (levágott sarok,
+/// Hiányzás-sor háttere: Neonban HUD-sor panel (levágott sarok,
 /// 1 px-es keret az állapot színében) + 2 pt-os állapot-csík a bal élen;
-/// Summitban / Minecraftban változatlanul a `skinRowBackground`.
+/// Summitban / Voxelben változatlanul a `skinRowBackground`.
 private struct AbsenceRowBackground: View {
     var fill: Color
     var stripe: Color
 
     var body: some View {
-        if CyberpunkTheme.isActive {
-            CPRowBackground(accent: stripe, fill: fill)
+        if NeonTheme.isActive {
+            NeonRowBackground(accent: stripe, fill: fill)
                 .overlay(alignment: .leading) {
                     // A bal felső levágás (10 pt) alatt indul, a panel
                     // behúzásán belül ül.
                     Rectangle()
                         .fill(stripe)
                         .frame(width: 2)
-                        .padding(.top, CyberpunkTheme.rowVerticalInset + 14)
-                        .padding(.bottom, CyberpunkTheme.rowVerticalInset + 4)
-                        .padding(.leading, CyberpunkTheme.rowHorizontalInset + 3)
+                        .padding(.top, NeonTheme.rowVerticalInset + 14)
+                        .padding(.bottom, NeonTheme.rowVerticalInset + 4)
+                        .padding(.leading, NeonTheme.rowHorizontalInset + 3)
                 }
         } else {
-            MinecraftTheme.skinRowBackground(fill)
+            VoxelTheme.skinRowBackground(fill)
         }
     }
 }
 
-/// Szekció-fejléc kitöltő vonala (Cyberpunk): 1 pt-os halvány HUD-vonal.
+/// Szekció-fejléc kitöltő vonala (Neon): 1 pt-os halvány HUD-vonal.
 private struct HUDHeaderRule: View {
     var color: Color
     var body: some View {
@@ -791,30 +791,30 @@ private struct HUDHeaderRule: View {
 }
 
 private extension View {
-    /// Csak Cyberpunk-skinben alkalmazott módosítás; Summitban és
-    /// Minecraftban a nézet érintetlen marad.
+    /// Csak Neon-skinben alkalmazott módosítás; Summitban és
+    /// Voxelben a nézet érintetlen marad.
     @ViewBuilder
     func cpOnly<V: View>(_ transform: (Self) -> V) -> some View {
-        if CyberpunkTheme.isActive { transform(self) } else { self }
+        if NeonTheme.isActive { transform(self) } else { self }
     }
 
-    /// HUD-felirat: nagybetűs, ritkított (csak Cyberpunkban).
+    /// HUD-felirat: nagybetűs, ritkított (csak Neonban).
     func cpCaps() -> some View {
         cpOnly { $0.textCase(.uppercase).tracking(1.2) }
     }
 
-    /// Hero-számok alatti felirat: Cyberpunkban apró egyenközű halvány
+    /// Hero-számok alatti felirat: Neonban apró egyenközű halvány
     /// kód-címke (a skin vörös szekció-fejléce itt félrevezető lenne az
-    /// „igazolt" alatt), máshol a megszokott `mcSectionHeader`.
+    /// „igazolt" alatt), máshol a megszokott `voxelSectionHeader`.
     @ViewBuilder
     func absStatCaption() -> some View {
-        if CyberpunkTheme.isActive {
-            self.font(CyberpunkTheme.mono(size: 10, relativeTo: .caption2))
+        if NeonTheme.isActive {
+            self.font(NeonTheme.mono(size: 10, relativeTo: .caption2))
                 .textCase(.uppercase)
                 .tracking(1)
-                .foregroundStyle(CyberpunkTheme.dim)
+                .foregroundStyle(NeonTheme.dim)
         } else {
-            self.mcSectionHeader()
+            self.voxelSectionHeader()
         }
     }
 }
