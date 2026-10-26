@@ -594,7 +594,8 @@ struct CPTabBar: View {
         .frame(maxWidth: .infinity, minHeight: 48)
         .background {
             if on {
-                CPChamferShape(cut: 8, corners: [.topLeft, .bottomRight]).fill(CyberpunkTheme.red)
+                // A játék szünet-menü gombformája, vörösre festve.
+                CPGameButtonShape(fill: CyberpunkTheme.red)
             }
         }
         .overlay(alignment: .topTrailing) {

@@ -129,12 +129,12 @@ extension View {
 
 // MARK: - Háttér
 
-/// Teljes képernyős menü-háttér: a játék menüi mögötti sötét, enyhén
-/// vöröses-fekete alap átlós sraffozással és finom scanline-nal — nincs
-/// sarok-derengés és rács (az nem a menük nyelve, általános neon-klisé).
-/// Statikus (nincs TimelineView / animáció): a Canvas csak méretváltáskor
-/// rajzol újra. Reduce Transparency mellett tömör háttér, emelt
-/// kontrasztnál minta nélkül.
+/// Teljes képernyős menü-háttér: a játék szünet-menüjének eredeti
+/// háttértextúrája (`pause_menu/tex/menu_bg_texture`, a saját
+/// telepítésből kinyerve — lásd scripts/cp-ui-assets.sh), rajta egy
+/// sötét fátyol, hogy a szöveg olvasható maradjon (a játékban is
+/// sötét réteg/panelek ülnek a textúrán). Nincs rajzolt rács/minta.
+/// Reduce Transparency mellett és emelt kontrasztnál tömör háttér.
 struct CPBackdrop: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
@@ -144,10 +144,13 @@ struct CPBackdrop: View {
             CyberpunkTheme.bg.ignoresSafeArea()
         } else {
             ZStack {
-                LinearGradient(colors: [Color(hex: 0x0D0508), CyberpunkTheme.bg, Color(hex: 0x050507)],
-                               startPoint: .top, endPoint: .bottom)
-                CPGridLayer()
-                    .drawingGroup()
+                CyberpunkTheme.bg
+                if UIImage(named: "cp_menu_bg") != nil {
+                    Image("cp_menu_bg")
+                        .resizable()
+                        .scaledToFill()
+                    Color.black.opacity(0.45)
+                }
             }
             .ignoresSafeArea()
             .accessibilityHidden(true)
@@ -155,29 +158,20 @@ struct CPBackdrop: View {
     }
 }
 
-/// Átlós sraffozás (a menük háttérmintája) + scanline (3 pt) egyetlen
-/// statikus Canvasban.
-private struct CPGridLayer: View, Equatable {
+/// A játék szünet-menü gombjának eredeti sziluettje
+/// (`atlas_pause_menu_buttons` / `pause_button_bg`): fehér forma az
+/// atlaszból kivágva, sablonként az adott színre festve. Ha a kép
+/// hiányzik, a hívó a saját alakzatát használja.
+struct CPGameButtonShape: View {
+    var fill: Color
     var body: some View {
-        Canvas(rendersAsynchronously: true) { ctx, size in
-            var scan = Path()
-            var y: CGFloat = 0
-            while y < size.height {
-                scan.addRect(CGRect(x: 0, y: y, width: size.width, height: 1))
-                y += 3
-            }
-            ctx.fill(scan, with: .color(Color.white.opacity(0.018)))
-            // 45°-os, ritka átlós vonalak: a vonal két átellenes sarokpontja
-            // közötti sávokat eltolva rajzoljuk.
-            var hatch = Path()
-            let step: CGFloat = 14
-            var d = -size.height
-            while d < size.width {
-                hatch.move(to: CGPoint(x: d, y: size.height))
-                hatch.addLine(to: CGPoint(x: d + size.height, y: 0))
-                d += step
-            }
-            ctx.stroke(hatch, with: .color(Color.white.opacity(0.022)), lineWidth: 5)
+        if UIImage(named: "cp_btn_bg") != nil {
+            Image("cp_btn_bg")
+                .renderingMode(.template)
+                .resizable(capInsets: EdgeInsets(top: 26, leading: 44, bottom: 26, trailing: 44), resizingMode: .stretch)
+                .foregroundStyle(fill)
+        } else {
+            CPChamferShape(cut: 10, corners: [.topLeft, .bottomRight]).fill(fill)
         }
     }
 }
@@ -233,8 +227,14 @@ struct CPButtonStyle: ButtonStyle {
             .padding(.horizontal, compact ? 10 : 20)
             .padding(.vertical, compact ? 6 : 11)
             .frame(maxWidth: fullWidth ? .infinity : nil, minHeight: compact ? 34 : 46)
-            .background(shape.fill(fill))
-            .overlay(shape.strokeBorder(isEnabled ? accent.opacity(contrast == .increased ? 1 : 0.85) : CyberpunkTheme.dim.opacity(0.5), lineWidth: 1))
+            .background(CPGameButtonShape(fill: fill))
+            .overlay {
+                // A játék gombformáján nincs külön körvonal-él: csak ha a
+                // textúra hiányzik, rajzolunk saját keretet az alakzatra.
+                if UIImage(named: "cp_btn_bg") == nil {
+                    shape.strokeBorder(isEnabled ? accent.opacity(contrast == .increased ? 1 : 0.85) : CyberpunkTheme.dim.opacity(0.5), lineWidth: 1)
+                }
+            }
             .contentShape(shape)
             .onChange(of: pressed) { _, down in
                 if down { CPSound.play(.click) }
@@ -895,12 +895,25 @@ struct CPBootOverlay: View {
                 }
                 VStack(spacing: 12) {
                     CPLabel("SYS_BOOT // NC-2077", color: CyberpunkTheme.red)
-                    Text("NIGHT CITY")
-                        .font(CyberpunkTheme.display(size: 46, weight: .bold, relativeTo: .largeTitle))
-                        .tracking(4)
-                        .foregroundStyle(CyberpunkTheme.yellow)
-                        .cpChromatic(reduceMotion ? 0 : 2)
-                        .cpGlitch(trigger: glitchTick)
+                    // Az eredeti CYBERPUNK 2077 logó a játék főmenü-
+                    // atlaszából (scripts/cp-ui-assets.sh); ha hiányzik,
+                    // a betűs változat marad.
+                    if UIImage(named: "cp_logo") != nil {
+                        Image("cp_logo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 280)
+                            .cpChromatic(reduceMotion ? 0 : 2)
+                            .cpGlitch(trigger: glitchTick)
+                            .accessibilityLabel("Cyberpunk 2077")
+                    } else {
+                        Text("NIGHT CITY")
+                            .font(CyberpunkTheme.display(size: 46, weight: .bold, relativeTo: .largeTitle))
+                            .tracking(4)
+                            .foregroundStyle(CyberpunkTheme.yellow)
+                            .cpChromatic(reduceMotion ? 0 : 2)
+                            .cpGlitch(trigger: glitchTick)
+                    }
                     CPLabel("NEURAL LINK ESTABLISHED", color: CyberpunkTheme.cyan, bracketed: false)
                     ZStack(alignment: .leading) {
                         Rectangle().fill(CyberpunkTheme.yellow.opacity(0.15))
