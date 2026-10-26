@@ -23,7 +23,7 @@ struct MainTabView: View {
     @EnvironmentObject var kreta: KretaClient
     @Environment(\.colorScheme) var scheme
     @Environment(\.horizontalSizeClass) private var hSize
-    @State private var selected: Int = ProcessInfo.processInfo.arguments.contains("-FIRKA_ABSENCES") ? 4 : (ProcessInfo.processInfo.arguments.contains("-FIRKA_TIMETABLE") ? 2 : 0)
+    @State private var selected: Int = ProcessInfo.processInfo.arguments.contains("-FIRKA_ABSENCES") ? 4 : (ProcessInfo.processInfo.arguments.contains("-FIRKA_TIMETABLE") ? 2 : (ProcessInfo.processInfo.arguments.contains("-FIRKA_GRADES") ? 1 : 0))
     @ObservedObject private var notif = NotificationManager.shared
     @ObservedObject private var watchAvailability = WatchAvailability.shared
     @EnvironmentObject var completed: CompletedStore

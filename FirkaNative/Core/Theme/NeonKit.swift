@@ -220,16 +220,24 @@ struct NeonGameCellBackground: View {
 /// (széles slot, 636x190) darabja — lásd scripts/neon-ui-assets.sh.
 /// A minta színe készre van sütve a textúrába: majdnem fekete
 /// kékeszöld alapon (`#0A1419`) vékony, világos nyomvonalak futnak
-/// sűrűn (a nyers textúrában ~5 px-enként), ezért a játékbeli
-/// léptékhez a darabot NEM csempézzük, hanem a játék ink-képéhez
-/// hasonlóan (`tileType: NoTile`, kitöltésre nyújtva) a felületre
-/// feszítjük — így egy ~50-70 pt magas soron is sok apró nyomelem
-/// látszik, nem 1-2 óriási. A játék a darabot `tintColor`-ral
-/// szorozza (pl. a wardrobe-slot `backgroundLines` képe a
-/// `MainColors.SupBlue` tónust kapja az inventory widgetben):
+/// sűrűn (a nyers textúrában ~5 px-enként). A játék a darabot
+/// `tintColor`-ral szorozza (pl. a wardrobe-slot `backgroundLines`
+/// képe a `MainColors.SupBlue` tónust kapja az inventory widgetben):
 /// ezt utánozza a `colorMultiply`, a világos nyomok a `tint`
 /// színét veszik fel, a sötét alap sötét marad. A hívó vágja a
 /// saját alakjára.
+///
+/// Lépték: a darab FIX méretű csempeként ismétlődik, sosem nyúlik
+/// a felülethez. Korábban `scaledToFill` feszítette a teljes
+/// keretre, ezért a skála a felülettel nőtt: egy iPhone-cella
+/// (~360 pt széles) ~0,56-os skálát kapott, egy iPad-széles
+/// kártya viszont 1,5-2x-eset — a nyomvonalak óriásira nőttek.
+/// Most a textúra 2x-es pontskálával (636x190 px → 318x95 pt
+/// csempe, a Voxel menüháttér `1/px` trükkjének mintájára)
+/// `.tile` módban ismétlődik, így minden felületen a kis
+/// elemeken megszokott ~0,5-ös lépték látszik. A darab nem
+/// varratmentes csempe, de 0,05-0,30 opacity mellett a
+/// találkozások nem ütnek ki a sötét panelből.
 struct NeonGamePattern: View {
     var opacity: Double = 0.08
     /// A játék `MainColors.SupBlue` tónusa (az inventory widget
@@ -237,19 +245,17 @@ struct NeonGamePattern: View {
     /// HDR 0.035 / 0.466 / 0.494) — sötét cián nyomok.
     var tint: Color = NeonGamePattern.supBlue
     static let supBlue: Color = Color(red: 0.035, green: 0.466, blue: 0.494)
+    /// A csempe pontskálája: 2 = a textúra felére (318x95 pt) —
+    /// a kis iPhone-felületeken korábban kialakult lépték.
+    private static let tilePointScale: CGFloat = 2
 
     var body: some View {
-        if UIImage(named: "tex_neo_pattern") != nil {
-            GeometryReader { geo in
-                Image("tex_neo_pattern")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: geo.size.width, height: geo.size.height)
-                    .clipped()
-                    .colorMultiply(tint)
-                    .opacity(opacity)
-            }
-            .accessibilityHidden(true)
+        if let cg = UIImage(named: "tex_neo_pattern")?.cgImage {
+            Image(decorative: cg, scale: Self.tilePointScale)
+                .resizable(resizingMode: .tile)
+                .colorMultiply(tint)
+                .opacity(opacity)
+                .accessibilityHidden(true)
         }
     }
 }
