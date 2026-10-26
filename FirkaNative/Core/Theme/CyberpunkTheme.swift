@@ -32,41 +32,49 @@ enum CyberpunkFontLoader {
     }
 }
 
-/// Cyberpunk skin (Cyberpunk 2077 HUD-nyelv): majdnem fekete, enyhén
-/// vörös/cián árnyalatú háttér, jellegzetes sárga (#FCEE0A), HUD-vörös,
-/// cián akcentus, levágott sarkú panelek 1 px-es neon kerettel, vékony
-/// vonalak, apró egyenközű nagybetűs címkék. Night City mindig éjszaka:
-/// a skin aktív állapotában az app sötét sémát kap.
+/// Cyberpunk skin (Cyberpunk 2077 HUD-nyelv): a paletta a játék
+/// menüiből mért színekre hangolva (interfaceingame Inventory/Journal/
+/// Main Menu/Pause 1920×1080 képek + a saját telepítés eredeti
+/// `cp_menu_bg` textúrája, medián-mintavétel — részletek a commit-
+/// üzenetben). A játékban a felület 50–62%-a szinte fekete, a szöveg-
+/// vörös tompa korall, a cián halvány türkiz, a sárga csak a logóban
+/// és apró címkéken él. Night City mindig éjszaka: a skin aktív
+/// állapotában az app sötét sémát kap.
 /// Minden szín / betű egy helyen — a képernyők innen vegyenek.
 enum CyberpunkTheme {
-    // MARK: - Paletta
-    /// Jellegzetes CP2077-sárga (fő gomb, kijelölés, kiemelés).
-    static let yellow: Color = Color(hex: 0xFCEE0A)
-    /// HUD-vörös (keretek, címek, hiba, figyelmeztetés) — a játék
-    /// menüinek vöröse (#FF003C), nem általános neonvörös.
-    static let red: Color = Color(hex: 0xFF003C)
-    /// Korall-vörös (másodlagos vörös: halványabb keret, 2-es jegy-közeli).
-    static let coral: Color = Color(hex: 0xF75049)
-    /// Cián akcentus (adat, link, aktív állapot).
-    static let cyan: Color = Color(hex: 0x02D7F2)
-    /// Világos neon-cián (kiemelt adat, 5-ös jegy).
-    static let cyanBright: Color = Color(hex: 0x5EF6FF)
-    /// Türkiz-zöld (siker, 4-es jegy).
-    static let green: Color = Color(hex: 0x2BE4A8)
-    /// Narancs (2-es jegy, enyhe figyelmeztetés).
-    static let orange: Color = Color(hex: 0xFF8A1F)
-    /// Teljes képernyős háttér: majdnem fekete, enyhe vörös-kék tónussal.
-    static let bg: Color = Color(hex: 0x0A0A0F)
+    // MARK: - Paletta (mért játék-színek)
+    /// Tompa borostyán-sárga — a menük „NEW"/„DANGER" címkéinek mért
+    /// színe (#FFC63D/#F0B437 medián). A logó tiszta sárgája (#FCEE0A)
+    /// csak a `cp_logo` képen él, felületi színként nem használjuk.
+    static let yellow: Color = Color(hex: 0xDFA32C)
+    /// HUD-vörös (keretek, címek, hiba) — a menüszöveg mért korallja
+    /// (#D34640 Inventory, #D73F3E Main Menu medián).
+    static let red: Color = Color(hex: 0xDB4D45)
+    /// Korall-vörös (másodlagos vörös) — a szöveg fényes magja (#FF6058).
+    static let coral: Color = Color(hex: 0xE85A50)
+    /// Cián akcentus (adat, link, aktív állapot) — mért halvány türkiz
+    /// (#43CCC7 Inventory, #4DB1B8 Main Menu medián).
+    static let cyan: Color = Color(hex: 0x3EB8B2)
+    /// Világos cián (kiemelt adat) — mért #96DDE2, enyhén tompítva.
+    static let cyanBright: Color = Color(hex: 0x8FD6D3)
+    /// Türkiz-zöld (siker).
+    static let green: Color = Color(hex: 0x3DBE8A)
+    /// Narancs (enyhe figyelmeztetés).
+    static let orange: Color = Color(hex: 0xD97A2B)
+    /// Teljes képernyős háttér: meleg, vöröses fekete (a menüképek
+    /// sötét mediánja #080D12, a `cp_menu_bg` textúráé #140E0B).
+    static let bg: Color = Color(hex: 0x0B090A)
     /// Mélyebb háttér (backdrop alja, sheet).
-    static let bgDeep: Color = Color(hex: 0x060609)
-    /// Panel-arc (kártya, sor).
-    static let panel: Color = Color(hex: 0x12121A)
+    static let bgDeep: Color = Color(hex: 0x060405)
+    /// Panel-arc (kártya, sor) — az inventory slot-hátterek (#1A0E15) ága.
+    static let panel: Color = Color(hex: 0x151013)
     /// Emelt panel (kijelölt sor, lenyomott gomb, toast).
-    static let panelRaised: Color = Color(hex: 0x1B1B26)
-    /// Fő szöveg: törtfehér, alig cián.
-    static let text: Color = Color(hex: 0xE9F3F4)
-    /// Halvány szöveg (címkék, másodlagos adat).
-    static let dim: Color = Color(hex: 0x7E8C96)
+    static let panelRaised: Color = Color(hex: 0x21181B)
+    /// Fő szöveg: meleg törtfehér (a fehér feliratok mediánja #D6D0CF,
+    /// olvashatóságra világosítva; kontraszt a panelen ~14:1).
+    static let text: Color = Color(hex: 0xE8E2DC)
+    /// Halvány szöveg (címkék, másodlagos adat; panelen ~4.9:1).
+    static let dim: Color = Color(hex: 0x8A807B)
     /// Vékony elválasztó-/keret-vonal alapszíne (vörös, halványítva).
     static let line: Color = red.opacity(0.32)
 
@@ -74,11 +82,13 @@ enum CyberpunkTheme {
     /// ünneplés között). 1 = HUD-vörös, 2 = narancs, 3 = sárga,
     /// 4 = türkiz-zöld, 5 = cián, egyéb = halvány.
     static func gradeColor(for value: Int) -> Color {
+        // A jegyszínek szemantikája szándékosan NEM követi a tompított
+        // felületi palettát: az eredeti, jól megkülönböztethető értékek.
         switch value {
         case 5: return Color(hex: 0x00F0FF)
-        case 4: return green
-        case 3: return yellow
-        case 2: return orange
+        case 4: return Color(hex: 0x2BE4A8)
+        case 3: return Color(hex: 0xFCEE0A)
+        case 2: return Color(hex: 0xFF8A1F)
         case 1: return Color(hex: 0xFF003C)
         default: return dim
         }
@@ -98,20 +108,22 @@ enum CyberpunkTheme {
     static func reskin(_ base: AppColors, scheme: ColorScheme) -> AppColors {
         AppColors(
             background: bg,
-            backgroundGradientTop: Color(hex: 0x12060A),
-            backgroundGradientBottom: Color(hex: 0x03121A),
+            backgroundGradientTop: Color(hex: 0x14090B),
+            backgroundGradientBottom: Color(hex: 0x090B0C),
             surface: panel,
             surfaceElevated: panelRaised,
             text: text,
             textSecondary: text.opacity(0.66),
             textTertiary: dim,
-            accent: yellow,
-            accentSoft: yellow.opacity(0.14),
+            // A játékban az interaktív akcentus a halvány cián; a sárga
+            // csak logó/apró címke — ezért nem sárga az általános akcentus.
+            accent: cyan,
+            accentSoft: cyan.opacity(0.14),
             border: line,
             shadow: Color.black.opacity(0.6),
             red: red, orange: orange, yellow: yellow,
             green: green, teal: cyan, blue: cyan,
-            purple: Color(hex: 0xB45CFF), pink: Color(hex: 0xFF2A6D),
+            purple: Color(hex: 0x9A7EB8), pink: Color(hex: 0xC4516B),
             gradeFive: gradeColor(for: 5),
             gradeFour: gradeColor(for: 4),
             gradeThree: gradeColor(for: 3),
@@ -206,14 +218,14 @@ enum CyberpunkTheme {
         let tabItem = UITabBarItem.appearance()
         if active {
             CyberpunkFontLoader.registerOnce()
-            let yellowUI = UIColor(red: 0xFC / 255, green: 0xEE / 255, blue: 0x0A / 255, alpha: 1)
-            let textUI = UIColor(red: 0xE9 / 255, green: 0xF3 / 255, blue: 0xF4 / 255, alpha: 1)
+            let textUI = UIColor(red: 0xE8 / 255, green: 0xE2 / 255, blue: 0xDC / 255, alpha: 1)
             let big = UIFont(name: CyberpunkFontLoader.displayBold, size: 36)
             let small = UIFont(name: CyberpunkFontLoader.displayBold, size: 19)
             let tiny = UIFont(name: CyberpunkFontLoader.mono, size: 10)
             var title: [NSAttributedString.Key: Any] = [.foregroundColor: textUI, .kern: 1.2]
             if let small { title[.font] = small }
-            var large: [NSAttributedString.Key: Any] = [.foregroundColor: yellowUI, .kern: 0.8]
+            // Nagy cím is törtfehér (a játékban a sárga csak a logóé).
+            var large: [NSAttributedString.Key: Any] = [.foregroundColor: textUI, .kern: 0.8]
             if let big { large[.font] = big }
             if let tiny {
                 tabItem.setTitleTextAttributes([.font: tiny, .kern: 0.8], for: .normal)
@@ -223,8 +235,8 @@ enum CyberpunkTheme {
             // (a HUD fejléc-sávja); a tetején átlátszó, a backdrop látszik.
             let scrolled = UINavigationBarAppearance()
             scrolled.configureWithOpaqueBackground()
-            scrolled.backgroundColor = UIColor(red: 0x0A / 255, green: 0x0A / 255, blue: 0x0F / 255, alpha: 1)
-            scrolled.shadowColor = UIColor(red: 0xFF / 255, green: 0x46 / 255, blue: 0x55 / 255, alpha: 0.55)
+            scrolled.backgroundColor = UIColor(red: 0x0B / 255, green: 0x09 / 255, blue: 0x0A / 255, alpha: 1)
+            scrolled.shadowColor = UIColor(red: 0xDB / 255, green: 0x4D / 255, blue: 0x45 / 255, alpha: 0.55)
             scrolled.titleTextAttributes = title
             scrolled.largeTitleTextAttributes = large
             let top = UINavigationBarAppearance()
