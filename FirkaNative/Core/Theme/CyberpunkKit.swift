@@ -350,7 +350,7 @@ struct CPSegmentedPicker<Value: Hashable>: View {
                 let on = option.value == selection
                 let shape = CPChamferShape(cut: 6, corners: [.topLeft, .bottomRight])
                 Button {
-                    if !on { CPSound.play(.tab) }
+                    if !on { CPSound.play(.navigate) }
                     selection = option.value
                 } label: {
                     Text(option.title.uppercased())
@@ -605,7 +605,7 @@ struct CPToggleStyle: ToggleStyle {
             configuration.label
             Spacer(minLength: 8)
             Button {
-                CPSound.play(.click)
+                CPSound.play(configuration.isOn ? .valueDown : .valueUp)
                 configuration.isOn.toggle()
             } label: {
                 ZStack(alignment: on ? .trailing : .leading) {
@@ -728,10 +728,23 @@ struct CPFormSection<Content: View>: View {
 /// kapcsoló), az app sem csipog, és más app zenéjét sem állítja le.
 /// Csak Cyberpunk-skinben szól.
 enum CPSound: String, CaseIterable {
-    /// Gomb-lenyomás a játék menüiben (`ui_menu_onpress`).
+    /// Gomb-lenyomás a játék menüiben (`ui_menu_onpress`) — a stílusos
+    /// (CPButtonStyle) gombok hangja.
     case click = "cp_snd_click"
+    /// Rövid egérkattanás (`ui_menu_mouse_click`) — a stílus nélküli,
+    /// hétköznapi koppintások hangja (a gyökér-gombstílus adja).
+    case mouseClick = "cp_snd_mouseclick"
     /// Fülváltás a játék menüiben (`ui_gui_tab_change`) — a dockon ez szól.
     case tab = "cp_snd_tab"
+    /// Visszalépés / menü-zárás (`ui_menu_close`) — a VISSZA gomb hangja.
+    case back = "cp_snd_back"
+    /// Érték fel (`ui_menu_value_up`) — kapcsoló be, léptetés fel.
+    case valueUp = "cp_snd_valueup"
+    /// Érték le (`ui_menu_value_down`) — kapcsoló ki, léptetés le.
+    case valueDown = "cp_snd_valuedown"
+    /// Navigáció választóban (`ui_phone_navigation`) — szegmens- és
+    /// belső választók hangja, nem a docké.
+    case navigate = "cp_snd_navigate"
     /// Pozitív visszaigazolás (`ui_positive`).
     case confirm = "cp_snd_confirm"
     /// Negatív visszaigazolás / hiba (`ui_generic_set_01_negative`).
@@ -783,7 +796,11 @@ enum CPSound: String, CaseIterable {
     private var gain: Float {
         switch self {
         case .click: return 0.5
+        case .mouseClick: return 0.55
         case .tab: return 0.85
+        case .back: return 0.6
+        case .valueUp, .valueDown: return 0.7
+        case .navigate: return 0.65
         case .confirm, .toast: return 0.7
         case .error: return 0.8
         case .glitch: return 0.45
@@ -825,13 +842,15 @@ enum CPSound: String, CaseIterable {
     }
 }
 
-/// Cyberpunkban minden stílus nélküli gomb halk blipet ad (az app gyökerére
-/// tett `McClickButtonStyle` mintájára — azt ki is egészíti: a kettő
-/// skinje kizárja egymást, mindkét `play` némán tér vissza a másik skinben).
+/// Cyberpunkban minden stílus nélküli gomb rövid egérkattanást ad (az
+/// app gyökerére tett `McClickButtonStyle` mintájára — azt ki is
+/// egészíti: a kettő skinje kizárja egymást, mindkét `play` némán tér
+/// vissza a másik skinben). Nem a stílusos gombok `onpress` hangja:
+/// a hétköznapi koppintás halkabb és rövidebb.
 struct CPClickButtonStyle: PrimitiveButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         Button(role: configuration.role) {
-            CPSound.play(.click)
+            CPSound.play(.mouseClick)
             McSound.play(.click)
             configuration.trigger()
         } label: {

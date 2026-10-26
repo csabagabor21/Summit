@@ -749,7 +749,7 @@ enum McSound: String, CaseIterable {
     /// A Cyberpunk-skin megfelelő hangja.
     var cyberpunkEquivalent: CPSound {
         switch self {
-        case .click, .pop: return .click
+        case .click, .pop: return .mouseClick
         case .tab: return .tab
         case .levelUp, .orb, .challengeComplete: return .confirm
         case .toastIn: return .toast
@@ -1116,7 +1116,7 @@ struct McBackButtonModifier: ViewModifier {
                     // Cyberpunk: vékony sárga „< VISSZA" HUD-felirat, üveg nélkül.
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
-                            CPSound.play(.click)
+                            CPSound.play(.back)
                             dismiss()
                         } label: {
                             HStack(spacing: 4) {

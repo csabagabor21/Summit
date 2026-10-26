@@ -39,8 +39,13 @@ wk unbundle "$ARCH/audio_2_soundbanks.archive" -o "$OUT/opus" -w "*.opusinfo"
 
 # 2) Eseménynév -> média-ID a bankból (wwiser txtp: CAkEvent FNV-hash ->
 #    Source média-ID). A cél-események és a belőlük lett asset-nevek:
-#      ui_menu_onpress              -> cp_snd_click
-#      ui_gui_tab_change            -> cp_snd_tab
+#      ui_menu_onpress              -> cp_snd_click (stílusos gomb)
+#      ui_menu_mouse_click          -> cp_snd_mouseclick (sima koppintás)
+#      ui_gui_tab_change            -> cp_snd_tab (dock)
+#      ui_menu_close                -> cp_snd_back (VISSZA gomb)
+#      ui_menu_value_up             -> cp_snd_valueup (kapcsoló be)
+#      ui_menu_value_down           -> cp_snd_valuedown (kapcsoló ki)
+#      ui_phone_navigation          -> cp_snd_navigate (belső választó)
 #      ui_positive                  -> cp_snd_confirm
 #      ui_generic_set_01_negative   -> cp_snd_error
 #      ui_phone_sms                 -> cp_snd_toast
