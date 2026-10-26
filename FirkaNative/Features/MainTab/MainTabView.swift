@@ -295,11 +295,24 @@ struct MainTabView: View {
         }
     }
 
+    /// Cyberpunk-dock ikonjai: a játék hub-atlaszának (`hub_atlas_1080p`)
+    /// eredeti fül-ikonjai, tartalmi leképezéssel (lásd `CPTabBar`).
+    static func cpTabAsset(_ tab: Int) -> String {
+        switch tab {
+        case 0: return "cp_tab_home"
+        case 1: return "cp_tab_grades"
+        case 2: return "cp_tab_timetable"
+        case 5: return "cp_tab_tasks"
+        case 4: return "cp_tab_absences"
+        default: return "cp_tab_home"
+        }
+    }
+
     /// Saját Cyberpunk HUD-tabsáv. Újrakoppintás az aktív fülre: a tab
     /// verme a gyökérre ugrik (mint a hotbaron / rendszer-sávon).
     private var cpTabBar: some View {
         CPTabBar(
-            items: [0, 1, 2, 5, 4].map { CPTabBar.Item(tab: $0, icon: Self.cpTabIcon($0), title: tabTitle($0)) },
+            items: [0, 1, 2, 5, 4].map { CPTabBar.Item(tab: $0, icon: Self.cpTabAsset($0), title: tabTitle($0)) },
             selected: selected
         ) { tab in
             SummitHaptics.selection()
@@ -534,14 +547,26 @@ private struct McHotbar: View {
     }
 }
 
-/// Cyberpunk 2077 HUD-tabsáv: majdnem fekete, opak sáv vékony vörös felső
-/// vonallal (bal végén fényes szakasz), öt cella vékony ikonnal és apró
-/// egyenközű nagybetűs felirattal; a kijelölt cella vörös, levágott sarkú
-/// kitöltést kap fekete tartalommal, sarkában a fül kódja (01–05).
+/// Cyberpunk 2077 hub-fülsor alsó dockként: a játékban nincs alsó
+/// tabsáv, a legközelebbi rokon a hub-menü felső fül-sora (ikon +
+/// nagybetűs felirat, a kiválasztott alatt vörös jelölés). Az ikonok a
+/// játék eredeti `hub_atlas_1080p.xbm` atlaszának darabjai (WolvenKit
+/// unbundle + BC7-dekódolás, az `.inkatlas` UV-rectjei alapján vágva,
+/// fehér sablonként színezve — `cp_tab_*` imagesetek):
+/// Főoldal = `ico_inventory_hub` (hátizsák), Jegyek = `ico_stats_hub`
+/// (STATS), Órarend = `ico_data_hub` (DATA-lista), Feladatok =
+/// `ico_journal_hub` (TASKS-napló), Hiányzások = `ico_character_hub`
+/// (személy/jelenlét). A kijelölt cella háttere az `atlas_tabs`
+/// `button_big2_bg_tab` fül-formája mélyvörösre festve, alatta a
+/// `button_big2_bg_tab_line` vörös jelölővonala — ahogy a játék
+/// hub-fülénél. A sáv alapja a menük sötét alapja, halvány eredeti
+/// `cp_pattern` mintával. Működés változatlan: 60 pt magasság,
+/// koppintás + újrakoppintásra gyökérre ugrás a hívóban.
 /// Statikus, olcsó nézet: nincs animáció, nincs üveg.
 struct CPTabBar: View {
     struct Item: Identifiable {
         let tab: Int
+        /// Eredeti játék-ikon assetneve (`cp_tab_*`).
         let icon: String
         let title: String
         var id: Int { tab }
@@ -561,10 +586,10 @@ struct CPTabBar: View {
             }
             .frame(height: 2)
             HStack(spacing: 4) {
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                ForEach(items) { item in
                     let on = item.tab == selected
                     Button { onSelect(item.tab) } label: {
-                        cell(item, index: index, on: on)
+                        cell(item, on: on)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(item.title)
@@ -576,14 +601,22 @@ struct CPTabBar: View {
             .padding(.bottom, 4)
         }
         .frame(height: Self.height, alignment: .top)
-        .background(CyberpunkTheme.bg.ignoresSafeArea(edges: .bottom))
+        .background {
+            ZStack {
+                CyberpunkTheme.bg.opacity(0.96)
+                CPGamePattern(opacity: 0.05)
+            }
+            .ignoresSafeArea(edges: .bottom)
+        }
     }
 
-    private func cell(_ item: Item, index: Int, on: Bool) -> some View {
+    private func cell(_ item: Item, on: Bool) -> some View {
         VStack(spacing: 3) {
-            Image(systemName: item.icon)
-                .font(.system(size: 19, weight: on ? .regular : .light))
-                .frame(height: 22)
+            Image(item.icon)
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 24, height: 24)
             Text(item.title.uppercased())
                 .font(CyberpunkTheme.mono(size: 9, relativeTo: .caption2))
                 .tracking(0.6)
@@ -594,17 +627,24 @@ struct CPTabBar: View {
         .frame(maxWidth: .infinity, minHeight: 48)
         .background {
             if on {
-                // A játék szünet-menü gombformája, vörösre festve.
-                CPGameButtonShape(fill: CyberpunkTheme.red)
+                // A hub-fül eredeti formája (`button_big2_bg_tab`),
+                // a tompított paletta mélyvörösére festve.
+                Image("cp_tab_selbg")
+                    .renderingMode(.template)
+                    .resizable()
+                    .foregroundStyle(CyberpunkTheme.red)
             }
         }
-        .overlay(alignment: .topTrailing) {
-            Text(String(format: "%02d", index + 1))
-                .font(CyberpunkTheme.mono(size: 7, relativeTo: .caption2))
-                .foregroundStyle(on ? Color.black.opacity(0.6) : CyberpunkTheme.dim.opacity(0.7))
-                .padding(.top, 2)
-                .padding(.trailing, 4)
-                .accessibilityHidden(true)
+        .overlay(alignment: .bottom) {
+            if on {
+                // A játék fül-jelölővonala (`button_big2_bg_tab_line`).
+                Image("cp_tab_selline")
+                    .renderingMode(.template)
+                    .resizable()
+                    .frame(height: 2)
+                    .foregroundStyle(CyberpunkTheme.coral)
+                    .accessibilityHidden(true)
+            }
         }
         .contentShape(Rectangle())
     }
