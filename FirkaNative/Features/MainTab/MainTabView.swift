@@ -57,13 +57,18 @@ struct MainTabView: View {
         // minden NavigationStack és a kiválasztott tab elveszett, a user a
         // Főoldal gyökerére esett vissza.
         //
-        // Minecraft keskeny kijelzőn: a tartalom a teljes magasságot
-        // kitölti és görgetéskor a fű és a föld MÖGÉ csúszik (nincs éles
-        // vágás a fűsáv fölött); a tabok alsó safe area-ja (`mcTabChrome`)
-        // akkora, hogy a lista vége a virágok fölött álljon meg. A hotbar a
-        // földön ül. Szélesen (iPad/Mac sidebar) a natív sáv marad. Külön ég
-        // nincs a tab-tartalom mögött (a lista saját ege tölti ki a képet).
+        // Minecraft keskeny kijelzőn: a dock (talaj + hotbar) az oldal
+        // alja, nem a képernyő alja — a tab-tartalom kerete a fű tetejénél
+        // véget ér (alsó padding, csak érték vált, a nézet-fa azonos
+        // marad), így görgetéskor és az alsó rugózásnál (túlhúzás →
+        // visszaugrás) sem csúszik semmi a föld mögé: a lista a fűnél
+        // áll meg, fölötte nyílik az ég-rés. A tabok alsó safe area-ja
+        // (`mcTabChrome`) már csak a talajból kilógó virágokat kerüli ki.
+        // A hotbar a földön ül. Szélesen (iPad/Mac sidebar) a natív sáv
+        // marad. Külön ég nincs a tab-tartalom mögött (a lista saját ege
+        // tölti ki a képet).
         tabContent
+            .padding(.bottom, useCustomHotbar ? Self.mcFooterHeight : 0)
             .overlay(alignment: .bottom) {
                 if useCustomHotbar {
                     // Díszlet: nem nyel érintést. Eddig a teljes 148 pt-os
@@ -264,10 +269,13 @@ struct MainTabView: View {
     private var useCPBar: Bool { theme.isCyberpunk && !isWide }
     /// Rejtett-e a rendszer-tabsáv (saját sáv van helyette).
     private var hidesSystemTabBar: Bool { useCustomHotbar || useCPBar }
-    /// A saját sáv által elfoglalt alsó sáv magassága (a tartalom ennyivel
-    /// előbb áll meg).
+    /// A tab-tartalom alsó tartaléka a saját sáv fölött: Cyberpunkban a
+    /// HUD-sáv teljes magassága (ott a tartalom a sáv fölé ér, mögé
+    /// csúszik), Minecraftban csak a talajból a tartalom elé kilógó
+    /// virágok magassága — a talajt magát a `body` alsó paddingje már
+    /// kivette a tartalom keretéből (a dock az oldal alja).
     private var customBarInset: CGFloat {
-        useCPBar ? CPTabBar.height : MainTabView.mcFooterHeight + McFlora.maxHeight
+        useCPBar ? CPTabBar.height : McFlora.maxHeight
     }
 
     /// Cyberpunk-tabikonok: körvonalas (nem kitöltött) SF-szimbólumok —
@@ -371,9 +379,10 @@ private extension View {
     /// megmarad.
     func mcTabChrome(hidden: Bool, inset: CGFloat) -> some View {
         self.toolbar(hidden ? .hidden : .automatic, for: .tabBar)
-            // A tartalom alá behúzódik a saját sáv (Minecraftban a talaj
-            // + a növények, Cyberpunkban a HUD-sáv): a görgetett sorok
-            // mögé csúsznak, a lista vége fölöttük áll meg.
+            // Alsó tartalék a saját sáv fölött: Minecraftban csak a
+            // talajból kilógó növények (a talaj a tartalom keretén kívül
+            // van, lásd `body`), Cyberpunkban a teljes HUD-sáv — a lista
+            // vége ennyivel a sáv fölött áll meg.
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 Color.clear
                     .frame(height: hidden ? inset : 0)
