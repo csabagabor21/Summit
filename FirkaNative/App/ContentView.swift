@@ -8,6 +8,8 @@ struct ContentView: View {
     @Environment(\.sizeCategory) private var systemSizeCategory
     /// Neonra váltáskor egyszer lejátszott belépő átmenet.
     @State private var neonBoot = false
+    /// Első indításkori bemutató (belépés előtt) — egyszer jön fel.
+    @AppStorage(WelcomeOnboardingView.seenKey) private var welcomeSeen = false
 
     var body: some View {
         // NEM `if let felülírás { content.environment } else { content }`:
@@ -23,6 +25,7 @@ struct ContentView: View {
         .environment(\.font, theme.isVoxel ? VoxelTheme.font(.body)
                      : theme.isNeon ? NeonTheme.font(.body) : nil)
         .animation(SummitMotion.gentle, value: session.isLoggedIn)
+        .animation(SummitMotion.gentle, value: welcomeSeen)
         // Neonra váltás a felület-választóból: rövid „boot"-átmenet.
         .overlay {
             if neonBoot {
@@ -62,6 +65,9 @@ struct ContentView: View {
                             // ban) — a nézet a témát is olvassa, explicit inject.
                             .environmentObject(theme)
                     }
+            } else if !welcomeSeen {
+                WelcomeOnboardingView { welcomeSeen = true }
+                    .transition(.opacity)
             } else {
                 LoginView()
                     .transition(.opacity)

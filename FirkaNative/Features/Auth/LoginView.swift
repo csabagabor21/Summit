@@ -8,6 +8,8 @@ struct LoginView: View {
     @State private var showWeb = false
     @State private var webError: String?
     @State private var showReviewer = false
+    /// A bemutató újranyitása a bal felső „Mit tud a Summit?" gombról.
+    @State private var showWelcome = false
     @State private var reviewerUser = ""
     @State private var reviewerPass = ""
     @State private var reviewerError: String?
@@ -105,6 +107,30 @@ struct LoginView: View {
             .summitErrorHaptic(trigger: vm.error ?? "")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay(alignment: .topTrailing) {
+            Button { showWelcome = true } label: {
+                if theme.isVoxel || theme.isNeon {
+                    Text("Mit tud a Summit?")
+                } else {
+                    Label("Mit tud a Summit?", systemImage: "sparkles")
+                        .skinFont(.subheadline, weight: .semibold)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
+                        .functionalGlass(cornerRadius: 18)
+                }
+            }
+            .voxelInlineButton()
+            .padding(.trailing, 20)
+            .padding(.top, 8)
+            .summitEntrance(delay: 0.3)
+        }
+        .fullScreenCover(isPresented: $showWelcome) {
+            WelcomeOnboardingView { showWelcome = false }
+                // Cover: az örökölt environment hidegindításkor nem mindig
+                // ér le (lásd AnalyticsConsentView) — explicit inject.
+                .environmentObject(theme)
+        }
         .tint(colors.accent)
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 10) {

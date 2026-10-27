@@ -679,10 +679,21 @@ struct SettingsView: View {
         .summitToolbarBackground()
         .toolbar {
             SkinToolbarItem(placement: .primaryAction) {
-                Button { startTour() } label: {
+                // Két túra: a Beállításoké (szigetről szigetre) és az
+                // app-bemutató (fülről fülre, lásd `AppTour`).
+                Menu {
+                    Button { startTour() } label: {
+                        Label("Beállítások túra", systemImage: "slider.horizontal.3")
+                    }
+                    Button {
+                        NotificationCenter.default.post(name: AppTour.startRequest, object: nil)
+                    } label: {
+                        Label("Az app bemutatója", systemImage: "rectangle.stack")
+                    }
+                } label: {
                     SkinIcon("questionmark.circle")
                 }
-                .accessibilityLabel("Beállítások túra")
+                .accessibilityLabel("Súgó és bemutatók")
             }
         }
         .task { await loadSubjects() }

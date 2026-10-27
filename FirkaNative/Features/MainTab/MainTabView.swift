@@ -27,6 +27,11 @@ struct MainTabView: View {
     @ObservedObject private var notif = NotificationManager.shared
     @ObservedObject private var watchAvailability = WatchAvailability.shared
     @EnvironmentObject var completed: CompletedStore
+    @EnvironmentObject var analytics: AnalyticsStore
+    /// Fülről fülre vezető bemutató (lásd `AppTour`): egyszer indul
+    /// magától, a hozzájárulás-választó után.
+    @AppStorage(AppTour.seenKey) private var appTourSeen = false
+    @State private var tourStep: Int?
     /// Széles elrendezés (iPad / Mac): itt a Watch saját sidebar-tabot kap.
     /// iPhone-on (compact) nincs tab — ott a Watch a Feladatok bal felső
     /// toolbar-gombjáról nyílik (lásd NotesView).
@@ -95,6 +100,14 @@ struct MainTabView: View {
                 // Szintén mindig jelen lévő overlay, hogy a skinváltás ne
                 // adjon új identitást a tab-fának.
                 if useCPBar { cpTabBar }
+            }
+            // A bemutató kártyája a dock / tabsáv fölött (a nyitó kérdésnél
+            // középen, sötétítéssel). Mindig jelen lévő overlay, mint a dockok.
+            .overlay {
+                AppTourOverlay(step: $tourStep, accent: theme.isVoxel ? VoxelTheme.grass : colors.accent,
+                               bottomClearance: tourBottomClearance) {
+                    appTourSeen = true
+                }
             }
         .tint(theme.isVoxel ? VoxelTheme.grass : colors.accent)
         // Chrome-betűk a látható sávokra is (az init-kori beállítás
@@ -178,6 +191,34 @@ struct MainTabView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: switchToGrades)) { _ in
             selected = 1
+        }
+        // Bemutató: első belépéskor magától, amint a hozzájárulás-
+        // választó lezárult (különben a cover alá nyílna).
+        .task(id: analytics.hasChosen) {
+            guard analytics.hasChosen, !appTourSeen, tourStep == nil else { return }
+            try? await Task.sleep(nanoseconds: 900_000_000)
+            guard !Task.isCancelled, analytics.hasChosen, !appTourSeen, tourStep == nil else { return }
+            tourStep = 0
+        }
+        // Újraindítás a Beállításokból: minden tab a gyökerére ugrik
+        // (különben a Főoldal-lépés a nyitott Beállítások fölött állna).
+        .onReceive(NotificationCenter.default.publisher(for: AppTour.startRequest)) { _ in
+            for tab in [0, 1, 2, 4, 5] { voxelRootTokens[tab, default: 0] += 1 }
+            selected = 0
+            tourStep = 1
+        }
+        // A túra lépése vált tabot …
+        .onChange(of: tourStep) { _, new in
+            guard let n = new, AppTour.steps.indices.contains(n),
+                  let tab = AppTour.steps[n].tab, tab != selected else { return }
+            selected = tab
+        }
+        // … és ha a user maga vált tabot, a túra követi.
+        .onChange(of: selected) { _, tab in
+            guard let n = tourStep, AppTour.steps.indices.contains(n),
+                  let current = AppTour.steps[n].tab, current != tab,
+                  let match = AppTour.stepIndex(forTab: tab) else { return }
+            tourStep = match
         }
         // Új jegy ünneplő kártya (diff, értesítés-koppintás vagy demo szimulálás után)
         .fullScreenCover(item: $notif.celebrationGrade) { grade in
@@ -302,6 +343,15 @@ struct MainTabView: View {
     /// a tartalom keretéből (a dock az oldal alja, nem a képernyő alja).
     private var customBarInset: CGFloat {
         useCPBar ? 8 : VoxelFlora.maxHeight
+    }
+
+    /// A bemutató-kártya alsó tartaléka: a saját dock / a lebegő
+    /// rendszer-tabsáv fölött ül. Széles Summit-elrendezésen (iPad
+    /// sidebar / felső tabsáv) nincs alsó sáv.
+    private var tourBottomClearance: CGFloat {
+        if useCustomHotbar { return Self.voxelFooterHeight }
+        if useCPBar { return NeonTabBar.height(wide: isWide) }
+        return isWide ? 0 : 64
     }
 
     /// Neon-tabikonok: körvonalas (nem kitöltött) SF-szimbólumok —

@@ -150,7 +150,7 @@ struct SettingsTourCard: View {
 
 /// A túra-kártya felülete: Summitban az átlátszó anyag + akcentkeret,
 /// Voxelben a játék dialógus-panelje kemény árnyékkal.
-private struct TourCardSurface: ViewModifier {
+struct TourCardSurface: ViewModifier {
     var accent: Color
 
     func body(content: Content) -> some View {
