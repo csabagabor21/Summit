@@ -1,0 +1,87 @@
+# Summit — App Store Connect release-flow fastlane-nel (az Organizeres
+# kattintgatás helyett). Hitelesítés: App Store Connect API key, a kulcs
+# a repón KÍVÜL van (~/.appstoreconnect/private_keys), az azonosítók a
+# gitignore-olt fastlane/.env-ből jönnek (minta: fastlane/.env.example).
+#
+#   fastlane ios beta changelog:"..."            # archive + TestFlight upload + external
+#   fastlane ios beta changelog:"..." external:false  # csak upload, internal
+#   fastlane ios upload_only ipa:build/Summit.ipa
+
+default_platform(:ios)
+
+platform :ios do
+  def asc_key
+    app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_filepath: File.expand_path(ENV.fetch("ASC_KEY_PATH")),
+      in_house: false
+    )
+  end
+
+  # Az xcodebuild ugyanazzal az API key-jel kér/frissít profilt
+  # (automatic signing), így nem kell Xcode-fiók a géphez.
+  def signing_xcargs
+    [
+      "-allowProvisioningUpdates",
+      "-authenticationKeyPath #{File.expand_path(ENV.fetch('ASC_KEY_PATH'))}",
+      "-authenticationKeyID #{ENV.fetch('ASC_KEY_ID')}",
+      "-authenticationKeyIssuerID #{ENV.fetch('ASC_ISSUER_ID')}"
+    ].join(" ")
+  end
+
+  # Buildszám: a pbxproj-hoz NEM nyúlunk (AGENTS.md buildszám-szabály),
+  # a következő számot az App Store Connectből számoljuk és csak
+  # build-paraméterként adjuk át.
+  def next_build_number
+    latest = latest_testflight_build_number(app_identifier: "hu.flint", platform: "ios", initial_build_number: 0)
+    latest.to_i + 1
+  end
+
+  desc "Release archive + feltöltés TestFlightra (+ external tesztelés)"
+  lane :beta do |options|
+    asc_key
+    build = next_build_number
+    UI.message("Buildszám: #{build}")
+
+    build_app(
+      project: "Summit.xcodeproj",
+      scheme: "Summit",
+      configuration: "Release",
+      destination: "generic/platform=iOS",
+      export_method: "app-store",
+      output_directory: "build/fastlane",
+      output_name: "Summit.ipa",
+      clean: true,
+      include_symbols: true,
+      xcargs: "#{signing_xcargs} CURRENT_PROJECT_VERSION=#{build}",
+      export_xcargs: signing_xcargs
+    )
+
+    upload_testflight(options, "build/fastlane/Summit.ipa")
+  end
+
+  desc "Már kész .ipa feltöltése TestFlightra"
+  lane :upload_only do |options|
+    asc_key
+    upload_testflight(options, options[:ipa] || "build/fastlane/Summit.ipa")
+  end
+
+  def upload_testflight(options, ipa)
+    external = options[:external].to_s != "false"
+    changelog = options[:changelog]
+    UI.user_error!("External teszteléshez kell changelog:\"...\"") if external && changelog.to_s.strip.empty?
+
+    groups = (options[:groups] || ENV["TESTFLIGHT_GROUPS"]).to_s.split(",").map(&:strip).reject(&:empty?)
+
+    upload_to_testflight(
+      ipa: ipa,
+      changelog: changelog,
+      distribute_external: external,
+      groups: groups.empty? ? nil : groups,
+      notify_external_testers: external,
+      skip_waiting_for_build_processing: false,
+      submit_beta_review: external
+    )
+  end
+end

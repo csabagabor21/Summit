@@ -28,3 +28,8 @@ Icon
 
 # Firebase local config (real key file never committed, see .example template)
 FirkaNative/GoogleService-Info.plist
+
+# fastlane: titkok és kimenetek
+fastlane/.env
+fastlane/report.xml
+fastlane/README.md
