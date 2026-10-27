@@ -126,7 +126,7 @@ struct LoginView: View {
             .summitEntrance(delay: 0.3)
         }
         .fullScreenCover(isPresented: $showWelcome) {
-            WelcomeOnboardingView { showWelcome = false }
+            OnboardingExperience { showWelcome = false }
                 // Cover: az örökölt environment hidegindításkor nem mindig
                 // ér le (lásd AnalyticsConsentView) — explicit inject.
                 .environmentObject(theme)

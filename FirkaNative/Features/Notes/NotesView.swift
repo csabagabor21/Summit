@@ -96,7 +96,6 @@ struct NotesView: View {
     @State private var scrollProxy: ScrollViewProxy?
     private let switchToTasks = Notification.Name("summit.switchToTasks")
     @Environment(\.colorScheme) var scheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var hSize
     private var isPad: Bool { hSize == .regular }
     /// Széles elrendezés (iPad / Mac): a Watch ilyenkor sidebar-tab,
@@ -155,7 +154,7 @@ struct NotesView: View {
                                                 originalDate: resolvedExams.originalDates[exam.id])
                                     }
                                 } header: {
-                                    dayHeader(day: g.day, count: g.items.count)
+                                    NotesDayHeader(day: g.day, count: g.items.count)
                                 }
                             }
                         } else if filter == 2 {
@@ -172,7 +171,7 @@ struct NotesView: View {
                                         }
                                     }
                                 } header: {
-                                    dayHeader(day: g.day, count: g.items.count)
+                                    NotesDayHeader(day: g.day, count: g.items.count)
                                 }
                             }
                         } else {
@@ -182,7 +181,7 @@ struct NotesView: View {
                                         homeworkRow(hw, isFlash: flashedID == hw.id)
                                     }
                                 } header: {
-                                    dayHeader(day: g.day, count: g.items.count)
+                                    NotesDayHeader(day: g.day, count: g.items.count)
                                 }
                             }
                         }
@@ -418,46 +417,10 @@ struct NotesView: View {
     var doneDayGroups: [(day: Date, items: [DoneEntry])] {
         groupByDay(doneEntries, date: { $0.date }, descending: true)
     }
-    /// Napcím: Ma / Holnap / Tegnap, különben "szept. 22., hétfő" + darabszám.
-    /// Neonban HUD-szekciófejléc (a mai nap sárga, a többi HUD-vörös,
-    /// a darabszám `// 03 DB` kód).
-    private func dayHeader(day: Date, count: Int) -> some View {
-        let cal = Calendar.current
-        let title: String
-        if cal.isDateInToday(day) { title = "Ma" }
-        else if cal.isDateInTomorrow(day) { title = "Holnap" }
-        else if cal.isDateInYesterday(day) { title = "Tegnap" }
-        else {
-            let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "MMM d., EEEE"
-            title = f.string(from: day).capitalized
-        }
-        return dayHeaderLabel(title: title, count: count, isToday: cal.isDateInToday(day))
-    }
-    @ViewBuilder
-    private func dayHeaderLabel(title: String, count: Int, isToday: Bool) -> some View {
-        if theme.isNeon {
-            NeonSectionHeader(title, code: String(format: "%02d db", count),
-                            accent: isToday ? NeonTheme.yellow : NeonTheme.red)
-                .accessibilityLabel("\(title), \(count) db")
-        } else {
-            Text("\(title) • \(count) db").skinSecondaryOnSky()
-        }
-    }
     private var currentIsEmpty: Bool {
         if filter == 1 { return filteredExams.isEmpty }
         if filter == 2 { return doneEntries.isEmpty }
         return filteredHomeworks.isEmpty
-    }
-    // Magyar dátum — az eszköz nyelve angol is lehet, a KRÉTA-dátum éjfélkor időpont nélkül
-    private func huDate(_ d: Date) -> String {
-        let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "yyyy. MMM d."
-        return f.string(from: d)
-    }
-    private func huDateTime(_ d: Date) -> String {
-        let c = Calendar.current.dateComponents([.hour, .minute], from: d)
-        if c.hour == 0 && c.minute == 0 { return huDate(d) }
-        let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "yyyy. MMM d. HH:mm"
-        return f.string(from: d)
     }
     /// Házipill: nem a dátum (az a szekciófejlécben van), hanem hogy
     /// hányadik órára van feladva. Saját tételnél a felvételkor választott
@@ -524,16 +487,6 @@ struct NotesView: View {
             t.lessonIndex.map { (t.id, $0) }
         })
     }
-    /// Részletező dátumsor: időpont (ha van) + hányadik óra
-    private func examDateLine(_ exam: ExamItem) -> String {
-        if let n = exam.lessonIndex { return "\(huDateTime(exam.date)) (\(n). óra)" }
-        return huDateTime(exam.date)
-    }
-    /// Kész sor halvány arca: Summitban rendszer-zöld, Neonban HUD-türkiz.
-    private var doneFill: Color {
-        theme.isNeon ? NeonTheme.green.opacity(0.10) : Color.green.opacity(scheme == .dark ? 0.10 : 0.07)
-    }
-
     private func toggleExpanded(_ id: String, expanded: Bool) {
         // Chevron-sor lenyitása = választás: finom tick (csak user-tapból hívódik).
         SummitHaptics.selection()
@@ -542,273 +495,37 @@ struct NotesView: View {
         }
     }
 
-    /// Az órarendből átjött tétel villanó kerete / háttere: Summitban lekerekített,
-    /// Voxelben pixel-lépcsős alakzat.
-    @ViewBuilder
-    private func flashStroke(_ isFlash: Bool) -> some View {
-        let color = colors.accent.opacity(isFlash ? (flashPulse ? 0.95 : 0.22) : 0)
-        let width: CGFloat = isFlash ? 2.2 : 0
-        if VoxelTheme.isActive {
-            VoxelPixelShape(steps: 1).strokeBorder(color, lineWidth: isFlash ? VoxelTheme.px : 0).allowsHitTesting(false)
-        } else if NeonTheme.isActive {
-            cpFlashShape.strokeBorder(NeonTheme.yellow.opacity(isFlash ? (flashPulse || reduceMotion ? 1 : 0.35) : 0), lineWidth: isFlash ? 1.5 : 0)
-                .padding(cpFlashOutset).allowsHitTesting(false)
-        } else {
-            RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(color, lineWidth: width)
-                .allowsHitTesting(false)
-        }
-    }
-
-    /// Neon flash-alakzat: a sor HUD-paneljével (NeonRowBackground)
-    /// egybeeső levágott sarkú keret — a sor-tartalomtól a panel széléig
-    /// (alap sor-margó) kifelé tolva.
-    private var cpFlashShape: NeonChamferShape { NeonChamferShape(cut: 10, corners: .diagonal) }
-    private var cpFlashOutset: EdgeInsets { EdgeInsets(top: -11, leading: -16, bottom: -11, trailing: -16) }
-
-    @ViewBuilder
-    private func flashFill(_ isFlash: Bool) -> some View {
-        let color = colors.accent.opacity(isFlash ? (flashPulse ? 0.16 : 0.04) : 0)
-        if VoxelTheme.isActive {
-            VoxelPixelShape(steps: 1).fill(color)
-        } else if NeonTheme.isActive {
-            cpFlashShape.fill(NeonTheme.yellow.opacity(isFlash ? (flashPulse || reduceMotion ? 0.12 : 0.04) : 0))
-                .padding(cpFlashOutset).allowsHitTesting(false)
-        } else {
-            RoundedRectangle(cornerRadius: 12, style: .continuous).fill(color)
-        }
-    }
-
-    /// Kész-pipa: Summitban / Voxelben a megszokott kör-ikon,
-    /// Neonban levágott sarkú HUD-jelölőnégyzet (sárga keret, készen
-    /// sárga kitöltés fekete pipával).
-    @ViewBuilder
-    private func checkGlyph(_ on: Bool) -> some View {
-        if NeonTheme.isActive {
-            let box = NeonChamferShape(cut: 5, corners: .diagonal)
-            box.fill(on ? NeonTheme.yellow : NeonTheme.panel)
-                .overlay(box.strokeBorder(NeonTheme.yellow.opacity(on ? 1 : 0.6), lineWidth: 1))
-                .overlay {
-                    if on {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 12, weight: .heavy))
-                            .foregroundStyle(Color.black)
-                    }
-                }
-                .frame(width: 22, height: 22)
-                .frame(width: 30, height: 30)
-                .contentShape(Rectangle())
-        } else {
-            SkinIcon(on ? "checkmark.circle.fill" : "circle", size: 30)
-                .font(.system(size: 22))
-                .foregroundStyle(on ? Color.green : .secondary)
-        }
-    }
-
-    /// Sor-háttér: Neonban HUD-panel az állapot színű kerettel (kész =
-    /// türkiz, pótló = vörös, egyébként a skin alap HUD-vöröse); máshol a
-    /// megszokott `skinRowBackground`.
-    @ViewBuilder
-    private func taskRowBackground(_ fill: Color, accent: Color = NeonTheme.red) -> some View {
-        if NeonTheme.isActive {
-            NeonRowBackground(accent: accent, fill: fill)
-        } else {
-            VoxelTheme.skinRowBackground(fill)
-        }
-    }
-
-    @ViewBuilder
+    /// Házi-sor a közös `NotesHomeworkRow`-ból: a pipa a `CompletedStore`-ba
+    /// ír, a lenyitás és a villanás a tab saját állapota.
     private func homeworkRow(_ hw: HomeworkItem, isFlash: Bool = false) -> some View {
-        let done = completed.isHomeworkDone(hw.id) || hw.isDone
         let expanded = expandedIDs.contains(hw.id)
-        HStack(alignment: .top, spacing: 10) {
-            Button {
-                // Készre pipa = ünnepelt kimenet (success), levétel = könnyű
-                // koppanás. KRÉTA-kész tételnél nincs állapotváltás — ott néma.
-                SummitHaptics.taskToggled(markedDone: !done)
-                withAnimation(SummitMotion.snappy) { completed.toggleHomework(hw.id) }
-            } label: {
-                checkGlyph(done)
-            }
-            .buttonStyle(.skinPlain)
-            // KRÉTA-ban kész tétel: a pipa nem vehető le (eddig némán
-            // billentette a helyi állapotot, látható változás nélkül).
-            .disabled(hw.isDone)
-            .accessibilityLabel(done ? "Kész" : "Készre jelölés")
-            .padding(.top, 2)
-            VStack(alignment: .leading, spacing: 6) {
-                // Csak a fejléc és az előnézet nyit-csuk — a kinyitott
-                // részletező blokkban a gombok önállóan működnek
-                HStack { Text(hw.subject).skinFont(.subheadline, weight: .semibold); if CustomTasksStore.isCustomId(hw.id) { Text("Saját").cpTag().skinFont(.caption2, weight: .bold).foregroundStyle(colors.accent).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: colors.accent.opacity(0.12)) }; Spacer(); if !hw.attachments.isEmpty { HStack(spacing: 3) { SkinIcon("paperclip"); if hw.attachments.count > 1 { Text("\(hw.attachments.count)") } }.skinFont(.caption2, weight: .semibold).foregroundStyle(.secondary).accessibilityLabel("\(hw.attachments.count) csatolmány") }; if let idx = lessonIndexText(for: hw) { Text(idx).cpTag().skinFont(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: Color.primary.opacity(0.06)) } }
-                    .contentShape(Rectangle())
-                    .onTapGesture { toggleExpanded(hw.id, expanded: expanded) }
-                if expanded {
-                    // Teljes szöveg KRÉTA-formázással (félkövér, listák, linkek),
-                    // nyers HTML-tagek nélkül
-                    Text(HomeworkHTML.formatted(hw.title))
-                        .skinFont(.callout)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    // Határidő: saját tételnél a választott tanóra + nap
-                    // (nincs falióra-idő), KRÉTA-tételnél a megszokott időpont.
-                    if let p = customPeriods[hw.id] {
-                        SkinLabel("\(p). óra • \(huDate(hw.deadline))", systemImage: "clock")
-                            .skinFont(.caption).foregroundStyle(.secondary)
-                    } else {
-                        SkinLabel(hw.deadline.formatted(date: .abbreviated, time: .shortened), systemImage: "clock")
-                            .skinFont(.caption).foregroundStyle(.secondary)
-                    }
-                    if !hw.teacher.isEmpty {
-                        SkinLabel(hw.teacher, systemImage: "person.fill")
-                            .skinFont(.caption).foregroundStyle(.secondary)
-                    }
-                    // Órarend-ugrás (a csatolmány-blokk fölött), majd a fájlok.
-                    Button {
-                        NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": hw.subject, "deadline": hw.deadline.timeIntervalSince1970, "hwId": hw.id])
-                    } label: {
-                        SkinLabel("Mutatás az órarendben", systemImage: "calendar")
-                            .skinFont(.caption, weight: .semibold)
-                            .skinOutlinePill(colors.accent)
-                    }
-                    .voxelButtonOrPlain()
-                    // Csatolt fájlok (PDF, kép…) — koppintásra QuickLook.
-                    AttachmentsBlock(attachments: hw.attachments, ownerId: hw.id)
-                } else {
-                    Text(hw.plainTitle.isEmpty ? "(nincs leírás)" : hw.plainTitle)
-                        .skinFont(.callout).foregroundStyle(.secondary).lineLimit(3)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                        .onTapGesture { toggleExpanded(hw.id, expanded: expanded) }
-                }
-            }
-            Spacer(minLength: 0)
-            Button { toggleExpanded(hw.id, expanded: expanded) } label: {
-                SkinIcon(expanded ? "chevron.up" : "chevron.down")
-                    .skinFont(.caption, weight: .semibold)
-                    .foregroundStyle(.tertiary)
-                    .padding(.top, 6)
-            }
-            .buttonStyle(.skinPlain)
-        }
-        .listRowBackground(taskRowBackground(done ? doneFill : colors.surface, accent: done ? NeonTheme.green : NeonTheme.red))
-        .listRowInsets(VoxelTheme.rowInsets(nil))
-        .overlay(flashStroke(isFlash))
-        .background(flashFill(isFlash))
-        .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            if CustomTasksStore.isCustomId(hw.id) {
-                Button(role: .destructive) {
-                    // Saját feladat törlése: semleges commit-koppanás.
-                    SummitHaptics.light()
-                    CustomTasksStore.remove(id: hw.id)
-                } label: {
-                    SkinLabel("Törlés", systemImage: "trash")
-                }
-            }
-        }
+        return NotesHomeworkRow(
+            hw: hw,
+            done: completed.isHomeworkDone(hw.id) || hw.isDone,
+            expanded: expanded,
+            lessonIndexText: lessonIndexText(for: hw),
+            customPeriod: customPeriods[hw.id],
+            isFlash: isFlash,
+            flashPulse: flashPulse,
+            onToggleDone: { completed.toggleHomework(hw.id) },
+            onToggleExpanded: { toggleExpanded(hw.id, expanded: expanded) }
+        )
     }
 
-    @ViewBuilder
+    /// Dolgozat-sor a közös `NotesExamRow`-ból (pipa: `CompletedStore`).
     private func examRow(_ exam: ExamItem, isFlash: Bool = false, rolled: Bool = false, originalDate: Date? = nil) -> some View {
         let expanded = expandedIDs.contains(exam.id)
-        // Kipipálható (ready vagy-e), de a listában marad — nem tűnik el, mint a házi
-        let ready = completed.isExamDone(exam.id)
-        HStack(alignment: .top, spacing: 10) {
-            Button {
-                // Mint a házi-pipa: készre → success, vissza → light.
-                SummitHaptics.taskToggled(markedDone: !ready)
-                withAnimation(SummitMotion.snappy) { completed.toggleExam(exam.id) }
-            } label: {
-                checkGlyph(ready)
-            }
-            .buttonStyle(.skinPlain)
-            .padding(.top, 2)
-            VStack(alignment: .leading, spacing: 6) {
-                HStack { Text(exam.subject).skinFont(.subheadline, weight: .semibold); if CustomTasksStore.isCustomId(exam.id) { Text("Saját").cpTag().skinFont(.caption2, weight: .bold).foregroundStyle(colors.accent).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: colors.accent.opacity(0.12)) }; Spacer(); if rolled { Text("Pótló").cpTag().skinFont(.caption2, weight: .bold).foregroundStyle(theme.isNeon ? NeonTheme.red : .red).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: (theme.isNeon ? NeonTheme.red : Color.red).opacity(0.12)) }; if let n = exam.lessonIndex { Text("\(n). óra").cpTag().skinFont(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: (theme.isNeon ? NeonTheme.yellow : Color.orange).opacity(0.14)) } }
-                    .contentShape(Rectangle())
-                    .onTapGesture { toggleExpanded(exam.id, expanded: expanded) }
-                if expanded {
-                    Text(exam.mode)
-                        .skinFont(.callout, weight: .semibold)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    if !exam.plainDescription.isEmpty {
-                        Text(exam.plainDescription)
-                            .skinFont(.callout).foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    if !exam.teacher.isEmpty {
-                        SkinLabel(exam.teacher, systemImage: "person.fill")
-                            .skinFont(.caption).foregroundStyle(.secondary)
-                    }
-                    // Dátum időponttal (éjfélkor csak dátum) + hányadik óra — a hivatalos
-                    // app is írja: "2026. szeptember 15., kedd (1. óra)"
-                    SkinLabel(examDateLine(exam), systemImage: "clock")
-                        .skinFont(.caption).foregroundStyle(.secondary)
-                    // Pótló dolgozatnál az eredeti nap is látszik
-                    if rolled, let orig = originalDate {
-                        SkinLabel("Eredeti: \(huDate(orig))", systemImage: "calendar.badge.exclamationmark")
-                            .skinFont(.caption, weight: .medium).foregroundStyle(.red)
-                    }
-                    if let announced = exam.announcedDate {
-                        SkinLabel("Bejelentve: \(huDate(announced))", systemImage: "megaphone")
-                            .skinFont(.caption).foregroundStyle(.secondary)
-                    }
-                    if !exam.groupName.isEmpty {
-                        SkinLabel(exam.groupName, systemImage: "person.2.fill")
-                            .skinFont(.caption).foregroundStyle(.secondary)
-                    }
-                    Button {
-                        NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": exam.subject, "deadline": exam.date.timeIntervalSince1970])
-                    } label: {
-                        SkinLabel("Mutatás az órarendben", systemImage: "calendar")
-                            .skinFont(.caption, weight: .semibold)
-                            .skinOutlinePill(colors.accent)
-                    }
-                    .voxelButtonOrPlain()
-                    AttachmentsBlock(attachments: exam.attachments, ownerId: exam.id)
-                } else {
-                    Text(exam.plainDescription.isEmpty ? exam.mode : "\(exam.mode) • \(exam.plainDescription)")
-                        .skinFont(.callout).foregroundStyle(.secondary).lineLimit(2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                        .onTapGesture { toggleExpanded(exam.id, expanded: expanded) }
-                }
-            }
-            Spacer(minLength: 0)
-            Button { toggleExpanded(exam.id, expanded: expanded) } label: {
-                SkinIcon(expanded ? "chevron.up" : "chevron.down")
-                    .skinFont(.caption, weight: .semibold)
-                    .foregroundStyle(.tertiary)
-                    .padding(.top, 6)
-            }
-            .buttonStyle(.skinPlain)
-        }
-        // Pótló dolgozat piros háttere (mint a kipipált zöld, csak piros) —
-        // a kész (zöld) állapot nyer, ha mindkettő igaz.
-        .listRowBackground(taskRowBackground(ready ? doneFill : rolled ? (theme.isNeon ? NeonTheme.red.opacity(0.16) : Color.red.opacity(scheme == .dark ? 0.16 : 0.10)) : colors.surface,
-                                             accent: ready ? NeonTheme.green : NeonTheme.red))
-        .listRowInsets(VoxelTheme.rowInsets(nil))
-        .overlay(flashStroke(isFlash))
-        .background(flashFill(isFlash))
-        .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            // Pótló átütemezés elvetése — az eredeti dátum marad
-            if rolled {
-                Button {
-                    SummitHaptics.light()
-                    ExamRollover.dismiss(exam.id)
-                } label: {
-                    SkinLabel("Elvetés", systemImage: "xmark")
-                }
-                .tint(.orange)
-            }
-            if CustomTasksStore.isCustomId(exam.id) {
-                Button(role: .destructive) {
-                    SummitHaptics.light()
-                    CustomTasksStore.remove(id: exam.id)
-                } label: {
-                    SkinLabel("Törlés", systemImage: "trash")
-                }
-            }
-        }
+        return NotesExamRow(
+            exam: exam,
+            ready: completed.isExamDone(exam.id),
+            expanded: expanded,
+            rolled: rolled,
+            originalDate: originalDate,
+            isFlash: isFlash,
+            flashPulse: flashPulse,
+            onToggleReady: { completed.toggleExam(exam.id) },
+            onToggleExpanded: { toggleExpanded(exam.id, expanded: expanded) }
+        )
     }
 
     /// Tabváltáskor a `.task` újra lefut — friss gyorstár-találatnál ez
@@ -900,6 +617,389 @@ struct NotesView: View {
         let hits = merged.filter { !$0.attachments.isEmpty }.count
         kreta.diag("feladat-csatolmány: \(hits)/\(hwR.count) házihoz van fájl (\(lessons.count) óra átnézve)")
         return (await kreta.fetchHomeworkDetails(merged, iss: iss), lessons)
+    }
+}
+
+// MARK: - Feladat-sorok (a Feladatok tab és a bemutató közös elemei)
+// A tab sorai önálló nézetek: a Feladatok tab és a bemutató
+// (`OnboardingTasksStep`) ugyanezeket rajzolja — egy forrás, nincs másolat.
+// A pipa- és lenyitás-állapot a hívónál él (a tab a `CompletedStore`-ból,
+// a bemutató helyi állapotból adja), a sor csak rajzol és visszaszól.
+
+/// Magyar dátum — az eszköz nyelve angol is lehet, a KRÉTA-dátum éjfélkor időpont nélkül.
+private enum NotesDateText {
+    static func huDate(_ d: Date) -> String {
+        let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "yyyy. MMM d."
+        return f.string(from: d)
+    }
+    static func huDateTime(_ d: Date) -> String {
+        let c = Calendar.current.dateComponents([.hour, .minute], from: d)
+        if c.hour == 0 && c.minute == 0 { return huDate(d) }
+        let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "yyyy. MMM d. HH:mm"
+        return f.string(from: d)
+    }
+}
+
+/// Napcím: Ma / Holnap / Tegnap, különben "szept. 22., hétfő" + darabszám.
+/// Neonban HUD-szekciófejléc (a mai nap sárga, a többi HUD-vörös,
+/// a darabszám `// 03 DB` kód).
+struct NotesDayHeader: View {
+    @EnvironmentObject var theme: ThemeStore
+    let day: Date
+    let count: Int
+
+    private var title: String {
+        let cal = Calendar.current
+        if cal.isDateInToday(day) { return "Ma" }
+        if cal.isDateInTomorrow(day) { return "Holnap" }
+        if cal.isDateInYesterday(day) { return "Tegnap" }
+        let f = DateFormatter(); f.locale = Locale(identifier: "hu_HU"); f.dateFormat = "MMM d., EEEE"
+        return f.string(from: day).capitalized
+    }
+
+    var body: some View {
+        if theme.isNeon {
+            NeonSectionHeader(title, code: String(format: "%02d db", count),
+                            accent: Calendar.current.isDateInToday(day) ? NeonTheme.yellow : NeonTheme.red)
+                .accessibilityLabel("\(title), \(count) db")
+        } else {
+            Text("\(title) • \(count) db").skinSecondaryOnSky()
+        }
+    }
+}
+
+/// Kész-pipa: Summitban / Voxelben a megszokott kör-ikon,
+/// Neonban levágott sarkú HUD-jelölőnégyzet (sárga keret, készen
+/// sárga kitöltés fekete pipával).
+struct NotesCheckGlyph: View {
+    let on: Bool
+
+    var body: some View {
+        if NeonTheme.isActive {
+            let box = NeonChamferShape(cut: 5, corners: .diagonal)
+            box.fill(on ? NeonTheme.yellow : NeonTheme.panel)
+                .overlay(box.strokeBorder(NeonTheme.yellow.opacity(on ? 1 : 0.6), lineWidth: 1))
+                .overlay {
+                    if on {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .heavy))
+                            .foregroundStyle(Color.black)
+                    }
+                }
+                .frame(width: 22, height: 22)
+                .frame(width: 30, height: 30)
+                .contentShape(Rectangle())
+        } else {
+            SkinIcon(on ? "checkmark.circle.fill" : "circle", size: 30)
+                .font(.system(size: 22))
+                .foregroundStyle(on ? Color.green : .secondary)
+        }
+    }
+}
+
+/// Sor-háttér: Neonban HUD-panel az állapot színű kerettel (kész =
+/// türkiz, pótló = vörös, egyébként a skin alap HUD-vöröse); máshol a
+/// megszokott `skinRowBackground`.
+struct NotesRowBackground: View {
+    let fill: Color
+    let accent: Color
+
+    var body: some View {
+        if NeonTheme.isActive {
+            NeonRowBackground(accent: accent, fill: fill)
+        } else {
+            VoxelTheme.skinRowBackground(fill)
+        }
+    }
+
+    /// Kész sor halvány arca: Summitban rendszer-zöld, Neonban HUD-türkiz.
+    static func doneFill(isNeon: Bool, scheme: ColorScheme) -> Color {
+        isNeon ? NeonTheme.green.opacity(0.10) : Color.green.opacity(scheme == .dark ? 0.10 : 0.07)
+    }
+}
+
+/// Az órarendből átjött tétel villanó kerete / háttere: Summitban lekerekített,
+/// Voxelben pixel-lépcsős alakzat.
+private struct NotesRowFlash: ViewModifier {
+    @EnvironmentObject var theme: ThemeStore
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let isFlash: Bool
+    let flashPulse: Bool
+    private var colors: AppColors { theme.colors(for: scheme) }
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(flashStroke)
+            .background(flashFill)
+    }
+
+    @ViewBuilder
+    private var flashStroke: some View {
+        let color = colors.accent.opacity(isFlash ? (flashPulse ? 0.95 : 0.22) : 0)
+        let width: CGFloat = isFlash ? 2.2 : 0
+        if VoxelTheme.isActive {
+            VoxelPixelShape(steps: 1).strokeBorder(color, lineWidth: isFlash ? VoxelTheme.px : 0).allowsHitTesting(false)
+        } else if NeonTheme.isActive {
+            cpFlashShape.strokeBorder(NeonTheme.yellow.opacity(isFlash ? (flashPulse || reduceMotion ? 1 : 0.35) : 0), lineWidth: isFlash ? 1.5 : 0)
+                .padding(cpFlashOutset).allowsHitTesting(false)
+        } else {
+            RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(color, lineWidth: width)
+                .allowsHitTesting(false)
+        }
+    }
+
+    /// Neon flash-alakzat: a sor HUD-paneljével (NeonRowBackground)
+    /// egybeeső levágott sarkú keret — a sor-tartalomtól a panel széléig
+    /// (alap sor-margó) kifelé tolva.
+    private var cpFlashShape: NeonChamferShape { NeonChamferShape(cut: 10, corners: .diagonal) }
+    private var cpFlashOutset: EdgeInsets { EdgeInsets(top: -11, leading: -16, bottom: -11, trailing: -16) }
+
+    @ViewBuilder
+    private var flashFill: some View {
+        let color = colors.accent.opacity(isFlash ? (flashPulse ? 0.16 : 0.04) : 0)
+        if VoxelTheme.isActive {
+            VoxelPixelShape(steps: 1).fill(color)
+        } else if NeonTheme.isActive {
+            cpFlashShape.fill(NeonTheme.yellow.opacity(isFlash ? (flashPulse || reduceMotion ? 0.12 : 0.04) : 0))
+                .padding(cpFlashOutset).allowsHitTesting(false)
+        } else {
+            RoundedRectangle(cornerRadius: 12, style: .continuous).fill(color)
+        }
+    }
+}
+
+/// Házi-sor (Feladatok és Kész szegmens): pipa, tárgy + „Saját" /
+/// csatolmány / óraszám-pill, előnézet, lenyitva a teljes részletező.
+struct NotesHomeworkRow: View {
+    @EnvironmentObject var theme: ThemeStore
+    @Environment(\.colorScheme) private var scheme
+    let hw: HomeworkItem
+    /// Kész-e (helyben kipipált vagy KRÉTA-kész) — a hívó dönti el.
+    let done: Bool
+    let expanded: Bool
+    /// Házipill: hányadik órára van feladva (nil = nincs pill).
+    let lessonIndexText: String?
+    /// Saját tételnél a felvételkor választott tanóra.
+    var customPeriod: Int? = nil
+    var isFlash: Bool = false
+    var flashPulse: Bool = false
+    /// Pipa-váltás — a sor `SummitMotion.snappy` animációban hívja.
+    let onToggleDone: () -> Void
+    let onToggleExpanded: () -> Void
+    private var colors: AppColors { theme.colors(for: scheme) }
+    private var doneFill: Color { NotesRowBackground.doneFill(isNeon: theme.isNeon, scheme: scheme) }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Button {
+                // Készre pipa = ünnepelt kimenet (success), levétel = könnyű
+                // koppanás. KRÉTA-kész tételnél nincs állapotváltás — ott néma.
+                SummitHaptics.taskToggled(markedDone: !done)
+                withAnimation(SummitMotion.snappy) { onToggleDone() }
+            } label: {
+                NotesCheckGlyph(on: done)
+            }
+            .buttonStyle(.skinPlain)
+            // KRÉTA-ban kész tétel: a pipa nem vehető le (eddig némán
+            // billentette a helyi állapotot, látható változás nélkül).
+            .disabled(hw.isDone)
+            .accessibilityLabel(done ? "Kész" : "Készre jelölés")
+            .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 6) {
+                // Csak a fejléc és az előnézet nyit-csuk — a kinyitott
+                // részletező blokkban a gombok önállóan működnek
+                HStack { Text(hw.subject).skinFont(.subheadline, weight: .semibold); if CustomTasksStore.isCustomId(hw.id) { Text("Saját").cpTag().skinFont(.caption2, weight: .bold).foregroundStyle(colors.accent).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: colors.accent.opacity(0.12)) }; Spacer(); if !hw.attachments.isEmpty { HStack(spacing: 3) { SkinIcon("paperclip"); if hw.attachments.count > 1 { Text("\(hw.attachments.count)") } }.skinFont(.caption2, weight: .semibold).foregroundStyle(.secondary).accessibilityLabel("\(hw.attachments.count) csatolmány") }; if let idx = lessonIndexText { Text(idx).cpTag().skinFont(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: Color.primary.opacity(0.06)) } }
+                    .contentShape(Rectangle())
+                    .onTapGesture { onToggleExpanded() }
+                if expanded {
+                    // Teljes szöveg KRÉTA-formázással (félkövér, listák, linkek),
+                    // nyers HTML-tagek nélkül
+                    Text(HomeworkHTML.formatted(hw.title))
+                        .skinFont(.callout)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    // Határidő: saját tételnél a választott tanóra + nap
+                    // (nincs falióra-idő), KRÉTA-tételnél a megszokott időpont.
+                    if let p = customPeriod {
+                        SkinLabel("\(p). óra • \(NotesDateText.huDate(hw.deadline))", systemImage: "clock")
+                            .skinFont(.caption).foregroundStyle(.secondary)
+                    } else {
+                        SkinLabel(hw.deadline.formatted(date: .abbreviated, time: .shortened), systemImage: "clock")
+                            .skinFont(.caption).foregroundStyle(.secondary)
+                    }
+                    if !hw.teacher.isEmpty {
+                        SkinLabel(hw.teacher, systemImage: "person.fill")
+                            .skinFont(.caption).foregroundStyle(.secondary)
+                    }
+                    // Órarend-ugrás (a csatolmány-blokk fölött), majd a fájlok.
+                    Button {
+                        NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": hw.subject, "deadline": hw.deadline.timeIntervalSince1970, "hwId": hw.id])
+                    } label: {
+                        SkinLabel("Mutatás az órarendben", systemImage: "calendar")
+                            .skinFont(.caption, weight: .semibold)
+                            .skinOutlinePill(colors.accent)
+                    }
+                    .voxelButtonOrPlain()
+                    // Csatolt fájlok (PDF, kép…) — koppintásra QuickLook.
+                    AttachmentsBlock(attachments: hw.attachments, ownerId: hw.id)
+                } else {
+                    Text(hw.plainTitle.isEmpty ? "(nincs leírás)" : hw.plainTitle)
+                        .skinFont(.callout).foregroundStyle(.secondary).lineLimit(3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .onTapGesture { onToggleExpanded() }
+                }
+            }
+            Spacer(minLength: 0)
+            Button { onToggleExpanded() } label: {
+                SkinIcon(expanded ? "chevron.up" : "chevron.down")
+                    .skinFont(.caption, weight: .semibold)
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, 6)
+            }
+            .buttonStyle(.skinPlain)
+        }
+        .listRowBackground(NotesRowBackground(fill: done ? doneFill : colors.surface, accent: done ? NeonTheme.green : NeonTheme.red))
+        .listRowInsets(VoxelTheme.rowInsets(nil))
+        .modifier(NotesRowFlash(isFlash: isFlash, flashPulse: flashPulse))
+        .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            if CustomTasksStore.isCustomId(hw.id) {
+                Button(role: .destructive) {
+                    // Saját feladat törlése: semleges commit-koppanás.
+                    SummitHaptics.light()
+                    CustomTasksStore.remove(id: hw.id)
+                } label: {
+                    SkinLabel("Törlés", systemImage: "trash")
+                }
+            }
+        }
+    }
+}
+
+/// Dolgozat-sor (Dolgozatok és Kész szegmens): kipipálható (ready),
+/// de a listában marad; pótlónál piros háttér + „Pótló" pill.
+struct NotesExamRow: View {
+    @EnvironmentObject var theme: ThemeStore
+    @Environment(\.colorScheme) private var scheme
+    let exam: ExamItem
+    /// Kipipálva (felkészültem) — a hívó dönti el.
+    let ready: Bool
+    let expanded: Bool
+    var rolled: Bool = false
+    var originalDate: Date? = nil
+    var isFlash: Bool = false
+    var flashPulse: Bool = false
+    /// Pipa-váltás — a sor `SummitMotion.snappy` animációban hívja.
+    let onToggleReady: () -> Void
+    let onToggleExpanded: () -> Void
+    private var colors: AppColors { theme.colors(for: scheme) }
+    private var doneFill: Color { NotesRowBackground.doneFill(isNeon: theme.isNeon, scheme: scheme) }
+
+    /// Részletező dátumsor: időpont (ha van) + hányadik óra
+    private var examDateLine: String {
+        if let n = exam.lessonIndex { return "\(NotesDateText.huDateTime(exam.date)) (\(n). óra)" }
+        return NotesDateText.huDateTime(exam.date)
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Button {
+                // Mint a házi-pipa: készre → success, vissza → light.
+                SummitHaptics.taskToggled(markedDone: !ready)
+                withAnimation(SummitMotion.snappy) { onToggleReady() }
+            } label: {
+                NotesCheckGlyph(on: ready)
+            }
+            .buttonStyle(.skinPlain)
+            .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack { Text(exam.subject).skinFont(.subheadline, weight: .semibold); if CustomTasksStore.isCustomId(exam.id) { Text("Saját").cpTag().skinFont(.caption2, weight: .bold).foregroundStyle(colors.accent).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: colors.accent.opacity(0.12)) }; Spacer(); if rolled { Text("Pótló").cpTag().skinFont(.caption2, weight: .bold).foregroundStyle(theme.isNeon ? NeonTheme.red : .red).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: (theme.isNeon ? NeonTheme.red : Color.red).opacity(0.12)) }; if let n = exam.lessonIndex { Text("\(n). óra").cpTag().skinFont(.caption2).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4).skinPill(fill: (theme.isNeon ? NeonTheme.yellow : Color.orange).opacity(0.14)) } }
+                    .contentShape(Rectangle())
+                    .onTapGesture { onToggleExpanded() }
+                if expanded {
+                    Text(exam.mode)
+                        .skinFont(.callout, weight: .semibold)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if !exam.plainDescription.isEmpty {
+                        Text(exam.plainDescription)
+                            .skinFont(.callout).foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    if !exam.teacher.isEmpty {
+                        SkinLabel(exam.teacher, systemImage: "person.fill")
+                            .skinFont(.caption).foregroundStyle(.secondary)
+                    }
+                    // Dátum időponttal (éjfélkor csak dátum) + hányadik óra — a hivatalos
+                    // app is írja: "2026. szeptember 15., kedd (1. óra)"
+                    SkinLabel(examDateLine, systemImage: "clock")
+                        .skinFont(.caption).foregroundStyle(.secondary)
+                    // Pótló dolgozatnál az eredeti nap is látszik
+                    if rolled, let orig = originalDate {
+                        SkinLabel("Eredeti: \(NotesDateText.huDate(orig))", systemImage: "calendar.badge.exclamationmark")
+                            .skinFont(.caption, weight: .medium).foregroundStyle(.red)
+                    }
+                    if let announced = exam.announcedDate {
+                        SkinLabel("Bejelentve: \(NotesDateText.huDate(announced))", systemImage: "megaphone")
+                            .skinFont(.caption).foregroundStyle(.secondary)
+                    }
+                    if !exam.groupName.isEmpty {
+                        SkinLabel(exam.groupName, systemImage: "person.2.fill")
+                            .skinFont(.caption).foregroundStyle(.secondary)
+                    }
+                    Button {
+                        NotificationCenter.default.post(name: Notification.Name("summit.switchToTimetable"), object: nil, userInfo: ["subject": exam.subject, "deadline": exam.date.timeIntervalSince1970])
+                    } label: {
+                        SkinLabel("Mutatás az órarendben", systemImage: "calendar")
+                            .skinFont(.caption, weight: .semibold)
+                            .skinOutlinePill(colors.accent)
+                    }
+                    .voxelButtonOrPlain()
+                    AttachmentsBlock(attachments: exam.attachments, ownerId: exam.id)
+                } else {
+                    Text(exam.plainDescription.isEmpty ? exam.mode : "\(exam.mode) • \(exam.plainDescription)")
+                        .skinFont(.callout).foregroundStyle(.secondary).lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .onTapGesture { onToggleExpanded() }
+                }
+            }
+            Spacer(minLength: 0)
+            Button { onToggleExpanded() } label: {
+                SkinIcon(expanded ? "chevron.up" : "chevron.down")
+                    .skinFont(.caption, weight: .semibold)
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, 6)
+            }
+            .buttonStyle(.skinPlain)
+        }
+        // Pótló dolgozat piros háttere (mint a kipipált zöld, csak piros) —
+        // a kész (zöld) állapot nyer, ha mindkettő igaz.
+        .listRowBackground(NotesRowBackground(fill: ready ? doneFill : rolled ? (theme.isNeon ? NeonTheme.red.opacity(0.16) : Color.red.opacity(scheme == .dark ? 0.16 : 0.10)) : colors.surface,
+                                              accent: ready ? NeonTheme.green : NeonTheme.red))
+        .listRowInsets(VoxelTheme.rowInsets(nil))
+        .modifier(NotesRowFlash(isFlash: isFlash, flashPulse: flashPulse))
+        .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            // Pótló átütemezés elvetése — az eredeti dátum marad
+            if rolled {
+                Button {
+                    SummitHaptics.light()
+                    ExamRollover.dismiss(exam.id)
+                } label: {
+                    SkinLabel("Elvetés", systemImage: "xmark")
+                }
+                .tint(.orange)
+            }
+            if CustomTasksStore.isCustomId(exam.id) {
+                Button(role: .destructive) {
+                    SummitHaptics.light()
+                    CustomTasksStore.remove(id: exam.id)
+                } label: {
+                    SkinLabel("Törlés", systemImage: "trash")
+                }
+            }
+        }
     }
 }
 

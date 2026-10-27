@@ -56,10 +56,6 @@ struct TimetableView: View {
     /// házi- és dolgozatlista újraszkennelve + a pótlás újraszámolva).
     @State private var derived = TimetableDerived()
     @AppStorage("schoolevents.show.v1") private var schoolEventsVisible = true
-    /// A hét-sáv kijelölő-korongja (glassEffectID / MC-ben matchedGeometryEffect) és a mérete
-    /// (a Dynamic Type-pal együtt nő, hogy a szám sosem lóg ki a körből).
-    @Namespace private var weekDiscNS
-    @ScaledMetric(relativeTo: .title3) private var discSize: CGFloat = 36
     private let switchToTimetable = Notification.Name("summit.switchToTimetable")
     @Environment(\.colorScheme) var scheme
     @Environment(\.horizontalSizeClass) private var hSize
@@ -90,7 +86,7 @@ struct TimetableView: View {
                                                               exams: snap.exams, absences: snap.absences ?? []))
     }
 
-    private static func mondayOfWeek(offset: Int, now: Date = Date()) -> Date {
+    fileprivate static func mondayOfWeek(offset: Int, now: Date = Date()) -> Date {
         KretaWeek.adding(weeks: offset, to: KretaWeek.monday(for: now))
     }
     private func mondayOfWeek(offset: Int) -> Date { Self.mondayOfWeek(offset: offset) }
@@ -353,13 +349,6 @@ struct TimetableView: View {
                 withAnimation { flashedLessonID = nil; flashPulse = false }
             }
         }
-    }
-    private var weekTitle: String {
-        if weekOffset == 0 { return "Ez a hét" }
-        if weekOffset == -1 { return "Múlt hét" }
-        if weekOffset == 1 { return "Jövő hét" }
-        if weekOffset < 0 { return "\(abs(weekOffset)) héttel ezelőtt" }
-        return "\(weekOffset) hét múlva"
     }
     private var previewDate: Date {
         let cal = Calendar.current
@@ -770,54 +759,45 @@ struct TimetableView: View {
     }
 
     // MARK: Dátum-formázók (statikus, hu_HU — a rendszer adja a neveket)
-    private static let huLocale = Locale(identifier: "hu_HU")
+    fileprivate static let huLocale = Locale(identifier: "hu_HU")
     /// "H", "K", "Sze", "Cs", "P" — a rendszer hu_HU rövid hétköznap-nevei
     /// (index: Calendar-weekday - 1, vasárnap = 0).
-    private static let weekdayShortSymbols: [String] = {
+    fileprivate static let weekdayShortSymbols: [String] = {
         var c = Calendar(identifier: .gregorian)
         c.locale = huLocale
         return c.shortStandaloneWeekdaySymbols
     }()
-    private static func formatter(_ format: String) -> DateFormatter {
+    fileprivate static func formatter(_ format: String) -> DateFormatter {
         let f = DateFormatter()
         f.locale = huLocale
         f.dateFormat = format
         return f
     }
-    private static let monthFormatter = formatter("LLLL")
+    fileprivate static let monthFormatter = formatter("LLLL")
     /// "péntek, október 23." — az aktuális évben az évszám nem kell.
-    private static let dayTitleFormatter = formatter("EEEE, MMMM d.")
-    private static let dayTitleYearFormatter = formatter("EEEE, yyyy. MMMM d.")
+    fileprivate static let dayTitleFormatter = formatter("EEEE, MMMM d.")
+    fileprivate static let dayTitleYearFormatter = formatter("EEEE, yyyy. MMMM d.")
 
     /// Nagy kezdőbetű (a hu_HU nevek kisbetűsek: "október" → "Október").
-    private static func capitalized(_ s: String) -> String {
+    fileprivate static func capitalized(_ s: String) -> String {
         guard let first = s.first else { return s }
         return first.uppercased() + s.dropFirst()
     }
 
-    private func isCurrentYear(_ date: Date) -> Bool {
+    fileprivate static func isCurrentYear(_ date: Date) -> Bool {
         let cal = Calendar.current
         return cal.component(.year, from: date) == cal.component(.year, from: Date())
-    }
-
-    /// Hét-cím fő sora: a hét hónapja ("Október"), hónaphatáron
-    /// "Október – November"; évszám csak ha nem az idei ("Január 2027").
-    private var weekMonthTitle: String {
-        let cal = Calendar.current
-        let monday = currentMonday
-        let friday = cal.date(byAdding: .day, value: 4, to: monday) ?? monday
-        let m1 = Self.capitalized(Self.monthFormatter.string(from: monday))
-        let m2 = Self.capitalized(Self.monthFormatter.string(from: friday))
-        let months = m1 == m2 ? m1 : "\(m1) – \(m2)"
-        if isCurrentYear(monday) && isCurrentYear(friday) { return months }
-        return "\(months) \(cal.component(.year, from: friday))"
     }
 
     /// "Péntek, október 23." (évszámmal, ha nem az idei év).
     private func dayTitle(for tag: Int) -> String {
         guard let d = dayDate(for: tag) else { return "" }
-        let f = isCurrentYear(d) ? Self.dayTitleFormatter : Self.dayTitleYearFormatter
-        return Self.capitalized(f.string(from: d))
+        return Self.dayTitle(of: d)
+    }
+    /// A nap-cím formázása (a hét-sáv nap-címkéi és a bemutató is ezt használják).
+    static func dayTitle(of d: Date) -> String {
+        let f = isCurrentYear(d) ? dayTitleFormatter : dayTitleYearFormatter
+        return capitalized(f.string(from: d))
     }
 
     /// Dolgozatos napok (nap eleje → igaz, ha MINDEN aznapi dolgozat átütemezett: piros pötty) — UGYANABBÓL a forrásból,
@@ -838,321 +818,31 @@ struct TimetableView: View {
     }
 
     // MARK: Hét-sáv — lebegő Liquid Glass kártya a lista fölött
-    /// Az üveg a lista fölötti UI-réteg (a tartalom alatta görög el). Három
-    /// réteg, alulról: (1) a kártya üvege `.background`-ban (nem a tartalom
-    /// szülő-glass modifierje — a külső margó az üvegen KÍVÜL van),
-    /// (2) a kijelölő korong üvege a sáv mögött (`weekDiscLayer`), (3) a
-    /// szövegek. A szöveg SOHA nem kerül GlassEffectContainerbe: a konténer
-    /// a tartalmat is az üveg-passzba rántaná, és elmosná. Voxel
-    /// skinben nincs üveg: blokk-kártya és tömör korong.
+    /// A közös `TimetableWeekBar` (a bemutató is ezt rajzolja); az
+    /// állapotot és a lapozást innen kapja.
     private var weekBar: some View {
-        Group {
-            if VoxelTheme.isActive {
-                weekCard
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 8)
-                    // Háttérként: a blokk-kártya kemény árnyéka ne a szövegekre kerüljön.
-                    .background { Color.clear.voxelCard(cornerRadius: 6) }
-            } else if NeonTheme.isActive {
-                // Neon: opak HUD-panel levágott sarokkal, 1 px-es sárga
-                // kerettel (üveg nincs — a skin sosem áttetsző).
-                weekCard
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 8)
-                    .background {
-                        NeonPanelBackground(accent: NeonTheme.yellow, fill: NeonTheme.panel,
-                                          corners: .diagonal, cut: 14)
-                    }
-            } else {
-                weekCard
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 8)
-                    .background {
-                        Color.clear.glassEffect(.regular, in: .rect(cornerRadius: Self.weekBarRadius))
-                    }
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 4)
-        .padding(.bottom, 8)
-    }
-    /// A kártya sarka: a kijelző sarkához igazodó (~concentric a 16 pt-os
-    /// behúzással), nem kapszula — a kártya magas.
-    private static let weekBarRadius: CGFloat = 30
-
-    /// A kijelölő üveg-korong rétege: a sáv oszlopait tükrözi (ugyanaz a
-    /// függőleges ritmus), csak a kijelölt napnál van benne egy
-    /// accent-tintes üveg-kör. Egyetlen GlassEffectContainer + azonos
-    /// glassEffectID: koppintásra a korong a napok közt morfol. Csak üveg
-    /// van benne (a szövegek fölötte, külön rétegben ülnek).
-    private var weekDiscLayer: some View {
-        GlassEffectContainer(spacing: 4) {
-            HStack(spacing: 0) {
-                ForEach(dayTags, id: \.self) { tag in
-                    VStack(spacing: 3) {
-                        // Láthatatlan hétköznap-betű: ugyanaz a magasság, mint a valódi oszlopban.
-                        Text("X").font(.caption2.weight(.semibold)).hidden()
-                        ZStack {
-                            if tag == selectedDay {
-                                Color.clear
-                                    .glassEffect(.regular.tint(colors.accent).interactive(), in: .circle)
-                                    .glassEffectID("weekDisc", in: weekDiscNS)
-                            }
-                        }
-                        .frame(width: discSize, height: discSize)
-                        Color.clear.frame(width: 5, height: 5)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-            }
-        }
-        .allowsHitTesting(false)
+        TimetableWeekBar(
+            weekOffset: weekOffset,
+            selectedDay: selectedDay,
+            userHasNavigated: userHasNavigated,
+            lessons: lessons,
+            weekKnown: weekKnown,
+            examDays: examDays,
+            colors: colors,
+            onSelectDay: { tag in
+                userHasNavigated = true
+                withAnimation(SummitMotion.page) { selectedDay = tag }
+            },
+            onPageWeek: { pageWeek($0) },
+            onToday: { goToSmartToday() }
+        )
     }
 
-    // MARK: Hét-kártya — hónap-cím + lapozó + a 5 nap (Apple Naptár hét-sávja)
-    private var weekCard: some View {
-        VStack(spacing: 6) {
-            ZStack {
-                VStack(spacing: 2) {
-                    Text(weekMonthTitle)
-                        .cpOnly { $0.textCase(.uppercase).tracking(1.6) }
-                        .skinFont(.subheadline, weight: .semibold)
-                        .foregroundStyle(NeonTheme.isActive ? AnyShapeStyle(NeonTheme.yellow) : AnyShapeStyle(.primary))
-                        .lineLimit(1).minimumScaleFactor(0.8)
-                    // Hét-viszony + frissítés-állapot („Ez a hét · Frissítés…");
-                    // ha nem fér ki, az állapot nyer (a hónap-cím és a dátumok
-                    // úgyis mutatják, melyik hét ez).
-                    TimetableWeekSubtitle(weekTitle: weekTitle,
-                                          kinds: [.timetable(currentMonday), .homework, .exams])
-                }
-                // A cím mindig középen áll (a "Ma" gomb meg-megjelenése
-                // nem tolja el), a gombok sávját szabadon hagyja.
-                .padding(.horizontal, 88)
-                .contentTransition(.numericText())
-                .animation(SummitMotion.page, value: weekOffset)
-                .onTapGesture {
-                    // Ugyanakkor él, amikor a „Ma" gomb látszik (napot
-                    // lapozva is, nem csak más héten).
-                    guard weekOffset != 0 || userHasNavigated else { return }
-                    // Nem Button, ezért a kattanás kézzel (csak MC-ben szól).
-                    VoxelSound.play(.click)
-                    goToSmartToday()
-                }
-
-                HStack(spacing: 0) {
-                    Button { pageWeek(-1) } label: {
-                        SkinIcon("chevron.left", size: 18)
-                            .font(.system(size: 15, weight: .semibold))
-                            // Neonban a HUD-gomb adja a színt (lenyomva invertál).
-                            .unlessCP { $0.foregroundStyle(.primary) }
-                            .frame(width: VoxelTheme.isActive ? 24 : NeonTheme.isActive ? 18 : 40,
-                                   height: VoxelTheme.isActive ? 24 : NeonTheme.isActive ? 22 : 36)
-                            .contentShape(Rectangle())
-                    }
-                    .voxelCompactOrPlainButton()
-                    .disabled(weekOffset <= -8)
-                    .accessibilityLabel("Előző hét")
-
-                    Spacer(minLength: 0)
-
-                    // "Ma" gomb: nem csak hetet lapozva, hanem napot
-                    // ellapozva is előjön (a nap-sáv és a swipe is
-                    // userHasNavigated-et állít; a gomb azt nullázza).
-                    if weekOffset != 0 || userHasNavigated {
-                        Button("Ma") { goToSmartToday() }
-                        .skinFont(.subheadline, weight: .semibold)
-                        .voxelCompactButtonIfActive()
-                        .tint(colors.accent)
-                        .padding(.trailing, 4)
-                    }
-
-                    Button { pageWeek(1) } label: {
-                        SkinIcon("chevron.right", size: 18)
-                            .font(.system(size: 15, weight: .semibold))
-                            .unlessCP { $0.foregroundStyle(.primary) }
-                            .frame(width: VoxelTheme.isActive ? 24 : NeonTheme.isActive ? 18 : 40,
-                                   height: VoxelTheme.isActive ? 24 : NeonTheme.isActive ? 22 : 36)
-                            .contentShape(Rectangle())
-                    }
-                    .voxelCompactOrPlainButton()
-                    .disabled(weekOffset >= 8)
-                    .accessibilityLabel("Következő hét")
-                }
-            }
-            // A cím-sor nem nő a végtelenségig (a chevronok fix méretűek);
-            // a nap-sáv saját, tágabb plafont kap (lásd weekStrip).
-            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-            weekStrip
-        }
-    }
-
-    /// 5 egyenlő oszlop (H–P): hétköznap-betű, nap-szám körben, dolgozat-pötty.
-    /// A koppintás az egyetlen hely, ahol a napváltás animál (a lista-szintű
-    /// .animation helyett — az rángatta a görgetést); a kijelölő-korong
-    /// matchedGeometryEffect-tel csúszik a napok közt.
-    private var weekStrip: some View {
-        let cal = Calendar.current
-        let today = cal.startOfDay(for: Date())
-        let lessonDays = Set(lessons.map { cal.startOfDay(for: $0.start) })
-        let examMap = examDays
-        // Tanítás nélküli nap halvány — de csak betöltés után, és csak ha a
-        // hétnek egyáltalán van órája (különben minden nap "üres" lenne).
-        let dimEmpty = weekKnown && !lessons.isEmpty
-        return HStack(spacing: 0) {
-            ForEach(dayTags, id: \.self) { tag in
-                if let date = dayDate(for: tag) {
-                    let day = cal.startOfDay(for: date)
-                    weekStripDay(
-                        tag: tag, date: date,
-                        isToday: day == today,
-                        isEmpty: dimEmpty && !lessonDays.contains(day),
-                        examRolled: examMap[day]
-                    )
-                }
-            }
-        }
-        // Az üveg-korong a szövegek ALATT (lásd weekBar).
-        .background { if !VoxelTheme.isActive && !NeonTheme.isActive { weekDiscLayer } }
-        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
-        .contentShape(Rectangle())
-        // Swipe a sávon: hetet lapoz (a napi tartalom swipe-ja napot).
-        .simultaneousGesture(weekSwipeGesture)
-    }
-
-    private func weekStripDay(tag: Int, date: Date, isToday: Bool, isEmpty: Bool, examRolled: Bool?) -> some View {
-        let isSel = tag == selectedDay
-        let weekday = Calendar.current.component(.weekday, from: date)
-        // Üveg-korong (accent tint) → a kijelölt szám mindig fehér; ma = accent
-        // szám, tanítás nélküli nap = halvány szám. Voxelben tömör korong
-        // (ma = accent, egyébként fekete/fehér).
-        // Neonban a játék menü-cellája (`cell_bg`/`cell_fg`):
-        // kijelölve mélyvörös kitöltés fekete számmal (a játék
-        // `ButtonPause` Hover-kitöltése), ma = sárga szám + aláhúzás
-        // (a sárga a játék hover/akcent színe, nem kijelölés-kitöltés).
-        let mc = VoxelTheme.isActive
-        let cp = NeonTheme.isActive
-        let number: AnyShapeStyle = isSel
-            ? AnyShapeStyle(cp ? Color.black : Color.white)
-            : isToday ? AnyShapeStyle(mc ? VoxelTheme.grassDeep : cp ? NeonTheme.yellow : colors.accent)
-            : isEmpty ? AnyShapeStyle(.tertiary)
-            : AnyShapeStyle(.primary)
-        var label = dayTitle(for: tag)
-        if isToday { label += ", ma" }
-        if examRolled != nil { label += ", dolgozat" }
-        return Button {
-            guard tag != selectedDay else { return }
-            SummitHaptics.selection()
-            // A kattanást a `.skinPlain` stílus adja (eddig duplán szólt).
-            userHasNavigated = true
-            withAnimation(SummitMotion.page) { selectedDay = tag }
-        } label: {
-            VStack(spacing: 3) {
-                Text(Self.weekdayShortSymbols[weekday - 1])
-                    .cpOnly { $0.textCase(.uppercase).tracking(1) }
-                    .cpMono(10)
-                    .skinFont(.caption2, weight: .semibold)
-                    .foregroundStyle(cp ? AnyShapeStyle(isSel ? NeonTheme.red : isToday ? NeonTheme.yellow : NeonTheme.dim) : AnyShapeStyle(.secondary))
-                    .lineLimit(1)
-                ZStack {
-                    if isSel {
-                        if mc {
-                            // A hotbar kijelölése: fehér keretes kő-slot (a
-                            // vanilla kiemelt gomb), ma = fűzöld arc alatta.
-                            ZStack {
-                                (isToday ? VoxelTheme.grassDeep : Color(hex: 0x6B6B70))
-                                VoxelNineSlice("img_blk_widget_button_hi", border: 3)
-                            }
-                            .matchedGeometryEffect(id: "weekDisc", in: weekDiscNS)
-                        } else if cp {
-                            NeonGameCellBackground(fill: NeonTheme.red, frame: NeonTheme.red)
-                                .matchedGeometryEffect(id: "weekDisc", in: weekDiscNS)
-                        }
-                    }
-                    Text("\(Calendar.current.component(.day, from: date))")
-                        .skinFontDigits(.title3, weight: .semibold)
-                        .foregroundStyle(number)
-                        .shadow(color: mc && isSel ? Color(hex: 0x3F3F3F) : .clear, radius: 0, x: 2, y: 2)
-                }
-                .frame(width: discSize, height: discSize)
-                .overlay(alignment: .bottom) {
-                    if cp && isToday && !isSel {
-                        Rectangle()
-                            .fill(NeonTheme.yellow)
-                            .frame(height: 2)
-                            .padding(.horizontal, 6)
-                    }
-                }
-                // Dolgozat-pötty: a magassága minden oszlopban foglalt,
-                // hogy semmi ne ugorjon.
-                VoxelTheme.circle
-                    .fill(examRolled == true ? (cp ? NeonTheme.red : Color.red)
-                          : (cp ? NeonTheme.yellow : Color.orange))
-                    .frame(width: mc ? 6 : 5, height: mc ? 6 : 5)
-                    .opacity(examRolled == nil ? 0 : 1)
-            }
-            .frame(maxWidth: .infinity)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.skinPlain)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(label)
-        .accessibilityAddTraits(isSel ? [.isButton, .isSelected] : .isButton)
-    }
-
-    /// Nap-fejléc: "Péntek, október 23." + (teli napon) "6 óra · 8:00 – 13:35".
-    /// A cím `voxelDisplay` — Voxel skinben a pixelbetű.
+    /// Nap-fejléc: a közös `TimetableDayHeader` (teli napon az óraszám-sorral).
     private func dayHeader(showsSummary: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(dayTitle(for: selectedDay))
-                // Neon: nagybetűs HUD-cím, napváltáskor egy rövid
-                // glitch-rándulás (Reduce Motion mellett a kit kikapcsolja).
-                .cpOnly { $0.textCase(.uppercase).tracking(1.2) }
-                .voxelDisplay(24)
-                .foregroundStyle(.primary)
-                .lineLimit(1).minimumScaleFactor(0.6)
-                .cpOnly { $0.cpGlitch(trigger: "\(weekOffset)-\(selectedDay)") }
-                .accessibilityAddTraits(.isHeader)
-            if showsSummary {
-                let items = effectiveFiltered
-                let cp = NeonTheme.isActive
-                let count = cp ? String(format: "%02d ÓRA", items.count) : "\(items.count) óra"
-                if let first = items.first, let last = items.last {
-                    let span = "\(first.start.formatted(date: .omitted, time: .shortened)) – \(last.end.formatted(date: .omitted, time: .shortened))"
-                    Text(cp ? "\(count) // \(span)" : "\(count) · \(span)")
-                        .cpOnly {
-                            $0.cpMono(12, relativeTo: .subheadline).foregroundStyle(NeonTheme.cyan)
-                                .accessibilityLabel("\(items.count) óra, \(span)")
-                        }
-                        .skinFontDigits(.subheadline)
-                        .skinSecondaryOnSky()
-                } else {
-                    Text(count)
-                        .cpOnly { $0.cpMono(12, relativeTo: .subheadline).foregroundStyle(NeonTheme.cyan) }
-                        .skinFontDigits(.subheadline)
-                        .skinSecondaryOnSky()
-                }
-            }
-            if NeonTheme.isActive {
-                NeonDivider(color: NeonTheme.yellow)
-                    .padding(.top, 6)
-            }
-        }
-        // A cím fix méretű (voxelDisplay) — az alsó sor se szaladjon el tőle.
-        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// Hét-lapozó swipe a hét-sávon. Ugyanaz a szigorú vízszintes zár, mint
-    /// a daySwipeGesture-é (64 pt + kétszeres vízszintes túlsúly): a
-    /// függőleges görgetés sosem lapoz hetet. Balra = következő hét.
-    private var weekSwipeGesture: some Gesture {
-        DragGesture(minimumDistance: 32, coordinateSpace: .local)
-            .onEnded { value in
-                let dx = value.translation.width
-                let dy = value.translation.height
-                guard abs(dx) > 64, abs(dx) > 2 * abs(dy) else { return }
-                pageWeek(dx < 0 ? 1 : -1)
-            }
+        TimetableDayHeader(title: dayTitle(for: selectedDay),
+                           summaryItems: showsSummary ? effectiveFiltered : nil,
+                           glitchKey: "\(weekOffset)-\(selectedDay)")
     }
 
     /// Nap/hét-váltó swipe a napi tartalmon. Szigorú vízszintes zár
@@ -1443,6 +1133,400 @@ struct TimetableDerived {
     }
 }
 
+// MARK: - Hét-sáv (az Órarend és a bemutató közös nézete)
+/// Az Órarend hét-kártyája önálló nézetként, hogy az első indítás
+/// bemutatója (`OnboardingTimetableStep`) is pontosan ezt rajzolja. Az
+/// állapotot (hét, nap, kézi navigálás) a hívó birtokolja; a napváltás, a
+/// hétlapozás és a „Ma" a hívó closure-jein át megy.
+struct TimetableWeekBar: View {
+    let weekOffset: Int
+    let selectedDay: Int
+    /// Kézi lapozás óta igaz — ettől él a „Ma" gomb és a cím-koppintás.
+    let userHasNavigated: Bool
+    /// A kijelzett hét órái (a tanítás nélküli nap halványításához).
+    let lessons: [LessonItem]
+    let weekKnown: Bool
+    /// Dolgozatos napok (nap eleje → igaz, ha MINDEN aznapi dolgozat átütemezett: piros pötty).
+    let examDays: [Date: Bool]
+    let colors: AppColors
+    /// Napkoppintás (a haptika már szólt; a hívó állít és animál).
+    var onSelectDay: (Int) -> Void
+    /// Hétlapozás (chevron és a sáv swipe-ja): -1 / +1.
+    var onPageWeek: (Int) -> Void
+    /// „Ma" gomb / hétnév-koppintás.
+    var onToday: () -> Void
+
+    /// A hét-sáv kijelölő-korongja (glassEffectID / MC-ben matchedGeometryEffect) és a mérete
+    /// (a Dynamic Type-pal együtt nő, hogy a szám sosem lóg ki a körből).
+    @Namespace private var weekDiscNS
+    @ScaledMetric(relativeTo: .title3) private var discSize: CGFloat = 36
+    private let dayTags = Array(2...6)
+
+    private var currentMonday: Date { TimetableView.mondayOfWeek(offset: weekOffset) }
+    private var weekTitle: String {
+        if weekOffset == 0 { return "Ez a hét" }
+        if weekOffset == -1 { return "Múlt hét" }
+        if weekOffset == 1 { return "Jövő hét" }
+        if weekOffset < 0 { return "\(abs(weekOffset)) héttel ezelőtt" }
+        return "\(weekOffset) hét múlva"
+    }
+
+    /// A hét-sáv dátumai: az aktuális hét hétfőjéhez igazítva
+    /// (hétlapozáskor a dátumok is vele mennek).
+    private func dayDate(for tag: Int) -> Date? {
+        let cal = Calendar.current
+        guard let dayIdx = dayTags.firstIndex(of: tag) else { return nil }
+        return cal.date(byAdding: .day, value: dayIdx, to: currentMonday)
+    }
+
+    /// "Péntek, október 23." (évszámmal, ha nem az idei év).
+    private func dayTitle(for tag: Int) -> String {
+        guard let d = dayDate(for: tag) else { return "" }
+        return TimetableView.dayTitle(of: d)
+    }
+
+    /// Hét-cím fő sora: a hét hónapja ("Október"), hónaphatáron
+    /// "Október – November"; évszám csak ha nem az idei ("Január 2027").
+    private var weekMonthTitle: String {
+        let cal = Calendar.current
+        let monday = currentMonday
+        let friday = cal.date(byAdding: .day, value: 4, to: monday) ?? monday
+        let m1 = TimetableView.capitalized(TimetableView.monthFormatter.string(from: monday))
+        let m2 = TimetableView.capitalized(TimetableView.monthFormatter.string(from: friday))
+        let months = m1 == m2 ? m1 : "\(m1) – \(m2)"
+        if TimetableView.isCurrentYear(monday) && TimetableView.isCurrentYear(friday) { return months }
+        return "\(months) \(cal.component(.year, from: friday))"
+    }
+
+    var body: some View { weekBar }
+
+    // MARK: Hét-sáv — lebegő Liquid Glass kártya a lista fölött
+    /// Az üveg a lista fölötti UI-réteg (a tartalom alatta görög el). Három
+    /// réteg, alulról: (1) a kártya üvege `.background`-ban (nem a tartalom
+    /// szülő-glass modifierje — a külső margó az üvegen KÍVÜL van),
+    /// (2) a kijelölő korong üvege a sáv mögött (`weekDiscLayer`), (3) a
+    /// szövegek. A szöveg SOHA nem kerül GlassEffectContainerbe: a konténer
+    /// a tartalmat is az üveg-passzba rántaná, és elmosná. Voxel
+    /// skinben nincs üveg: blokk-kártya és tömör korong.
+    private var weekBar: some View {
+        Group {
+            if VoxelTheme.isActive {
+                weekCard
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 8)
+                    // Háttérként: a blokk-kártya kemény árnyéka ne a szövegekre kerüljön.
+                    .background { Color.clear.voxelCard(cornerRadius: 6) }
+            } else if NeonTheme.isActive {
+                // Neon: opak HUD-panel levágott sarokkal, 1 px-es sárga
+                // kerettel (üveg nincs — a skin sosem áttetsző).
+                weekCard
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 8)
+                    .background {
+                        NeonPanelBackground(accent: NeonTheme.yellow, fill: NeonTheme.panel,
+                                          corners: .diagonal, cut: 14)
+                    }
+            } else {
+                weekCard
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 8)
+                    .background {
+                        Color.clear.glassEffect(.regular, in: .rect(cornerRadius: Self.weekBarRadius))
+                    }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
+    }
+    /// A kártya sarka: a kijelző sarkához igazodó (~concentric a 16 pt-os
+    /// behúzással), nem kapszula — a kártya magas.
+    private static let weekBarRadius: CGFloat = 30
+
+    /// A kijelölő üveg-korong rétege: a sáv oszlopait tükrözi (ugyanaz a
+    /// függőleges ritmus), csak a kijelölt napnál van benne egy
+    /// accent-tintes üveg-kör. Egyetlen GlassEffectContainer + azonos
+    /// glassEffectID: koppintásra a korong a napok közt morfol. Csak üveg
+    /// van benne (a szövegek fölötte, külön rétegben ülnek).
+    private var weekDiscLayer: some View {
+        GlassEffectContainer(spacing: 4) {
+            HStack(spacing: 0) {
+                ForEach(dayTags, id: \.self) { tag in
+                    VStack(spacing: 3) {
+                        // Láthatatlan hétköznap-betű: ugyanaz a magasság, mint a valódi oszlopban.
+                        Text("X").font(.caption2.weight(.semibold)).hidden()
+                        ZStack {
+                            if tag == selectedDay {
+                                Color.clear
+                                    .glassEffect(.regular.tint(colors.accent).interactive(), in: .circle)
+                                    .glassEffectID("weekDisc", in: weekDiscNS)
+                            }
+                        }
+                        .frame(width: discSize, height: discSize)
+                        Color.clear.frame(width: 5, height: 5)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    // MARK: Hét-kártya — hónap-cím + lapozó + a 5 nap (Apple Naptár hét-sávja)
+    private var weekCard: some View {
+        VStack(spacing: 6) {
+            ZStack {
+                VStack(spacing: 2) {
+                    Text(weekMonthTitle)
+                        .cpOnly { $0.textCase(.uppercase).tracking(1.6) }
+                        .skinFont(.subheadline, weight: .semibold)
+                        .foregroundStyle(NeonTheme.isActive ? AnyShapeStyle(NeonTheme.yellow) : AnyShapeStyle(.primary))
+                        .lineLimit(1).minimumScaleFactor(0.8)
+                    // Hét-viszony + frissítés-állapot („Ez a hét · Frissítés…");
+                    // ha nem fér ki, az állapot nyer (a hónap-cím és a dátumok
+                    // úgyis mutatják, melyik hét ez).
+                    TimetableWeekSubtitle(weekTitle: weekTitle,
+                                          kinds: [.timetable(currentMonday), .homework, .exams])
+                }
+                // A cím mindig középen áll (a "Ma" gomb meg-megjelenése
+                // nem tolja el), a gombok sávját szabadon hagyja.
+                .padding(.horizontal, 88)
+                .contentTransition(.numericText())
+                .animation(SummitMotion.page, value: weekOffset)
+                .onTapGesture {
+                    // Ugyanakkor él, amikor a „Ma" gomb látszik (napot
+                    // lapozva is, nem csak más héten).
+                    guard weekOffset != 0 || userHasNavigated else { return }
+                    // Nem Button, ezért a kattanás kézzel (csak MC-ben szól).
+                    VoxelSound.play(.click)
+                    onToday()
+                }
+
+                HStack(spacing: 0) {
+                    Button { onPageWeek(-1) } label: {
+                        SkinIcon("chevron.left", size: 18)
+                            .font(.system(size: 15, weight: .semibold))
+                            // Neonban a HUD-gomb adja a színt (lenyomva invertál).
+                            .unlessCP { $0.foregroundStyle(.primary) }
+                            .frame(width: VoxelTheme.isActive ? 24 : NeonTheme.isActive ? 18 : 40,
+                                   height: VoxelTheme.isActive ? 24 : NeonTheme.isActive ? 22 : 36)
+                            .contentShape(Rectangle())
+                    }
+                    .voxelCompactOrPlainButton()
+                    .disabled(weekOffset <= -8)
+                    .accessibilityLabel("Előző hét")
+
+                    Spacer(minLength: 0)
+
+                    // "Ma" gomb: nem csak hetet lapozva, hanem napot
+                    // ellapozva is előjön (a nap-sáv és a swipe is
+                    // userHasNavigated-et állít; a gomb azt nullázza).
+                    if weekOffset != 0 || userHasNavigated {
+                        Button("Ma") { onToday() }
+                        .skinFont(.subheadline, weight: .semibold)
+                        .voxelCompactButtonIfActive()
+                        .tint(colors.accent)
+                        .padding(.trailing, 4)
+                    }
+
+                    Button { onPageWeek(1) } label: {
+                        SkinIcon("chevron.right", size: 18)
+                            .font(.system(size: 15, weight: .semibold))
+                            .unlessCP { $0.foregroundStyle(.primary) }
+                            .frame(width: VoxelTheme.isActive ? 24 : NeonTheme.isActive ? 18 : 40,
+                                   height: VoxelTheme.isActive ? 24 : NeonTheme.isActive ? 22 : 36)
+                            .contentShape(Rectangle())
+                    }
+                    .voxelCompactOrPlainButton()
+                    .disabled(weekOffset >= 8)
+                    .accessibilityLabel("Következő hét")
+                }
+            }
+            // A cím-sor nem nő a végtelenségig (a chevronok fix méretűek);
+            // a nap-sáv saját, tágabb plafont kap (lásd weekStrip).
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            weekStrip
+        }
+    }
+
+    /// 5 egyenlő oszlop (H–P): hétköznap-betű, nap-szám körben, dolgozat-pötty.
+    /// A koppintás az egyetlen hely, ahol a napváltás animál (a lista-szintű
+    /// .animation helyett — az rángatta a görgetést); a kijelölő-korong
+    /// matchedGeometryEffect-tel csúszik a napok közt.
+    private var weekStrip: some View {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let lessonDays = Set(lessons.map { cal.startOfDay(for: $0.start) })
+        let examMap = examDays
+        // Tanítás nélküli nap halvány — de csak betöltés után, és csak ha a
+        // hétnek egyáltalán van órája (különben minden nap "üres" lenne).
+        let dimEmpty = weekKnown && !lessons.isEmpty
+        return HStack(spacing: 0) {
+            ForEach(dayTags, id: \.self) { tag in
+                if let date = dayDate(for: tag) {
+                    let day = cal.startOfDay(for: date)
+                    weekStripDay(
+                        tag: tag, date: date,
+                        isToday: day == today,
+                        isEmpty: dimEmpty && !lessonDays.contains(day),
+                        examRolled: examMap[day]
+                    )
+                }
+            }
+        }
+        // Az üveg-korong a szövegek ALATT (lásd weekBar).
+        .background { if !VoxelTheme.isActive && !NeonTheme.isActive { weekDiscLayer } }
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+        .contentShape(Rectangle())
+        // Swipe a sávon: hetet lapoz (a napi tartalom swipe-ja napot).
+        .simultaneousGesture(weekSwipeGesture)
+    }
+
+    private func weekStripDay(tag: Int, date: Date, isToday: Bool, isEmpty: Bool, examRolled: Bool?) -> some View {
+        let isSel = tag == selectedDay
+        let weekday = Calendar.current.component(.weekday, from: date)
+        // Üveg-korong (accent tint) → a kijelölt szám mindig fehér; ma = accent
+        // szám, tanítás nélküli nap = halvány szám. Voxelben tömör korong
+        // (ma = accent, egyébként fekete/fehér).
+        // Neonban a játék menü-cellája (`cell_bg`/`cell_fg`):
+        // kijelölve mélyvörös kitöltés fekete számmal (a játék
+        // `ButtonPause` Hover-kitöltése), ma = sárga szám + aláhúzás
+        // (a sárga a játék hover/akcent színe, nem kijelölés-kitöltés).
+        let mc = VoxelTheme.isActive
+        let cp = NeonTheme.isActive
+        let number: AnyShapeStyle = isSel
+            ? AnyShapeStyle(cp ? Color.black : Color.white)
+            : isToday ? AnyShapeStyle(mc ? VoxelTheme.grassDeep : cp ? NeonTheme.yellow : colors.accent)
+            : isEmpty ? AnyShapeStyle(.tertiary)
+            : AnyShapeStyle(.primary)
+        var label = dayTitle(for: tag)
+        if isToday { label += ", ma" }
+        if examRolled != nil { label += ", dolgozat" }
+        return Button {
+            guard tag != selectedDay else { return }
+            SummitHaptics.selection()
+            // A kattanást a `.skinPlain` stílus adja (eddig duplán szólt).
+            // A kézi-navigálás jelzőt és az animált napváltást a hívó állítja.
+            onSelectDay(tag)
+        } label: {
+            VStack(spacing: 3) {
+                Text(TimetableView.weekdayShortSymbols[weekday - 1])
+                    .cpOnly { $0.textCase(.uppercase).tracking(1) }
+                    .cpMono(10)
+                    .skinFont(.caption2, weight: .semibold)
+                    .foregroundStyle(cp ? AnyShapeStyle(isSel ? NeonTheme.red : isToday ? NeonTheme.yellow : NeonTheme.dim) : AnyShapeStyle(.secondary))
+                    .lineLimit(1)
+                ZStack {
+                    if isSel {
+                        if mc {
+                            // A hotbar kijelölése: fehér keretes kő-slot (a
+                            // vanilla kiemelt gomb), ma = fűzöld arc alatta.
+                            ZStack {
+                                (isToday ? VoxelTheme.grassDeep : Color(hex: 0x6B6B70))
+                                VoxelNineSlice("img_blk_widget_button_hi", border: 3)
+                            }
+                            .matchedGeometryEffect(id: "weekDisc", in: weekDiscNS)
+                        } else if cp {
+                            NeonGameCellBackground(fill: NeonTheme.red, frame: NeonTheme.red)
+                                .matchedGeometryEffect(id: "weekDisc", in: weekDiscNS)
+                        }
+                    }
+                    Text("\(Calendar.current.component(.day, from: date))")
+                        .skinFontDigits(.title3, weight: .semibold)
+                        .foregroundStyle(number)
+                        .shadow(color: mc && isSel ? Color(hex: 0x3F3F3F) : .clear, radius: 0, x: 2, y: 2)
+                }
+                .frame(width: discSize, height: discSize)
+                .overlay(alignment: .bottom) {
+                    if cp && isToday && !isSel {
+                        Rectangle()
+                            .fill(NeonTheme.yellow)
+                            .frame(height: 2)
+                            .padding(.horizontal, 6)
+                    }
+                }
+                // Dolgozat-pötty: a magassága minden oszlopban foglalt,
+                // hogy semmi ne ugorjon.
+                VoxelTheme.circle
+                    .fill(examRolled == true ? (cp ? NeonTheme.red : Color.red)
+                          : (cp ? NeonTheme.yellow : Color.orange))
+                    .frame(width: mc ? 6 : 5, height: mc ? 6 : 5)
+                    .opacity(examRolled == nil ? 0 : 1)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.skinPlain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isSel ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// Hét-lapozó swipe a hét-sávon. Ugyanaz a szigorú vízszintes zár, mint
+    /// a daySwipeGesture-é (64 pt + kétszeres vízszintes túlsúly): a
+    /// függőleges görgetés sosem lapoz hetet. Balra = következő hét.
+    private var weekSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 32, coordinateSpace: .local)
+            .onEnded { value in
+                let dx = value.translation.width
+                let dy = value.translation.height
+                guard abs(dx) > 64, abs(dx) > 2 * abs(dy) else { return }
+                onPageWeek(dx < 0 ? 1 : -1)
+            }
+    }
+}
+
+// MARK: - Nap-fejléc (az Órarend és a bemutató közös nézete)
+/// Nap-fejléc: "Péntek, október 23." + (teli napon) "6 óra · 8:00 – 13:35".
+/// A cím `voxelDisplay` — Voxel skinben a pixelbetű.
+struct TimetableDayHeader: View {
+    let title: String
+    /// A nap érdemi órái az óraszám-sorhoz; nil = üres nap (sor nélkül).
+    let summaryItems: [LessonItem]?
+    /// A Neon glitch-rándulás kulcsa (hét-nap).
+    let glitchKey: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                // Neon: nagybetűs HUD-cím, napváltáskor egy rövid
+                // glitch-rándulás (Reduce Motion mellett a kit kikapcsolja).
+                .cpOnly { $0.textCase(.uppercase).tracking(1.2) }
+                .voxelDisplay(24)
+                .foregroundStyle(.primary)
+                .lineLimit(1).minimumScaleFactor(0.6)
+                .cpOnly { $0.cpGlitch(trigger: glitchKey) }
+                .accessibilityAddTraits(.isHeader)
+            if let items = summaryItems {
+                let cp = NeonTheme.isActive
+                let count = cp ? String(format: "%02d ÓRA", items.count) : "\(items.count) óra"
+                if let first = items.first, let last = items.last {
+                    let span = "\(first.start.formatted(date: .omitted, time: .shortened)) – \(last.end.formatted(date: .omitted, time: .shortened))"
+                    Text(cp ? "\(count) // \(span)" : "\(count) · \(span)")
+                        .cpOnly {
+                            $0.cpMono(12, relativeTo: .subheadline).foregroundStyle(NeonTheme.cyan)
+                                .accessibilityLabel("\(items.count) óra, \(span)")
+                        }
+                        .skinFontDigits(.subheadline)
+                        .skinSecondaryOnSky()
+                } else {
+                    Text(count)
+                        .cpOnly { $0.cpMono(12, relativeTo: .subheadline).foregroundStyle(NeonTheme.cyan) }
+                        .skinFontDigits(.subheadline)
+                        .skinSecondaryOnSky()
+                }
+            }
+            if NeonTheme.isActive {
+                NeonDivider(color: NeonTheme.yellow)
+                    .padding(.top, 6)
+            }
+        }
+        // A cím fix méretű (voxelDisplay) — az alsó sor se szaladjon el tőle.
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 // MARK: - Hét-alcím: „Ez a hét" + frissítés-állapot
 /// Külön nézet, hogy a store frissítés-állapotának változása csak ezt a
 /// sort rajzolja újra, ne a teljes órarendet. Ha a kettő együtt nem fér
@@ -1531,7 +1615,7 @@ private struct SchoolEventCard: View {
 }
 
 // MARK: - Single editorial row — liquid glass óraszám színezi az állapotot (tick nélkül)
-private struct TimetableRow: View {
+struct TimetableRow: View {
     let lesson: LessonItem
     let isCurrent: Bool
     let isLast: Bool

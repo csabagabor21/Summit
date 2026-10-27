@@ -27,9 +27,8 @@ struct MainTabView: View {
     @ObservedObject private var notif = NotificationManager.shared
     @ObservedObject private var watchAvailability = WatchAvailability.shared
     @EnvironmentObject var completed: CompletedStore
-    @EnvironmentObject var analytics: AnalyticsStore
-    /// Fülről fülre vezető bemutató (lásd `AppTour`): egyszer indul
-    /// magától, a hozzájárulás-választó után.
+    /// Fülről fülre vezető bemutató (lásd `AppTour`): csak kérésre indul
+    /// (Beállítások ? menü) — az első élményt az `OnboardingExperience` adja.
     @AppStorage(AppTour.seenKey) private var appTourSeen = false
     @State private var tourStep: Int?
     /// Széles elrendezés (iPad / Mac): itt a Watch saját sidebar-tabot kap.
@@ -191,14 +190,6 @@ struct MainTabView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: switchToGrades)) { _ in
             selected = 1
-        }
-        // Bemutató: első belépéskor magától, amint a hozzájárulás-
-        // választó lezárult (különben a cover alá nyílna).
-        .task(id: analytics.hasChosen) {
-            guard analytics.hasChosen, !appTourSeen, tourStep == nil else { return }
-            try? await Task.sleep(nanoseconds: 900_000_000)
-            guard !Task.isCancelled, analytics.hasChosen, !appTourSeen, tourStep == nil else { return }
-            tourStep = 0
         }
         // Újraindítás a Beállításokból: minden tab a gyökerére ugrik
         // (különben a Főoldal-lépés a nyitott Beállítások fölött állna).

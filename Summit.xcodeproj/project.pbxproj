@@ -7,8 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1C0FFEE0000000000002011 /* OnboardingAbsencesStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE0000000000002010 /* OnboardingAbsencesStep.swift */; };
+		A1C0FFEE0000000000002009 /* OnboardingTasksStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE0000000000002008 /* OnboardingTasksStep.swift */; };
+		A1C0FFEE0000000000002007 /* OnboardingTimetableStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE0000000000002006 /* OnboardingTimetableStep.swift */; };
+		A1C0FFEE0000000000002005 /* OnboardingGradesStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE0000000000002004 /* OnboardingGradesStep.swift */; };
+		A1C0FFEE0000000000002003 /* OnboardingHomeStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE0000000000002002 /* OnboardingHomeStep.swift */; };
+		A1C0FFEE0000000000002001 /* OnboardingExperience.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE0000000000002000 /* OnboardingExperience.swift */; };
 		A1C0FFEE0000000000000004 /* AppTour.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE0000000000000003 /* AppTour.swift */; };
-		A1C0FFEE0000000000000002 /* WelcomeOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE0000000000000001 /* WelcomeOnboardingView.swift */; };
 		55A742C9612178164A5D71DB /* Rajdhani-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D062E6ED9578FC39FDD74D73 /* Rajdhani-Medium.ttf */; };
 		061D02E374603EE65367F931 /* Rajdhani-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9FD2217207EE83978EC8B329 /* Rajdhani-SemiBold.ttf */; };
 		452B9C30405F57E2F40B0FCB /* Rajdhani-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 6B4E87F1E2CC1D38620E0090 /* Rajdhani-Bold.ttf */; };
@@ -228,8 +233,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A1C0FFEE0000000000002010 /* OnboardingAbsencesStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingAbsencesStep.swift; sourceTree = "<group>"; };
+		A1C0FFEE0000000000002008 /* OnboardingTasksStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingTasksStep.swift; sourceTree = "<group>"; };
+		A1C0FFEE0000000000002006 /* OnboardingTimetableStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingTimetableStep.swift; sourceTree = "<group>"; };
+		A1C0FFEE0000000000002004 /* OnboardingGradesStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingGradesStep.swift; sourceTree = "<group>"; };
+		A1C0FFEE0000000000002002 /* OnboardingHomeStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingHomeStep.swift; sourceTree = "<group>"; };
+		A1C0FFEE0000000000002000 /* OnboardingExperience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingExperience.swift; sourceTree = "<group>"; };
 		A1C0FFEE0000000000000003 /* AppTour.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTour.swift; sourceTree = "<group>"; };
-		A1C0FFEE0000000000000001 /* WelcomeOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeOnboardingView.swift; sourceTree = "<group>"; };
 		D062E6ED9578FC39FDD74D73 /* Rajdhani-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Rajdhani-Medium.ttf; sourceTree = "<group>"; };
 		9FD2217207EE83978EC8B329 /* Rajdhani-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Rajdhani-SemiBold.ttf; sourceTree = "<group>"; };
 		6B4E87F1E2CC1D38620E0090 /* Rajdhani-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Rajdhani-Bold.ttf; sourceTree = "<group>"; };
@@ -398,11 +408,23 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		A1C0FFEE00000000000000F0 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				A1C0FFEE0000000000002000 /* OnboardingExperience.swift */,
+				A1C0FFEE0000000000002002 /* OnboardingHomeStep.swift */,
+				A1C0FFEE0000000000002004 /* OnboardingGradesStep.swift */,
+				A1C0FFEE0000000000002006 /* OnboardingTimetableStep.swift */,
+				A1C0FFEE0000000000002008 /* OnboardingTasksStep.swift */,
+				A1C0FFEE0000000000002010 /* OnboardingAbsencesStep.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
 		018A05B9D2DE7C260226F8E2 /* Auth */ = {
 			isa = PBXGroup;
 			children = (
 				6E0E94310269FCFFF2F115AC /* AnalyticsConsentView.swift */,
-				A1C0FFEE0000000000000001 /* WelcomeOnboardingView.swift */,
 				4CC0B40D99CA71E14A82E1AF /* AuthViewModel.swift */,
 				66A280F65EA8973C9BD6A643 /* KretaWebView.swift */,
 				7CE0368F13109AD5B0C8D790 /* LoginView.swift */,
@@ -627,6 +649,7 @@
 				7070AF8DA86AD8AD598D36E7 /* Grades */,
 				4393A737D8D343A80B277A26 /* Home */,
 				93A188207B192C2AF33F83B9 /* MainTab */,
+				A1C0FFEE00000000000000F0 /* Onboarding */,
 				C05120D21AD95C2B8EE5A9EB /* Messages */,
 				D6FC0D642E023A1D657E8703 /* Notes */,
 				0272352E5D70CB2EDF5DDFED /* Settings */,
@@ -1047,7 +1070,6 @@
 			files = (
 				29BEF006108E9889DE878B71 /* AbsencesView.swift in Sources */,
 				58098CCBB8D9D3DB1C5A6596 /* AnalyticsConsentView.swift in Sources */,
-				A1C0FFEE0000000000000002 /* WelcomeOnboardingView.swift in Sources */,
 				DA9FAB3C3C4BCED9B3B83028 /* AnalyticsStore.swift in Sources */,
 				01061E088472CD4B58E83731 /* AppColors.swift in Sources */,
 				F6711F9870E041805B9772B2 /* AppTheme.swift in Sources */,
@@ -1093,6 +1115,12 @@
 				DF031CE0F1D65920D1D003E7 /* LiveCardView.swift in Sources */,
 				3E46C09489740EF31AAF0E51 /* LoginView.swift in Sources */,
 				BFD4B5425FC95BBEC6575868 /* MainTabView.swift in Sources */,
+				A1C0FFEE0000000000002011 /* OnboardingAbsencesStep.swift in Sources */,
+				A1C0FFEE0000000000002009 /* OnboardingTasksStep.swift in Sources */,
+				A1C0FFEE0000000000002007 /* OnboardingTimetableStep.swift in Sources */,
+				A1C0FFEE0000000000002005 /* OnboardingGradesStep.swift in Sources */,
+				A1C0FFEE0000000000002003 /* OnboardingHomeStep.swift in Sources */,
+				A1C0FFEE0000000000002001 /* OnboardingExperience.swift in Sources */,
 				A1C0FFEE0000000000000004 /* AppTour.swift in Sources */,
 				51445194496F9216C84299A8 /* MessagesView.swift in Sources */,
 				DD7226E6D87C472965917912 /* MetaAIClient.swift in Sources */,

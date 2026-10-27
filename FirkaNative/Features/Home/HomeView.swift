@@ -33,38 +33,9 @@ struct HomeView: View {
             List {
                 // Greeting — egyetlen finom belépés képernyőnként, nem soronként
                 Section {
-                    VStack(alignment: .leading, spacing: 4) {
-                        // Neon: apró cián HUD-kód az üdvözlés fölött.
-                        if theme.isNeon {
-                            NeonLabel("SUMMIT://HOME // \(cpDateCode(.now))", color: NeonTheme.cyan)
-                                .accessibilityHidden(true)
-                        }
-                        Text("\(vm.greeting), \(firstName)!")
-                            .cpOnly { $0.textCase(.uppercase).foregroundStyle(NeonTheme.yellow) }
-                            .voxelTitle()
-                            .cpOnly { $0.cpGlitch(trigger: greetingGlitch) }
-                        // Dátum + frissítés-állapot egy sorban (ha kifér): a sor
-                        // megjelenése/eltűnése így nem tolja el a lista tartalmát.
-                        ViewThatFits(in: .horizontal) {
-                            HStack(spacing: 8) {
-                                homeDateLine
-                                Spacer(minLength: 4)
-                                homeStatusLine
-                            }
-                            VStack(alignment: .leading, spacing: 2) {
-                                homeDateLine
-                                homeStatusLine
-                            }
-                        }
-                        if theme.isNeon {
-                            NeonDivider(color: NeonTheme.yellow).padding(.top, 6)
-                        }
+                    HomeGreetingHeader(greeting: vm.greeting, firstName: firstName, glitch: $greetingGlitch) {
+                        homeStatusLine
                     }
-                    .summitEntrance()
-                    .onAppear { if theme.isNeon && greetingGlitch == 0 { greetingGlitch += 1 } }
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 4, trailing: 16))
-                    .listRowSeparator(.hidden)
                 }
 
                 // Havi Wrapped banner: elsejéig az előző hónap kártyája.
@@ -197,17 +168,9 @@ struct HomeView: View {
                         // GradesView-t: annak saját NavigationStackje a Főoldal
                         // stackjébe ágyazva a tárgyról visszalépve a Főoldalig
                         // dobott vissza.
-                        Button {
+                        HomeSeeAllLink(title: "Összes jegy") {
                             NotificationCenter.default.post(name: Notification.Name("summit.switchToGrades"), object: nil)
-                        } label: {
-                            HStack(spacing: 8) {
-                                Text("Összes jegy").cpLinkStyle().foregroundStyle(.primary)
-                                Spacer()
-                                SkinIcon("chevron.right", size: 14).skinFont(.footnote, weight: .semibold).foregroundStyle(.tertiary)
-                            }
-                            .contentShape(Rectangle())
                         }
-                        .buttonStyle(.skinPlain)
                         .voxelListRow(fill: colors.surface)
                     }
                 } header: { homeSectionHeader("Legújabb jegyek", code: "GRD_\(String(format: "%02d", vm.grades.count))") }
@@ -312,17 +275,9 @@ struct HomeView: View {
                         // annak saját NavigationStackje a Főoldal vermébe
                         // ágyazódott (dupla/hiányzó sáv, Voxelben eltűnő
                         // vissza-gomb, ugráló visszalépés).
-                        Button {
+                        HomeSeeAllLink(title: "Összes dolgozat (\(sorted.count))") {
                             NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil, userInfo: ["segment": "exams"])
-                        } label: {
-                            HStack(spacing: 8) {
-                                Text("Összes dolgozat (\(sorted.count))").cpLinkStyle().foregroundStyle(.primary)
-                                Spacer()
-                                SkinIcon("chevron.right", size: 14).skinFont(.footnote, weight: .semibold).foregroundStyle(.tertiary)
-                            }
-                            .contentShape(Rectangle())
                         }
-                        .buttonStyle(.skinPlain)
                         .voxelListRow(fill: colors.surface)
                     }
                 } header: { homeSectionHeader("Közelgő dolgozatok", code: "EXM_\(String(format: "%02d", vm.exams.count))") }
@@ -360,17 +315,9 @@ struct HomeView: View {
                             )
                         }
                         // A Feladatok tabra vált (lásd „Összes dolgozat").
-                        Button {
+                        HomeSeeAllLink(title: "Összes feladat (\(sorted.count))") {
                             NotificationCenter.default.post(name: Notification.Name("summit.switchToTasks"), object: nil)
-                        } label: {
-                            HStack(spacing: 8) {
-                                Text("Összes feladat (\(sorted.count))").cpLinkStyle().foregroundStyle(.primary)
-                                Spacer()
-                                SkinIcon("chevron.right", size: 14).skinFont(.footnote, weight: .semibold).foregroundStyle(.tertiary)
-                            }
-                            .contentShape(Rectangle())
                         }
-                        .buttonStyle(.skinPlain)
                         .voxelListRow(fill: colors.surface)
                     }
                 } header: { homeSectionHeader("Közelgő feladatok", code: "TSK_\(String(format: "%02d", vm.homeworks.filter { !completed.isHomeworkDone($0.id) }.count))") }
@@ -508,15 +455,6 @@ struct HomeView: View {
         .tint(colors.accent)
     }
 
-    private var homeDateLine: some View {
-        Text(theme.isNeon
-             ? Date.now.formatted(date: .complete, time: .omitted).uppercased()
-             : Date.now.formatted(date: .complete, time: .omitted).capitalized)
-            .cpOnly { $0.font(NeonTheme.mono(size: 11, relativeTo: .subheadline)).tracking(1).foregroundStyle(NeonTheme.dim) }
-            .skinFont(.subheadline).skinSecondaryOnSky()
-            .lineLimit(1)
-    }
-
     private var homeStatusLine: some View {
         KretaRefreshStatusLine(kinds: HomeViewModel.statusKinds())
             .cpOnly { $0.font(NeonTheme.mono(size: 10, relativeTo: .caption)) }
@@ -585,9 +523,86 @@ struct HomeView: View {
     }
 }
 
+// MARK: - Üdvözlő fejléc (a Főoldal első sora)
+/// „Jó reggelt, …!" + dátum (+ frissítés-állapot) a lista tetején, a
+/// lista-sor beállításaival és a finom belépéssel együtt. Külön nézet,
+/// hogy a bemutató (`OnboardingHomeStep`) ugyanezt rajzolhassa.
+struct HomeGreetingHeader<Status: View>: View {
+    let greeting: String
+    let firstName: String
+    /// Neon: az üdvözlés egyszeri glitch-rángása megjelenéskor.
+    @Binding var glitch: Int
+    /// A dátum melletti frissítés-állapot sor.
+    @ViewBuilder var status: () -> Status
+    @EnvironmentObject var theme: ThemeStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // Neon: apró cián HUD-kód az üdvözlés fölött.
+            if theme.isNeon {
+                NeonLabel("SUMMIT://HOME // \(cpDateCode(.now))", color: NeonTheme.cyan)
+                    .accessibilityHidden(true)
+            }
+            Text("\(greeting), \(firstName)!")
+                .cpOnly { $0.textCase(.uppercase).foregroundStyle(NeonTheme.yellow) }
+                .voxelTitle()
+                .cpOnly { $0.cpGlitch(trigger: glitch) }
+            // Dátum + frissítés-állapot egy sorban (ha kifér): a sor
+            // megjelenése/eltűnése így nem tolja el a lista tartalmát.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    dateLine
+                    Spacer(minLength: 4)
+                    status()
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    dateLine
+                    status()
+                }
+            }
+            if theme.isNeon {
+                NeonDivider(color: NeonTheme.yellow).padding(.top, 6)
+            }
+        }
+        .summitEntrance()
+        .onAppear { if theme.isNeon && glitch == 0 { glitch += 1 } }
+        .listRowBackground(Color.clear)
+        .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 4, trailing: 16))
+        .listRowSeparator(.hidden)
+    }
+
+    private var dateLine: some View {
+        Text(theme.isNeon
+             ? Date.now.formatted(date: .complete, time: .omitted).uppercased()
+             : Date.now.formatted(date: .complete, time: .omitted).capitalized)
+            .cpOnly { $0.font(NeonTheme.mono(size: 11, relativeTo: .subheadline)).tracking(1).foregroundStyle(NeonTheme.dim) }
+            .skinFont(.subheadline).skinSecondaryOnSky()
+            .lineLimit(1)
+    }
+}
+
+/// „Összes …" link-sor a Főoldal szekcióinak alján (Neonban sárga,
+/// nagybetűs felirat). A sor-hátteret (`voxelListRow`) a hívó adja.
+struct HomeSeeAllLink: View {
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Text(title).cpLinkStyle().foregroundStyle(.primary)
+                Spacer()
+                SkinIcon("chevron.right", size: 14).skinFont(.footnote, weight: .semibold).foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.skinPlain)
+    }
+}
+
 // iPad kétoszlopos sorok külön nézetenként — az egybeírt óriás-kifejezést
 // a lassabb toolchain-ek nem tudták típusellenőrizni (150:41 hiba)
-private struct PadExamRow: View {
+struct PadExamRow: View {
     var exam: ExamItem
     var done: Bool
     var colors: AppColors
@@ -640,7 +655,7 @@ private func examLessonLine(_ exam: ExamItem) -> String {
     return d
 }
 
-private struct PadHomeworkRow: View {
+struct PadHomeworkRow: View {
     var homework: HomeworkItem
     var done: Bool
     var colors: AppColors
@@ -688,7 +703,7 @@ private struct PadHomeworkRow: View {
 
 // MARK: - Közös dolgozat/feladat sor (iPhone) — a két főoldali Section
 // ugyanazt a tipót, ikont és meta-sort kapja, hogy a kiírás egységes legyen.
-private struct HomeAssignmentRow: View {
+struct HomeAssignmentRow: View {
     var subject: String
     var detail: String
     var date: Date
@@ -787,7 +802,7 @@ private struct HomeAssignmentRow: View {
 }
 
 // MARK: - Live top card (native Apple, TimelineView, progress bar, next + rögzítve)
-private struct HomeLiveCard: View {
+struct HomeLiveCard: View {
     var lessons: [LessonItem]
     var exams: [ExamItem]
     var homeworks: [HomeworkItem]
@@ -1231,7 +1246,7 @@ private func homeRowBackground(_ fill: Color, cpAccent: Color = NeonTheme.red, c
 /// Szekció-fejléc: Neonban HUD-fejléc (akcent-négyzet + cím + vonal +
 /// `// kód`), egyébként a meglévő `voxelSectionHeader` lánc.
 @ViewBuilder
-private func homeSectionHeader(_ title: String, code: String? = nil, cpAccent: Color = NeonTheme.red) -> some View {
+func homeSectionHeader(_ title: String, code: String? = nil, cpAccent: Color = NeonTheme.red) -> some View {
     if NeonTheme.isActive {
         NeonSectionHeader(title, code: code, accent: cpAccent)
     } else {

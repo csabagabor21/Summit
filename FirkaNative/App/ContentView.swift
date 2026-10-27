@@ -8,8 +8,9 @@ struct ContentView: View {
     @Environment(\.sizeCategory) private var systemSizeCategory
     /// Neonra váltáskor egyszer lejátszott belépő átmenet.
     @State private var neonBoot = false
-    /// Első indításkori bemutató (belépés előtt) — egyszer jön fel.
-    @AppStorage(WelcomeOnboardingView.seenKey) private var welcomeSeen = false
+    /// Első letöltés utáni teljes képernyős bemutató (belépés előtt) —
+    /// egyszer jön fel, lásd `OnboardingExperience`.
+    @AppStorage(OnboardingExperience.seenKey) private var welcomeSeen = false
 
     var body: some View {
         // NEM `if let felülírás { content.environment } else { content }`:
@@ -66,7 +67,7 @@ struct ContentView: View {
                             .environmentObject(theme)
                     }
             } else if !welcomeSeen {
-                WelcomeOnboardingView { welcomeSeen = true }
+                OnboardingExperience { welcomeSeen = true }
                     .transition(.opacity)
             } else {
                 LoginView()

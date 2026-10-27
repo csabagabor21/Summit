@@ -32,6 +32,113 @@ private struct EmptySubjectBadge: View {
     }
 }
 
+/// Évközi tantárgy-sor (iPhone): jegykarika a kerekített átlaggal (vagy
+/// üres jelvény, ha még nincs jegy), név, átlag-alcím, chevron. A Jegyek
+/// tab és az első indítás bemutatója ugyanezt a sort rajzolja.
+///
+/// Gomb, ami a megnyitást (`onOpen`) hívja — mindkét skinben.
+/// Korábban `NavigationLink(value:)` volt (Voxelben egy rejtett,
+/// nulla méretű link a sor alatt): az a lista sor-kiválasztására
+/// támaszkodott, ami a sorra/listára kerülő bármely gesztussal (és
+/// frissítés közbeni újrarajzolással) elnyelődhetett — „többször kell
+/// rányomni, mire megnyílik". A gomb saját, determinisztikus találati
+/// felülettel dolgozik: a margó a címkében van, a `contentShape` a
+/// teljes sort fedi. Voxelben a `.skinPlain` adja a kattanást.
+/// A sor-chrome-ot (`subjectRowChrome`) a hívó teszi rá.
+struct GradesSubjectRow: View {
+    let subject: String
+    /// A tárgy évközi jegyei; `nil` = még nincs jegy (KRÉTA tudja a tárgyat).
+    let items: [GradeItem]?
+    var onOpen: () -> Void
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        let base = EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)
+        Button {
+            onOpen()
+        } label: {
+            HStack(spacing: 8) {
+                content
+                SkinIcon("chevron.right", size: 14)
+                    .skinFont(.footnote, weight: .semibold)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(VoxelTheme.rowInsets(base) ?? base)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.skinPlain)
+        .accessibilityAddTraits(.isLink)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let items {
+            let raw = GradingLogic.weightedAverage(items)
+            let thr = GradingLogic.threshold(for: subject)
+            let rnd = GradingLogic.roundedGrade(raw: raw, threshold: thr)
+            HStack(spacing: 12) {
+                GradeCircle(value: rnd, size: 44)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1)
+                    Text(String(format: "%.2f • %d jegy • kerekítés %.2f-től", raw, items.count, thr)).skinFont(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer()
+            }.padding(.vertical, 2)
+        } else {
+            // Nincs még jegy — KRÉTA tudja a tantárgyat, üresen mutatjuk
+            HStack(spacing: 12) {
+                EmptySubjectBadge(scheme: scheme)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1)
+                    Text("Nincs jegy").skinFont(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+                }
+                Spacer()
+            }.padding(.vertical, 2)
+        }
+    }
+}
+
+/// Évközi tantárgy-kártya az iPad-rácsban (saját kártya-háttérrel, chevron
+/// a kártyán belül). A Jegyek tab és az első indítás bemutatója is ezt
+/// rajzolja.
+struct GradesSubjectCard: View {
+    let subject: String
+    /// A tárgy évközi jegyei; `nil` = még nincs jegy.
+    let items: [GradeItem]?
+    let fill: Color
+    var onOpen: () -> Void
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        if let items {
+            let raw = GradingLogic.weightedAverage(items)
+            let thr = GradingLogic.threshold(for: subject)
+            let rnd = GradingLogic.roundedGrade(raw: raw, threshold: thr)
+            Button {
+                onOpen()
+            } label: {
+                HStack(spacing: 12) {
+                    GradeCircle(value: rnd, size: 44)
+                    VStack(alignment: .leading, spacing: 3) { Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1); Text(String(format: "%.2f • %d jegy", raw, items.count)).skinFont(.caption2).foregroundStyle(.secondary).lineLimit(1) }
+                    Spacer()
+                    SkinIcon("chevron.right", size: 14).skinFont(.caption2, weight: .semibold).foregroundStyle(.tertiary)
+                }.padding(12).background(VoxelCardBackground(fill: fill, cornerRadius: 14)).contentShape(Rectangle())
+            }.buttonStyle(.skinPlain)
+        } else {
+            Button {
+                onOpen()
+            } label: {
+                HStack(spacing: 12) {
+                    EmptySubjectBadge(scheme: scheme)
+                    VStack(alignment: .leading, spacing: 3) { Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1); Text("Nincs jegy").skinFont(.caption2).foregroundStyle(.tertiary).lineLimit(1) }
+                    Spacer()
+                    SkinIcon("chevron.right", size: 14).skinFont(.caption2, weight: .semibold).foregroundStyle(.tertiary)
+                }.padding(12).background(VoxelCardBackground(fill: fill, cornerRadius: 14)).contentShape(Rectangle())
+            }.buttonStyle(.skinPlain)
+        }
+    }
+}
+
 struct GradesView: View {
     @EnvironmentObject var theme: ThemeStore
     @EnvironmentObject var session: SessionStore
@@ -116,31 +223,8 @@ struct GradesView: View {
                                 let cols = [GridItem(.adaptive(minimum: 330), spacing: 12)]
                                 LazyVGrid(columns: cols, spacing: 12) {
                                     ForEach(subjects, id: \.self) { subject in
-                                        if let items = groupedEvkozi[subject] {
-                                            let raw = GradingLogic.weightedAverage(items)
-                                            let thr = GradingLogic.threshold(for: subject)
-                                            let rnd = GradingLogic.roundedGrade(raw: raw, threshold: thr)
-                                            Button {
-                                                openSubject(subject)
-                                            } label: {
-                                                HStack(spacing: 12) {
-                                                    GradeCircle(value: rnd, size: 44)
-                                                    VStack(alignment: .leading, spacing: 3) { Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1); Text(String(format: "%.2f • %d jegy", raw, items.count)).skinFont(.caption2).foregroundStyle(.secondary).lineLimit(1) }
-                                                    Spacer()
-                                                    SkinIcon("chevron.right", size: 14).skinFont(.caption2, weight: .semibold).foregroundStyle(.tertiary)
-                                                }.padding(12).background(VoxelCardBackground(fill: colors.surface, cornerRadius: 14)).contentShape(Rectangle())
-                                            }.buttonStyle(.skinPlain)
-                                        } else {
-                                            Button {
-                                                openSubject(subject)
-                                            } label: {
-                                                HStack(spacing: 12) {
-                                                    EmptySubjectBadge(scheme: scheme)
-                                                    VStack(alignment: .leading, spacing: 3) { Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1); Text("Nincs jegy").skinFont(.caption2).foregroundStyle(.tertiary).lineLimit(1) }
-                                                    Spacer()
-                                                    SkinIcon("chevron.right", size: 14).skinFont(.caption2, weight: .semibold).foregroundStyle(.tertiary)
-                                                }.padding(12).background(VoxelCardBackground(fill: colors.surface, cornerRadius: 14)).contentShape(Rectangle())
-                                            }.buttonStyle(.skinPlain)
+                                        GradesSubjectCard(subject: subject, items: groupedEvkozi[subject], fill: colors.surface) {
+                                            openSubject(subject)
                                         }
                                     }
                                 }.padding(.horizontal, 16).padding(.vertical, 8)
@@ -151,35 +235,10 @@ struct GradesView: View {
                                 .listRowSeparator(.hidden)
                             } else {
                             ForEach(displayEvkoziSubjects, id: \.self) { subject in
-                                if let items = groupedEvkozi[subject] {
-                                    let raw = GradingLogic.weightedAverage(items)
-                                    let thr = GradingLogic.threshold(for: subject)
-                                    let rnd = GradingLogic.roundedGrade(raw: raw, threshold: thr)
-                                    subjectRow(subject) {
-                                        HStack(spacing: 12) {
-                                            GradeCircle(value: rnd, size: 44)
-                                            VStack(alignment: .leading, spacing: 3) {
-                                                Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1)
-                                                Text(String(format: "%.2f • %d jegy • kerekítés %.2f-től", raw, items.count, thr)).skinFont(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                                            }
-                                            Spacer()
-                                        }.padding(.vertical, 2)
-                                    }
-                                    .subjectRowChrome(fill: colors.surface)
-                                } else {
-                                    // Nincs még jegy — KRÉTA tudja a tantárgyat, üresen mutatjuk
-                                    subjectRow(subject) {
-                                        HStack(spacing: 12) {
-                                            EmptySubjectBadge(scheme: scheme)
-                                            VStack(alignment: .leading, spacing: 3) {
-                                                Text(subject).skinFont(.subheadline, weight: .semibold).lineLimit(1)
-                                                Text("Nincs jegy").skinFont(.caption2).foregroundStyle(.tertiary).lineLimit(1)
-                                            }
-                                            Spacer()
-                                        }.padding(.vertical, 2)
-                                    }
-                                    .subjectRowChrome(fill: colors.surface)
+                                GradesSubjectRow(subject: subject, items: groupedEvkozi[subject]) {
+                                    openSubject(subject)
                                 }
+                                .subjectRowChrome(fill: colors.surface)
                             }
                             }
                             Section {
@@ -311,33 +370,6 @@ struct GradesView: View {
         path = NavigationPath([subject])
     }
 
-    /// Tantárgy-sor: gomb, ami a `path`-ra tolja a tárgyat — mindkét skinben.
-    /// Korábban `NavigationLink(value:)` volt (Voxelben egy rejtett,
-    /// nulla méretű link a sor alatt): az a lista sor-kiválasztására
-    /// támaszkodott, ami a sorra/listára kerülő bármely gesztussal (és
-    /// frissítés közbeni újrarajzolással) elnyelődhetett — „többször kell
-    /// rányomni, mire megnyílik". A gomb saját, determinisztikus találati
-    /// felülettel dolgozik: a margó a címkében van, a `contentShape` a
-    /// teljes sort fedi. Voxelben a `.skinPlain` adja a kattanást.
-    @ViewBuilder
-    private func subjectRow<Content: View>(_ subject: String, @ViewBuilder content: () -> Content) -> some View {
-        let base = EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)
-        Button {
-            openSubject(subject)
-        } label: {
-            HStack(spacing: 8) {
-                content()
-                SkinIcon("chevron.right", size: 14)
-                    .skinFont(.footnote, weight: .semibold)
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(VoxelTheme.rowInsets(base) ?? base)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.skinPlain)
-        .accessibilityAddTraits(.isLink)
-    }
-
     // MARK: - Filtering by típus (nyers kód és szép név is: "evkozi_jegy_ertekeles" / "Évközi értékelés")
     private static func isEvkozi(_ g: GradeItem) -> Bool {
         let t = g.type.lowercased()
@@ -400,7 +432,7 @@ struct GradesView: View {
 
     /// Kanonikus kulcs → kijelzett név: a jegyekben leggyakoribb (vágott)
     /// alak nyer, jegy nélküli tárgynál a tárgylista alakja.
-    private static func displayNames(grades: [GradeItem], subjects: [String]) -> [String: String] {
+    static func displayNames(grades: [GradeItem], subjects: [String]) -> [String: String] {
         var counts: [String: [String: Int]] = [:]
         for g in grades {
             let name = g.subject.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -594,7 +626,7 @@ final class GradesModel: ObservableObject {
     }
 }
 
-private extension View {
+extension View {
     /// Tantárgy-sor chrome: a margó a gomb címkéjében van (lásd
     /// `subjectRow`), így a sor teljes felülete koppintható — a sor-inset
     /// nulla. Voxelben blokk-panel, Neonban HUD-sor háttér

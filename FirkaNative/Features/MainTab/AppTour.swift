@@ -4,8 +4,7 @@ import SwiftUI
 /// lépés a VALÓDI tabra vált (a user a saját adatait látja mögötte), az
 /// alsó kártya pedig elmondja, mi van ott és milyen rejtett trükkök
 /// vannak. A user közben szabadon nyomkodhat; ha maga vált tabot, a
-/// túra követi. Egyszer indul magától (a hozzájárulás-választó után),
-/// utána a Beállítások ? menüjéből bármikor újraindítható.
+/// túra követi. Csak kérésre indul: a Beállítások ? menüjéből.
 enum AppTour {
     static let seenKey = "tour.app.seen.v1"
     /// Újraindítás kérése (Beállítások ? menü) — a MainTabView hallgatja.

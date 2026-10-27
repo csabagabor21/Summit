@@ -41,8 +41,105 @@ struct AbsencesView: View {
     private var isPad: Bool { hSize == .regular }
     var colors: AppColors { theme.colors(for: scheme) }
 
-    // MARK: Derived — 45 perc = 1 óra limit, kör a 45-ből mutatja mennyit késtél már
+    /// Össz késés percben — a lista animációs kulcsa (a kártya maga
+    /// számolja belőle a 45 perces ciklust).
     private var totalDelay: Int { absences.compactMap(\.delay).reduce(0, +) }
+    private var totalCount: Int { absences.count }
+    private var unjustifiedCount: Int { absences.filter { !$0.isJustified }.count }
+    private var justifiedCount: Int { absences.filter { $0.isJustified }.count }
+    private var delayCount: Int { absences.filter { ($0.type.lowercased().contains("késés") || $0.type.lowercased().contains("keses")) && $0.delay != nil }.count }
+
+    private var unjustifiedItems: [AbsenceItem] { absences.filter { !$0.isJustified }.sorted { $0.date > $1.date } }
+    private var justifiedItems: [AbsenceItem] { absences.filter { $0.isJustified }.sorted { $0.date > $1.date } }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                // MARK: Top — egy nagy liquid glass block, eredeti layout: bal késések | jobb felül igazolt alul igazolatlan
+                Section {
+                    AbsencesSummaryCard(totalDelay: totalDelay,
+                                        justifiedCount: absences.count - unjustifiedCount,
+                                        unjustifiedCount: unjustifiedCount)
+                }
+
+                if isLoading {
+                    ForEach(0..<3, id: \.self) { _ in
+                        HStack { Text("Betöltés…").redacted(reason: .placeholder) }
+                            .summitRowSurface(colors: colors)
+                            .voxelRowChrome()
+                    }
+                } else if absences.isEmpty {
+                    Section {
+                        SkinEmptyState(title: "Nincs hiányzás", systemImage: "checkmark.shield.fill", description: Text("Szép munka — nincs rögzített hiányzás"))
+                            .frame(maxWidth: .infinity, minHeight: 180)
+                            .padding(.vertical, 12)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                    }
+                } else {
+                    // MARK: Igazolatlan — mindig látszik header, legördülő top 3
+                    AbsenceListSection(items: unjustifiedItems, isUnjustified: true, expanded: $unjustifiedExpanded)
+
+                    // MARK: Igazolt (+ késések) — mindig látszik, legördülő top 3
+                    AbsenceListSection(items: justifiedItems, isUnjustified: false, expanded: $justifiedExpanded)
+                }
+            }
+            .listStyle(.insetGrouped)
+            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1280, mac: 1150) : .infinity)
+            .padding(.horizontal, MacSupport.sidePadding)
+            .frame(maxWidth: .infinity)
+            .summitListChrome(colors: colors)
+            .navigationTitle("Hiányzások")
+            .navigationBarTitleDisplayMode(.large)
+            .summitToolbarBackground()
+            .task { await load() }
+            .refreshable {
+                await load(force: true)
+                SummitHaptics.light()
+            }
+            .animation(SummitMotion.gentle, value: absences.count)
+            .animation(SummitMotion.gentle, value: totalDelay)
+        }
+        .tint(colors.accent)
+    }
+
+    /// Tabváltáskor a `.task` újra lefut — friss gyorstár-találatnál ez
+    /// hálózat nélkül tér vissza. A váz csak üres listánál jön; egyébként
+    /// a régi lista marad, az új adat dinamikusan beíródik.
+    func load(force: Bool = false) async {
+        // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből.
+        guard let user = session.selectedUser else { isLoading = false; return }
+        let hadData = !absences.isEmpty
+        if !hadData { isLoading = true }
+        let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
+        KretaStore.shared.activate(user)
+        let fetched = await kreta.fetchAbsences(iss: iss, force: force)
+        // Totális fetch-hiba (lejárt token, offline): a legutóbbi lista marad,
+        // nem ürül ki a Hiányzások tab egy sikertelen refresh-től.
+        if !(fetched.isEmpty && hadData), absences != fetched { absences = fetched }
+        isLoading = false
+    }
+}
+
+// MARK: - Összesítő kártya (bal: késés-mérő | jobb: igazolt / igazolatlan)
+
+/// A Hiányzások tetején ülő nagy kártya — a képernyő és a bemutató
+/// (`OnboardingAbsencesStep`) közös eleme. A számokat kívülről kapja,
+/// a 45 perces késés-ciklust maga számolja; a számlálók
+/// `.numericText()`-tel, a gyűrű rugóval vált, ha az érték animáltan változik.
+struct AbsencesSummaryCard: View {
+    let totalDelay: Int
+    let justifiedCount: Int
+    let unjustifiedCount: Int
+
+    @EnvironmentObject var theme: ThemeStore
+    @Environment(\.colorScheme) var scheme
+    @Environment(\.horizontalSizeClass) private var hSize
+    private var isPad: Bool { hSize == .regular }
+    var colors: AppColors { theme.colors(for: scheme) }
+
+    // MARK: Derived — 45 perc = 1 óra limit, kör a 45-ből mutatja mennyit késtél már
     private var hoursFromDelay: Int { totalDelay / 45 }
     private var effectiveDelay: Int { totalDelay % 45 }
     // körben megjelenő érték: 45-ből mennyit késtél már (aktuális ciklusban)
@@ -60,22 +157,10 @@ struct AbsencesView: View {
     }
     private var ringTrim: Double { min(ringProgress, 0.999) }
 
-    private var totalCount: Int { absences.count }
-    private var unjustifiedCount: Int { absences.filter { !$0.isJustified }.count }
-    private var justifiedCount: Int { absences.filter { $0.isJustified }.count }
-    private var delayCount: Int { absences.filter { ($0.type.lowercased().contains("késés") || $0.type.lowercased().contains("keses")) && $0.delay != nil }.count }
-
-    private var unjustifiedItems: [AbsenceItem] { absences.filter { !$0.isJustified }.sorted { $0.date > $1.date } }
-    private var justifiedItems: [AbsenceItem] { absences.filter { $0.isJustified }.sorted { $0.date > $1.date } }
-
     /// Neon: a skin HUD-vöröse / ok-cián helyett Summitban a régi
     /// rendszer-piros / -zöld marad (az értékek ágaznak, nem a nézet).
     private var hudRed: Color { theme.isNeon ? NeonTheme.red : Color.red }
     private var okGreen: Color { theme.isNeon ? NeonTheme.cyan : Color.green }
-    /// Szekció-fejléc darabszáma: Summitban „Igazolt • 3", Neonban
-    /// HUD-kód „IGAZOLT // 03".
-    private var countSeparator: String { theme.isNeon ? "//" : "•" }
-    private func countText(_ n: Int) -> String { theme.isNeon ? String(format: "%02d", n) : "\(n)" }
 
     /// Neon késés-mérő: nagy sárga szám + `/45` kód, alatta 9 cellás
     /// HUD-sáv (cellánként 5 perc). 55%-tól narancs, 85%-tól / beszámított
@@ -152,298 +237,217 @@ struct AbsencesView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            List {
-                // MARK: Top — egy nagy liquid glass block, eredeti layout: bal késések | jobb felül igazolt alul igazolatlan
-                Section {
-                    HStack(alignment: .center, spacing: 0) {
-                        // Bal: késések — ring + szöveg — javított spacing, középre igazítva
-                        VStack(spacing: 10) {
-                            HStack {
-                                SkinLabel("KÉSÉSEK", systemImage: "clock.fill")
-                                    .skinFont(.caption2, weight: .bold)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.7)
-                                Spacer(minLength: 4)
-                                if hoursFromDelay > 0 {
-                                    Text("+\(hoursFromDelay) óra")
-                                        .cpOnly { $0.font(NeonTheme.mono(size: 10, relativeTo: .caption2)).textCase(.uppercase) }
-                                        .skinFont(.caption2, weight: .bold)
-                                        .foregroundStyle(theme.isNeon ? Color.black : .white)
-                                        .padding(.horizontal, 6).padding(.vertical, 3)
-                                        .skinPill(fill: hudRed)
-                                        .lineLimit(1)
-                                }
-                            }
-                            delayGauge
-                            Text(isFullCycle ? "beszámítva" : totalDelay == 0 ? "nincs késés" : "\(displayedDelay) / 45 perc")
-                                .skinFont(.caption, weight: .semibold)
-                                .cpCaps()
-                                .foregroundStyle(isFullCycle ? hudRed : .secondary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                        }
-                        .frame(maxWidth: .infinity)
-
-                        // Középső Apple elválasztó — a két fél között
-                        Rectangle()
-                            .fill(theme.isNeon ? NeonTheme.yellow.opacity(0.32) : Color.primary.opacity(scheme == .dark ? 0.10 : 0.08))
-                            .frame(width: 1)
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 12)
-
-                        // Jobb: hiányzások — felül igazolt, alul igazolatlan — javított vertikális spacing, középre igazítva
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack(spacing: 6) {
-                                SkinIcon("person.fill.xmark", size: 16).skinFont(.caption2, weight: .bold).foregroundStyle(.secondary)
-                                Text("HIÁNYZÁSOK")
-                                    .skinFont(.caption2, weight: .bold)
-                                    .foregroundStyle(.secondary)
-                                    .tracking(0.4)
-                                    .lineLimit(1)
-                                Spacer(minLength: 2)
-                                if theme.isNeon {
-                                    NeonLabel("ABS", bracketed: false, size: 9)
-                                }
-                            }
-                            VStack(spacing: 0) {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("\(absences.count - unjustifiedCount)")
-                                        .voxelDisplay(isPad ? 38 : 30)
-                                        .monospacedDigit()
-                                        .foregroundStyle(.primary)
-                                        .contentTransition(.numericText())
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.5)
-                                    Text("igazolt")
-                                        .absStatCaption()
-                                        .lineLimit(1)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.vertical, 4)
-                                Rectangle()
-                                    .fill(theme.isNeon ? NeonTheme.yellow.opacity(0.24) : Color.primary.opacity(scheme == .dark ? 0.08 : 0.06))
-                                    .frame(height: 1)
-                                    .padding(.vertical, 8)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("\(unjustifiedCount)")
-                                        .voxelDisplay(isPad ? 38 : 30)
-                                        .monospacedDigit()
-                                        .foregroundStyle(unjustifiedCount > 0 ? colors.red : okGreen)
-                                        .contentTransition(.numericText())
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.5)
-                                    Text("igazolatlan")
-                                        .absStatCaption()
-                                        .lineLimit(1)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.vertical, 4)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .padding(16)
-                    .background {
-                        if VoxelTheme.isActive {
-                            VoxelBlockPanel(face: colors.surface)
-                        } else if theme.isNeon {
-                            NeonPanelBackground(accent: NeonTheme.red, fill: NeonTheme.panel)
-                        } else {
-                            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                .fill(scheme == .dark ? Color.white.opacity(0.06) : Color.white)
-                                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.primary.opacity(scheme == .dark ? 0.08 : 0.06), lineWidth: 1))
-                                // Light módban nincs külső shadow — fehér kártya szürke háttéren rosszul mutat
-                                .shadow(color: scheme == .dark ? colors.shadow.opacity(0.30) : .clear, radius: 14, y: 6)
-                        }
-                    }
-                    // Light módban glass nélkül — a glass saját árnyéka dobozba clipelődik a List-sorban.
-                    // Nem interaktív üveg: a kártyának nincs akciója, az
-                    // `.interactive()` ujj alatt rugózott, mintha gomb lenne.
-                    .modifier(StaticCardGlass(enabled: scheme == .dark, cornerRadius: 20))
-                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                }
-
-                if isLoading {
-                    ForEach(0..<3, id: \.self) { _ in
-                        HStack { Text("Betöltés…").redacted(reason: .placeholder) }
-                            .summitRowSurface(colors: colors)
-                            .voxelRowChrome()
-                    }
-                } else if absences.isEmpty {
-                    Section {
-                        SkinEmptyState(title: "Nincs hiányzás", systemImage: "checkmark.shield.fill", description: Text("Szép munka — nincs rögzített hiányzás"))
-                            .frame(maxWidth: .infinity, minHeight: 180)
-                            .padding(.vertical, 12)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
-                    }
-                } else {
-                    // MARK: Igazolatlan — mindig látszik header, legördülő top 3
-                    Section {
-                        if unjustifiedItems.isEmpty {
-                            HStack(spacing: 10) {
-                                AbsenceBadge(icon: "checkmark.circle.fill", tint: AnyShapeStyle(okGreen), fontSize: 14, weight: .semibold, side: 30, colors: colors)
-                                Text("Nincs igazolatlan hiányzás")
-                                    .skinFont(.subheadline, weight: .medium)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                            }
-                            .summitRowSurface(colors: colors)
-                            .listRowInsets(VoxelTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
-                        } else {
-                            ForEach(unjustifiedItems.prefix(unjustifiedExpanded ? 100 : 3)) { a in
-                                let isDelay = a.delay != nil && (a.type.lowercased().contains("késés") || a.type.lowercased().contains("keses"))
-                                AbsenceRow(item: a, colors: colors, scheme: scheme, isUnjustified: true, isDelay: isDelay)
-                            }
-                            if unjustifiedItems.count > 3 {
-                                Button {
-                                    SummitHaptics.selection()
-                                    withAnimation(SummitMotion.gentle) { unjustifiedExpanded.toggle() }
-                                } label: {
-                                    HStack {
-                                        Text(unjustifiedExpanded ? "Kevesebb" : "További \(unjustifiedItems.count - 3)")
-                                            .skinFont(.subheadline, weight: .semibold)
-                                            .cpCaps()
-                                        Spacer()
-                                        SkinIcon("chevron.down")
-                                            .skinFont(.caption, weight: .bold)
-                                            .rotationEffect(.degrees(unjustifiedExpanded ? 180 : 0))
-                                    }
-                                    .foregroundStyle(colors.accent)
-                                    .contentShape(Rectangle())
-                                }
-                                .summitRowSurface(colors: colors)
-                                .listRowInsets(VoxelTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
-                            }
-                        }
-                    } header: {
-                        HStack(spacing: 6) {
-                            SkinDot(color: colors.red)
-                            Text(unjustifiedItems.isEmpty ? "Igazolatlan" : "Igazolatlan \(countSeparator) \(countText(unjustifiedItems.count))")
-                                .skinFont(.caption, weight: .semibold)
-                                .foregroundStyle(colors.red)
-                                .textCase(.uppercase)
-                                .cpCaps()
-                            if theme.isNeon { HUDHeaderRule(color: colors.red) }
-                            Spacer()
-                            if unjustifiedItems.count > 3 {
-                                SkinIcon(unjustifiedExpanded ? "chevron.up" : "chevron.down")
-                                    .skinFont(.caption2, weight: .bold)
-                                    .foregroundStyle(.secondary)
-                                    .animation(SummitMotion.gentle, value: unjustifiedExpanded)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            guard unjustifiedItems.count > 3 else { return }
-                            SummitHaptics.selection()
-                            withAnimation(SummitMotion.gentle) { unjustifiedExpanded.toggle() }
-                        }
-                    }
-
-                    // MARK: Igazolt (+ késések) — mindig látszik, legördülő top 3
-                    Section {
-                        if justifiedItems.isEmpty {
-                            HStack(spacing: 10) {
-                                AbsenceBadge(icon: "minus.circle.fill", tint: AnyShapeStyle(.secondary), fontSize: 14, weight: .regular, side: 30, colors: colors)
-                                Text("Nincs igazolt hiányzás")
-                                    .skinFont(.subheadline, weight: .medium)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                            }
-                            .summitRowSurface(colors: colors)
-                            .listRowInsets(VoxelTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
-                        } else {
-                            ForEach(justifiedItems.prefix(justifiedExpanded ? 100 : 3)) { a in
-                                let isDelay = a.delay != nil && (a.type.lowercased().contains("késés") || a.type.lowercased().contains("keses"))
-                                AbsenceRow(item: a, colors: colors, scheme: scheme, isUnjustified: false, isDelay: isDelay)
-                            }
-                            if justifiedItems.count > 3 {
-                                Button {
-                                    SummitHaptics.selection()
-                                    withAnimation(SummitMotion.gentle) { justifiedExpanded.toggle() }
-                                } label: {
-                                    HStack {
-                                        Text(justifiedExpanded ? "Kevesebb" : "További \(justifiedItems.count - 3)")
-                                            .skinFont(.subheadline, weight: .semibold)
-                                            .cpCaps()
-                                        Spacer()
-                                        SkinIcon("chevron.down")
-                                            .skinFont(.caption, weight: .bold)
-                                            .rotationEffect(.degrees(justifiedExpanded ? 180 : 0))
-                                    }
-                                    .foregroundStyle(colors.accent)
-                                    .contentShape(Rectangle())
-                                }
-                                .summitRowSurface(colors: colors)
-                                .listRowInsets(VoxelTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
-                            }
-                        }
-                    } header: {
-                        HStack(spacing: 6) {
-                            SkinDot(color: okGreen)
-                            Text(justifiedItems.isEmpty ? "Igazolt" : "Igazolt \(countSeparator) \(countText(justifiedItems.count))")
-                                .skinFont(.caption, weight: .semibold)
-                                .foregroundStyle(theme.isNeon ? AnyShapeStyle(NeonTheme.cyan) : AnyShapeStyle(.secondary))
-                                .textCase(.uppercase)
-                                .cpCaps()
-                            if theme.isNeon { HUDHeaderRule(color: NeonTheme.cyan) }
-                            Spacer()
-                            if justifiedItems.count > 3 {
-                                SkinIcon(justifiedExpanded ? "chevron.up" : "chevron.down")
-                                    .skinFont(.caption2, weight: .bold)
-                                    .foregroundStyle(.secondary)
-                                    .animation(SummitMotion.gentle, value: justifiedExpanded)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            guard justifiedItems.count > 3 else { return }
-                            SummitHaptics.selection()
-                            withAnimation(SummitMotion.gentle) { justifiedExpanded.toggle() }
-                        }
+        HStack(alignment: .center, spacing: 0) {
+            // Bal: késések — ring + szöveg — javított spacing, középre igazítva
+            VStack(spacing: 10) {
+                HStack {
+                    SkinLabel("KÉSÉSEK", systemImage: "clock.fill")
+                        .skinFont(.caption2, weight: .bold)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Spacer(minLength: 4)
+                    if hoursFromDelay > 0 {
+                        Text("+\(hoursFromDelay) óra")
+                            .cpOnly { $0.font(NeonTheme.mono(size: 10, relativeTo: .caption2)).textCase(.uppercase) }
+                            .skinFont(.caption2, weight: .bold)
+                            .foregroundStyle(theme.isNeon ? Color.black : .white)
+                            .padding(.horizontal, 6).padding(.vertical, 3)
+                            .skinPill(fill: hudRed)
+                            .lineLimit(1)
                     }
                 }
+                delayGauge
+                Text(isFullCycle ? "beszámítva" : totalDelay == 0 ? "nincs késés" : "\(displayedDelay) / 45 perc")
+                    .skinFont(.caption, weight: .semibold)
+                    .cpCaps()
+                    .foregroundStyle(isFullCycle ? hudRed : .secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
-            .listStyle(.insetGrouped)
-            .frame(maxWidth: isPad ? MacSupport.contentWidth(ipad: 1280, mac: 1150) : .infinity)
-            .padding(.horizontal, MacSupport.sidePadding)
             .frame(maxWidth: .infinity)
-            .summitListChrome(colors: colors)
-            .navigationTitle("Hiányzások")
-            .navigationBarTitleDisplayMode(.large)
-            .summitToolbarBackground()
-            .task { await load() }
-            .refreshable {
-                await load(force: true)
-                SummitHaptics.light()
-            }
-            .animation(SummitMotion.gentle, value: absences.count)
-            .animation(SummitMotion.gentle, value: totalDelay)
-        }
-        .tint(colors.accent)
-    }
 
-    /// Tabváltáskor a `.task` újra lefut — friss gyorstár-találatnál ez
-    /// hálózat nélkül tér vissza. A váz csak üres listánál jön; egyébként
-    /// a régi lista marad, az új adat dinamikusan beíródik.
-    func load(force: Bool = false) async {
-        // Egy adatsáv: demo usert is a KretaClient szolgálja ki helyből.
-        guard let user = session.selectedUser else { isLoading = false; return }
-        let hadData = !absences.isEmpty
-        if !hadData { isLoading = true }
-        let iss = user.instituteCode.isEmpty ? (JWT.instituteCode(from: user.accessToken) ?? "") : user.instituteCode
-        KretaStore.shared.activate(user)
-        let fetched = await kreta.fetchAbsences(iss: iss, force: force)
-        // Totális fetch-hiba (lejárt token, offline): a legutóbbi lista marad,
-        // nem ürül ki a Hiányzások tab egy sikertelen refresh-től.
-        if !(fetched.isEmpty && hadData), absences != fetched { absences = fetched }
-        isLoading = false
+            // Középső Apple elválasztó — a két fél között
+            Rectangle()
+                .fill(theme.isNeon ? NeonTheme.yellow.opacity(0.32) : Color.primary.opacity(scheme == .dark ? 0.10 : 0.08))
+                .frame(width: 1)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+
+            // Jobb: hiányzások — felül igazolt, alul igazolatlan — javított vertikális spacing, középre igazítva
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 6) {
+                    SkinIcon("person.fill.xmark", size: 16).skinFont(.caption2, weight: .bold).foregroundStyle(.secondary)
+                    Text("HIÁNYZÁSOK")
+                        .skinFont(.caption2, weight: .bold)
+                        .foregroundStyle(.secondary)
+                        .tracking(0.4)
+                        .lineLimit(1)
+                    Spacer(minLength: 2)
+                    if theme.isNeon {
+                        NeonLabel("ABS", bracketed: false, size: 9)
+                    }
+                }
+                VStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("\(justifiedCount)")
+                            .voxelDisplay(isPad ? 38 : 30)
+                            .monospacedDigit()
+                            .foregroundStyle(.primary)
+                            .contentTransition(.numericText())
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
+                        Text("igazolt")
+                            .absStatCaption()
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
+                    Rectangle()
+                        .fill(theme.isNeon ? NeonTheme.yellow.opacity(0.24) : Color.primary.opacity(scheme == .dark ? 0.08 : 0.06))
+                        .frame(height: 1)
+                        .padding(.vertical, 8)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("\(unjustifiedCount)")
+                            .voxelDisplay(isPad ? 38 : 30)
+                            .monospacedDigit()
+                            .foregroundStyle(unjustifiedCount > 0 ? colors.red : okGreen)
+                            .contentTransition(.numericText())
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
+                        Text("igazolatlan")
+                            .absStatCaption()
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(16)
+        .background {
+            if VoxelTheme.isActive {
+                VoxelBlockPanel(face: colors.surface)
+            } else if theme.isNeon {
+                NeonPanelBackground(accent: NeonTheme.red, fill: NeonTheme.panel)
+            } else {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(scheme == .dark ? Color.white.opacity(0.06) : Color.white)
+                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.primary.opacity(scheme == .dark ? 0.08 : 0.06), lineWidth: 1))
+                    // Light módban nincs külső shadow — fehér kártya szürke háttéren rosszul mutat
+                    .shadow(color: scheme == .dark ? colors.shadow.opacity(0.30) : .clear, radius: 14, y: 6)
+            }
+        }
+        // Light módban glass nélkül — a glass saját árnyéka dobozba clipelődik a List-sorban.
+        // Nem interaktív üveg: a kártyának nincs akciója, az
+        // `.interactive()` ujj alatt rugózott, mintha gomb lenne.
+        .modifier(StaticCardGlass(enabled: scheme == .dark, cornerRadius: 20))
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+}
+
+// MARK: - Igazolatlan / Igazolt szekció (fejléc + sorok + „További N")
+
+/// Egy hiányzás-szekció a fejlécével, legfeljebb 3 sorral és a
+/// lenyitó gombbal — a képernyő és a bemutató közös eleme. Az `items`
+/// már szűrt és dátum szerint rendezett lista.
+struct AbsenceListSection: View {
+    let items: [AbsenceItem]
+    let isUnjustified: Bool
+    @Binding var expanded: Bool
+
+    @EnvironmentObject var theme: ThemeStore
+    @Environment(\.colorScheme) var scheme
+    var colors: AppColors { theme.colors(for: scheme) }
+
+    /// Neon: ok-cián, Summitban / Voxelben a rendszer-zöld.
+    private var okGreen: Color { theme.isNeon ? NeonTheme.cyan : Color.green }
+    /// Szekció-fejléc darabszáma: Summitban „Igazolt • 3", Neonban
+    /// HUD-kód „IGAZOLT // 03".
+    private var countSeparator: String { theme.isNeon ? "//" : "•" }
+    private func countText(_ n: Int) -> String { theme.isNeon ? String(format: "%02d", n) : "\(n)" }
+
+    /// Fejléc-cím: „Igazolatlan" / „Igazolt" (+ darabszám, ha van sor).
+    private var title: String { isUnjustified ? "Igazolatlan" : "Igazolt" }
+    /// Fejléc pöttye: igazolatlannál piros, igazoltnál ok-zöld / -cián.
+    private var dotColor: Color { isUnjustified ? colors.red : okGreen }
+    /// Fejléc-szöveg: igazolatlannál piros, igazoltnál Neonban cián, máshol másodlagos.
+    private var headerStyle: AnyShapeStyle {
+        if isUnjustified { return AnyShapeStyle(colors.red) }
+        return theme.isNeon ? AnyShapeStyle(NeonTheme.cyan) : AnyShapeStyle(.secondary)
+    }
+    /// Neon fejléc-vonal színe.
+    private var ruleColor: Color { isUnjustified ? colors.red : NeonTheme.cyan }
+
+    var body: some View {
+        Section {
+            if items.isEmpty {
+                HStack(spacing: 10) {
+                    if isUnjustified {
+                        AbsenceBadge(icon: "checkmark.circle.fill", tint: AnyShapeStyle(okGreen), fontSize: 14, weight: .semibold, side: 30, colors: colors)
+                    } else {
+                        AbsenceBadge(icon: "minus.circle.fill", tint: AnyShapeStyle(.secondary), fontSize: 14, weight: .regular, side: 30, colors: colors)
+                    }
+                    Text(isUnjustified ? "Nincs igazolatlan hiányzás" : "Nincs igazolt hiányzás")
+                        .skinFont(.subheadline, weight: .medium)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .summitRowSurface(colors: colors)
+                .listRowInsets(VoxelTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
+            } else {
+                ForEach(items.prefix(expanded ? 100 : 3)) { a in
+                    let isDelay = a.delay != nil && (a.type.lowercased().contains("késés") || a.type.lowercased().contains("keses"))
+                    AbsenceRow(item: a, colors: colors, scheme: scheme, isUnjustified: isUnjustified, isDelay: isDelay)
+                }
+                if items.count > 3 {
+                    Button {
+                        SummitHaptics.selection()
+                        withAnimation(SummitMotion.gentle) { expanded.toggle() }
+                    } label: {
+                        HStack {
+                            Text(expanded ? "Kevesebb" : "További \(items.count - 3)")
+                                .skinFont(.subheadline, weight: .semibold)
+                                .cpCaps()
+                            Spacer()
+                            SkinIcon("chevron.down")
+                                .skinFont(.caption, weight: .bold)
+                                .rotationEffect(.degrees(expanded ? 180 : 0))
+                        }
+                        .foregroundStyle(colors.accent)
+                        .contentShape(Rectangle())
+                    }
+                    .summitRowSurface(colors: colors)
+                    .listRowInsets(VoxelTheme.rowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16)))
+                }
+            }
+        } header: {
+            HStack(spacing: 6) {
+                SkinDot(color: dotColor)
+                Text(items.isEmpty ? title : "\(title) \(countSeparator) \(countText(items.count))")
+                    .skinFont(.caption, weight: .semibold)
+                    .foregroundStyle(headerStyle)
+                    .textCase(.uppercase)
+                    .cpCaps()
+                if theme.isNeon { HUDHeaderRule(color: ruleColor) }
+                Spacer()
+                if items.count > 3 {
+                    SkinIcon(expanded ? "chevron.up" : "chevron.down")
+                        .skinFont(.caption2, weight: .bold)
+                        .foregroundStyle(.secondary)
+                        .animation(SummitMotion.gentle, value: expanded)
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                guard items.count > 3 else { return }
+                SummitHaptics.selection()
+                withAnimation(SummitMotion.gentle) { expanded.toggle() }
+            }
+        }
     }
 }
 
